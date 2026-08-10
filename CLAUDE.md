@@ -124,14 +124,15 @@ docs/                     仕様・task・進捗
 
 | 文書 | フェーズ | 期間 |
 |---|---|---|
-| `docs/PK-SPEC-P0.md` v1.1 | 基盤構築 | M1 |
-| `docs/PK-SPEC-P1.md` v1.0 | 清掃現場の最小成立 | M2–M3 |
+| `docs/PK-SPEC-P0.md` v1.2 | 基盤構築 | M1 |
+| `docs/PK-SPEC-P1.md` v1.1 | 清掃現場の最小成立 | M2–M3 |
 | `docs/PK-SPEC-P2.md` v1.0 | 検査と証跡 | M4 |
 | `docs/PK-SPEC-P3.md` v1.0 | 観察記録とベースライン | M5 |
 | `docs/PK-SPEC-P4.md` v1.0 | 稼働照合エンジン | M6–M7 |
 | `docs/PK-SPEC-P5.md` v1.0 | 請求・領収・多施設 | M8–M9 |
 | `docs/PK-SPEC-P6.md` v1.0 | 外部連携と拡張 | M10–M11 |
 | `docs/PK-SPEC-P7.md` v1.0 | GA とスケール | M12 |
+| `docs/PK-SPEC-P8.md` v1.0 | Workforce と Inventory | GA後3〜6か月 |
 
 **仕様の唯一の正は上記。** 本ファイルと矛盾する場合は仕様書を優先し、矛盾自体を `docs/OPEN_QUESTIONS.md` に報告する。
 
@@ -161,3 +162,4 @@ pnpm check                  # lint + typecheck + test を一括
 - **P4 は P3 リリースから 4 週間以上経過**し、観察記録の入力率 95% 以上、ベースラインの 80% が `isReliable` になるまで着手しない。
 - **P2 は P1 の現場出荷判定**（自社施設で 2 週間、紙を全廃）を通過するまで着手しない。
 - **P7 は新機能を追加しない。** 既存機能の完成度を上げるフェーズ。
+- **P8 は P7-17 の GA 判定**（有償顧客 5 社稼働）を通過するまで着手しない。Workforce と Inventory は購入の決定理由ではないため、コア機能を固めてから追加する。
