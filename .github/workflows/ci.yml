@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  tenant-isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:isolation
+
+  forbidden-words:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check forbidden words
+        run: |
+          set +e
+          PATTERN='不正検知|不正を検知|監視レポート|疑わしい取引|従業員の監視'
+          HITS=$(grep -rnE "$PATTERN" --include='*.ts' --include='*.tsx' --include='*.json' \
+                 apps packages 2>/dev/null)
+          if [ -n "$HITS" ]; then
+            echo "禁止語が検出されました:"
+            echo "$HITS"
+            exit 1
+          fi
+          echo "OK"

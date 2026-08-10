@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.next/
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage/
+playwright-report/
+test-results/
+.turbo/
+*.tsbuildinfo
