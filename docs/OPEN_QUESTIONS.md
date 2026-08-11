@@ -83,6 +83,54 @@ Claude Code はここに追記して作業を止める。人間が回答した�
   結果として `getTenantDb()` は `Promise` を返し、呼び出し側は `await` が要る。
   `docs/PK-SPEC-P0.md` §19.3 のコード例の修正可否は人間の判断を待つ。
 
+### #009 `orgShortId` のグローバル一意性をどこで保証するか
+- 提起: 2026-08-11 / P0-05 実装中
+- 内容: `orgShortId` は 6 桁・31 文字 alphabet で 31⁶ = 約 8.9 億通りしかなく、
+  10,000 組織で誕生日衝突の確率が約 5.6%、100,000 組織なら実質確実に衝突する。
+  **衝突チェックは必須**だが、組織レコードは 16 シャードへ分散するため
+  **単一シャードの UNIQUE 制約ではグローバル一意性を担保できない。**
+  全シャード横断のクエリは禁止（architecture.md §3）、`SHARD_MAP` は明示
+  マッピング専用で相乗り禁止（同 §1 / DECISIONS #006）。どこに一意性の
+  レジストリを置くかは仕様のどこにも記述が無い。
+  考えられる置き場所（いずれも要判断）:
+    a. 専用 KV namespace（例 `ORG_DIRECTORY`）に `orgshort:{orgShortId}` を置く。
+       TTL 禁止・一括削除禁止の運用が `SHARD_MAP` と同様に必要になる。
+    b. Durable Object で採番を直列化する（`DocumentSequencer` と同じ発想）。
+    c. `orgShortId` を `organizationId` から決定的に導出し、衝突時のみ
+       明示レコードを置く。
+- 影響: P0-06（組織テーブルと組織作成 API）。P0-05 の成果物は影響を受けない。
+- 暫定対応: `generateOrgShortId(isTaken, options?)` の第 1 引数を
+  **必須の依存注入**にした。`packages/db` からは DB も KV も見ない。
+  既定値を与えて「未指定なら無チェック」にすると、チェック忘れが静かに通り、
+  同一 `orgShortId` を持つ 2 組織が `assertIdBelongsToTenant()` を相互に
+  通過してテナント分離が破れるため、呼び出し側に必ず書かせる形にしてある。
+  **`isTaken` を実装する P0-06 が、この問いへの回答を必要とする。**
+
+### #010 P0-06 が作る 13 テーブルの `entityPrefix` が仕様に無い
+- 提起: 2026-08-11 / P0-05 実装中
+- 内容: 仕様書・ルールを全文検索した結果、`entityPrefix` として定義があるのは
+  **11 個だけ**だった。
+    - `task` / `insp` / `evd` / `lost` / `issue` / `inv` / `rcp`
+      … `docs/PK-SPEC-P0.md` §19.4
+    - `obs` / `find` / `run` … `.claude/rules/architecture.md` §2
+      （`obs` の実例は `docs/PK-SPEC-P3.md` の schema コメント）
+    - `prop` … `docs/PK-SPEC-P0.md` §23.3 と `docs/PK-SPEC-P1.md` の
+      レスポンス例 `o7k2m9__prop_A`
+  一方 P0-06 が作るのは organization / organizationTaxProfile /
+  documentSequence / user / membership / propertyAssignment / building /
+  floor / roomType / room / subscription / moduleEntitlement / auditLog の
+  13 テーブルで、**どれも接頭辞が決まっていない。**
+  なお `docs/PK-SPEC-P2.md` §642-648 に `"cleanerId": "mem_xxx"` /
+  `"roomId": "room_302"` という記述があり、`mem` / `room` が意図されていた
+  可能性はあるが、これらは ID 形式に従っていない説明用 JSON であり定義とは
+  みなさなかった。
+- 影響: P0-06 以降のすべてのテーブル。ID は永続データなので後から変更できない。
+- 暫定対応: `packages/db/src/id.ts` の `ENTITY_PREFIXES` を
+  **仕様に定義のある 11 個だけの閉じたレジストリ**にした。推測で追加していない
+  （CLAUDE.md §1-4）。P0-06 は不足分を決めてここへ追記し、由来を
+  `docs/DECISIONS.md` に残すこと。開いた検証（`[a-z]+` を通す）にしなかったのは、
+  `prop` / `property`、`insp` / `inspection` の表記揺れが増えると統一できなくなるため。
+
 ---
 
 ## 解決済

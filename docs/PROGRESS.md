@@ -5,24 +5,35 @@
 ## 現在のセッション
 
 ```
-task: P0-04 ESLint カスタムルール
-状態: 完了。packages/config/eslint/rules/ に 4 ルール（no-direct-shard-access /
-      no-raw-drizzle / no-literal-string / no-forbidden-words）を rule object として実装し、
-      plugin.js に束ねて base.js（flat config）で有効化した。RuleTester 66 件を追加し、
-      pnpm check（lint + typecheck + test 145 件）が通る。実地の陽性確認も実施済み。
-      allowlist は仕様 §19.3 の 3 ファイル。うち packages/db/src/migrate.ts（P0-06）と
-      packages/db/src/seed.ts（P0-18）は未作成のため、名前だけ先に確定した。
-次: P0-05 ID 採番。
-申し送り 1: P0-06 は マイグレーションランナーを packages/db/src/migrate.ts、
+task: P0-05 ID 採番
+状態: 完了。packages/db/src/id.ts に generateOrgShortId / generateId / parseId /
+      assertIdBelongsToTenant / createUlidFactory / ENTITY_PREFIXES を実装した。
+      ULID は独自実装（単調増加ファクトリ）。依存パッケージは増やしていない。
+      NotFoundError は packages/db/src/errors.ts に最小定義した（所有 task が無いため）。
+      テスト 43 件を追加し、pnpm check（lint + typecheck + test 188 件）が通る。
+次: P0-06 スキーマ: 組織・ユーザー・施設。
+申し送り 1: **orgShortId のグローバル一意性の保管場所が未決（OPEN_QUESTIONS #009）。**
+            generateOrgShortId(isTaken) の isTaken は必須の依存注入にしてある。
+            組織は 16 シャードへ分散するため単一シャードの UNIQUE では担保できない。
+            SHARD_MAP に相乗りさせないこと。P0-06 がこの回答を必要とする。
+申し送り 2: **ENTITY_PREFIXES は仕様に定義のある 11 個しか無い（OPEN_QUESTIONS #010）。**
+            P0-06 が作る 13 テーブルの接頭辞は仕様のどこにも書かれていない。
+            推測で足さず、決めたら id.ts へ追記し由来を DECISIONS に残すこと。
+申し送り 3: seed / fixture に仕様書の例 `o7k2m9` を literal で書かないこと。
+            生成 alphabet は `o` を含まないため生成器では作れない値（DECISIONS #010）。
+            検証側は `[0-9a-z]{6}` で受けるので parse は通る。
+申し送り 4: P0-06 は マイグレーションランナーを packages/db/src/migrate.ts、
             P0-18 は シードを packages/db/src/seed.ts という名前で作ること。
             別名にすると allowlist から外れて lint が落ちる（DECISIONS #009）。
-申し送り 2: .tsx は現在 ESLint で検査できない。apps/web/tsconfig.json の include が
+申し送り 5: .tsx は現在 ESLint で検査できない。apps/web/tsconfig.json の include が
             src/**/*.ts のみで jsx オプションもどこにも無いため、置くと parse error に
             なる。P0-14 が include と jsx を同時に設定すること（OPEN_QUESTIONS #001）。
 ブロッカー: P0-02 が未完のまま。実在する Cloudflare リソースは D1 の
             proofkeeping-shard-00 のみで、R2 / KV / Queue と残り 15 シャードは未作成。
-            そのため pnpm dev による実環境での起動確認は P0-03 / P0-04 でも行えていない。
-            P0-04 は ESLint のみを触るため実 binding に依存しない。
+            そのため pnpm dev による実環境での起動確認は P0-03〜P0-05 でも行えていない。
+            P0-05 の id.ts は Env / D1 binding に依存しない純粋なモジュールで、
+            crypto.getRandomValues は Workers と Node の双方の global にあるため
+            このブロッカーの影響を受けない。
 ```
 
 補足: UI フレームワーク（OPEN_QUESTIONS #001）は未決のまま。`apps/web` は Hono のみ。
@@ -45,7 +56,13 @@ task: P0-04 ESLint カスタムルール
     `packages/db/src/seed.ts`（P0-18）はまだ存在しない。この名前で作ること。
   - `no-literal-string` は `.tsx` が 1 件も無いため実ファイルには当たっていない。
     tsconfig の `jsx` 設定は P0-14 の責務（OPEN_QUESTIONS #001）。
-- [ ] P0-05 ID 採番 ★最優先
+- [x] P0-05 ID 採番 ★最優先
+  - `ENTITY_PREFIXES` は仕様に定義のある 11 個のみ（task/insp/evd/obs/lost/issue/
+    inv/rcp/find/run/prop）。P0-06 の 13 テーブル分は未定義（OPEN_QUESTIONS #010）。
+  - `generateOrgShortId(isTaken)` の衝突チェックは依存注入。グローバル一意性を
+    どこで保証するかは未決（OPEN_QUESTIONS #009）。P0-06 が実装する。
+  - ULID は `ulid` パッケージを使わず独自実装。Workers は I/O の合間に時計を
+    進めないため、単調増加カウンタが無いと一括生成の順序が崩れる（DECISIONS #011）。
 - [ ] P0-06 スキーマ: 組織・ユーザー・施設 ★最優先
 - [ ] P0-07 リポジトリ層の雛形
 - [ ] P0-08 認証: メール＋パスワード
