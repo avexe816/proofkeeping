@@ -18,8 +18,12 @@ const PACKAGES = ["billing", "config", "contracts", "db", "engine", "integration
 /** CLAUDE.md §3 で「純粋関数・依存ゼロ」と定めたパッケージ。 */
 const DEPENDENCY_FREE_PACKAGES = ["engine", "billing"] as const;
 
-/** ルート package.json に定義してよい script（実体のあるものだけ）。 */
-const EXPECTED_ROOT_SCRIPTS = ["typecheck", "lint", "test", "test:isolation"] as const;
+/**
+ * ルート package.json に定義してよい script（実体のあるものだけ）。
+ *
+ * `check` は上記 3 つの合成であり、CLAUDE.md §8 が PR 前必須と定めているため含む。
+ */
+const EXPECTED_ROOT_SCRIPTS = ["typecheck", "lint", "test", "test:isolation", "check"] as const;
 
 /** 実体がないため P0-01 では定義しない script。担当 task が追加する。 */
 const DEFERRED_ROOT_SCRIPTS = ["dev", "db:generate", "db:migrate", "db:seed", "test:e2e"] as const;
@@ -93,7 +97,7 @@ describe("P0-01 ツールチェーン構成", () => {
     expect(base.compilerOptions?.["noUncheckedIndexedAccess"]).toBe(true);
   });
 
-  it("ルートの script が実体のある 4 つだけである", () => {
+  it("ルートの script が実体のあるものだけである", () => {
     const root = readPackageJson("package.json");
     const scripts = Object.keys(root.scripts ?? {});
 

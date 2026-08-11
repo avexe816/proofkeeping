@@ -57,8 +57,26 @@
 - 日付: 2026-08-11
 - 状態: 採用
 - 背景: P0-01 で root package.json を作る際、CLAUDE.md §8 のコマンド一覧をすべて並べるか迷った。
-- 決定: 実際に通るものだけを定義する。P0-01 時点では `typecheck` / `lint` / `test` / `test:isolation` の 4 つ。
+- 決定: 実際に通るものだけを定義する。P0-01 時点では `typecheck` / `lint` / `test` / `test:isolation`、
+  およびその合成である `check` の 5 つ。
 - 理由: 定義だけあって中身が空だと、通ったのか未実装なのかが区別できなくなる。
-- 影響: CLAUDE.md §8 のコマンド一覧は目標形として扱い、各 task が実体と同時に script を追加する
-  （`dev` は P0-02、`db:*` は P0-06 / P0-18、`test:e2e` は Playwright 導入時）。
+  `check` は実体のある 3 つの合成であり、CLAUDE.md §8 が PR 前必須と定めているため定義する。
+- 影響: CLAUDE.md §8 のコマンド一覧のうち `dev` / `db:generate` / `db:migrate` / `db:seed` / `test:e2e`
+  は目標形として扱い、**各 task が実体と同時に script を追加する**
+  （`dev` は P0-02、`db:generate` / `db:migrate` は P0-06、`db:seed` は P0-18、
+  `test:e2e` は Playwright 導入時）。定義だけして中身が空の状態を作らない。
   この規約は `tests/toolchain/workspace.spec.ts` で機械的に検査する。
+
+## #005 UI フレームワークの決定を P0-14 まで保留する
+- 日付: 2026-08-11
+- 状態: 保留
+- 背景: P0-01 で `apps/web` の雛形を作る際、Remix on Workers か Next.js + OpenNext かを選ぶ必要があった。
+- 選択肢:
+  1. P0-01 で Remix on Workers を採用する
+  2. P0-01 で Next.js + OpenNext を採用する
+  3. 決定を保留し、フレームワーク非依存の雛形にとどめる
+- 決定: 3 を採用。`apps/web` は Hono の Worker エントリのみとし、UI フレームワークを選定しない。
+- 理由: PK-SPEC-P0 §20 が「Workers 上での安定性と DX を 1 週間で技術検証して決める」としており、
+  検証前に決めない。CLAUDE.md §1.4 の「推測で実装しない」にも従う。
+- 影響: OPEN_QUESTIONS #001 は未解決のまま維持する。決定は P0-14（UI シェル）で行う。
+  それまで `apps/web/src/index.ts` は Hono インスタンスを生成して `export default` するだけに保つ。

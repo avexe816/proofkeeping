@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
-    "test:isolation": "vitest run --dir tests/tenant-isolation --passWithNoTests"
+    "test:isolation": "vitest run --dir tests/tenant-isolation --passWithNoTests",
+    "check": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
