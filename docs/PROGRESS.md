@@ -1,10 +1,43 @@
 # 実装進捗
 
-最終更新: 2026-08-11（P0-07 完了）
+最終更新: 2026-08-11（P0-08 完了）
 
 ## 現在のセッション
 
 ```
+task: P0-08 認証: orgShortId + スタッフ番号 + パスワード
+状態: 完了。ログイン識別子を 3 フィールド（orgShortId + スタッフ番号 + 認証情報）に確定し、
+      OPEN_QUESTIONS #014 を解決した（DECISIONS #018）。組織の解決は既存の
+      lookupOrganizationId()（SHARD_00 の org_directory）で足り、email_directory は作っていない。
+      パスワードのハッシュは PBKDF2-SHA256 210,000 回へ変更（DECISIONS #019）。
+      bcrypt は Workers に純 JS 実装しか無く、cost 12 で 1 回 344ms（実測）で
+      CLAUDE.md §4 の CPU 予算を守れないため。security.md §2 を同じ PR で改訂した。
+      セッションは KV（sess:）+ 署名付き pk_session Cookie。識別情報のみを保存し、
+      role / allowedPropertyIds は焼き込まない（DECISIONS #020）。
+      テスト 138 件を追加し、pnpm check（lint + typecheck + test 421 件）が通る。
+次: P0-09 認証: PIN ログイン。着手前に OPEN_QUESTIONS #017（PIN のハッシュ方式）の判断が要る。
+申し送り A: **ShardContext を取ってよい関数が 2 → 4 に増えた。**
+            findUserByStaffNumber / recordLoginAttempt を足した（認証成立前に動くため）。
+            repositories.spec.ts が 4 つに固定している。**これ以上増やさないこと。**
+            ログイン後に動く関数は必ず TenantContext を要求する。
+申し送り B: **ログイン失敗 5 回目の監査ログ（security.md §6）は書いていない。**
+            recordAudit() が P0-11 で未実装のため。P0-11 は
+            apps/web/src/lib/auth/login.ts の registerFailure() にコメントで
+            置いた箇所へ追記すること。
+申し送り C: **user.staff_number は全ロールで必須になった。** 列は後方互換のため
+            null 許容のままだが、認証経路が null を弾く。P0-18 の seed と
+            将来の招待画面は**必ずスタッフ番号を採番すること。**
+申し送り D: パスワード設定は setUserPassword()（apps/web/src/lib/auth/setPassword.ts）を通す。
+            リポジトリの setPasswordHash() を直接呼ぶと、10 文字ポリシーと
+            直近 3 世代の再利用禁止が両方外れる。
+申し送り E: セッション middleware（Cookie → TenantContext）は **P0-10 の所有**。
+            P0-08 は readSession() が識別情報を返すところまで。
+            TenantContext は findMembershipByUserId + listAssignedPropertyIds から毎回組み立てる。
+申し送り F: レート制限（KV RATELIMIT）は固定窓で**厳密ではない**。
+            KV の read-modify-write が原子的でないため、同時到着で上限を数回超えうる。
+            厳密化には DO が要るが architecture.md §4 が 4 用途に限定している。
+            個別アカウントの保護はロック（10 回で 30 分）が担う。
+--- P0-07 からの申し送り（継続）---
 task: P0-07 リポジトリ層の雛形
 状態: 完了。packages/db/src/repositories/ に base / organization / user / property / room を
       実装した。全クエリの where は withTenantScope() が組み立て、
@@ -12,15 +45,16 @@ task: P0-07 リポジトリ層の雛形
       role / allowedPropertyIds / now を追加し、シャード解決だけに要る最小限を
       ShardContext として切り出した（DECISIONS #016）。
       テスト 47 件を追加し、pnpm check（lint + typecheck + test 270 件）が通る。
-次: P0-08 認証: メール＋パスワード。着手前に OPEN_QUESTIONS #014 の判断が要る。
+次: （P0-08 で消化済み）
 申し送り 1: **リポジトリ関数を追加したら repositories.spec.ts の INVOCATIONS に
             1 行足すこと。** モジュールの export を走査しているため、登録が無い関数が
             あるとテストが落ちる。登録すれば「organization_id 条件つきの SQL を発行する」
             「越境 ID で DB へ触れずに NotFoundError」が自動で掛かる。
-申し送り 2: **ShardContext を取ってよいのは認証ブートストラップの 2 関数だけ。**
+申し送り 2: **ShardContext を取ってよいのは認証ブートストラップの関数だけ。**
             findMembershipByUserId / listAssignedPropertyIds。増やすと施設スコープの
-            掛からない経路が広がる。テストが 2 つに固定している（DECISIONS #016）。
+            掛からない経路が広がる（DECISIONS #016）。
             P0-08 / P0-10 はこの 2 つから TenantContext を組み立てること。
+            → **P0-08 で 4 つに増えた。上の申し送り A を読むこと。**
 申し送り 3: **allowedPropertyIds の空配列は「全施設」ではなく「0 件」。**
             scopeToProperties() が恒偽（1 = 0）を返す（DECISIONS #017）。
             セッション構築側で「割当が無いから空にしておく」と書くと、
@@ -101,8 +135,15 @@ task: P0-07 リポジトリ層の雛形
   - **担当施設が空の施設スコープロールは 0 件**（全件ではない / DECISIONS #017）。
   - 実 D1 ではなく SQL を記録する代役で検証している（P0-02 が未完のため）。
     実 DB に対する越境の実測は P0-13 の担当。
-- [ ] P0-08 認証: メール＋パスワード
+- [x] P0-08 認証: orgShortId + スタッフ番号 + パスワード
+  - ログイン識別子からメールを外した（DECISIONS #018 / OPEN_QUESTIONS #014 解決）。
+    ハッシュは PBKDF2-SHA256 210,000 回（DECISIONS #019）。security.md §2 を改訂済み。
+  - 実装したのは管理系 5 ロールのパスワードのみ。現場系の PIN は P0-09。
+  - 失敗 5 回目の監査ログは P0-11 待ち。パスワード変更 API は P0 に task が無く未実装
+    （関数 setUserPassword() として提供）。
 - [ ] P0-09 認証: PIN ログイン
+  - **着手前に OPEN_QUESTIONS #017（PIN のハッシュ方式）の判断が要る。**
+    security.md §2 の PIN 行は bcrypt cost 10 のまま据え置いてある。
 - [ ] P0-10 認可: 権限マトリクス
 - [ ] P0-11 監査ログ基盤
 - [ ] P0-12 エンタイトルメント基盤

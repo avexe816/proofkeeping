@@ -4,12 +4,18 @@
  * task: docs/tasks/P0-07.md
  * ルール: .claude/rules/security.md §1 / §5
  *
- * ── 認証ブートストラップの 2 関数 ───────────────────────
- * `findMembershipByUserId` と `listAssignedPropertyIds` だけが `ShardContext` を取る。
- * `TenantContext` を組み立てるための情報（ロールと担当施設）を引く関数なので、
- * `TenantContext` を要求すると循環する（docs/DECISIONS.md #016）。
- * **この 2 つ以外を `ShardContext` にしないこと。** 施設スコープが掛からなくなる。
- * repositories.spec.ts が「ブートストラップ関数はこの 2 つだけ」を固定している。
+ * ── 認証ブートストラップの 4 関数 ───────────────────────
+ * `findUserByStaffNumber` / `findMembershipByUserId` / `listAssignedPropertyIds` /
+ * `recordLoginAttempt` だけが `ShardContext` を取る。
+ * `TenantContext` を組み立てるための情報（ロールと担当施設）を引く関数と、
+ * **そもそも認証が成立していない時点で動く関数**なので、`TenantContext` を
+ * 要求すると循環する（docs/DECISIONS.md #016 / #018）。
+ * **この 4 つ以外を `ShardContext` にしないこと。** 施設スコープが掛からなくなる。
+ * repositories.spec.ts が「ブートストラップ関数はこの 4 つだけ」を固定している。
+ *
+ * 4 つとも `assertIdBelongsToTenant()` または `withOrganizationScope()` を通り、
+ * 組織の外へは出られない。緩めているのは**施設**スコープだけで、
+ * テナント分離そのものは緩めていない。
  *
  * ── 保存しないもの ──────────────────────────────────────
  * ここで扱うのは従業員の情報のみ。宿泊者の情報は存在しない（security.md §3）。
@@ -17,12 +23,12 @@
  * この層は行をそのまま返すため、**マスクは呼び出し側の責務**。
  */
 
-import { eq } from "drizzle-orm";
+import { desc, eq, notInArray } from "drizzle-orm";
 
 import type { Env } from "../env.js";
-import { assertIdBelongsToTenant } from "../id.js";
+import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { getTenantDb, type ShardContext, type TenantContext } from "../router.js";
-import { membership, propertyAssignment, user } from "../schema/user.js";
+import { membership, passwordHistory, propertyAssignment, user } from "../schema/user.js";
 
 import { NO_PROPERTY_SCOPE, withOrganizationScope, withTenantScope } from "./base.js";
 
@@ -64,6 +70,62 @@ export async function findUserById(env: Env, ctx: TenantContext, userId: string)
     .where(withTenantScope(user, ctx, NO_PROPERTY_SCOPE, eq(user.id, userId)))
     .limit(1);
   return rows[0];
+}
+
+/**
+ * **認証ブートストラップ専用。** スタッフ番号からユーザーを 1 件引く（P0-08）。
+ *
+ * `staffNumber` は組織内で unique（`uq_user_org_staff_number`）なので高々 1 件。
+ * ID ではなく利用者が入力する値なので `assertIdBelongsToTenant()` は掛からない。
+ * **越境は組織条件が防ぐ**（`ctx.organizationId` は `orgShortId` から
+ * `org_directory` 経由で解決した値であり、リクエストの値ではない）。
+ *
+ * 無効化されたユーザー（`isActive = false`）も返す。ログインを拒むのは
+ * 呼び出し側の判断で、ここでは事実だけを返す。**返り値には
+ * `passwordHash` / `pinHash` が含まれる。API レスポンスや監査ログへ載せないこと。**
+ */
+export async function findUserByStaffNumber(env: Env, ctx: ShardContext, staffNumber: string) {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select()
+    .from(user)
+    .where(withOrganizationScope(user, ctx, eq(user.staffNumber, staffNumber)))
+    .limit(1);
+  return rows[0];
+}
+
+/**
+ * **認証ブートストラップ専用。** ログイン試行の結果を書く（P0-08）。
+ *
+ * **ロックの方針（何回で何分）はここに持たせない。** 呼び出し側
+ * （`apps/web/src/lib/auth/login.ts`）が決めた値をそのまま書く。
+ * リポジトリ層に閾値を置くと、パスワード 10 回 / PIN 5 回の違いを
+ * ここで分岐することになり、認証方式が増えるたびに DB 層が変わる。
+ */
+export interface LoginAttemptInput {
+  userId: string;
+  /** 連続失敗回数。成功なら 0 を渡す。 */
+  failedLoginCount: number;
+  /** ロック解除時刻。ロックしない・解除するなら null。 */
+  lockedUntil: Date | null;
+  /** 成功時のみ渡す。失敗では最終ログイン時刻を動かさない。 */
+  lastLoginAt?: Date | undefined;
+  /** 現在時刻。`updatedAt` に入れる（リポジトリで `Date.now()` を呼ばない）。 */
+  now: Date;
+}
+
+export async function recordLoginAttempt(env: Env, ctx: ShardContext, input: LoginAttemptInput) {
+  assertIdBelongsToTenant(input.userId, ctx);
+  const db = await getTenantDb(env, ctx);
+  await db
+    .update(user)
+    .set({
+      failedLoginCount: input.failedLoginCount,
+      lockedUntil: input.lockedUntil,
+      ...(input.lastLoginAt === undefined ? {} : { lastLoginAt: input.lastLoginAt }),
+      updatedAt: input.now,
+    })
+    .where(withOrganizationScope(user, ctx, eq(user.id, input.userId)));
 }
 
 /**
@@ -110,4 +172,119 @@ export async function listAssignedPropertyIds(
       ),
     );
   return rows.map((row) => row.propertyId);
+}
+
+/**
+ * 再利用を禁止する世代数（security.md §2「直近 3 世代の再利用禁止」）。
+ *
+ * **設定項目にしない。** 変更にリリースを要する状態を維持する
+ * （docs/PK-IMPL-CONTRACT.md §11.4 の方針）。
+ */
+export const PASSWORD_HISTORY_GENERATIONS = 3;
+
+/**
+ * 直近のパスワードハッシュを新しい順に返す（P0-08）。
+ *
+ * 再利用の照合にだけ使う。**返り値をレスポンス・ログ・監査ログへ出さないこと。**
+ */
+export async function listRecentPasswordHashes(
+  env: Env,
+  ctx: TenantContext,
+  userId: string,
+  limit: number = PASSWORD_HISTORY_GENERATIONS,
+): Promise<string[]> {
+  assertIdBelongsToTenant(userId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({ passwordHash: passwordHistory.passwordHash })
+    .from(passwordHistory)
+    .where(
+      withTenantScope(
+        passwordHistory,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(passwordHistory.userId, userId),
+      ),
+    )
+    .orderBy(desc(passwordHistory.createdAt), desc(passwordHistory.id))
+    .limit(limit);
+  return rows.map((row) => row.passwordHash);
+}
+
+/** `setPasswordHash()` の入力。**平文を渡さない。** ハッシュ化は認証層の責務。 */
+export interface SetPasswordHashInput {
+  userId: string;
+  /** `pbkdf2$sha256$...` 形式（docs/DECISIONS.md #019）。 */
+  passwordHash: string;
+}
+
+/**
+ * パスワードハッシュを差し替え、世代を記録する（P0-08）。
+ *
+ * ── 呼ぶ前に再利用を確認すること ────────────────────────
+ * **この関数は再利用の判定をしない。** 判定は
+ * `apps/web/src/lib/auth/password.ts` の `assertPasswordNotReused()` が行う。
+ * ハッシュはソルトを含むため、同じ平文でも文字列が一致せず、
+ * SQL の比較では判定できない（1 世代ずつ `verify` する必要がある）。
+ *
+ * ── 古い世代を残さない ──────────────────────────────────
+ * 照合に要るのは直近 `PASSWORD_HISTORY_GENERATIONS` 世代だけ。
+ * それ以前を残しても価値が無く、漏洩時に総当たりの的が増えるだけなので削る。
+ * 操作の証跡は `AuditLog`（P0-11）が持つ。
+ */
+export async function setPasswordHash(
+  env: Env,
+  ctx: TenantContext,
+  input: SetPasswordHashInput,
+): Promise<void> {
+  assertIdBelongsToTenant(input.userId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  await db
+    .update(user)
+    .set({
+      passwordHash: input.passwordHash,
+      passwordUpdatedAt: ctx.now,
+      updatedAt: ctx.now,
+    })
+    .where(withTenantScope(user, ctx, NO_PROPERTY_SCOPE, eq(user.id, input.userId)));
+
+  await db.insert(passwordHistory).values({
+    id: generateId(ctx.orgShortId, "pwh"),
+    organizationId: ctx.organizationId,
+    userId: input.userId,
+    passwordHash: input.passwordHash,
+    createdAt: ctx.now,
+  });
+
+  const keep = await db
+    .select({ id: passwordHistory.id })
+    .from(passwordHistory)
+    .where(
+      withTenantScope(
+        passwordHistory,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(passwordHistory.userId, input.userId),
+      ),
+    )
+    .orderBy(desc(passwordHistory.createdAt), desc(passwordHistory.id))
+    .limit(PASSWORD_HISTORY_GENERATIONS);
+
+  // 残す世代が上限に満たないなら、削る対象はそもそも存在しない。
+  // notInArray に空配列を渡さないためでもある（drizzle の挙動がバージョン依存）。
+  if (keep.length < PASSWORD_HISTORY_GENERATIONS) return;
+
+  await db.delete(passwordHistory).where(
+    withTenantScope(
+      passwordHistory,
+      ctx,
+      NO_PROPERTY_SCOPE,
+      eq(passwordHistory.userId, input.userId),
+      notInArray(
+        passwordHistory.id,
+        keep.map((row) => row.id),
+      ),
+    ),
+  );
 }

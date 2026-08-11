@@ -35,9 +35,16 @@ export {
 export { findRoomById, listRooms, type RoomFilter } from "./room.js";
 
 export {
+  PASSWORD_HISTORY_GENERATIONS,
   findMembershipByUserId,
   findUserById,
+  findUserByStaffNumber,
   listAssignedPropertyIds,
+  listRecentPasswordHashes,
   listUsers,
+  recordLoginAttempt,
+  setPasswordHash,
+  type LoginAttemptInput,
+  type SetPasswordHashInput,
   type UserFilter,
 } from "./user.js";

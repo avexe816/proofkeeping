@@ -52,6 +52,9 @@ const OWN_ID = {
   room: generateId(TEST_ORG.orgShortId, "room"),
 } as const;
 
+/** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
+const FAKE_HASH = "pbkdf2$sha256$210000$c2FsdA$aGFzaA";
+
 /** 別組織の ID。越境の検証に使う。 */
 const OTHER_ID = {
   user: generateId(OTHER_ORG.orgShortId, "usr"),
@@ -65,7 +68,7 @@ const OTHER_ID = {
  *
  * `kind`:
  *   - `tenant`    通常の業務リポジトリ。`TenantContext` を要求する。
- *   - `bootstrap` 認証ブートストラップ専用（`ShardContext` で足りる 2 関数）。
+ *   - `bootstrap` 認証ブートストラップ専用（`ShardContext` で足りる 4 関数）。
  * `crossTenant`: ID 引数を取る関数。別組織の ID を渡したときの経路。
  */
 interface Invocation {
@@ -137,6 +140,29 @@ const INVOCATIONS: Invocation[] = [
     crossTenant: (env, ctx) => userRepo.findUserById(env, ctx, OTHER_ID.user),
   },
   {
+    name: "user.findUserByStaffNumber",
+    kind: "bootstrap",
+    run: (env, ctx) => userRepo.findUserByStaffNumber(env, ctx, "S-0001"),
+  },
+  {
+    name: "user.recordLoginAttempt",
+    kind: "bootstrap",
+    run: (env, ctx) =>
+      userRepo.recordLoginAttempt(env, ctx, {
+        userId: OWN_ID.user,
+        failedLoginCount: 1,
+        lockedUntil: null,
+        now: ctx.now,
+      }),
+    crossTenant: (env, ctx) =>
+      userRepo.recordLoginAttempt(env, ctx, {
+        userId: OTHER_ID.user,
+        failedLoginCount: 1,
+        lockedUntil: null,
+        now: ctx.now,
+      }),
+  },
+  {
     name: "user.findMembershipByUserId",
     kind: "bootstrap",
     run: (env, ctx) => userRepo.findMembershipByUserId(env, ctx, OWN_ID.user),
@@ -148,6 +174,20 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => userRepo.listAssignedPropertyIds(env, ctx, OWN_ID.membership),
     crossTenant: (env, ctx) =>
       userRepo.listAssignedPropertyIds(env, ctx, OTHER_ID.membership),
+  },
+  {
+    name: "user.listRecentPasswordHashes",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.listRecentPasswordHashes(env, ctx, OWN_ID.user),
+    crossTenant: (env, ctx) => userRepo.listRecentPasswordHashes(env, ctx, OTHER_ID.user),
+  },
+  {
+    name: "user.setPasswordHash",
+    kind: "tenant",
+    run: (env, ctx) =>
+      userRepo.setPasswordHash(env, ctx, { userId: OWN_ID.user, passwordHash: FAKE_HASH }),
+    crossTenant: (env, ctx) =>
+      userRepo.setPasswordHash(env, ctx, { userId: OTHER_ID.user, passwordHash: FAKE_HASH }),
   },
 ];
 
@@ -258,13 +298,25 @@ describe("越境 ID", () => {
 });
 
 describe("認証ブートストラップの範囲", () => {
-  it("ShardContext で足りる関数は 2 つだけ", () => {
-    // 増やすと施設スコープの掛からない経路が広がる（DECISIONS #016）。
+  it("ShardContext で足りる関数は 4 つだけ", () => {
+    // 増やすと施設スコープの掛からない経路が広がる（DECISIONS #016 / #018）。
+    // 4 つとも「認証が成立する前に動く」関数に限られる。ログイン後に動く関数を
+    // ここへ足さないこと。TenantContext を要求できるなら要求する。
     const bootstrap = INVOCATIONS.filter((invocation) => invocation.kind === "bootstrap");
     expect(bootstrap.map((invocation) => invocation.name)).toEqual([
+      "user.findUserByStaffNumber",
+      "user.recordLoginAttempt",
       "user.findMembershipByUserId",
       "user.listAssignedPropertyIds",
     ]);
+  });
+
+  it("ブートストラップ関数はすべて user.ts にある", () => {
+    // 別ファイルへ散ると「施設スコープが掛からない経路」の一覧性が失われる。
+    const modules = INVOCATIONS.filter((invocation) => invocation.kind === "bootstrap").map(
+      (invocation) => invocation.name.split(".")[0],
+    );
+    expect([...new Set(modules)]).toEqual(["user"]);
   });
 
   it("withOrganizationScope を呼んでいるのは user.ts だけ", () => {

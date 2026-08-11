@@ -67,7 +67,7 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("14 テーブルを定義している", () => {
+  it("15 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       "auditLog",
       "building",
@@ -77,6 +77,8 @@ describe("P0-06 スキーマ", () => {
       "moduleEntitlement",
       "organization",
       "organizationTaxProfile",
+      // P0-08。直近 3 世代の再利用禁止のためだけの表。
+      "passwordHistory",
       "property",
       "propertyAssignment",
       "room",
@@ -103,6 +105,8 @@ describe("P0-06 スキーマ", () => {
       "sub",
       "ent",
       "audit",
+      // P0-08
+      "pwh",
     ];
 
     for (const prefix of required) {

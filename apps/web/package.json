@@ -10,6 +10,7 @@
     "dev": "wrangler dev"
   },
   "dependencies": {
+    "@pk/contracts": "workspace:*",
     "@pk/db": "workspace:*",
     "hono": "^4.6.0"
   },
