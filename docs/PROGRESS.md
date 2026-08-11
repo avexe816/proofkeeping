@@ -5,18 +5,21 @@
 ## 現在のセッション
 
 ```
-task: P0-02 Cloudflare リソース作成
-状態: 実装済み・リソース作成待ち。wrangler.toml（local/preview/staging/production）と
-      packages/db/src/env.ts の Env を追加し、pnpm check（lint + typecheck + test 45 件）が通る。
-      Cloudflare の認証情報が無いため wrangler は実行しておらず、wrangler dev の起動は未検証。
-次: 手元で docs/tasks/P0-02.md のリソース作成コマンドを実行し、
-    D1 の database_id と KV の id を差し替える → pnpm dev で起動確認 → P0-03 シャードルーター
-ブロッカー: 実在する Cloudflare リソースは D1 の proofkeeping-shard-00 のみ。
-            R2 / KV / Queue と残り 15 シャードは未作成。
+task: P0-03 シャードルーター
+状態: 完了。packages/db/src/router.ts に fnv1a32 / shardIndexOf / resolveShard /
+      getShardBinding / getTenantDb / TenantContext を実装。router.spec.ts 30 件を追加し、
+      pnpm check（lint + typecheck + test 79 件）が通る。drizzle-orm@0.45.2 を追加した。
+      SHARD_MAP は読むだけ。書き込み（組織の移送）は本 task の範囲外。
+次: P0-04 ESLint カスタムルール（no-direct-shard-access / no-raw-drizzle）。
+    router.ts を allowlist に入れること。
+ブロッカー: P0-02 が未完のまま。実在する Cloudflare リソースは D1 の
+            proofkeeping-shard-00 のみで、R2 / KV / Queue と残り 15 シャードは未作成。
+            そのため pnpm dev による実環境での起動確認は P0-03 でも行えていない。
+            ルーターのテストは実 binding を使わない単体テストで担保している。
 ```
 
 補足: UI フレームワーク（OPEN_QUESTIONS #001）は未決のまま。`apps/web` は Hono のみ。
-シャード明示マッピングは専用 KV namespace `SHARD_MAP` に置く（DECISIONS #004 / OPEN_QUESTIONS #006 解決済）。
+シャード明示マッピングは専用 KV namespace `SHARD_MAP` に置く（DECISIONS #006 / OPEN_QUESTIONS #006 解決済）。
 
 ## Phase 0 — 基盤構築（M1）
 
@@ -26,7 +29,10 @@ task: P0-02 Cloudflare リソース作成
     実在するリソースは D1 `proofkeeping-shard-00` のみのため、完了条件
     「production で 16 シャードすべてに接続できる」は未達成。
     R2 / KV / Queue と残り 15 シャードを作成し `database_id` を差し替えた後にチェックする。
-- [ ] P0-03 シャードルーター ★最優先
+- [x] P0-03 シャードルーター ★最優先
+  - `SHARD_MAP` は読み取りのみ実装。書き込み（組織の移送）を持つ task が
+    どこにも無いことを OPEN_QUESTIONS #007 に記載した。
+    ハッシュのみで解決できるため P0〜P6 の進行に支障はない。
 - [ ] P0-04 ESLint カスタムルール ★最優先
 - [ ] P0-05 ID 採番 ★最優先
 - [ ] P0-06 スキーマ: 組織・ユーザー・施設 ★最優先
