@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 12 — 中断と入室不可</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.q{font-size:14px;font-weight:700;margin:14px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:16px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;min-height:74px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:25px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tg2{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}
+.tg2 .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tg2 .sw{width:52px;height:30px;border-radius:16px;background:var(--dirtybg);
+position:relative;transition:.2s;flex-shrink:0}
+.tg2 .sw:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg2.on .sw{background:var(--ok)}.tg2.on .sw:after{left:25px}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid var(--line);background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.dn{border-color:var(--ok);background:var(--okbg)}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:34px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.ov{position:absolute;inset:0;background:rgba(10,16,13,.62);display:none;
+align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px);z-index:20}
+.ov.on{display:flex}
+.mo{background:var(--surf);border-radius:18px;width:100%;overflow:hidden;max-height:92%;
+display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.mo .mh{padding:14px;text-align:center;background:var(--accent);color:#1A1206}
+.mo .mh.r2{background:var(--danger);color:#fff}
+.mo .mh .i{font-size:29px;line-height:1;display:block;margin-bottom:6px}
+.mo .mh .t{font-size:14.5px;font-weight:800}
+.mo .mb{padding:16px;overflow-y:auto}
+.mo .mb::-webkit-scrollbar{width:3px}
+.rlist .ro{display:flex;align-items:center;gap:11px;padding:14px 13px;border-radius:11px;
+border:2px solid var(--line);background:var(--surf2);margin-bottom:8px;cursor:pointer;font-size:13px}
+.rlist .ro:active{transform:scale(.98)}
+.rlist .ro .e3{font-size:22px}
+.rlist .ro.on{border-color:var(--brand);background:var(--okbg)}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">12 / 16 — 中断と入室不可</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">FLOW</span>
+<button class="gb st on" data-s="pause">⏸ 中断</button>
+<button class="gb st" data-s="block">🚫 入室不可</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">12. 中断と入室不可</h1>
+<p data-i="d">現場では「今は作業できない」が日常的に起きる。理由を選ぶだけで記録でき、キーボードは出さない。理由の選択肢に「その他」を必ず置き、当てはまらない状況で止まらないようにする。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="bk">←</span> 302<span data-i="go">号室</span></div>
+<div class="b">🏨 サンプルホテル東京 · <span data-i="running">作業中</span> 23<span data-i="min">分</span></div></div>
+<div class="bd">
+
+<div class="cd"><h4>⏱ <span data-i="cur">現在の状態</span></h4>
+<div class="rw"><span data-i="r_st">状態</span><b id="cs" style="color:var(--warn)" data-i="s_run">作業中</b></div>
+<div class="rw"><span data-i="r_s">開始</span><b>14:02</b></div>
+<div class="rw"><span data-i="r_e">経過</span><b id="ce">23<span data-i="min">分</span></b></div>
+<div class="rw"><span data-i="r_p">中断回数</span><b id="cp">0<span data-i="kai">回</span></b></div></div>
+
+<div class="al i" id="hint12">💡 <span data-i="h_t">作業を続けられない場合は、下のボタンから記録してください。理由を選ぶだけで済みます。</span></div>
+
+<div class="sec">📌 <span data-i="s_log">この部屋の記録</span></div>
+<div class="cd" id="lg2" style="padding:8px 14px">
+<div class="rw" style="font-size:11.5px"><span>14:02</span><span data-i="lg_1">作業開始</span></div>
+<div class="rw" style="font-size:11.5px"><span>14:03</span><span data-i="lg_2">入室時の記録</span></div></div>
+
+<button class="big w" id="bp2" style="margin-top:14px">⏸ <span data-i="b_pa">作業を中断する</span></button>
+<button class="big r" id="bb3" style="margin-top:9px">🚫 <span data-i="b_bl">入室できない</span></button>
+<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6"
+data-i="note12">どちらも評価には影響しません<br>記録として残すだけです</div>
+</div>
+
+<div class="ov" id="ov1"><div class="mo">
+<div class="mh"><span class="i">⏸</span><span class="t" data-i="m1_t">中断の理由</span></div>
+<div class="mb"><div class="rlist" id="rl1">
+<div class="ro"><span class="e3">🧺</span><span data-i="p1">リネンが足りない</span></div>
+<div class="ro"><span class="e3">☕</span><span data-i="p2">休憩</span></div>
+<div class="ro"><span class="e3">📞</span><span data-i="p3">他の業務が入った</span></div>
+<div class="ro"><span class="e3">🔧</span><span data-i="p4">備品・設備の不具合</span></div>
+<div class="ro"><span class="e3">🙋</span><span data-i="p5">応援に呼ばれた</span></div>
+<div class="ro"><span class="e3">💬</span><span data-i="other">その他</span></div></div>
+<div class="al i" style="margin-top:12px">ℹ <span data-i="m1_n">中断中の時間は実作業時間から除かれます。理由の説明は不要です。</span></div>
+<div class="two"><button class="big o" id="c1b" data-i="cancel">キャンセル</button>
+<button class="big w" id="o1b" data-i="ok_pa">中断する</button></div>
+</div></div></div>
+
+<div class="ov" id="ov2"><div class="mo">
+<div class="mh r2"><span class="i">🚫</span><span class="t" data-i="m2_t">入室できない理由</span></div>
+<div class="mb"><div class="rlist" id="rl2">
+<div class="ro"><span class="e3">🚪</span><span data-i="b1">DNDの札が出ている</span></div>
+<div class="ro"><span class="e3">🧍</span><span data-i="b2">お客様が在室している</span></div>
+<div class="ro"><span class="e3">🔒</span><span data-i="b3">鍵が開かない</span></div>
+<div class="ro"><span class="e3">🛠</span><span data-i="b4">工事・修繕中</span></div>
+<div class="ro"><span class="e3">📵</span><span data-i="b5">フロントから待機指示</span></div>
+<div class="ro"><span class="e3">💬</span><span data-i="other">その他</span></div></div>
+<div class="al w" style="margin-top:12px">⚠ <span data-i="m2_n">このタスクは「保留」になり、管理者に通知されます。あとで再開できます。</span></div>
+<div class="two"><button class="big o" id="c2b" data-i="cancel">キャンセル</button>
+<button class="big r" id="o2b" data-i="ok_bl">記録する</button></div>
+</div></div></div>
+
+<div class="ft"><div class="on"><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">2つを分ける理由</span></h3>
+<table><tr><th data-i="th_x">　</th><th>⏸ <span data-i="pa2">中断</span></th><th>🚫 <span data-i="bl2">入室不可</span></th></tr>
+<tr><td data-i="x1">入室したか</td><td class="fx" data-i="yes">している</td><td class="nx" data-i="no">していない</td></tr>
+<tr><td data-i="x2">タスクの状態</td><td data-i="y2">作業中（一時停止）</td><td data-i="n2">保留</td></tr>
+<tr><td data-i="x3">管理者通知</td><td class="nx" data-i="no2">しない</td><td class="fx" data-i="yes2">する</td></tr>
+<tr><td data-i="x4">再開方法</td><td data-i="y4">本人がその場で</td><td data-i="n4">時間をおいて再訪</td></tr>
+<tr><td data-i="x5">P4での扱い</td><td data-i="y5">照合対象</td><td data-i="n5">照合対象外</td></tr></table>
+<div class="rmk" data-i="c1r">❗ 入室不可は管理者に通知しますが、これは清掃員への注意ではなく<b>フロントとの調整が必要という業務連絡</b>です。DNDが長時間続く部屋はフロントが客に確認する必要があります。</div></div>
+
+<div class="card"><h3>💬 <span data-i="c2t">「その他」を必ず置く</span></h3>
+<p data-i="c2a">選択肢は現場の頻出パターンから5つに絞り、<b>6つ目に必ず「その他」を置く</b>。当てはまる選択肢がないときに操作が止まると、記録そのものが放棄される。</p>
+<ul>
+<li data-i="o1">「その他」を選んでも理由の入力は求めない</li>
+<li data-i="o2">「その他」の比率が30%を超えたら選択肢の見直しを検討</li>
+<li data-i="o3">選択肢は施設ごとに追加・並び替えができる</li>
+<li data-i="o4">選択肢は最大8つまで。それ以上は選ぶのに時間がかかる</li>
+</ul></div>
+
+<div class="card"><h3>⏱ <span data-i="c3t">時間計算への影響</span></h3>
+<p data-i="c3a">中断した時間は <code>actualMinutes</code> から除外する。中断・再開はすべて <code>taskTimeLog</code> に記録される。</p>
+<table><tr><th data-i="th_t">時刻</th><th data-i="th_e2">イベント</th><th data-i="th_c2">実作業に計上</th></tr>
+<tr><td>14:02</td><td data-i="e_1">開始</td><td class="fx">✓</td></tr>
+<tr><td>14:25</td><td data-i="e_2">中断（リネン待ち）</td><td class="nx">—</td></tr>
+<tr><td>14:38</td><td data-i="e_3">再開</td><td class="fx">✓</td></tr>
+<tr><td>15:04</td><td data-i="e_4">完了</td><td class="fx">✓</td></tr></table>
+<div class="hint" data-i="c3h">💡 この例では経過62分・中断13分・実作業49分になります。中断を3回挟んでも正しく計算されることをテストの必須項目にしています（PK-SPEC-P1 §14.1）。</div></div>
+
+<div class="card"><h3>🔁 <span data-i="c4t">入室不可のあとの流れ</span></h3>
+<ul>
+<li data-i="f_1">タスクは「保留」になり一覧の下部に移動</li>
+<li data-i="f_2">保留のまま当日の他タスクを続けられる</li>
+<li data-i="f_3">30分後に一覧上部へ「再訪しますか」を表示</li>
+<li data-i="f_4">3回連続で入室不可の場合は管理者に再通知</li>
+<li data-i="f_5">当日中に入室できなかった場合は翌日に繰り越し</li>
+</ul>
+<div class="hint" data-i="c4h">💡 「あと何分待てば入れるか」は清掃員には分かりません。だから待機時間の判断をさせず、30分後にシステム側から声をかけます。</div></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="k_1">中断と入室不可を明確に分ける</li>
+<li data-i="k_2">理由は選択のみ。キーボードは出さない</li>
+<li data-i="k_3">「その他」を必ず用意し、説明は求めない</li>
+<li data-i="k_4">中断時間は実作業時間から除外</li>
+<li data-i="k_5">入室不可のみ管理者に通知</li>
+<li data-i="k_6">「評価には影響しません」を画面に明記</li>
+</ul></div>
+</div></div></div><script>const I18N={ja:{},
+en:{t:"12. Pause and Cannot Enter",
+d:"\"I can't work right now\" happens daily in the field. Recording it takes only picking a reason, and the keyboard never appears. \"Other\" is always present so nobody gets stuck when no option fits.",
+go:"",running:"working",min:"m",kai:"",
+cur:"Current state",r_st:"State",s_run:"Working",r_s:"Start",r_e:"Elapsed",r_p:"Pauses",
+h_t:"If you cannot continue, record it with the buttons below. Picking a reason is all it takes.",
+s_log:"Records for this room",lg_1:"Work started",lg_2:"Entry record",
+b_pa:"Pause work",b_bl:"Cannot enter",
+note12:"Neither affects your evaluation<br>They are only kept as records",
+m1_t:"Reason for pausing",
+p1:"Not enough linen",p2:"Break",p3:"Another duty came up",
+p4:"Equipment or fixture fault",p5:"Called to help elsewhere",other:"Other",
+m1_n:"Paused time is excluded from actual working time. No explanation is needed.",
+cancel:"Cancel",ok_pa:"Pause",
+m2_t:"Why you cannot enter",
+b1:"DND sign is out",b2:"The guest is in the room",b3:"The key won't open",
+b4:"Under construction or repair",b5:"Front desk asked us to wait",
+m2_n:"This task becomes On hold and the manager is notified. You can resume later.",
+ok_bl:"Record",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"Why the two are separate",th_x:" ",pa2:"Pause",bl2:"Cannot enter",
+x1:"Did you enter",yes:"Yes",no:"No",
+x2:"Task state",y2:"Working (suspended)",n2:"On hold",
+x3:"Manager notified",no2:"No",yes2:"Yes",
+x4:"How to resume",y4:"By the cleaner, on the spot",n4:"Revisit after a while",
+x5:"Handling in P4",y5:"Included in reconciliation",n5:"Excluded from reconciliation",
+c1r:"❗ Cannot-enter notifies the manager, but this is not a caution to the cleaner — it is <b>an operational message that coordination with the front desk is needed</b>. A room with a long-running DND needs the front desk to check with the guest.",
+c2t:"\"Other\" must always exist",
+c2a:"Options are narrowed to five common field patterns, with <b>\"Other\" always sixth</b>. If the flow stalls when nothing fits, the record itself gets abandoned.",
+o1:"Choosing Other never asks for an explanation",
+o2:"If Other exceeds 30%, the option list is reviewed",
+o3:"Options can be added and reordered per property",
+o4:"At most eight options — more takes too long to choose",
+c3t:"Effect on time calculation",
+c3a:"Paused time is excluded from <code>actualMinutes</code>. Every pause and resume is written to <code>taskTimeLog</code>.",
+th_t:"Time",th_e2:"Event",th_c2:"Counted as work",
+e_1:"Start",e_2:"Pause (waiting for linen)",e_3:"Resume",e_4:"Complete",
+c3h:"💡 Here elapsed is 62 minutes, paused 13, actual 49. Correct calculation across three pauses is a mandatory test item (PK-SPEC-P1 §14.1).",
+c4t:"What follows cannot-enter",
+f_1:"The task goes On hold and moves to the bottom of the list",
+f_2:"Other tasks for the day can continue while it is on hold",
+f_3:"After 30 minutes, \"Revisit now?\" appears at the top of the list",
+f_4:"Three consecutive failures re-notify the manager",
+f_5:"If entry never happens that day, it carries over to the next",
+c4h:"💡 A cleaner cannot know how long until the room is free. So we never make them judge the wait — the system prompts them after 30 minutes.",
+c5t:"Decisions fixed on this screen",
+k_1:"Pause and cannot-enter are clearly separated",
+k_2:"Reasons are selection only; the keyboard never appears",
+k_3:"\"Other\" always available with no explanation required",
+k_4:"Paused time excluded from actual working time",
+k_5:"Only cannot-enter notifies the manager",
+k_6:"\"Does not affect your evaluation\" stated on screen"},
+zh:{t:"12. 中断与无法进入",
+d:"现场里「现在没法作业」是日常。只需选理由就能记录，不弹键盘。理由选项里必放「其他」，避免遇到不适用的情况就卡住。",
+go:"号房",running:"作业中",min:"分",kai:"次",
+cur:"当前状态",r_st:"状态",s_run:"作业中",r_s:"开始",r_e:"经过",r_p:"中断次数",
+h_t:"无法继续作业时，请用下面的按钮记录。只需选择理由即可。",
+s_log:"该房间的记录",lg_1:"作业开始",lg_2:"入室记录",
+b_pa:"中断作业",b_bl:"无法进入",
+note12:"两者都不影响评价<br>只是作为记录留下",
+m1_t:"中断的理由",
+p1:"布草不够",p2:"休息",p3:"有其他业务进来",
+p4:"备品・设备不良",p5:"被叫去支援",other:"其他",
+m1_n:"中断期间的时间会从实作业时间中扣除。不需要说明理由。",
+cancel:"取消",ok_pa:"中断",
+m2_t:"无法进入的理由",
+b1:"挂着 DND 牌",b2:"客人在房内",b3:"钥匙打不开",
+b4:"施工・修缮中",b5:"前台指示待机",
+m2_n:"该任务会变成「保留」并通知管理者。之后可以再开始。",
+ok_bl:"记录",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"把两者分开的理由",th_x:"　",pa2:"中断",bl2:"无法进入",
+x1:"是否已入室",yes:"已入室",no:"未入室",
+x2:"任务状态",y2:"作业中（暂停）",n2:"保留",
+x3:"管理者通知",no2:"不通知",yes2:"通知",
+x4:"再开方式",y4:"本人当场",n4:"隔一段时间再访",
+x5:"P4 中的处理",y5:"对账对象",n5:"对账对象外",
+c1r:"❗ 无法进入会通知管理者，但这不是对清扫员的提醒，而是<b>「需要与前台协调」的业务联络</b>。DND 长时间持续的房间需要前台向客人确认。",
+c2t:"必放「其他」",
+c2a:"选项从现场高频模式收敛到 5 个，<b>第 6 个必放「其他」</b>。没有适用选项而操作卡住时，记录本身就会被放弃。",
+o1:"选了「其他」也不要求输入理由",
+o2:"「其他」的比率超过 30% 时考虑重审选项",
+o3:"选项可按设施追加・重排",
+o4:"选项最多 8 个。再多就要花时间挑",
+c3t:"对时间计算的影响",
+c3a:"中断的时间从 <code>actualMinutes</code> 中排除。中断・再开全部记录到 <code>taskTimeLog</code>。",
+th_t:"时刻",th_e2:"事件",th_c2:"计入实作业",
+e_1:"开始",e_2:"中断（等布草）",e_3:"再开",e_4:"完成",
+c3h:"💡 此例中经过 62 分・中断 13 分・实作业 49 分。「中断 3 次也能正确计算」是测试的必需项目（PK-SPEC-P1 §14.1）。",
+c4t:"无法进入之后的流程",
+f_1:"任务变成「保留」并移到一览下部",
+f_2:"保留状态下可以继续当天的其他任务",
+f_3:"30 分钟后在一览上部显示「要再访吗」",
+f_4:"连续 3 次无法进入时向管理者再通知",
+f_5:"当天没能进入的情况顺延到次日",
+c4h:"💡「还要等几分钟才能进」清扫员是不知道的。所以不让他们判断等待时间，30 分钟后由系统主动开口。",
+c5t:"本画面的确定事项",
+k_1:"中断与无法进入明确分开",
+k_2:"理由只用选择。不弹键盘",
+k_3:"必备「其他」，且不要求说明",
+k_4:"中断时间从实作业时间排除",
+k_5:"只有无法进入通知管理者",
+k_6:"画面上明记「不影响评价」"},
+vi:{t:"12. Tạm dừng và Không vào được",
+d:"\"Bây giờ không làm được\" xảy ra hằng ngày. Chỉ cần chọn lý do, không hiện bàn phím. Luôn có \"Khác\".",
+go:"",running:"đang làm",min:"phút",kai:" lần",
+cur:"Trạng thái hiện tại",r_st:"Trạng thái",s_run:"Đang làm",r_s:"Bắt đầu",r_e:"Đã qua",r_p:"Số lần dừng",
+h_t:"Nếu không thể tiếp tục, hãy ghi lại bằng nút dưới. Chỉ cần chọn lý do.",
+s_log:"Ghi nhận phòng này",lg_1:"Bắt đầu làm",lg_2:"Ghi nhận khi vào",
+b_pa:"Tạm dừng công việc",b_bl:"Không vào được",
+note12:"Cả hai không ảnh hưởng đánh giá<br>Chỉ được lưu như ghi nhận",
+m1_t:"Lý do tạm dừng",
+p1:"Không đủ khăn vải",p2:"Nghỉ",p3:"Có việc khác",
+p4:"Thiết bị hoặc vật dụng lỗi",p5:"Được gọi đi hỗ trợ",other:"Khác",
+m1_n:"Thời gian dừng bị trừ khỏi thời gian làm thực tế. Không cần giải thích.",
+cancel:"Hủy",ok_pa:"Tạm dừng",
+m2_t:"Lý do không vào được",
+b1:"Có bảng DND",b2:"Khách đang trong phòng",b3:"Khóa không mở",
+b4:"Đang thi công hoặc sửa",b5:"Lễ tân yêu cầu chờ",
+m2_n:"Nhiệm vụ chuyển sang Chờ và quản lý được thông báo. Bạn có thể tiếp tục sau.",
+ok_bl:"Ghi nhận",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Vì sao tách hai loại",th_x:" ",pa2:"Tạm dừng",bl2:"Không vào được",
+x1:"Đã vào phòng chưa",yes:"Đã vào",no:"Chưa vào",
+x2:"Trạng thái nhiệm vụ",y2:"Đang làm (tạm ngưng)",n2:"Chờ",
+x3:"Thông báo quản lý",no2:"Không",yes2:"Có",
+x4:"Cách tiếp tục",y4:"Nhân viên tự làm ngay",n4:"Quay lại sau",
+x5:"Xử lý trong P4",y5:"Có đối chiếu",n5:"Không đối chiếu",
+c1r:"❗ Không vào được thông báo cho quản lý, nhưng đó không phải nhắc nhở nhân viên mà là <b>thông tin cần phối hợp với lễ tân</b>.",
+c2t:"Luôn phải có \"Khác\"",
+c2a:"Chỉ năm lựa chọn phổ biến, <b>thứ sáu luôn là \"Khác\"</b>. Nếu bị kẹt khi không có lựa chọn phù hợp, việc ghi nhận sẽ bị bỏ.",
+o1:"Chọn Khác không bị hỏi giải thích",o2:"Nếu Khác vượt 30%, xem lại danh sách lựa chọn",
+o3:"Lựa chọn thêm và sắp lại theo cơ sở",o4:"Tối đa tám lựa chọn",
+c3t:"Ảnh hưởng tới tính thời gian",
+c3a:"Thời gian dừng bị loại khỏi <code>actualMinutes</code>. Mọi lần dừng ghi vào <code>taskTimeLog</code>.",
+th_t:"Thời điểm",th_e2:"Sự kiện",th_c2:"Tính là làm việc",
+e_1:"Bắt đầu",e_2:"Dừng (chờ khăn vải)",e_3:"Tiếp tục",e_4:"Hoàn thành",
+c3h:"💡 Ở đây đã qua 62 phút, dừng 13, thực tế 49. Tính đúng sau ba lần dừng là mục kiểm thử bắt buộc.",
+c4t:"Sau khi không vào được",
+f_1:"Nhiệm vụ sang Chờ và xuống cuối danh sách",f_2:"Vẫn tiếp tục các nhiệm vụ khác trong ngày",
+f_3:"Sau 30 phút hiện \"Quay lại bây giờ?\" ở đầu danh sách",f_4:"Ba lần liên tiếp sẽ thông báo lại quản lý",
+f_5:"Nếu cả ngày không vào được thì chuyển sang ngày sau",
+c4h:"💡 Nhân viên không thể biết còn bao lâu phòng mới trống. Nên hệ thống nhắc sau 30 phút.",
+c5t:"Quyết định đã chốt",
+k_1:"Tách rõ tạm dừng và không vào được",k_2:"Lý do chỉ chọn, không bàn phím",
+k_3:"Luôn có \"Khác\" và không đòi giải thích",k_4:"Thời gian dừng bị trừ",
+k_5:"Chỉ không vào được mới thông báo quản lý",k_6:"Ghi rõ không ảnh hưởng đánh giá"},
+id:{t:"12. Jeda dan Tidak Bisa Masuk",
+d:"\"Sekarang tak bisa bekerja\" terjadi tiap hari. Cukup pilih alasan, papan ketik tak muncul. \"Lainnya\" selalu tersedia.",
+go:"",running:"bekerja",min:"mnt",kai:" kali",
+cur:"Keadaan saat ini",r_st:"Keadaan",s_run:"Bekerja",r_s:"Mulai",r_e:"Berlalu",r_p:"Jumlah jeda",
+h_t:"Bila tak bisa melanjutkan, catat lewat tombol di bawah. Cukup memilih alasan.",
+s_log:"Catatan kamar ini",lg_1:"Pekerjaan dimulai",lg_2:"Catatan masuk",
+b_pa:"Jeda pekerjaan",b_bl:"Tidak bisa masuk",
+note12:"Keduanya tidak memengaruhi penilaian<br>Hanya disimpan sebagai catatan",
+m1_t:"Alasan menjeda",
+p1:"Linen tidak cukup",p2:"Istirahat",p3:"Ada tugas lain",
+p4:"Kerusakan alat atau perlengkapan",p5:"Dipanggil membantu",other:"Lainnya",
+m1_n:"Waktu jeda dikeluarkan dari waktu kerja aktual. Tak perlu penjelasan.",
+cancel:"Batal",ok_pa:"Jeda",
+m2_t:"Alasan tidak bisa masuk",
+b1:"Tanda DND terpasang",b2:"Tamu ada di kamar",b3:"Kunci tak bisa dibuka",
+b4:"Sedang dibangun atau diperbaiki",b5:"Resepsionis meminta menunggu",
+m2_n:"Tugas menjadi Ditunda dan manajer diberi tahu. Bisa dilanjutkan nanti.",
+ok_bl:"Catat",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Mengapa keduanya dipisah",th_x:" ",pa2:"Jeda",bl2:"Tidak bisa masuk",
+x1:"Sudah masuk",yes:"Sudah",no:"Belum",
+x2:"Status tugas",y2:"Bekerja (ditangguhkan)",n2:"Ditunda",
+x3:"Manajer diberi tahu",no2:"Tidak",yes2:"Ya",
+x4:"Cara melanjutkan",y4:"Petugas langsung di tempat",n4:"Datang lagi nanti",
+x5:"Penanganan di P4",y5:"Masuk rekonsiliasi",n5:"Di luar rekonsiliasi",
+c1r:"❗ Tidak bisa masuk memberi tahu manajer, tapi itu bukan teguran bagi petugas melainkan <b>pesan operasional bahwa koordinasi dengan resepsionis diperlukan</b>.",
+c2t:"\"Lainnya\" harus selalu ada",
+c2a:"Pilihan dibatasi lima pola umum, <b>yang keenam selalu \"Lainnya\"</b>. Bila alur macet karena tak ada yang cocok, catatan justru ditinggalkan.",
+o1:"Memilih Lainnya tak pernah diminta penjelasan",o2:"Bila Lainnya melebihi 30%, daftar pilihan ditinjau",
+o3:"Pilihan bisa ditambah dan diurut per properti",o4:"Maksimal delapan pilihan",
+c3t:"Pengaruh pada perhitungan waktu",
+c3a:"Waktu jeda dikeluarkan dari <code>actualMinutes</code>. Setiap jeda dicatat ke <code>taskTimeLog</code>.",
+th_t:"Waktu",th_e2:"Peristiwa",th_c2:"Dihitung sebagai kerja",
+e_1:"Mulai",e_2:"Jeda (menunggu linen)",e_3:"Lanjut",e_4:"Selesai",
+c3h:"💡 Di sini berlalu 62 menit, jeda 13, aktual 49. Perhitungan benar setelah tiga jeda adalah item uji wajib.",
+c4t:"Setelah tidak bisa masuk",
+f_1:"Tugas menjadi Ditunda dan pindah ke bawah daftar",f_2:"Tugas lain hari itu tetap bisa dilanjutkan",
+f_3:"Setelah 30 menit muncul \"Datang lagi sekarang?\" di atas daftar",f_4:"Tiga kali berturut memberi tahu manajer lagi",
+f_5:"Bila hari itu tak pernah masuk, dibawa ke hari berikutnya",
+c4h:"💡 Petugas tak bisa tahu berapa lama lagi kamar bebas. Sistem yang mengingatkan setelah 30 menit.",
+c5t:"Keputusan yang ditetapkan",
+k_1:"Jeda dan tidak bisa masuk dipisah jelas",k_2:"Alasan hanya pilihan, tanpa papan ketik",
+k_3:"\"Lainnya\" selalu ada tanpa penjelasan",k_4:"Waktu jeda dikeluarkan",
+k_5:"Hanya tidak bisa masuk memberi tahu manajer",k_6:"Tertulis tak memengaruhi penilaian"},
+my:{t:"၁၂. ခေတ္တရပ်နှင့် အခန်းမဝင်ရ",
+d:"လက်တွေ့တွင် \"ယခု အလုပ်မလုပ်နိုင်\" သည် နေ့စဉ်ဖြစ်သည်။ အကြောင်းရင်း ရွေးရုံဖြင့် မှတ်နိုင်၍ ကီးဘုတ် မဖွင့်ပါ။",
+go:"",running:"အလုပ်လုပ်ဆဲ",min:"မိနစ်",kai:" ကြိမ်",
+cur:"လက်ရှိအခြေအနေ",r_st:"အခြေအနေ",s_run:"အလုပ်လုပ်ဆဲ",r_s:"စတင်",r_e:"ကုန်ဆုံး",r_p:"ခေတ္တရပ်အရေအတွက်",
+h_t:"အလုပ်ဆက်မလုပ်နိုင်ပါက အောက်ခလုတ်မှ မှတ်ပါ။ အကြောင်းရင်း ရွေးရုံဖြင့် ရသည်။",
+s_log:"ဤအခန်း၏ မှတ်တမ်း",lg_1:"အလုပ်စတင်",lg_2:"အခန်းဝင်မှတ်တမ်း",
+b_pa:"အလုပ် ခေတ္တရပ်",b_bl:"အခန်း မဝင်နိုင်",
+note12:"နှစ်ခုစလုံး အဆင့်သတ်မှတ်မှုကို မထိခိုက်ပါ<br>မှတ်တမ်းအဖြစ်သာ ထားသည်",
+m1_t:"ခေတ္တရပ်ရသည့်အကြောင်း",
+p1:"အခင်း မလုံလောက်",p2:"အနားယူ",p3:"အခြားလုပ်ငန်း ဝင်လာ",
+p4:"ပစ္စည်း・စက်ပစ္စည်း ချွတ်ယွင်း",p5:"အကူအညီ ခေါ်ခံရ",other:"အခြား",
+m1_n:"ခေတ္တရပ်ချိန်ကို အမှန်တကယ်အလုပ်ချိန်မှ ဖယ်ထုတ်သည်။ ရှင်းလင်းချက် မလိုပါ။",
+cancel:"ပယ်ဖျက်",ok_pa:"ခေတ္တရပ်",
+m2_t:"အခန်းမဝင်နိုင်သည့်အကြောင်း",
+b1:"DND ဆိုင်းဘုတ် ချိတ်ထား",b2:"ဧည့်သည် အခန်းတွင်း ရှိ",b3:"သော့ မပွင့်",
+b4:"တည်ဆောက်・ပြုပြင်ဆဲ",b5:"ကောင်တာမှ စောင့်ရန် အမိန့်",
+m2_n:"ဤအလုပ်သည် \"ဆိုင်းငံ့\" ဖြစ်၍ စီမံခန့်ခွဲသူကို အသိပေးမည်။ နောက်မှ ဆက်လုပ်နိုင်သည်။",
+ok_bl:"မှတ်တမ်းတင်",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"နှစ်ခု ခွဲရသည့်အကြောင်း",th_x:"　",pa2:"ခေတ္တရပ်",bl2:"အခန်းမဝင်ရ",
+x1:"အခန်းဝင်ပြီးလား",yes:"ဝင်ပြီး",no:"မဝင်သေး",
+x2:"အလုပ်အခြေအနေ",y2:"အလုပ်လုပ်ဆဲ（ရပ်နား）",n2:"ဆိုင်းငံ့",
+x3:"စီမံခန့်ခွဲသူ အသိပေးမှု",no2:"မပေး",yes2:"ပေး",
+x4:"ဆက်လုပ်နည်း",y4:"ကိုယ်တိုင် ထိုနေရာတွင်",n4:"အချိန်ခြားပြီး ပြန်လာ",
+x5:"P4 တွင် ကိုင်တွယ်မှု",y5:"တိုက်စစ်မှု ပါဝင်",n5:"တိုက်စစ်မှု မပါဝင်",
+c1r:"❗ အခန်းမဝင်ရသည် စီမံခန့်ခွဲသူကို အသိပေးသော်လည်း ဝန်ထမ်းကို သတိပေးခြင်းမဟုတ်ဘဲ <b>ကောင်တာနှင့် ညှိနှိုင်းရန်လိုသည့် လုပ်ငန်းဆက်သွယ်မှု</b>ဖြစ်သည်။",
+c2t:"\"အခြား\" အမြဲထားရန်",
+c2a:"ရွေးချယ်မှုကို လက်တွေ့မကြာခဏပုံစံ ၅ ခုသာ ကျုံ့၍ <b>၆ ခုမြောက်တွင် \"အခြား\" အမြဲထားသည်</b>။",
+o1:"\"အခြား\" ရွေးလည်း အကြောင်းရင်း မမေးပါ",o2:"\"အခြား\" အချိုး ၃၀% ကျော်ပါက ရွေးချယ်မှုစာရင်း ပြန်စစ်",
+o3:"ရွေးချယ်မှုကို အဆောက်အအုံအလိုက် ထပ်ထည့်・စီစဉ်နိုင်",o4:"ရွေးချယ်မှု အများဆုံး ၈ ခု",
+c3t:"အချိန်တွက်ချက်မှုအပေါ် သက်ရောက်မှု",
+c3a:"ခေတ္တရပ်ချိန်ကို <code>actualMinutes</code> မှ ဖယ်ထုတ်သည်။ ခေတ္တရပ်・ဆက်လုပ် အားလုံး <code>taskTimeLog</code> တွင် မှတ်သည်။",
+th_t:"အချိန်",th_e2:"အကြောင်းအရာ",th_c2:"အလုပ်အဖြစ် တွက်",
+e_1:"စတင်",e_2:"ခေတ္တရပ်（အခင်းစောင့်）",e_3:"ဆက်လုပ်",e_4:"ပြီးဆုံး",
+c3h:"💡 ဤဥပမာတွင် ကုန်ဆုံး ၆၂ မိနစ်・ခေတ္တရပ် ၁၃ မိနစ်・အမှန်တကယ် ၄၉ မိနစ် ဖြစ်သည်။",
+c4t:"အခန်းမဝင်ရပြီးနောက် အစီအစဉ်",
+f_1:"အလုပ်သည် \"ဆိုင်းငံ့\" ဖြစ်၍ စာရင်းအောက်သို့ ရွေ့",f_2:"ဆိုင်းငံ့ထားစဉ် ဒီနေ့အခြားအလုပ်များ ဆက်နိုင်",
+f_3:"၃၀ မိနစ်အကြာတွင် စာရင်းအထက်တွင် \"ပြန်လာမလား\" ပြ",f_4:"၃ ကြိမ်ဆက်တိုက် မဝင်ရပါက စီမံခန့်ခွဲသူကို ထပ်အသိပေး",
+f_5:"ဒီနေ့မဝင်နိုင်ပါက နောက်နေ့သို့ ဆက်လျှောက်",
+c4h:"💡 \"မည်မှုစောင့်ရင် ဝင်နိုင်မှာလဲ\" ဝန်ထမ်းများ မသိပါ။ ထို့ကြောင့် စောင့်ချိန်ဆုံးဖြတ်ခြင်း မလုပ်ဘဲ ၃၀ မိနစ်အကြာ စနစ်မှ ခေါ်သည်။",
+c5t:"အတည်ပြုချက်",
+k_1:"ခေတ္တရပ်နှင့် အခန်းမဝင်ရ ရှင်းလင်းစွာ ခွဲ",k_2:"အကြောင်းရင်း ရွေးရုံ။ ကီးဘုတ် မဖွင့်",
+k_3:"\"အခြား\" အမြဲထား၍ ရှင်းလင်းချက် မမေး",k_4:"ခေတ္တရပ်ချိန် ဖယ်ထုတ်",
+k_5:"အခန်းမဝင်ရ သာ စီမံခန့်ခွဲသူကို အသိပေး",k_6:"\"အဆင့်သတ်မှတ်မှု မထိခိုက်\" ဖော်ပြ"},
+ne:{t:"१२. रोकाइ र पस्न नमिल्ने",
+d:"क्षेत्रमा \"अहिले काम गर्न सकिँदैन\" दैनिक हुन्छ। कारण छान्दा मात्र रेकर्ड हुन्छ, किबोर्ड देखिँदैन। \"अन्य\" सधैं हुन्छ।",
+go:"",running:"काम गर्दै",min:"मिनेट",kai:" पटक",
+cur:"वर्तमान अवस्था",r_st:"अवस्था",s_run:"काम गर्दै",r_s:"सुरु",r_e:"बितेको",r_p:"रोकाइ संख्या",
+h_t:"काम जारी राख्न नसकिए तलको बटनबाट रेकर्ड गर्नुहोस्। कारण छान्दा मात्र हुन्छ।",
+s_log:"यो कोठाको रेकर्ड",lg_1:"काम सुरु",lg_2:"प्रवेश रेकर्ड",
+b_pa:"काम रोक्ने",b_bl:"पस्न मिल्दैन",
+note12:"दुवैले मूल्याङ्कन असर गर्दैन<br>रेकर्डको रूपमा मात्र राखिन्छ",
+m1_t:"रोक्नुको कारण",
+p1:"लिनेन पर्याप्त छैन",p2:"विश्राम",p3:"अन्य काम आयो",
+p4:"उपकरण वा सामान बिग्रेको",p5:"सहयोगमा बोलाइएको",other:"अन्य",
+m1_n:"रोकाइको समय वास्तविक कार्य समयबाट हटाइन्छ। स्पष्टीकरण चाहिँदैन।",
+cancel:"रद्द",ok_pa:"रोक्ने",
+m2_t:"पस्न नमिल्नुको कारण",
+b1:"DND चिह्न झुन्डिएको",b2:"पाहुना कोठामा छन्",b3:"साँचो खुल्दैन",
+b4:"निर्माण वा मर्मत भइरहेको",b5:"रिसेप्सनले कुर्न भन्यो",
+m2_n:"यो काम रोकिएको बन्छ र प्रबन्धकलाई सूचना जान्छ। पछि जारी राख्न सकिन्छ।",
+ok_bl:"रेकर्ड गर्ने",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"दुई किन छुट्टै",th_x:" ",pa2:"रोकाइ",bl2:"पस्न नमिल्ने",
+x1:"पसेको थियो कि",yes:"पसेको",no:"नपसेको",
+x2:"कामको अवस्था",y2:"काम गर्दै (निलम्बित)",n2:"रोकिएको",
+x3:"प्रबन्धकलाई सूचना",no2:"हुँदैन",yes2:"हुन्छ",
+x4:"जारी राख्ने तरिका",y4:"कर्मचारीले तुरुन्तै",n4:"केही बेरपछि फेरि आउने",
+x5:"P4 मा व्यवहार",y5:"मिलानमा समावेश",n5:"मिलानबाट बाहिर",
+c1r:"❗ पस्न नमिल्नेले प्रबन्धकलाई सूचना दिन्छ, तर यो कर्मचारीलाई चेतावनी होइन — <b>रिसेप्सनसँग समन्वय चाहिन्छ भन्ने कार्य सन्देश</b> हो।",
+c2t:"\"अन्य\" सधैं हुनुपर्छ",
+c2a:"विकल्प पाँच सामान्य ढाँचामा सीमित, <b>छैटौं सधैं \"अन्य\"</b>। मिल्ने विकल्प नभएर अड्किए रेकर्ड आफै त्यागिन्छ।",
+o1:"अन्य छान्दा स्पष्टीकरण सोधिँदैन",o2:"अन्य ३०% नाघे विकल्प सूची पुनरावलोकन",
+o3:"विकल्प सुविधाअनुसार थप्न र क्रम मिलाउन सकिन्छ",o4:"अधिकतम आठ विकल्प",
+c3t:"समय गणनामा प्रभाव",
+c3a:"रोकाइको समय <code>actualMinutes</code> बाट हटाइन्छ। हरेक रोकाइ <code>taskTimeLog</code> मा लेखिन्छ।",
+th_t:"समय",th_e2:"घटना",th_c2:"कामको रूपमा गनिने",
+e_1:"सुरु",e_2:"रोकाइ (लिनेन कुर्दै)",e_3:"जारी",e_4:"सम्पन्न",
+c3h:"💡 यहाँ बितेको ६२ मिनेट, रोकाइ १३, वास्तविक ४९। तीन रोकाइपछि सही गणना अनिवार्य परीक्षण हो।",
+c4t:"पस्न नमिलेपछिको प्रवाह",
+f_1:"काम रोकिएको बन्छ र सूचीको तल जान्छ",f_2:"रोकिएको अवस्थामा त्यो दिनका अन्य काम जारी राख्न सकिन्छ",
+f_3:"३० मिनेटपछि सूचीको माथि \"अहिले फेरि जाने?\" देखिन्छ",f_4:"लगातार तीन पटक भए प्रबन्धकलाई पुनः सूचना",
+f_5:"त्यो दिन पस्न नसकिए भोलिपल्ट सारिन्छ",
+c4h:"💡 कति बेर कुर्दा कोठा खाली हुन्छ कर्मचारीलाई थाहा हुन्न। त्यसैले ३० मिनेटपछि प्रणालीले सम्झाउँछ।",
+c5t:"तय भएका कुरा",
+k_1:"रोकाइ र पस्न नमिल्ने स्पष्ट छुट्टै",k_2:"कारण छनोट मात्र, किबोर्ड छैन",
+k_3:"\"अन्य\" सधैं, स्पष्टीकरण नमाग्ने",k_4:"रोकाइको समय हटाइने",
+k_5:"पस्न नमिल्नेमा मात्र प्रबन्धकलाई सूचना",k_6:"मूल्याङ्कन असर गर्दैन लेखिएको"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+const ov1=document.getElementById('ov1'),ov2=document.getElementById('ov2');
+document.getElementById('bp2').onclick=()=>ov1.classList.add('on');
+document.getElementById('bb3').onclick=()=>ov2.classList.add('on');
+document.getElementById('c1b').onclick=()=>ov1.classList.remove('on');
+document.getElementById('c2b').onclick=()=>ov2.classList.remove('on');
+[ov1,ov2].forEach(o=>o.onclick=e=>{if(e.target===o)o.classList.remove('on')});
+function sel(id){document.querySelectorAll('#'+id+' .ro').forEach(r=>r.onclick=function(){
+this.parentNode.querySelectorAll('.ro').forEach(x=>x.classList.remove('on'));this.classList.add('on')})}
+sel('rl1');sel('rl2');
+let np=0;
+document.getElementById('o1b').onclick=function(){
+const s=document.querySelector('#rl1 .ro.on');
+if(!s){alert('理由を選択してください');return}
+ov1.classList.remove('on');np++;
+document.getElementById('cs').textContent='中断中';
+document.getElementById('cs').style.color='var(--dirty)';
+document.getElementById('cp').innerHTML=np+'回';
+document.getElementById('hint12').innerHTML='⏸ <span>中断中です。準備ができたら「再開する」を押してください。</span>';
+document.getElementById('hint12').className='al w';
+const d=document.createElement('div');d.className='rw';d.style.fontSize='11.5px';
+d.innerHTML='<span>14:25</span><span>中断 — '+s.textContent.trim()+'</span>';
+document.getElementById('lg2').appendChild(d);
+const b=document.getElementById('bp2');b.className='big g';
+b.innerHTML='▶ <span>作業を再開する</span>';
+b.onclick=function(){document.getElementById('cs').textContent='作業中';
+document.getElementById('cs').style.color='var(--warn)';
+const d2=document.createElement('div');d2.className='rw';d2.style.fontSize='11.5px';
+d2.innerHTML='<span>14:38</span><span>再開</span>';document.getElementById('lg2').appendChild(d2);
+document.getElementById('hint12').className='al i';
+document.getElementById('hint12').innerHTML='💡 <span>再開しました。中断していた13分は実作業時間から除かれます。</span>';
+b.className='big w';b.innerHTML='⏸ <span>作業を中断する</span>';
+b.onclick=()=>ov1.classList.add('on')};
+alert('中断しました\n\n理由：'+s.textContent.trim()+'\ntaskTimeLog に記録\n中断中の時間は実作業から除外されます');};
+document.getElementById('o2b').onclick=function(){
+const s=document.querySelector('#rl2 .ro.on');
+if(!s){alert('理由を選択してください');return}
+ov2.classList.remove('on');
+alert('入室不可として記録しました\n\n理由：'+s.textContent.trim()+
+'\n\nタスクは「保留」になりました\n管理者に通知しました\n30分後に再訪のご案内を表示します\n\n→ 02 タスク一覧 に戻ります')};
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+(this.dataset.s==='pause'?ov1:ov2).classList.add('on')});
+</script></body></html>

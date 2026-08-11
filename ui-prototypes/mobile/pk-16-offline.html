@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 16 — オフライン状態</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.q{font-size:14px;font-weight:700;margin:14px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:16px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;min-height:74px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:25px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tg2{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}
+.tg2 .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tg2 .sw{width:52px;height:30px;border-radius:16px;background:var(--dirtybg);
+position:relative;transition:.2s;flex-shrink:0}
+.tg2 .sw:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg2.on .sw{background:var(--ok)}.tg2.on .sw:after{left:25px}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid var(--line);background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.dn{border-color:var(--ok);background:var(--okbg)}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:34px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.ov{position:absolute;inset:0;background:rgba(10,16,13,.62);display:none;
+align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px);z-index:20}
+.ov.on{display:flex}
+.mo{background:var(--surf);border-radius:18px;width:100%;overflow:hidden;max-height:92%;
+display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.mo .mh{padding:14px;text-align:center;background:var(--accent);color:#1A1206}
+.mo .mh.r2{background:var(--danger);color:#fff}
+.mo .mh .i{font-size:29px;line-height:1;display:block;margin-bottom:6px}
+.mo .mh .t{font-size:14.5px;font-weight:800}
+.mo .mb{padding:16px;overflow-y:auto}
+.mo .mb::-webkit-scrollbar{width:3px}
+.rlist .ro{display:flex;align-items:center;gap:11px;padding:14px 13px;border-radius:11px;
+border:2px solid var(--line);background:var(--surf2);margin-bottom:8px;cursor:pointer;font-size:13px}
+.rlist .ro:active{transform:scale(.98)}
+.rlist .ro .e3{font-size:22px}
+.rlist .ro.on{border-color:var(--brand);background:var(--okbg)}
+.qb{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:9px}
+.qb .qh{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.qb .qh .ql{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.qb .qh .qn{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.qb .qp{height:7px;background:var(--dirtybg);border-radius:4px;overflow:hidden;margin-bottom:6px}
+.qb .qp i{display:block;height:100%;background:var(--info);transition:.5s}
+.qb .qs{font-size:10.5px;color:var(--muted)}
+.stbar{border-radius:13px;padding:15px;margin-bottom:12px;text-align:center;color:#fff}
+.stbar.on2{background:var(--ok)}
+.stbar.off2{background:var(--warn)}
+.stbar.syn{background:var(--info)}
+.stbar .se{font-size:34px;line-height:1;margin-bottom:7px}
+.stbar .st3{font-size:15.5px;font-weight:800}
+.stbar .sd{font-size:11px;opacity:.9;margin-top:4px;line-height:1.5}
+.qlist .qi{display:flex;align-items:center;gap:10px;background:var(--surf);border:1px solid var(--line);
+border-radius:10px;padding:11px;margin-bottom:7px;font-size:12px}
+.qlist .qi .qe{font-size:18px}
+.qlist .qi .qt{flex:1}
+.qlist .qi .qt .q1{font-weight:600}
+.qlist .qi .qt .q2{font-size:10px;color:var(--muted);margin-top:1px}
+.qlist .qi .qm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dirtybg);color:var(--dirty);white-space:nowrap}
+.qlist .qi .qm.up{background:var(--infobg);color:var(--info)}
+.qlist .qi .qm.dn2{background:var(--okbg);color:var(--ok)}
+.spin{display:inline-block;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">16 / 16 — オフライン状態</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">NET</span>
+<button class="gb st" data-s="on">📶 オンライン</button>
+<button class="gb st on" data-s="off">📵 オフライン</button>
+<button class="gb st" data-s="syn">🔄 同期中</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">16. オフライン状態</h1>
+<p data-i="d">ホテルの客室は電波が届かない場所が多い。オフラインでも全機能が使える前提で設計し、通信が必要なのは同期のときだけ。「保存されていない」という不安を与えない表示にする。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">⚙️ <span data-i="ttl">通信と保存の状態</span></div>
+<div class="b" data-i="sub">記録は端末に保存されています</div></div>
+<div class="bd">
+
+<div class="stbar off2" id="sb"><div class="se" id="se">📵</div>
+<div class="st3" id="st3" data-i="s_off">オフラインで動作中</div>
+<div class="sd" id="sd" data-i="s_offd">記録は端末に保存されています。<br>接続が戻ると自動で送信されます。</div></div>
+
+<div class="sec">📦 <span data-i="s_q">送信待ちの記録</span><span class="cn" id="qc">14</span></div>
+<div class="qb">
+<div class="qh"><div class="ql">📋 <span data-i="q1">完了したタスク</span></div><div class="qn">3</div></div>
+<div class="qp"><i style="width:0%"></i></div>
+<div class="qs" data-i="q1s">302号室 · 305号室 · 308号室</div></div>
+<div class="qb">
+<div class="qh"><div class="ql">📷 <span data-i="q2">写真</span></div><div class="qn">9</div></div>
+<div class="qp"><i style="width:0%"></i></div>
+<div class="qs" data-i="q2s">合計 2.1 MB · 上限200枚まで保持できます</div></div>
+<div class="qb">
+<div class="qh"><div class="ql">🔍 <span data-i="q3">入室時の記録</span></div><div class="qn">2</div></div>
+<div class="qp"><i style="width:0%"></i></div>
+<div class="qs" data-i="q3s">305号室 · 308号室</div></div>
+
+<div class="sec">📝 <span data-i="s_l">最近の記録</span></div>
+<div class="qlist" id="ql3">
+<div class="qi"><span class="qe">✓</span><div class="qt"><div class="q1">308<span data-i="go">号室</span> <span data-i="cmp">完了</span></div>
+<div class="q2">15:42</div></div><span class="qm" data-i="wait">送信待ち</span></div>
+<div class="qi"><span class="qe">📷</span><div class="qt"><div class="q1"><span data-i="pht">写真</span> 4<span data-i="mai">枚</span></div>
+<div class="q2">15:38</div></div><span class="qm" data-i="wait">送信待ち</span></div>
+<div class="qi"><span class="qe">✓</span><div class="qt"><div class="q1">305<span data-i="go">号室</span> <span data-i="cmp">完了</span></div>
+<div class="q2">15:04</div></div><span class="qm" data-i="wait">送信待ち</span></div>
+<div class="qi"><span class="qe">✓</span><div class="qt"><div class="q1">302<span data-i="go">号室</span> <span data-i="cmp">完了</span></div>
+<div class="q2">14:56</div></div><span class="qm dn2" data-i="sent">送信済み</span></div>
+</div>
+
+<div class="al i" style="margin-top:14px">🔒 <span data-i="enc">端末内の記録は暗号化されています。他のアプリからは読み取れません。</span></div>
+
+<button class="big o" id="bt16" style="margin-top:4px">🔄 <span data-i="b_try">今すぐ送信を試す</span></button>
+<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6"
+data-i="note16">送信を待たずに次の作業を続けられます</div>
+</div>
+
+<div class="ft"><div><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div class="on"><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">オフライン優先で設計する</span></h3>
+<p data-i="c1a">ホテルの客室、地下、非常階段は電波が届かないことが多い。<b>オフラインが例外ではなく通常</b>という前提で設計する。</p>
+<table><tr><th data-i="th_f">機能</th><th data-i="th_o">オフラインで可能か</th></tr>
+<tr><td data-i="fn1">タスク一覧の閲覧</td><td class="fx" data-i="yes">可能</td></tr>
+<tr><td data-i="fn2">タスクの開始・完了</td><td class="fx" data-i="yes">可能</td></tr>
+<tr><td data-i="fn3">入室時の記録</td><td class="fx" data-i="yes">可能</td></tr>
+<tr><td data-i="fn4">写真の撮影</td><td class="fx" data-i="yes">可能</td></tr>
+<tr><td data-i="fn5">チェックリスト</td><td class="fx" data-i="yes">可能</td></tr>
+<tr><td data-i="fn6">リネン記録</td><td class="fx" data-i="yes">可能</td></tr>
+<tr><td data-i="fn7">当日タスクの再取得</td><td class="nx" data-i="no">通信が必要</td></tr>
+<tr><td data-i="fn8">他人の実績の閲覧</td><td class="nx" data-i="no">通信が必要</td></tr></table>
+<div class="rmk" data-i="c1r">❗ 当日のタスクは朝の初回同期で全件を端末に取得します。1日分のデータは数百KB程度なので、朝一度つながれば1日オフラインでも作業を完遂できます。</div></div>
+
+<div class="card"><h3>😌 <span data-i="c2t">不安を与えない表示</span></h3>
+<p data-i="c2a">オフライン表示で最も避けたいのは<b>「記録が消えるかもしれない」という不安</b>。文言を慎重に選ぶ。</p>
+<table><tr><th class="nx" data-i="th_ng">使わない</th><th class="fx" data-i="th_ok">使う</th></tr>
+<tr><td data-i="ng1">エラー：接続できません</td><td data-i="ok1">オフラインで動作中</td></tr>
+<tr><td data-i="ng2">保存に失敗しました</td><td data-i="ok2">端末に保存されています</td></tr>
+<tr><td data-i="ng3">未送信のデータがあります</td><td data-i="ok3">送信待ちの記録</td></tr>
+<tr><td data-i="ng4">接続してください</td><td data-i="ok4">接続が戻ると自動で送信されます</td></tr>
+</table>
+<div class="hint" data-i="c2h">💡 赤色は使わず、オフラインはオレンジ、同期中は青、オンラインは緑にしています。オフラインは異常ではなく正常な一状態だからです。</div></div>
+
+<div class="card"><h3>🔄 <span data-i="c3t">同期の仕組み</span></h3>
+<ul>
+<li data-i="s1">記録は即座に IndexedDB へ保存（暗号化）</li>
+<li data-i="s2">接続を検知すると自動でキューを送信</li>
+<li data-i="s3">送信順は 完了記録 → 入室記録 → 写真</li>
+<li data-i="s4">写真は1枚ずつ送信し、失敗しても他は進む</li>
+<li data-i="s5">3回失敗した項目は指数バックオフで再試行</li>
+<li data-i="s6">同期完了まで端末内のデータは削除しない</li>
+</ul>
+<div class="hint" data-i="c3h">💡 写真を最後に送るのは、サイズが大きく回線を占有するためです。完了記録が先に届けば管理者は進捗を把握できます。</div></div>
+
+<div class="card"><h3>⚔️ <span data-i="c4t">競合の解決</span></h3>
+<table><tr><th data-i="th_c">状況</th><th data-i="th_h">解決方法</th></tr>
+<tr><td data-i="cf1">同じタスクを2端末で完了</td><td data-i="hd1">先に届いた方を採用。後着は競合として記録</td></tr>
+<tr><td data-i="cf2">オフライン中に担当者が変更</td><td data-i="hd2">記録は保持。管理者に通知して判断を仰ぐ</td></tr>
+<tr><td data-i="cf3">オフライン中にタスクが削除</td><td data-i="hd3">記録は保持。削除は取り消さない</td></tr>
+<tr><td data-i="cf4">端末時刻がずれている</td><td data-i="hd4">サーバー時刻で補正し差分をログに残す</td></tr></table>
+<div class="rmk" data-i="c4r">❗ 競合が起きても<b>清掃員の記録を消すことは絶対にしません</b>。採用されなかった記録も conflictLog に残し、必要なら管理者が確認できます。現場の作業実績を失わないことを優先します。</div></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="f1">オフラインで全ての記録機能が動作する</li>
+<li data-i="f2">端末内データは暗号化して保存</li>
+<li data-i="f3">オフラインは赤ではなくオレンジで表示</li>
+<li data-i="f4">「失敗」「エラー」という語を使わない</li>
+<li data-i="f5">同期完了まで端末内データを削除しない</li>
+<li data-i="f6">競合時も清掃員の記録を消さない</li>
+</ul></div>
+</div></div></div><script>const I18N={ja:{},
+en:{t:"16. Offline State",
+d:"Many hotel guest rooms have no signal. The app is designed so every feature works offline, with connectivity needed only for syncing. Wording is chosen so nobody ever fears their record was lost.",
+ttl:"Connection & Storage",sub:"Records are saved on this device",
+s_off:"Working offline",s_offd:"Records are saved on this device.<br>They will be sent automatically when the connection returns.",
+s_on:"Online",s_ond:"All records have been sent.<br>Nothing is waiting.",
+s_syn:"Syncing",s_synd:"Sending your records.<br>You can continue working.",
+s_q:"Records waiting to send",
+q1:"Completed tasks",q1s:"Room 302 · Room 305 · Room 308",
+q2:"Photos",q2s:"2.1 MB total · up to 200 can be held",
+q3:"Entry records",q3s:"Room 305 · Room 308",
+s_l:"Recent records",go:"",cmp:"completed",pht:"Photos",mai:"",
+wait:"waiting",sent:"sent",
+enc:"Records on this device are encrypted. Other apps cannot read them.",
+b_try:"Try sending now",note16:"You can continue working without waiting for the upload",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"Designed offline-first",
+c1a:"Guest rooms, basements and fire stairs often have no signal. The design assumes <b>offline is normal, not exceptional</b>.",
+th_f:"Feature",th_o:"Works offline",
+fn1:"Viewing the task list",yes:"Yes",
+fn2:"Starting and completing tasks",fn3:"Entry record",fn4:"Taking photos",
+fn5:"Checklist",fn6:"Linen record",
+fn7:"Re-fetching today's tasks",no:"Needs connection",
+fn8:"Viewing others' statistics",
+c1r:"❗ The day's tasks are all downloaded in the first sync of the morning. A day's data is a few hundred kilobytes, so one connection in the morning is enough to work offline all day.",
+c2t:"Wording that avoids anxiety",
+c2a:"The thing to avoid most in an offline display is <b>the fear that a record might be lost</b>. Wording is chosen carefully.",
+th_ng:"Never",th_ok:"Instead",
+ng1:"Error: cannot connect",ok1:"Working offline",
+ng2:"Failed to save",ok2:"Saved on this device",
+ng3:"You have unsent data",ok3:"Records waiting to send",
+ng4:"Please connect",ok4:"They will be sent automatically when the connection returns",
+c2h:"💡 Red is never used: offline is orange, syncing is blue, online is green. Offline is a normal state, not a fault.",
+c3t:"How syncing works",
+s1:"Records are written to IndexedDB immediately (encrypted)",
+s2:"The queue is sent automatically when connectivity is detected",
+s3:"Order is completion records, then entry records, then photos",
+s4:"Photos go one at a time; a failure does not block the rest",
+s5:"Items that fail three times retry with exponential backoff",
+s6:"Local data is never deleted until the sync completes",
+c3h:"💡 Photos go last because they are large and monopolise the connection. Once completion records arrive, managers can already see progress.",
+c4t:"Resolving conflicts",th_c:"Situation",th_h:"Resolution",
+cf1:"The same task completed on two devices",hd1:"The first to arrive is used; the later one is recorded as a conflict",
+cf2:"The assignee changed while offline",hd2:"The record is kept; the manager is notified to decide",
+cf3:"The task was deleted while offline",hd3:"The record is kept; the deletion is not undone",
+cf4:"The device clock is skewed",hd4:"Corrected to server time with the difference logged",
+c4r:"❗ Even in a conflict, <b>a cleaner's record is never deleted</b>. Records that were not adopted remain in conflictLog for a manager to review. Not losing the field's work comes first.",
+c5t:"Decisions fixed on this screen",
+f1:"Every recording feature works offline",
+f2:"Local data is stored encrypted",
+f3:"Offline is shown in orange, never red",
+f4:"The words \"failed\" and \"error\" are not used",
+f5:"Local data is not deleted until sync completes",
+f6:"A cleaner's record is never deleted on conflict"},
+zh:{t:"16. 离线状态",
+d:"酒店客房里没信号的地方很多。以离线也能用全部功能为前提设计，需要通信的只有同步的时候。表示上不给人「没保存上」的不安。",
+ttl:"通信与保存的状态",sub:"记录已保存在端末内",
+s_off:"正在离线运行",s_offd:"记录已保存在端末内。<br>连接恢复后会自动发送。",
+s_on:"在线",s_ond:"全部记录已发送。<br>没有等待中的项目。",
+s_syn:"同步中",s_synd:"正在发送记录。<br>您可以继续作业。",
+s_q:"等待发送的记录",
+q1:"完成的任务",q1s:"302 号房 · 305 号房 · 308 号房",
+q2:"照片",q2s:"合计 2.1 MB · 最多可保持 200 张",
+q3:"入室记录",q3s:"305 号房 · 308 号房",
+s_l:"最近的记录",go:"号房",cmp:"完成",pht:"照片",mai:"张",
+wait:"等待发送",sent:"已发送",
+enc:"端末内的记录已加密。其他应用无法读取。",
+b_try:"立即尝试发送",note16:"不必等发送完成就能继续下一项作业",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"以离线优先设计",
+c1a:"酒店客房、地下、消防楼梯常常没信号。以<b>离线不是例外而是常态</b>为前提设计。",
+th_f:"功能",th_o:"离线可否",
+fn1:"浏览任务一览",yes:"可以",
+fn2:"任务的开始・完成",fn3:"入室记录",fn4:"拍摄照片",
+fn5:"检查表",fn6:"布草记录",
+fn7:"重新获取当日任务",no:"需要通信",
+fn8:"浏览他人的实绩",
+c1r:"❗ 当日的任务在早上的首次同步中全部取到端末。一天的数据只有几百 KB，所以早上连一次，一整天离线也能完成作业。",
+c2t:"不给人不安的表示",
+c2a:"离线表示中最要避免的是<b>「记录可能会消失」的不安</b>。措辞要慎重挑选。",
+th_ng:"不使用",th_ok:"使用",
+ng1:"错误：无法连接",ok1:"正在离线运行",
+ng2:"保存失败",ok2:"已保存在端末内",
+ng3:"有未发送的数据",ok3:"等待发送的记录",
+ng4:"请连接网络",ok4:"连接恢复后会自动发送",
+c2h:"💡 不用红色，离线用橙色、同步中用蓝色、在线用绿色。因为离线不是异常，而是正常的一种状态。",
+c3t:"同步的机制",
+s1:"记录立即保存到 IndexedDB（加密）",
+s2:"检测到连接就自动发送队列",
+s3:"发送顺序为 完成记录 → 入室记录 → 照片",
+s4:"照片逐张发送，失败了其他也继续",
+s5:"失败 3 次的项目用指数退避重试",
+s6:"同步完成前不删除端末内的数据",
+c3h:"💡 照片放最后发，是因为体积大会占用线路。完成记录先到，管理者就能把握进度。",
+c4t:"冲突的解决",th_c:"状况",th_h:"解决方法",
+cf1:"同一任务在 2 台端末完成",hd1:"采用先到的一方。后到的作为冲突记录",
+cf2:"离线期间担当者变更了",hd2:"记录保留。通知管理者请其判断",
+cf3:"离线期间任务被删除了",hd3:"记录保留。不撤销删除",
+cf4:"端末时刻有偏移",hd4:"用服务器时刻校正并把差分留在日志",
+c4r:"❗ 即使发生冲突，<b>也绝对不删除清扫员的记录</b>。未被采用的记录也留在 conflictLog 里，必要时管理者可以确认。优先不丢失现场的作业实绩。",
+c5t:"本画面的确定事项",
+f1:"离线时全部记录功能都能运行",
+f2:"端末内数据加密保存",
+f3:"离线用橙色而非红色显示",
+f4:"不使用「失败」「错误」这类词",
+f5:"同步完成前不删除端末内数据",
+f6:"冲突时也不删除清扫员的记录"},
+vi:{t:"16. Trạng thái offline",
+d:"Nhiều phòng khách sạn không có tín hiệu. Ứng dụng thiết kế để mọi tính năng chạy offline, chỉ cần mạng khi đồng bộ.",
+ttl:"Kết nối & Lưu trữ",sub:"Ghi nhận được lưu trên thiết bị này",
+s_off:"Đang chạy offline",s_offd:"Ghi nhận được lưu trên thiết bị này.<br>Sẽ tự gửi khi có kết nối.",
+s_on:"Trực tuyến",s_ond:"Mọi ghi nhận đã được gửi.<br>Không có gì đang chờ.",
+s_syn:"Đang đồng bộ",s_synd:"Đang gửi ghi nhận của bạn.<br>Bạn có thể tiếp tục làm việc.",
+s_q:"Ghi nhận đang chờ gửi",
+q1:"Nhiệm vụ đã hoàn thành",q1s:"Phòng 302 · 305 · 308",
+q2:"Ảnh",q2s:"Tổng 2.1 MB · giữ được tới 200 ảnh",
+q3:"Ghi nhận khi vào",q3s:"Phòng 305 · 308",
+s_l:"Ghi nhận gần đây",go:"",cmp:"hoàn thành",pht:"Ảnh",mai:"",
+wait:"đang chờ",sent:"đã gửi",
+enc:"Ghi nhận trên thiết bị được mã hóa. Ứng dụng khác không đọc được.",
+b_try:"Thử gửi ngay",note16:"Bạn có thể tiếp tục làm mà không cần chờ tải lên",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Thiết kế ưu tiên offline",
+c1a:"Phòng khách, tầng hầm và thang thoát hiểm thường không có tín hiệu. Thiết kế coi <b>offline là bình thường, không phải ngoại lệ</b>.",
+th_f:"Tính năng",th_o:"Chạy offline",
+fn1:"Xem danh sách nhiệm vụ",yes:"Được",
+fn2:"Bắt đầu và hoàn thành nhiệm vụ",fn3:"Ghi nhận khi vào",fn4:"Chụp ảnh",
+fn5:"Danh sách kiểm tra",fn6:"Ghi nhận khăn vải",
+fn7:"Tải lại nhiệm vụ hôm nay",no:"Cần kết nối",
+fn8:"Xem thành tích người khác",
+c1r:"❗ Toàn bộ nhiệm vụ trong ngày được tải về ở lần đồng bộ đầu buổi sáng. Dữ liệu một ngày chỉ vài trăm KB.",
+c2t:"Câu chữ không gây lo lắng",
+c2a:"Điều cần tránh nhất khi hiện trạng thái offline là <b>nỗi lo ghi nhận có thể mất</b>.",
+th_ng:"Không dùng",th_ok:"Thay bằng",
+ng1:"Lỗi: không kết nối được",ok1:"Đang chạy offline",
+ng2:"Lưu thất bại",ok2:"Đã lưu trên thiết bị này",
+ng3:"Bạn có dữ liệu chưa gửi",ok3:"Ghi nhận đang chờ gửi",
+ng4:"Vui lòng kết nối",ok4:"Sẽ tự gửi khi có kết nối",
+c2h:"💡 Không dùng đỏ: offline màu cam, đồng bộ màu xanh dương, trực tuyến màu xanh lá.",
+c3t:"Cách đồng bộ hoạt động",
+s1:"Ghi nhận vào IndexedDB ngay lập tức (mã hóa)",
+s2:"Hàng đợi tự gửi khi phát hiện kết nối",
+s3:"Thứ tự: ghi nhận hoàn thành, ghi nhận khi vào, rồi ảnh",
+s4:"Ảnh gửi từng cái; một lỗi không chặn phần còn lại",
+s5:"Mục lỗi ba lần thử lại theo lùi lũy tiến",
+s6:"Dữ liệu cục bộ không bị xóa cho tới khi đồng bộ xong",
+c3h:"💡 Ảnh gửi cuối vì dung lượng lớn và chiếm đường truyền.",
+c4t:"Giải quyết xung đột",th_c:"Tình huống",th_h:"Cách giải quyết",
+cf1:"Cùng nhiệm vụ hoàn thành trên hai thiết bị",hd1:"Dùng cái đến trước; cái sau ghi là xung đột",
+cf2:"Người phụ trách đổi khi offline",hd2:"Giữ ghi nhận; thông báo quản lý quyết định",
+cf3:"Nhiệm vụ bị xóa khi offline",hd3:"Giữ ghi nhận; không hoàn tác việc xóa",
+cf4:"Đồng hồ thiết bị lệch",hd4:"Sửa theo giờ server và ghi log chênh lệch",
+c4r:"❗ Dù xung đột, <b>ghi nhận của nhân viên không bao giờ bị xóa</b>. Ghi nhận không được dùng vẫn nằm trong conflictLog.",
+c5t:"Quyết định đã chốt",
+f1:"Mọi tính năng ghi nhận chạy offline",f2:"Dữ liệu cục bộ mã hóa",
+f3:"Offline hiện màu cam, không đỏ",f4:"Không dùng từ thất bại hay lỗi",
+f5:"Không xóa dữ liệu cục bộ trước khi đồng bộ xong",f6:"Không bao giờ xóa ghi nhận khi xung đột"},
+id:{t:"16. Keadaan Offline",
+d:"Banyak kamar hotel tanpa sinyal. Aplikasi dirancang agar semua fitur berjalan offline, koneksi hanya perlu saat sinkronisasi.",
+ttl:"Koneksi & Penyimpanan",sub:"Catatan tersimpan di perangkat ini",
+s_off:"Berjalan offline",s_offd:"Catatan tersimpan di perangkat ini.<br>Akan dikirim otomatis saat koneksi kembali.",
+s_on:"Daring",s_ond:"Semua catatan telah dikirim.<br>Tidak ada yang menunggu.",
+s_syn:"Menyinkronkan",s_synd:"Mengirim catatan Anda.<br>Anda bisa terus bekerja.",
+s_q:"Catatan menunggu dikirim",
+q1:"Tugas selesai",q1s:"Kamar 302 · 305 · 308",
+q2:"Foto",q2s:"Total 2.1 MB · hingga 200 bisa ditahan",
+q3:"Catatan masuk",q3s:"Kamar 305 · 308",
+s_l:"Catatan terbaru",go:"",cmp:"selesai",pht:"Foto",mai:"",
+wait:"menunggu",sent:"terkirim",
+enc:"Catatan di perangkat ini terenkripsi. Aplikasi lain tak bisa membacanya.",
+b_try:"Coba kirim sekarang",note16:"Anda bisa lanjut bekerja tanpa menunggu unggahan",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Dirancang offline lebih dulu",
+c1a:"Kamar tamu, basemen dan tangga darurat sering tanpa sinyal. Desain menganggap <b>offline itu normal, bukan pengecualian</b>.",
+th_f:"Fitur",th_o:"Jalan offline",
+fn1:"Melihat daftar tugas",yes:"Bisa",
+fn2:"Memulai dan menyelesaikan tugas",fn3:"Catatan masuk",fn4:"Mengambil foto",
+fn5:"Daftar periksa",fn6:"Catatan linen",
+fn7:"Mengambil ulang tugas hari ini",no:"Perlu koneksi",
+fn8:"Melihat statistik orang lain",
+c1r:"❗ Semua tugas hari itu diunduh pada sinkronisasi pertama pagi. Data satu hari hanya beberapa ratus kilobita.",
+c2t:"Kata-kata yang tak menimbulkan cemas",
+c2a:"Yang paling harus dihindari pada tampilan offline adalah <b>kecemasan bahwa catatan mungkin hilang</b>.",
+th_ng:"Tidak dipakai",th_ok:"Diganti",
+ng1:"Error: tak bisa terhubung",ok1:"Berjalan offline",
+ng2:"Gagal menyimpan",ok2:"Tersimpan di perangkat ini",
+ng3:"Ada data belum terkirim",ok3:"Catatan menunggu dikirim",
+ng4:"Silakan terhubung",ok4:"Akan dikirim otomatis saat koneksi kembali",
+c2h:"💡 Merah tak dipakai: offline oranye, sinkronisasi biru, daring hijau.",
+c3t:"Cara sinkronisasi bekerja",
+s1:"Catatan langsung ditulis ke IndexedDB (terenkripsi)",
+s2:"Antrean dikirim otomatis saat koneksi terdeteksi",
+s3:"Urutan: catatan penyelesaian, catatan masuk, lalu foto",
+s4:"Foto dikirim satu per satu; satu gagal tak menghalangi lain",
+s5:"Item yang gagal tiga kali dicoba dengan backoff eksponensial",
+s6:"Data lokal tak dihapus sampai sinkronisasi selesai",
+c3h:"💡 Foto dikirim terakhir karena besar dan memonopoli koneksi.",
+c4t:"Menyelesaikan konflik",th_c:"Situasi",th_h:"Penyelesaian",
+cf1:"Tugas sama diselesaikan di dua perangkat",hd1:"Yang datang lebih dulu dipakai; yang belakangan dicatat sebagai konflik",
+cf2:"Penanggung jawab berubah saat offline",hd2:"Catatan disimpan; manajer diberi tahu untuk memutuskan",
+cf3:"Tugas dihapus saat offline",hd3:"Catatan disimpan; penghapusan tidak dibatalkan",
+cf4:"Jam perangkat menyimpang",hd4:"Dikoreksi ke waktu server dan selisih dicatat",
+c4r:"❗ Meski konflik, <b>catatan petugas tak pernah dihapus</b>. Catatan yang tak dipakai tetap ada di conflictLog.",
+c5t:"Keputusan yang ditetapkan",
+f1:"Semua fitur pencatatan jalan offline",f2:"Data lokal terenkripsi",
+f3:"Offline oranye, bukan merah",f4:"Kata gagal dan error tak dipakai",
+f5:"Data lokal tak dihapus sebelum sinkronisasi selesai",f6:"Catatan petugas tak dihapus saat konflik"},
+my:{t:"၁၆. အွန်လိုင်းမရှိသည့်အခြေအနေ",
+d:"ဟိုတယ်အခန်းများတွင် လိုင်းမမိသည့်နေရာများ ရှိသည်။ အွန်လိုင်းမရှိလည်း လုပ်ဆောင်ချက်အားလုံး အသုံးပြုနိုင်ရန် ဒီဇိုင်းလုပ်သည်။",
+ttl:"ဆက်သွယ်မှုနှင့် သိမ်းဆည်းမှု",sub:"မှတ်တမ်းများ ဤဖုန်းတွင် သိမ်းထားသည်",
+s_off:"အွန်လိုင်းမရှိဘဲ လုပ်ဆောင်ဆဲ",s_offd:"မှတ်တမ်းများ ဤဖုန်းတွင် သိမ်းထားသည်။<br>ဆက်သွယ်မှုပြန်ရပါက အလိုအလျောက် ပို့မည်။",
+s_on:"အွန်လိုင်း",s_ond:"မှတ်တမ်းအားလုံး ပို့ပြီးပါပြီ။<br>စောင့်နေသည် မရှိပါ။",
+s_syn:"ချိန်ကိုက်ဆဲ",s_synd:"မှတ်တမ်းများ ပို့နေသည်။<br>အလုပ် ဆက်လုပ်နိုင်သည်။",
+s_q:"ပို့ရန်စောင့်နေသည့်မှတ်တမ်း",
+q1:"ပြီးဆုံးသည့်အလုပ်",q1s:"အခန်း ၃၀၂ · ၃၀၅ · ၃၀၈",
+q2:"ဓာတ်ပုံ",q2s:"စုစုပေါင်း ၂.၁ MB · ၂၀၀ ပုံအထိ ထားနိုင်",
+q3:"အခန်းဝင်မှတ်တမ်း",q3s:"အခန်း ၃၀၅ · ၃၀၈",
+s_l:"မကြာမီမှတ်တမ်း",go:"",cmp:"ပြီးဆုံး",pht:"ဓာတ်ပုံ",mai:" ပုံ",
+wait:"ပို့ရန်စောင့်",sent:"ပို့ပြီး",
+enc:"ဖုန်းအတွင်းမှတ်တမ်းများ လုံခြုံစွာ ကုဒ်ဝှက်ထားသည်။ အခြားအက်ပ်များမှ မဖတ်နိုင်ပါ။",
+b_try:"ယခုပင် ပို့ကြည့်",note16:"ပို့ပြီးမပြီး မစောင့်ဘဲ နောက်အလုပ် ဆက်လုပ်နိုင်သည်",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"အွန်လိုင်းမရှိမှုကို အဓိကထား ဒီဇိုင်း",
+c1a:"ဟိုတယ်အခန်း၊ အောက်ထပ်၊ အရေးပေါ်လှေကားများတွင် လိုင်းမမိလေ့ရှိသည်။ <b>အွန်လိုင်းမရှိမှုသည် ခြင်းချက်မဟုတ်ဘဲ ပုံမှန်</b>ဟု သတ်မှတ်၍ ဒီဇိုင်းလုပ်သည်။",
+th_f:"လုပ်ဆောင်ချက်",th_o:"အွန်လိုင်းမရှိဘဲ ရမရ",
+fn1:"အလုပ်စာရင်း ကြည့်ရှုမှု",yes:"ရသည်",
+fn2:"အလုပ် စတင်・ပြီးဆုံး",fn3:"အခန်းဝင်မှတ်တမ်း",fn4:"ဓာတ်ပုံရိုက်",
+fn5:"စစ်ဆေးစာရင်း",fn6:"အခင်းမှတ်တမ်း",
+fn7:"ဒီနေ့အလုပ် ပြန်ရယူမှု",no:"ဆက်သွယ်မှုလို",
+fn8:"အခြားသူ၏မှတ်တမ်း ကြည့်ရှုမှု",
+c1r:"❗ ဒီနေ့အလုပ်များကို နံနက်ပထမဆုံးချိန်ကိုက်မှုတွင် အားလုံး ဖုန်းသို့ ရယူသည်။ တစ်ရက်စာဒေတာသည် ရာဂဏန်း KB သာဖြစ်သည်။",
+c2t:"စိုးရိမ်မှု မဖြစ်စေသည့် ပြသမှု",
+c2a:"အွန်လိုင်းမရှိမှုပြသရာတွင် အရှောင်ရဆုံးသည် <b>\"မှတ်တမ်း ပျောက်နိုင်သည်\" ဟူသော စိုးရိမ်မှု</b>ဖြစ်သည်။",
+th_ng:"မသုံး",th_ok:"အစား",
+ng1:"အမှား：ဆက်သွယ်မရ",ok1:"အွန်လိုင်းမရှိဘဲ လုပ်ဆောင်ဆဲ",
+ng2:"သိမ်းဆည်းမှု မအောင်မြင်",ok2:"ဤဖုန်းတွင် သိမ်းထားသည်",
+ng3:"မပို့သေးသည့်ဒေတာ ရှိသည်",ok3:"ပို့ရန်စောင့်နေသည့်မှတ်တမ်း",
+ng4:"ဆက်သွယ်ပါ",ok4:"ဆက်သွယ်မှုပြန်ရပါက အလိုအလျောက် ပို့မည်",
+c2h:"💡 အနီ မသုံးပါ။ အွန်လိုင်းမရှိ လိမ္မော်၊ ချိန်ကိုက်ဆဲ အပြာ၊ အွန်လိုင်း အစိမ်း။",
+c3t:"ချိန်ကိုက်မှု လုပ်ဆောင်ပုံ",
+s1:"မှတ်တမ်းကို ချက်ချင်း IndexedDB သို့ သိမ်း（ကုဒ်ဝှက်）",
+s2:"ဆက်သွယ်မှု တွေ့ပါက တန်းစီကို အလိုအလျောက် ပို့",
+s3:"ပို့အစီအစဉ်：ပြီးဆုံးမှတ်တမ်း → အခန်းဝင်မှတ်တမ်း → ဓာတ်ပုံ",
+s4:"ဓာတ်ပုံကို တစ်ပုံချင်း ပို့၍ မအောင်မြင်လည်း အခြားများ ဆက်လုပ်",
+s5:"၃ ကြိမ် မအောင်မြင်သည်များကို ထပ်ကိန်းနောက်ဆုတ်ဖြင့် ပြန်စမ်း",
+s6:"ချိန်ကိုက်မှုပြီးသည်အထိ ဖုန်းအတွင်းဒေတာ မဖျက်ပါ",
+c3h:"💡 ဓာတ်ပုံကို နောက်ဆုံးပို့ရသည့်အကြောင်း：အရွယ်ကြီး၍ လိုင်းကို ဖမ်းစားမည်။",
+c4t:"ပွတ်တိုက်မှု ဖြေရှင်းမှု",th_c:"အခြေအနေ",th_h:"ဖြေရှင်းနည်း",
+cf1:"တူညီအလုပ်ကို ဖုန်း ၂ လုံးဖြင့် ပြီးဆုံး",hd1:"အရင်ရောက်သည်ကို အသုံးပြု။ နောက်ရောက်သည်ကို ပွတ်တိုက်မှုအဖြစ် မှတ်",
+cf2:"အွန်လိုင်းမရှိစဉ် တာဝန်ခံ ပြောင်း",hd2:"မှတ်တမ်း ထား။ စီမံခန့်ခွဲသူကို အသိပေး၍ ဆုံးဖြတ်ခိုင်း",
+cf3:"အွန်လိုင်းမရှိစဉ် အလုပ် ပယ်ဖျက်",hd3:"မှတ်တမ်း ထား။ ပယ်ဖျက်မှုကို ပြန်မလုပ်",
+cf4:"ဖုန်းအချိန် လွဲနေ",hd4:"ဆာဗာအချိန်ဖြင့် ပြင်၍ ကွာဟမှုကို လော့ဂ်တွင် ထား",
+c4r:"❗ ပွတ်တိုက်မှုဖြစ်လည်း <b>ဝန်ထမ်း၏မှတ်တမ်းကို လုံးဝ မဖျက်ပါ</b>။ အသုံးမပြုသည့်မှတ်တမ်းများပါ conflictLog တွင် ထားသည်။",
+c5t:"အတည်ပြုချက်",
+f1:"အွန်လိုင်းမရှိဘဲ မှတ်တမ်းလုပ်ဆောင်ချက်အားလုံး လည်ပတ်",f2:"ဖုန်းအတွင်းဒေတာ ကုဒ်ဝှက်သိမ်း",
+f3:"အွန်လိုင်းမရှိမှုကို အနီမဟုတ်ဘဲ လိမ္မော်ဖြင့် ပြ",f4:"\"မအောင်မြင်\"\"အမှား\" စကားလုံး မသုံး",
+f5:"ချိန်ကိုက်မှုပြီးသည်အထိ ဖုန်းအတွင်းဒေတာ မဖျက်",f6:"ပွတ်တိုက်ချိန်လည်း ဝန်ထမ်းမှတ်တမ်း မဖျက်"},
+ne:{t:"१६. अफलाइन अवस्था",
+d:"होटेलका कोठामा सिग्नल नआउने ठाउँ धेरै छन्। अफलाइनमा पनि सबै सुविधा चल्ने गरी डिजाइन गरिएको, सिंकमा मात्र इन्टरनेट चाहिन्छ।",
+ttl:"जडान र भण्डारण",sub:"रेकर्ड यही यन्त्रमा सुरक्षित छ",
+s_off:"अफलाइनमा चल्दै",s_offd:"रेकर्ड यही यन्त्रमा सुरक्षित छ।<br>जडान फर्केपछि स्वतः पठाइनेछ।",
+s_on:"अनलाइन",s_ond:"सबै रेकर्ड पठाइयो।<br>कुनै पर्खाइमा छैन।",
+s_syn:"सिंक हुँदै",s_synd:"तपाईंको रेकर्ड पठाउँदै।<br>काम जारी राख्न सक्नुहुन्छ।",
+s_q:"पठाउन बाँकी रेकर्ड",
+q1:"सम्पन्न काम",q1s:"कोठा ३०२ · ३०५ · ३०८",
+q2:"तस्बिर",q2s:"कुल २.१ MB · २०० सम्म राख्न सकिने",
+q3:"प्रवेश रेकर्ड",q3s:"कोठा ३०५ · ३०८",
+s_l:"पछिल्ला रेकर्ड",go:"",cmp:"सम्पन्न",pht:"तस्बिर",mai:"",
+wait:"पर्खाइमा",sent:"पठाइयो",
+enc:"यन्त्रभित्रका रेकर्ड इन्क्रिप्ट छन्। अन्य एपले पढ्न सक्दैनन्।",
+b_try:"अहिले पठाउने प्रयास",note16:"अपलोड नकुरी अर्को काम जारी राख्न सक्नुहुन्छ",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"अफलाइन-प्राथमिकता डिजाइन",
+c1a:"पाहुना कोठा, बेसमेन्ट र आपत्कालीन भर्‍याङमा प्रायः सिग्नल हुन्न। डिजाइनले <b>अफलाइन सामान्य हो, अपवाद होइन</b> मान्छ।",
+th_f:"सुविधा",th_o:"अफलाइन चल्छ",
+fn1:"काम सूची हेर्ने",yes:"सक्छ",
+fn2:"काम सुरु र सम्पन्न",fn3:"प्रवेश रेकर्ड",fn4:"तस्बिर खिच्ने",
+fn5:"जाँच सूची",fn6:"लिनेन रेकर्ड",
+fn7:"आजका काम पुनः लिने",no:"जडान चाहिन्छ",
+fn8:"अरूको नतिजा हेर्ने",
+c1r:"❗ दिनका सबै काम बिहानको पहिलो सिंकमा डाउनलोड हुन्छ। एक दिनको डाटा केही सय किलोबाइट मात्र हो।",
+c2t:"चिन्ता नबढाउने शब्द",
+c2a:"अफलाइन देखाउँदा सबैभन्दा बच्नुपर्ने <b>रेकर्ड हराउन सक्छ भन्ने डर</b> हो।",
+th_ng:"नगर्ने",th_ok:"बदलामा",
+ng1:"त्रुटि: जडान हुन सकेन",ok1:"अफलाइनमा चल्दै",
+ng2:"सुरक्षित गर्न असफल",ok2:"यही यन्त्रमा सुरक्षित छ",
+ng3:"नपठाइएको डाटा छ",ok3:"पठाउन बाँकी रेकर्ड",
+ng4:"कृपया जडान गर्नुहोस्",ok4:"जडान फर्केपछि स्वतः पठाइनेछ",
+c2h:"💡 रातो प्रयोग हुँदैन: अफलाइन सुन्तला, सिंक निलो, अनलाइन हरियो।",
+c3t:"सिंक कसरी काम गर्छ",
+s1:"रेकर्ड तुरुन्तै IndexedDB मा लेखिन्छ (इन्क्रिप्ट)",
+s2:"जडान पत्ता लागेपछि कतार स्वतः पठाइन्छ",
+s3:"क्रम: सम्पन्न रेकर्ड → प्रवेश रेकर्ड → तस्बिर",
+s4:"तस्बिर एक-एक पठाइन्छ; एउटा असफल भए अरू रोकिन्न",
+s5:"तीन पटक असफल वस्तु घातीय ब्याकअफले पुनः प्रयास",
+s6:"सिंक पूरा नभएसम्म स्थानीय डाटा मेटिँदैन",
+c3h:"💡 तस्बिर अन्तिममा पठाइन्छ किनकि ठूलो हुन्छ र लाइन ओगट्छ।",
+c4t:"द्वन्द्व समाधान",th_c:"स्थिति",th_h:"समाधान",
+cf1:"उही काम दुई यन्त्रमा सम्पन्न",hd1:"पहिले आएको प्रयोग; पछिको द्वन्द्वको रूपमा रेकर्ड",
+cf2:"अफलाइनमा जिम्मेवार बदलिएको",hd2:"रेकर्ड राखिन्छ; प्रबन्धकलाई निर्णयका लागि सूचना",
+cf3:"अफलाइनमा काम मेटिएको",hd3:"रेकर्ड राखिन्छ; मेटाइ फिर्ता हुन्न",
+cf4:"यन्त्रको घडी बिग्रेको",hd4:"सर्भर समयले सुधारी फरक लग गरिन्छ",
+c4r:"❗ द्वन्द्व भए पनि <b>कर्मचारीको रेकर्ड कदापि मेटिँदैन</b>। प्रयोग नभएका रेकर्ड conflictLog मा रहन्छ।",
+c5t:"तय भएका कुरा",
+f1:"अफलाइनमा सबै रेकर्ड सुविधा चल्ने",f2:"स्थानीय डाटा इन्क्रिप्ट",
+f3:"अफलाइन सुन्तला, रातो होइन",f4:"असफल र त्रुटि शब्द प्रयोग नगर्ने",
+f5:"सिंक पूरा नभएसम्म स्थानीय डाटा नमेट्ने",f6:"द्वन्द्वमा कर्मचारीको रेकर्ड नमेट्ने"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+const sb=document.getElementById('sb'),se=document.getElementById('se'),
+st3=document.getElementById('st3'),sd=document.getElementById('sd');
+function txt(k){const l=document.querySelector('.gb[data-l].on').dataset.l,d=I18N[l]||{};
+const ja={s_off:'オフラインで動作中',s_offd:'記録は端末に保存されています。<br>接続が戻ると自動で送信されます。',
+s_on:'オンライン',s_ond:'すべての記録は送信済みです。<br>送信待ちはありません。',
+s_syn:'同期中',s_synd:'記録を送信しています。<br>作業はそのまま続けられます。'};
+return d[k]!==undefined?d[k]:ja[k]}
+function setNet(s){
+if(s==='on'){sb.className='stbar on2';se.textContent='📶';
+st3.innerHTML=txt('s_on');sd.innerHTML=txt('s_ond');
+document.getElementById('qc').textContent='0';
+document.querySelectorAll('.qb .qn').forEach(n=>n.textContent='0');
+document.querySelectorAll('.qb .qp i').forEach(i=>i.style.width='100%');
+document.querySelectorAll('.qlist .qm').forEach(m=>{m.className='qm dn2';m.textContent=txt('sent')||'送信済み'})}
+else if(s==='syn'){sb.className='stbar syn';se.innerHTML='<span class="spin">🔄</span>';
+st3.innerHTML=txt('s_syn');sd.innerHTML=txt('s_synd');
+const w=[70,35,100];document.querySelectorAll('.qb .qp i').forEach((i,k)=>i.style.width=w[k]+'%');
+document.querySelectorAll('.qlist .qm').forEach((m,k)=>{if(k>1){m.className='qm dn2';m.textContent='送信済み'}
+else{m.className='qm up';m.textContent='送信中'}})}
+else{sb.className='stbar off2';se.textContent='📵';
+st3.innerHTML=txt('s_off');sd.innerHTML=txt('s_offd');
+document.getElementById('qc').textContent='14';
+const v=['3','9','2'];document.querySelectorAll('.qb .qn').forEach((n,k)=>n.textContent=v[k]);
+document.querySelectorAll('.qb .qp i').forEach(i=>i.style.width='0%');
+document.querySelectorAll('.qlist .qm').forEach((m,k)=>{if(k===3){m.className='qm dn2';m.textContent='送信済み'}
+else{m.className='qm';m.textContent='送信待ち'}})}}
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+setNet(this.dataset.s)});
+document.getElementById('bt16').onclick=function(){
+const cur=document.querySelector('.gb.st.on').dataset.s;
+if(cur==='on'){alert('送信待ちの記録はありません');return}
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));
+document.querySelector('.gb.st[data-s="syn"]').classList.add('on');setNet('syn');
+setTimeout(()=>{document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));
+document.querySelector('.gb.st[data-s="on"]').classList.add('on');setNet('on');
+alert('送信が完了しました\n\n完了タスク 3件\n入室時の記録 2件\n写真 9枚\n\n端末内のデータを削除しました')},2600)};
+</script></body></html>

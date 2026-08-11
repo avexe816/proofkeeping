@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 07 — 詳細記録</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.q{font-size:14px;font-weight:700;margin:14px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:16px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;min-height:74px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:25px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tg2{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}
+.tg2 .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tg2 .sw{width:52px;height:30px;border-radius:16px;background:var(--dirtybg);
+position:relative;transition:.2s;flex-shrink:0}
+.tg2 .sw:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg2.on .sw{background:var(--ok)}.tg2.on .sw:after{left:25px}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.tri{display:flex;gap:5px;flex-shrink:0}
+.tri .b{width:40px;height:40px;border-radius:9px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:17px;font-weight:800;color:var(--ink2);cursor:pointer;font-family:inherit}
+.tri .b.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.tri .b.ng{background:var(--danger);border-color:var(--danger);color:#fff}
+.tri .b.na{font-size:14px}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid var(--line);background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.dn{border-color:var(--ok);background:var(--okbg);opacity:.75}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:34px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">07 / 16 — 詳細記録（任意）</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">STATE</span>
+<button class="gb st on" data-s="full">全品目</button>
+<button class="gb st" data-s="min">施設で絞込</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">07. 詳細記録（アメニティ等・任意）</h1>
+<p data-i="d">06の「詳しく入力する」から遷移。すべて任意で、分からない項目は空欄で構わない。品目は施設ごとに有効・無効を設定でき、使わない品目は表示しない。STATEで絞り込みの効果を確認できる。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="bk">←</span> 302 · <span data-i="ttl">詳しく記録</span></div>
+<div class="b" data-i="sub">任意です。分からない項目は空欄で構いません</div></div>
+<div class="bd">
+<div class="al i">ℹ <span data-i="opt_n">この画面はすべて任意です。入力しなくても完了できます。</span></div>
+
+<div class="q">🧴 <span data-i="q1">アメニティの使用</span><span class="op" data-i="opt">任意</span></div>
+<div class="st"><div class="lb"><span class="e">🪥</span> <span data-i="a1">歯ブラシ</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb"><span class="e">🪒</span> <span data-i="a2">カミソリ</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv zero">0</span><button class="mb">＋</button></div></div>
+<div class="tg2 on"><div class="lb"><span class="e">🧴</span> <span data-i="a3">シャンプー類</span></div>
+<div class="sw"></div></div>
+<div class="st"><div class="lb"><span class="e">🥿</span> <span data-i="a4">スリッパ</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st xo"><div class="lb"><span class="e">💧</span> <span data-i="a5">ミネラル水</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv zero">0</span><button class="mb">＋</button></div></div>
+<div class="st xo"><div class="lb"><span class="e">🍵</span> <span data-i="a6">お茶・コーヒー</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv zero">0</span><button class="mb">＋</button></div></div>
+
+<div class="q">🥃 <span data-i="q2">その他</span><span class="op" data-i="opt">任意</span></div>
+<div class="st"><div class="lb"><span class="e">🥃</span> <span data-i="o1">グラス使用</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st xo"><div class="lb"><span class="e">🛌</span> <span data-i="o2">追加布団</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv zero">0</span><button class="mb">＋</button></div></div>
+<div class="st xo"><div class="lb"><span class="e">👘</span> <span data-i="o3">館内着</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+
+<div class="q">📝 <span data-i="q3">気づいたこと</span><span class="op" data-i="opt">任意</span></div>
+<div style="background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:12px;
+font-size:12px;color:var(--muted);min-height:58px" data-i="mm">通常と違う点があれば入力してください</div>
+
+<button class="big" id="bs" style="margin-top:14px">✓ <span data-i="b_ok">この内容で記録</span></button>
+<button class="big o" style="margin-top:9px" id="bb" data-i="b_back">入力せずに戻る</button>
+</div>
+<div class="ft"><div class="on"><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">この画面の設計意図</span></h3>
+<p data-i="c1a"><b>すべて任意にする。</b>06の必須5項目でP4の主要ルール（R001・R003）は成立する。この画面は補助データであり、入力を強制すると06の入力品質まで落ちる。</p>
+<p data-i="c1b"><b>品目は施設ごとに絞り込む。</b>館内着を置かないビジネスホテル、ミネラル水を置かない簡易宿所がある。使わない品目を出すと入力の手間だけが増える。</p>
+<p data-i="c1c"><b>数量とトグルを使い分ける。</b>歯ブラシは「何本」が分かるが、シャンプーは「使ったかどうか」しか分からない。品目の性質に合わせて入力方式を変える。</p></div>
+
+<div class="card"><h3>📊 <span data-i="c2t">入力方式の選定</span></h3>
+<table><tr><th data-i="th_i">品目</th><th data-i="th_m">方式</th><th data-i="th_r">理由</th></tr>
+<tr><td data-i="m1">歯ブラシ</td><td data-i="v_n">数量</td><td data-i="r1">個包装で本数が数えられる</td></tr>
+<tr><td data-i="m2">シャンプー類</td><td data-i="v_t">トグル</td><td data-i="r2">残量が分からない。使用有無のみ</td></tr>
+<tr><td data-i="m3">スリッパ</td><td data-i="v_n">数量</td><td data-i="r3">足数で数えられる</td></tr>
+<tr><td data-i="m4">ミネラル水</td><td data-i="v_n">数量</td><td data-i="r4">本数で数えられる</td></tr>
+<tr><td data-i="m5">グラス</td><td data-i="v_n">数量</td><td data-i="r5">使用済みの数を数えられる</td></tr></table>
+<div class="hint" data-i="c2h">💡 詰め替え式のシャンプーは残量が測れないためトグルにしています。ボトル交換型の施設では数量入力に切り替えられるよう、施設設定で方式を選べます。</div></div>
+
+<div class="card"><h3>🔗 <span data-i="c3t">P4での使われ方</span></h3>
+<ul>
+<li data-i="u1"><code>R008 アメニティ消費の異常</code> の判定に使用</li>
+<li data-i="u2">ベースライン（P3）の学習対象になる</li>
+<li data-i="u3">未入力の品目はそのルールをスキップ。エラーにしない</li>
+<li data-i="u4">重要度は LOW。単独で差異を生成しない</li>
+<li data-i="u5">他のシグナルと組み合わせて確信度を上げる補助データ</li>
+</ul>
+<div class="rmk" data-i="c3r">❗ アメニティ消費だけで「使用痕跡あり」と判定しません。単一シグナルで confidence 80以上を出さない原則（PK-SPEC-P4 §14）に従い、ベッドやゴミと組み合わせて初めて意味を持ちます。</div></div>
+
+<div class="card"><h3>⚙️ <span data-i="c4t">品目マスタ</span></h3>
+<p data-i="c4a">P3 §2.5 で定義した品目コードを使用。施設ごとに <code>observationConfig.enabledItemCodes</code> で有効化する。</p>
+<table><tr><th data-i="th_c">コード</th><th data-i="th_n">品目</th><th data-i="th_x">既定</th></tr>
+<tr><td>TOOTHBRUSH</td><td data-i="i1">歯ブラシ</td><td class="fx">ON</td></tr>
+<tr><td>RAZOR</td><td data-i="i2">カミソリ</td><td class="fx">ON</td></tr>
+<tr><td>SHAMPOO</td><td data-i="i3">シャンプー類</td><td class="fx">ON</td></tr>
+<tr><td>SLIPPERS</td><td data-i="i4">スリッパ</td><td class="fx">ON</td></tr>
+<tr><td>BOTTLED_WATER</td><td data-i="i5">ミネラル水</td><td class="nx">OFF</td></tr>
+<tr><td>TEA_BAG</td><td data-i="i6">お茶・コーヒー</td><td class="nx">OFF</td></tr>
+<tr><td>YUKATA</td><td data-i="i7">館内着</td><td class="nx">OFF</td></tr></table></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="f1">全項目任意。未入力でも完了できる</li>
+<li data-i="f2">品目は施設ごとに有効・無効を設定</li>
+<li data-i="f3">数量とトグルを品目の性質で使い分ける</li>
+<li data-i="f4">キーボードは出さない</li>
+<li data-i="f5">「入力せずに戻る」を必ず用意</li>
+<li data-i="f6">P4では補助データ。単独で差異を出さない</li>
+</ul></div>
+</div></div></div><script>const I18N={ja:{},
+en:{t:"07. Detail Record (amenities etc., optional)",
+d:"Reached from \"Add details\" on screen 06. Everything is optional and unknown fields may be left blank. Items are enabled per property, so unused ones never appear. Use STATE to see the filtering.",
+ttl:"Add Details",sub:"Optional. Leave blank if unsure.",
+opt_n:"Everything here is optional. You can complete the task without it.",
+q1:"Amenities used",q2:"Other",q3:"Anything you noticed",opt:"optional",
+a1:"Toothbrush",a2:"Razor",a3:"Shampoo etc.",a4:"Slippers",a5:"Bottled water",a6:"Tea / coffee",
+o1:"Glasses used",o2:"Extra futon",o3:"Yukata",
+mm:"Note anything different from usual",b_ok:"Save this",b_back:"Go back without entering",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"Design intent",
+c1a:"<b>Everything is optional.</b> The five required fields on screen 06 already satisfy P4's main rules (R001, R003). This screen is supplementary; forcing entry here would degrade screen 06 too.",
+c1b:"<b>Items are filtered per property.</b> A business hotel may not offer yukata; a simple lodging may not stock bottled water. Showing unused items only adds effort.",
+c1c:"<b>Quantity versus toggle.</b> Toothbrushes can be counted, but with shampoo you can only tell whether it was used. The input method follows the item.",
+c2t:"Choosing the input method",th_i:"Item",th_m:"Method",th_r:"Reason",
+m1:"Toothbrush",v_n:"Quantity",r1:"Individually wrapped, countable",
+m2:"Shampoo etc.",v_t:"Toggle",r2:"Remaining volume unknown; usage only",
+m3:"Slippers",r3:"Countable by pair",m4:"Bottled water",r4:"Countable by bottle",
+m5:"Glasses",r5:"Used ones can be counted",
+c2h:"💡 Refillable shampoo has no measurable level, so it is a toggle. Properties using bottle exchange can switch it to quantity input in property settings.",
+c3t:"How P4 uses this",
+u1:"Feeds the <code>R008 unusual amenity consumption</code> rule",
+u2:"Becomes part of baseline learning (P3)",
+u3:"Blank items simply skip that rule — never an error",
+u4:"Severity is LOW. It never generates a finding on its own",
+u5:"Supplementary data that raises confidence with other signals",
+c3r:"❗ Amenity consumption alone never produces a \"usage traces\" finding. Following the rule that a single signal never yields confidence above 80 (PK-SPEC-P4 §14), it only matters alongside beds and trash.",
+c4t:"Item master",
+c4a:"Uses the item codes from P3 §2.5, enabled per property via <code>observationConfig.enabledItemCodes</code>.",
+th_c:"Code",th_n:"Item",th_x:"Default",
+i1:"Toothbrush",i2:"Razor",i3:"Shampoo etc.",i4:"Slippers",i5:"Bottled water",i6:"Tea / coffee",i7:"Yukata",
+c5t:"Decisions fixed on this screen",
+f1:"All fields optional; completion possible without them",
+f2:"Items enabled or disabled per property",
+f3:"Quantity or toggle chosen by the item's nature",
+f4:"The keyboard never appears",
+f5:"\"Go back without entering\" is always available",
+f6:"Supplementary in P4; never a finding on its own"},
+zh:{t:"07. 详细记录（洗漱用品等・任意）",
+d:"从 06 的「输入详情」进入。全部为任意，不清楚的项目可留空。品目按设施设定有效・无效，不用的品目不显示。用 STATE 可以看到筛选效果。",
+ttl:"详细记录",sub:"任意项。不确定可留空。",
+opt_n:"本画面全部为任意。不输入也能完成任务。",
+q1:"洗漱用品的使用",q2:"其他",q3:"注意到的事",opt:"任意",
+a1:"牙刷",a2:"剃须刀",a3:"洗发用品",a4:"拖鞋",a5:"矿泉水",a6:"茶・咖啡",
+o1:"玻璃杯使用",o2:"追加被褥",o3:"馆内服",
+mm:"如有与平常不同之处请输入",b_ok:"按此记录",b_back:"不输入返回",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"本画面的设计意图",
+c1a:"<b>全部设为任意。</b>06 的必需 5 项已能成立 P4 的主要规则（R001・R003）。本画面是辅助数据，强制输入会连 06 的输入质量一起拉低。",
+c1b:"<b>品目按设施筛选。</b>有不放馆内服的商务酒店，也有不放矿泉水的简易宿所。显示不用的品目只会增加手间。",
+c1c:"<b>数量与开关分开使用。</b>牙刷能知道「几支」，但洗发用品只能知道「用没用」。按品目性质改变输入方式。",
+c2t:"输入方式的选定",th_i:"品目",th_m:"方式",th_r:"理由",
+m1:"牙刷",v_n:"数量",r1:"单独包装可数支数",
+m2:"洗发用品",v_t:"开关",r2:"不知余量，只知使用有无",
+m3:"拖鞋",r3:"可按双数计",m4:"矿泉水",r4:"可按瓶数计",
+m5:"玻璃杯",r5:"可数用过的个数",
+c2h:"💡 补充式洗发用品无法测量余量，所以用开关。瓶装更换型的设施可在设施设定中切换为数量输入。",
+c3t:"在 P4 中的使用方式",
+u1:"用于 <code>R008 洗漱用品消耗异常</code> 的判定",
+u2:"成为基线（P3）的学习对象",
+u3:"未输入的品目直接跳过该规则，不报错",
+u4:"重要度为 LOW。不单独生成差异",
+u5:"与其他信号组合以提高确信度的辅助数据",
+c3r:"❗ 仅凭洗漱用品消耗不判定「有使用痕迹」。遵循「单一信号不给出 confidence 80 以上」的原则（PK-SPEC-P4 §14），只有与床和垃圾组合才有意义。",
+c4t:"品目主档",
+c4a:"使用 P3 §2.5 定义的品目代码，通过 <code>observationConfig.enabledItemCodes</code> 按设施启用。",
+th_c:"代码",th_n:"品目",th_x:"默认",
+i1:"牙刷",i2:"剃须刀",i3:"洗发用品",i4:"拖鞋",i5:"矿泉水",i6:"茶・咖啡",i7:"馆内服",
+c5t:"本画面的确定事项",
+f1:"全项目任意。未输入也能完成",
+f2:"品目按设施设定有效・无效",
+f3:"数量与开关按品目性质分开使用",
+f4:"不弹键盘",f5:"必须准备「不输入返回」",
+f6:"P4 中为辅助数据，不单独产生差异"},
+vi:{t:"07. Ghi chi tiết (đồ dùng, tùy chọn)",
+d:"Vào từ \"Thêm chi tiết\" ở màn hình 06. Mọi thứ tùy chọn. Vật phẩm bật/tắt theo cơ sở.",
+ttl:"Thêm chi tiết",sub:"Tùy chọn. Để trống nếu không rõ.",
+opt_n:"Mọi thứ ở đây là tùy chọn. Bạn vẫn hoàn thành được nhiệm vụ.",
+q1:"Đồ dùng đã sử dụng",q2:"Khác",q3:"Điều bạn thấy",opt:"tùy chọn",
+a1:"Bàn chải",a2:"Dao cạo",a3:"Dầu gội",a4:"Dép",a5:"Nước suối",a6:"Trà / cà phê",
+o1:"Ly đã dùng",o2:"Đệm thêm",o3:"Áo yukata",
+mm:"Ghi điều khác thường lệ",b_ok:"Lưu như vậy",b_back:"Trở về không nhập",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Ý đồ thiết kế",
+c1a:"<b>Tất cả tùy chọn.</b> Năm mục bắt buộc ở màn hình 06 đã đủ cho các quy tắc chính của P4. Bắt buộc ở đây sẽ làm giảm chất lượng của 06.",
+c1b:"<b>Lọc theo cơ sở.</b> Khách sạn công vụ có thể không có yukata; nhà nghỉ đơn giản không có nước đóng chai.",
+c1c:"<b>Số lượng hay bật/tắt.</b> Bàn chải đếm được, dầu gội chỉ biết đã dùng hay chưa.",
+c2t:"Chọn cách nhập",th_i:"Mục",th_m:"Cách",th_r:"Lý do",
+m1:"Bàn chải",v_n:"Số lượng",r1:"Gói riêng, đếm được",
+m2:"Dầu gội",v_t:"Bật/tắt",r2:"Không biết lượng còn lại",
+m3:"Dép",r3:"Đếm theo đôi",m4:"Nước suối",r4:"Đếm theo chai",
+m5:"Ly",r5:"Đếm số đã dùng",
+c2h:"💡 Dầu gội loại nạp lại không đo được nên dùng bật/tắt. Cơ sở đổi chai có thể chuyển sang nhập số lượng.",
+c3t:"P4 dùng dữ liệu này thế nào",
+u1:"Cấp cho quy tắc <code>R008</code>",u2:"Tham gia học đường cơ sở (P3)",
+u3:"Mục để trống chỉ bỏ qua quy tắc, không lỗi",u4:"Mức LOW, không tự tạo chênh lệch",
+u5:"Dữ liệu bổ trợ nâng độ tin cậy khi kết hợp",
+c3r:"❗ Riêng đồ dùng không tạo kết luận có dấu vết sử dụng. Một tín hiệu đơn lẻ không cho độ tin cậy trên 80.",
+c4t:"Danh mục vật phẩm",c4a:"Dùng mã ở P3 §2.5, bật theo cơ sở.",
+th_c:"Mã",th_n:"Vật phẩm",th_x:"Mặc định",
+i1:"Bàn chải",i2:"Dao cạo",i3:"Dầu gội",i4:"Dép",i5:"Nước suối",i6:"Trà / cà phê",i7:"Yukata",
+c5t:"Quyết định đã chốt",
+f1:"Mọi mục tùy chọn",f2:"Bật/tắt theo cơ sở",f3:"Số lượng hay bật/tắt theo bản chất",
+f4:"Không hiện bàn phím",f5:"Luôn có \"Trở về không nhập\"",f6:"Bổ trợ trong P4"},
+id:{t:"07. Catatan Detail (perlengkapan, opsional)",
+d:"Diakses dari \"Tambah detail\" di layar 06. Semuanya opsional. Item diaktifkan per properti.",
+ttl:"Tambah Detail",sub:"Opsional. Kosongkan bila ragu.",
+opt_n:"Semua di sini opsional. Tugas bisa diselesaikan tanpanya.",
+q1:"Perlengkapan dipakai",q2:"Lainnya",q3:"Yang Anda perhatikan",opt:"opsional",
+a1:"Sikat gigi",a2:"Pisau cukur",a3:"Sampo dll.",a4:"Sandal",a5:"Air mineral",a6:"Teh / kopi",
+o1:"Gelas dipakai",o2:"Kasur tambahan",o3:"Yukata",
+mm:"Catat yang berbeda dari biasanya",b_ok:"Simpan ini",b_back:"Kembali tanpa mengisi",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Maksud desain",
+c1a:"<b>Semuanya opsional.</b> Lima kolom wajib di layar 06 sudah cukup untuk aturan utama P4. Mewajibkan di sini justru menurunkan mutu layar 06.",
+c1b:"<b>Item difilter per properti.</b> Hotel bisnis mungkin tak menyediakan yukata; losmen sederhana tak menyediakan air mineral.",
+c1c:"<b>Jumlah versus sakelar.</b> Sikat gigi bisa dihitung, sampo hanya bisa diketahui terpakai atau tidak.",
+c2t:"Memilih metode input",th_i:"Item",th_m:"Metode",th_r:"Alasan",
+m1:"Sikat gigi",v_n:"Jumlah",r1:"Terbungkus satuan, bisa dihitung",
+m2:"Sampo dll.",v_t:"Sakelar",r2:"Sisa volume tak diketahui",
+m3:"Sandal",r3:"Bisa dihitung per pasang",m4:"Air mineral",r4:"Bisa dihitung per botol",
+m5:"Gelas",r5:"Yang terpakai bisa dihitung",
+c2h:"💡 Sampo isi ulang tak terukur, jadi memakai sakelar. Properti dengan botol tukar bisa beralih ke input jumlah.",
+c3t:"Cara P4 memakainya",
+u1:"Memberi masukan aturan <code>R008</code>",u2:"Bagian dari pembelajaran baseline (P3)",
+u3:"Item kosong hanya melewati aturan, bukan error",u4:"Tingkat LOW, tak membuat temuan sendiri",
+u5:"Data pelengkap yang menaikkan keyakinan bila digabung",
+c3r:"❗ Perlengkapan saja tak menghasilkan temuan jejak pemakaian. Satu sinyal tunggal tak memberi keyakinan di atas 80.",
+c4t:"Master item",c4a:"Memakai kode dari P3 §2.5, diaktifkan per properti.",
+th_c:"Kode",th_n:"Item",th_x:"Default",
+i1:"Sikat gigi",i2:"Pisau cukur",i3:"Sampo dll.",i4:"Sandal",i5:"Air mineral",i6:"Teh / kopi",i7:"Yukata",
+c5t:"Keputusan yang ditetapkan",
+f1:"Semua kolom opsional",f2:"Item diaktifkan per properti",f3:"Jumlah atau sakelar sesuai sifat",
+f4:"Papan ketik tak muncul",f5:"Selalu ada \"Kembali tanpa mengisi\"",f6:"Pelengkap di P4"},
+my:{t:"၀၇. အသေးစိတ်မှတ်တမ်း（မလိုအပ်）",
+d:"၀၆ ၏ \"အသေးစိတ်ထည့်\" မှ ဝင်သည်။ အားလုံး မလိုအပ်ပါ။ အမျိုးအစားများကို အဆောက်အအုံအလိုက် ဖွင့်ပိတ်နိုင်သည်။",
+ttl:"အသေးစိတ်မှတ်တမ်း",sub:"မလိုအပ်ပါ။ မသိပါက ကွက်လပ်ထားပါ။",
+opt_n:"ဤမျက်နှာပြင်အားလုံး မလိုအပ်ပါ။ မထည့်လည်း ပြီးဆုံးနိုင်သည်။",
+q1:"အသုံးအဆောင်အသုံးပြုမှု",q2:"အခြား",q3:"သတိထားမိသည်",opt:"မလိုအပ်",
+a1:"သွားတိုက်တံ",a2:"မုတ်ဆိတ်ရိတ်",a3:"ဆံပင်လျှော်ရည်",a4:"ဖိနပ်",a5:"သောက်ရေ",a6:"လက်ဖက်ရည်/ကော်ဖီ",
+o1:"ဖန်ခွက်",o2:"အပိုစောင်",o3:"ဟိုတယ်အင်္ကျီ",
+mm:"ပုံမှန်နှင့်မတူသည် ရေးပါ",b_ok:"ဤအတိုင်းမှတ်",b_back:"မထည့်ဘဲ ပြန်",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"ဒီဇိုင်းရည်ရွယ်ချက်",
+c1a:"<b>အားလုံး မလိုအပ်ပါ။</b> ၀၆ ၏ မလိုမဖြစ် ၅ ခုဖြင့် P4 ၏ အဓိကစည်းမျဉ်း ပြီးစီးသည်။ ဤတွင် မလိုမဖြစ်လုပ်ပါက ၀၆ ၏ အရည်အသွေးပါ ကျဆင်းမည်။",
+c1b:"<b>အဆောက်အအုံအလိုက် စစ်ထုတ်သည်။</b> ဟိုတယ်အင်္ကျီမထားသည့် ဟိုတယ်များ၊ သောက်ရေမထားသည့် တည်းခိုခန်းများ ရှိသည်။",
+c1c:"<b>အရေအတွက်နှင့် ခလုတ် ခွဲသုံးသည်။</b> သွားတိုက်တံ ရေတွက်နိုင်သည်၊ ဆံပင်လျှော်ရည် အသုံးပြုမပြု သာသိသည်။",
+c2t:"ထည့်သွင်းနည်း ရွေးချယ်မှု",th_i:"အမျိုးအစား",th_m:"နည်း",th_r:"အကြောင်းရင်း",
+m1:"သွားတိုက်တံ",v_n:"အရေအတွက်",r1:"တစ်ခုချင်း ထုပ်ပိုးထားသဖြင့် ရေတွက်နိုင်",
+m2:"ဆံပင်လျှော်ရည်",v_t:"ခလုတ်",r2:"ကျန်ပမာဏ မသိရ",
+m3:"ဖိနပ်",r3:"တစ်စုံစီ ရေတွက်နိုင်",m4:"သောက်ရေ",r4:"ပုလင်းအလိုက် ရေတွက်နိုင်",
+m5:"ဖန်ခွက်",r5:"အသုံးပြုပြီးအရေအတွက် ရေတွက်နိုင်",
+c2h:"💡 ထပ်ဖြည့်ဆံပင်လျှော်ရည်သည် ပမာဏမတိုင်းနိုင်သဖြင့် ခလုတ်အသုံးပြုသည်။",
+c3t:"P4 တွင် အသုံးပြုနည်း",
+u1:"<code>R008</code> စည်းမျဉ်းအတွက်",u2:"အခြေခံမျဉ်း（P3）သင်ယူမှုတွင် ပါဝင်",
+u3:"မထည့်သောအမျိုးအစားကို ကျော်သွား။ အမှားမဟုတ်",u4:"အရေးပါမှု LOW။ တစ်ခုတည်းဖြင့် ကွာဟမှု မဖန်တီး",
+u5:"အခြားလက္ခဏာနှင့် ပေါင်း၍ ယုံကြည်မှုတိုးရန် အထောက်အကူ",
+c3r:"❗ အသုံးအဆောင်တစ်ခုတည်းဖြင့် အသုံးပြုလက္ခဏာ မဆုံးဖြတ်ပါ။ လက္ခဏာတစ်ခုတည်းဖြင့် ယုံကြည်မှု ၈၀ အထက် မထုတ်ပါ။",
+c4t:"အမျိုးအစား စာရင်း",c4a:"P3 §2.5 ကုဒ်များ အသုံးပြု၍ အဆောက်အအုံအလိုက် ဖွင့်သည်။",
+th_c:"ကုဒ်",th_n:"အမျိုးအစား",th_x:"မူရင်း",
+i1:"သွားတိုက်တံ",i2:"မုတ်ဆိတ်ရိတ်",i3:"ဆံပင်လျှော်ရည်",i4:"ဖိနပ်",i5:"သောက်ရေ",i6:"လက်ဖက်ရည်",i7:"ဟိုတယ်အင်္ကျီ",
+c5t:"အတည်ပြုချက်",
+f1:"အားလုံး မလိုအပ်",f2:"အဆောက်အအုံအလိုက် ဖွင့်ပိတ်",f3:"အရေအတွက်/ခလုတ် ခွဲသုံး",
+f4:"ကီးဘုတ် မဖွင့်",f5:"\"မထည့်ဘဲပြန်\" အမြဲထား",f6:"P4 တွင် အထောက်အကူ"},
+ne:{t:"०७. विस्तृत रेकर्ड (सामग्री आदि, स्वैच्छिक)",
+d:"स्क्रिन ०६ को \"विवरण थप्ने\" बाट आउँछ। सबै स्वैच्छिक। वस्तु सुविधाअनुसार सक्रिय हुन्छ।",
+ttl:"विस्तृत रेकर्ड",sub:"स्वैच्छिक। थाहा नभए खाली छोड्नुहोस्।",
+opt_n:"यहाँका सबै स्वैच्छिक हुन्। नभरे पनि सम्पन्न गर्न सकिन्छ।",
+q1:"प्रयोग भएका सामग्री",q2:"अन्य",q3:"देखेको कुरा",opt:"स्वैच्छिक",
+a1:"दाँत ब्रस",a2:"रेजर",a3:"स्याम्पू आदि",a4:"चप्पल",a5:"बोतल पानी",a6:"चिया / कफी",
+o1:"गिलास प्रयोग",o2:"थप ओछ्यान",o3:"युकाता",
+mm:"सामान्यभन्दा फरक भए लेख्नुहोस्",b_ok:"यही सुरक्षित",b_back:"नभरी फर्कने",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"डिजाइनको उद्देश्य",
+c1a:"<b>सबै स्वैच्छिक।</b> स्क्रिन ०६ का पाँच अनिवार्यले P4 का मुख्य नियम पूरा गर्छन्। यहाँ अनिवार्य बनाउँदा ०६ को गुणस्तर पनि घट्छ।",
+c1b:"<b>सुविधाअनुसार फिल्टर।</b> व्यापारिक होटेलमा युकाता नहुन सक्छ; साधारण बासमा बोतल पानी नहुन सक्छ।",
+c1c:"<b>संख्या वा टगल।</b> ब्रस गन्न सकिन्छ, स्याम्पू प्रयोग भयो कि मात्र थाहा हुन्छ।",
+c2t:"इनपुट विधि छनोट",th_i:"वस्तु",th_m:"विधि",th_r:"कारण",
+m1:"दाँत ब्रस",v_n:"संख्या",r1:"छुट्टै प्याक, गन्न सकिने",
+m2:"स्याम्पू आदि",v_t:"टगल",r2:"बाँकी मात्रा थाहा नहुने",
+m3:"चप्पल",r3:"जोडीमा गन्न सकिने",m4:"बोतल पानी",r4:"बोतलमा गन्न सकिने",
+m5:"गिलास",r5:"प्रयोग भएको गन्न सकिने",
+c2h:"💡 पुनःभर्ने स्याम्पूको मात्रा नापिन्न, त्यसैले टगल।",
+c3t:"P4 मा प्रयोग",
+u1:"<code>R008</code> नियमलाई",u2:"आधाररेखा (P3) सिकाइमा",
+u3:"खाली वस्तुले नियम छोड्छ, त्रुटि होइन",u4:"स्तर LOW, आफै चेतावनी बनाउँदैन",
+u5:"अन्य संकेतसँग मिलेर विश्वास बढाउने सहायक डाटा",
+c3r:"❗ सामग्री मात्रले प्रयोगको प्रमाण बन्दैन। एउटै संकेतले ८० माथि विश्वास दिँदैन।",
+c4t:"वस्तु मास्टर",c4a:"P3 §2.5 का कोड प्रयोग, सुविधाअनुसार सक्रिय।",
+th_c:"कोड",th_n:"वस्तु",th_x:"पूर्वनिर्धारित",
+i1:"दाँत ब्रस",i2:"रेजर",i3:"स्याम्पू",i4:"चप्पल",i5:"बोतल पानी",i6:"चिया / कफी",i7:"युकाता",
+c5t:"तय भएका कुरा",
+f1:"सबै स्वैच्छिक",f2:"सुविधाअनुसार सक्रिय",f3:"संख्या वा टगल",
+f4:"किबोर्ड देखिँदैन",f5:"सधैं \"नभरी फर्कने\"",f6:"P4 मा सहायक"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+document.querySelectorAll('.st .mb').forEach(b=>b.onclick=function(){
+const v=this.parentNode.querySelector('.vv');let n=parseInt(v.textContent);
+n=this.textContent==='＋'?n+1:Math.max(0,n-1);v.textContent=n;v.classList.toggle('zero',n===0)});
+document.querySelectorAll('.tg2').forEach(t=>t.onclick=function(){this.classList.toggle('on')});
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const h=this.dataset.s==='min';
+document.querySelectorAll('.xo').forEach(e=>e.style.display=h?'none':'')});
+document.getElementById('bs').onclick=()=>alert('記録しました\n\n→ 08 チェックリスト へ');
+document.getElementById('bb').onclick=()=>alert('入力せずに戻ります\n\n→ 08 チェックリスト へ');
+</script></body></html>

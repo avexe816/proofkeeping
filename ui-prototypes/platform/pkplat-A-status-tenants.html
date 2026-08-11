@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK-PLAT A — 稼働とテナント</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--brandTop:#0E3229;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--surf3:#F1EFE7;--line:#DDD9CB;--line2:#EAE7DC;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DFEDE6;--warn:#C56A28;--warnbg:#F9E7D8;
+--info:#3A5C8F;--infobg:#E5EBF5;--danger:#9C3B32;--dangerbg:#F7E2DF;
+--dirty:#8A8F88;--dirtybg:#EDEBE3;--sh:0 1px 3px rgba(20,30,25,.06);
+--shPop:0 12px 40px rgba(10,20,15,.28)}
+.dark{--bg:#0D1512;--surf:#141F1B;--surf2:#18251F;--surf3:#1E2B25;--line:#283730;--line2:#22302A;
+--ink:#E7ECE8;--ink2:#B2BEB8;--muted:#7C8A84;--okbg:#14372A;--warnbg:#3B2515;
+--infobg:#18253C;--dangerbg:#381C19;--dirtybg:#212A25;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#98A19A;--sh:0 1px 3px rgba(0,0,0,.3)}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;
+background:#0A0E0C;color:#E7ECE8;line-height:1.6;font-size:14px}
+.dc{position:sticky;top:0;z-index:400;background:#070B09;border-bottom:1px solid #1B2621;
+padding:10px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.dc .lg{font-size:13.5px;font-weight:800}.dc .lg em{color:var(--accent2);font-style:normal}
+.dc .bt{font-size:10.5px;color:#00A8A8;background:#0C231F;padding:3px 9px;border-radius:5px;font-weight:700}
+.dc .gl{font-size:10px;color:#5B6862;align-self:center}
+.dc .dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #283730;
+background:#101714;color:#9AA7A0;font-size:11.5px;cursor:pointer;font-family:inherit}
+.wrap{padding:22px 20px 40px;max-width:1600px;margin:0 auto}
+.pg{margin-bottom:34px}
+.pg .hd h1{font-size:19px;margin-bottom:5px}
+.pg .hd p{font-size:12.5px;color:#7C8A84;margin-bottom:16px;line-height:1.75;max-width:1080px}
+.bf{border-radius:12px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.5);
+border:1px solid #202D27;background:var(--surf)}
+.bb{background:#111917;padding:9px 14px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #202D27}
+.bb .dt{display:flex;gap:6px}
+.bb .dt i{width:10px;height:10px;border-radius:50%;display:block}
+.bb .dt i:nth-child(1){background:#E0645A}.bb .dt i:nth-child(2){background:#E3B34C}
+.bb .dt i:nth-child(3){background:#57B77F}
+.bb .url{flex:1;background:#0B120F;border-radius:6px;padding:5px 12px;font-size:11px;color:#7C8A84;
+font-family:ui-monospace,monospace}
+.shell{display:flex;flex-direction:column;background:var(--bg);color:var(--ink);min-height:700px}
+.top3{height:58px;flex-shrink:0;background:var(--brandTop);color:#fff;display:flex;
+align-items:center;padding:0 16px 0 0;position:relative;z-index:120}
+.top3 .brand{width:214px;flex-shrink:0;padding-left:18px;font-size:15.5px;font-weight:800}
+.top3 .brand em{color:var(--accent2);font-style:normal}
+.top3 .brand span{display:block;font-size:8.5px;color:#9FBFAF;font-weight:700;letter-spacing:.06em}
+.psel{position:relative;flex-shrink:0}
+.psel .btn3{display:flex;align-items:center;gap:10px;padding:8px 13px;border-radius:9px;
+background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);cursor:pointer;
+color:#fff;font-family:inherit;font-size:13.5px;font-weight:700}
+.psel .btn3:hover{background:rgba(255,255,255,.15)}
+.psel.open .btn3{background:rgba(255,255,255,.17)}
+.psel .btn3 .rc4{font-size:11px;font-weight:600;color:#A9C6B7;background:rgba(0,0,0,.2);
+padding:2px 7px;border-radius:5px}
+.psel .btn3 .cv{font-size:10px;opacity:.7}
+.pdd{position:absolute;top:calc(100% + 7px);left:0;width:430px;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;box-shadow:var(--shPop);overflow:hidden;
+display:none;color:var(--ink);max-height:400px;overflow-y:auto}
+.psel.open .pdd{display:block}
+.pdd .ph4{padding:11px 15px;background:var(--surf3);border-bottom:1px solid var(--line);
+font-size:10.5px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between;
+position:sticky;top:0}
+.pdd .pi{display:flex;align-items:center;gap:11px;padding:11px 15px;cursor:pointer;
+border-bottom:1px solid var(--line2)}
+.pdd .pi:last-child{border-bottom:0}
+.pdd .pi:hover{background:var(--surf2)}
+.pdd .pi.on{background:var(--okbg)}
+.pdd .pi .ck4{width:15px;flex-shrink:0;color:var(--ok);font-weight:800;font-size:13px;opacity:0}
+.pdd .pi.on .ck4{opacity:1}
+.pdd .pi .e6{font-size:16px}
+.pdd .pi .nb{flex:1;min-width:0}
+.pdd .pi .nb .n5{font-size:12.5px;font-weight:700}
+.pdd .pi .nb .d4{font-size:10px;color:var(--muted);margin-top:1px}
+.pdd .pi .st5{display:flex;gap:4px}
+.pdd .pi .st5 b{font-size:10px;font-weight:800;padding:2px 6px;border-radius:5px;min-width:24px;text-align:center}
+.pdd .pi .st5 b.d5{background:var(--okbg);color:var(--ok)}
+.pdd .pi .st5 b.r5{background:var(--warnbg);color:var(--warn)}
+.pdd .pi .st5 b.f5{background:var(--dangerbg);color:var(--danger)}
+.pdd .pall{border-bottom:2px solid var(--line)}
+.top3 .rt3{margin-left:auto;display:flex;align-items:center;gap:6px}
+.top3 .bell{position:relative;width:36px;height:36px;border-radius:9px;display:flex;
+align-items:center;justify-content:center;font-size:17px;cursor:pointer}
+.top3 .bell:hover{background:rgba(255,255,255,.11)}
+.top3 .bell .bd3{position:absolute;top:3px;right:3px;background:var(--accent);color:#241806;
+font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:8px;
+display:flex;align-items:center;justify-content:center;padding:0 4px}
+.usr{position:relative}
+.usr .ub{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;border-radius:9px;
+cursor:pointer;color:#fff;font-family:inherit;background:transparent;border:0}
+.usr .ub:hover{background:rgba(255,255,255,.11)}
+.usr.open .ub{background:rgba(255,255,255,.15)}
+.usr .av{width:29px;height:29px;border-radius:50%;background:var(--accent);color:#241806;
+display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.usr .un{font-size:12.5px;font-weight:700}
+.usr .cv2{font-size:9px;opacity:.7}
+.udd{position:absolute;top:calc(100% + 7px);right:0;width:258px;background:var(--surf);
+border:1px solid var(--line);border-radius:11px;box-shadow:var(--shPop);overflow:hidden;
+display:none;color:var(--ink)}
+.usr.open .udd{display:block}
+.udd .uh{padding:13px 15px;border-bottom:1px solid var(--line2);background:var(--surf3)}
+.udd .uh .n6{font-size:13px;font-weight:800}
+.udd .uh .m4{font-size:10.5px;color:var(--muted);margin-top:2px}
+.udd .uh .rl2{font-size:9.5px;font-weight:800;background:var(--dangerbg);color:var(--danger);
+padding:2px 7px;border-radius:5px;display:inline-block;margin-top:6px}
+.udd a{display:flex;align-items:center;gap:9px;padding:10px 15px;font-size:12.5px;
+color:var(--ink2);text-decoration:none;cursor:pointer;border-bottom:1px solid var(--line2)}
+.udd a:last-child{border-bottom:0}
+.udd a:hover{background:var(--surf2)}
+.udd a .rv{margin-left:auto;font-size:11px;color:var(--muted);font-weight:600}
+.udd a.dgr{color:var(--danger)}
+.lgm{position:absolute;top:0;right:calc(100% + 6px);width:186px;background:var(--surf);
+border:1px solid var(--line);border-radius:10px;box-shadow:var(--shPop);display:none;overflow:hidden}
+.udd a.lgw{position:relative}
+.udd a.lgw.op .lgm{display:block}
+.lgm div{padding:9px 13px;font-size:12px;border-bottom:1px solid var(--line2);
+display:flex;align-items:center;gap:8px}
+.lgm div:last-child{border-bottom:0}
+.lgm div:hover{background:var(--surf2)}
+.lgm div.on{background:var(--okbg);color:var(--ok);font-weight:700}
+.bd4{display:flex;flex:1;min-height:0}
+.sb3{width:214px;flex-shrink:0;background:var(--brand);color:#fff;display:flex;flex-direction:column}
+.sb3 nav{padding:10px 0;flex:1;overflow-y:auto}
+.sb3 nav::-webkit-scrollbar{width:0}
+.sb3 .sc3{font-size:9px;color:#7DA391;font-weight:700;padding:12px 15px 5px;letter-spacing:.06em}
+.sb3 a{display:flex;align-items:center;gap:9px;padding:9px 15px;font-size:12.5px;
+color:#C6D9CE;text-decoration:none;cursor:pointer;border-left:3px solid transparent}
+.sb3 a:hover{background:rgba(255,255,255,.05)}
+.sb3 a.on{background:rgba(255,255,255,.1);color:#fff;font-weight:700;border-left-color:var(--accent)}
+.sb3 a .e7{font-size:15px;width:18px;text-align:center}
+.sb3 a .bg4{margin-left:auto;background:var(--accent);color:#241806;font-size:9.5px;font-weight:800;
+padding:1px 6px;border-radius:9px}
+.sb3 a .bg4.r{background:var(--danger);color:#fff}
+.sb3 .sf{padding:12px 15px;border-top:1px solid rgba(255,255,255,.11);font-size:10px;color:#8FB3A2;line-height:1.6}
+.mn3{flex:1;min-width:0;display:flex;flex-direction:column}
+.pgh{background:var(--surf);border-bottom:1px solid var(--line);padding:13px 22px;
+display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pgh h2{font-size:16.5px;font-weight:800}
+.pgh .sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+.pgh .rt4{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ct3{padding:20px 22px 28px;overflow-y:auto;flex:1}
+.btn{padding:8px 14px;border-radius:7px;border:1px solid var(--line);background:var(--surf);
+color:var(--ink2);font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;
+display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surf3)}
+.btn.p{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn.d{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn.sm{padding:5px 10px;font-size:11px}
+.sel{padding:8px 11px;border-radius:7px;border:1px solid var(--line);background:var(--surf);
+color:var(--ink);font-size:12px;font-family:inherit;cursor:pointer}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:11px;box-shadow:var(--sh)}
+.card>h3{font-size:13px;font-weight:800;padding:14px 16px;border-bottom:1px solid var(--line2);
+display:flex;align-items:center;gap:8px}
+.card>h3 .rt2{margin-left:auto;font-size:11px;font-weight:600;color:var(--muted)}
+.card .bdy{padding:16px}.card .bdy.np{padding:0}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}.g5{grid-template-columns:repeat(5,1fr)}
+.g21{grid-template-columns:2fr 1fr}.g12{grid-template-columns:1fr 2fr}
+.kpi{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px 15px;box-shadow:var(--sh)}
+.kpi .k{font-size:10.5px;color:var(--muted);font-weight:700}
+.kpi .v{font-size:27px;font-weight:800;line-height:1.15;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:12.5px;font-weight:700;color:var(--muted)}
+.kpi .d{font-size:10.5px;color:var(--muted);margin-top:3px}
+.kpi.ok{border-left:3px solid var(--ok)}.kpi.wn{border-left:3px solid var(--warn)}
+.kpi.dg{border-left:3px solid var(--danger)}.kpi.if{border-left:3px solid var(--info)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{background:var(--surf3);color:var(--ink2);font-size:11px;font-weight:700;
+padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--line2)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surf2)}
+tfoot td{padding:10px 12px;background:var(--surf3);font-weight:800;border-top:1px solid var(--line)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{font-size:10px;font-weight:800;padding:3px 8px;border-radius:5px;display:inline-block;white-space:nowrap}
+.tag.ok{background:var(--okbg);color:var(--ok)}.tag.wn{background:var(--warnbg);color:var(--warn)}
+.tag.dg{background:var(--dangerbg);color:var(--danger)}.tag.if{background:var(--infobg);color:var(--info)}
+.tag.gy{background:var(--dirtybg);color:var(--dirty)}
+.al{border-radius:9px;padding:12px 14px;font-size:12px;line-height:1.65;display:flex;gap:9px}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al.d{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al b{display:block;margin-bottom:2px}
+.bar{height:8px;background:var(--dirtybg);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:4px}
+.dark .bar i{background:var(--ok)}
+.bar.w i{background:var(--warn)}.bar.d i{background:var(--danger)}.bar.f i{background:var(--info)}
+.hb{display:flex;align-items:flex-end;gap:6px;height:118px}
+.hb .c{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.hb .c i{width:76%;background:var(--brand);border-radius:3px 3px 0 0;min-height:2px}
+.dark .hb .c i{background:var(--ok)}
+.hb .c.hl i{background:var(--accent)}
+.hb .c .l{font-size:9.5px;color:var(--muted);margin-top:5px}
+.hb .c .n{font-size:10px;font-weight:700;margin-bottom:3px}
+.px{font-size:11px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;margin-top:9px}
+.px b{color:var(--ink);font-weight:700}
+.fl{font-size:10.5px;color:var(--muted);font-weight:700;margin:14px 0 7px}
+.fl:first-child{margin-top:0}
+.mini{font-size:11px;color:var(--muted);line-height:1.6}
+.sw3{width:42px;height:24px;border-radius:12px;background:var(--dirtybg);position:relative;cursor:pointer}
+.sw3:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.sw3.on{background:var(--ok)}.sw3.on:after{left:21px}
+.rowsw{display:flex;align-items:center;justify-content:space-between;gap:14px;
+padding:12px 0;border-bottom:1px solid var(--line2)}
+.rowsw:last-child{border-bottom:0}
+.rowsw .tx2 .a{font-size:12.5px;font-weight:600}
+.rowsw .tx2 .b{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.5}
+.fld{margin-bottom:14px}
+.fld .lb{font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:5px}
+.fld .hp{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.55}
+.inp{width:100%;padding:9px 11px;border-radius:7px;border:1px solid var(--line);
+background:var(--surf2);color:var(--ink);font-size:12.5px;font-family:inherit}
+.mono{font-family:ui-monospace,monospace;font-size:11px}
+.dgm2{background:var(--surf3);border:1px solid var(--line);border-radius:8px;padding:12px;
+font-family:ui-monospace,monospace;font-size:10.5px;color:var(--ink2);line-height:1.8;
+white-space:pre;overflow-x:auto}
+.hlth{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700}
+.hlth i{width:9px;height:9px;border-radius:50%;display:block}
+.hlth.up i{background:var(--ok)}.hlth.dg2 i{background:var(--warn)}.hlth.dn4 i{background:var(--danger)}
+.spark{display:flex;align-items:flex-end;gap:2px;height:26px}
+.spark i{flex:1;background:var(--brand);border-radius:1px;min-height:2px;opacity:.75}
+.dark .spark i{background:var(--ok)}
+.notes{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:13px}
+.nc{background:#101714;border:1px solid #1D2822;border-radius:11px;padding:15px}
+.nc h3{font-size:12.5px;color:#E7ECE8;margin-bottom:9px}
+.nc p{font-size:11.5px;color:#A2B0A9;line-height:1.75;margin-bottom:7px}
+.nc p:last-child{margin-bottom:0}
+.nc b{color:var(--accent2)}
+.nc code{background:#080D0B;padding:1px 6px;border-radius:3px;font-size:10.5px;color:var(--accent2)}
+.nc ul{list-style:none;margin-top:6px}
+.nc li{font-size:11px;color:#A2B0A9;padding:4px 0 4px 17px;position:relative;line-height:1.6}
+.nc li:before{content:"\u25b8";position:absolute;left:1px;color:var(--accent)}
+.nc table{margin-top:7px;font-size:10.5px}
+.nc thead th{background:#16211D;color:#8A968F;border-bottom:1px solid #22302A;padding:6px 8px}
+.nc tbody td{color:#A2B0A9;border-bottom:1px solid #1A2520;padding:6px 8px;background:transparent}
+.rmk2{background:#2A1917;border-left:3px solid var(--danger);padding:9px 12px;font-size:11px;
+color:#DFB4AD;margin-top:9px;line-height:1.65}
+.hnt{background:#080D0B;border-left:3px solid var(--accent);padding:9px 12px;font-size:11px;
+color:#96A39C;margin-top:9px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}</style></head><body>
+<div class="dc"><div class="lg">Proof<em>Keeping</em> v3</div>
+<div class="bt">第4批 A — プラットフォーム運営 · 稼働とテナント（01〜03）</div>
+<span class="gl">言語切替は各画面右上のユーザーメニュー内</span>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="wrap">
+<div class="pg">
+<div class="hd"><h1>01. サービス稼働</h1><p>技術指標と業務影響を同じカードに並べる画面。異常の説明に必ず「記録は失われません」を添え、サポート担当がそのまま説明に使える表現にしておく。</p></div>
+<div class="bf"><div class="bb"><div class="dt"><i></i><i></i><i></i></div>
+<div class="url">https://admin.proofkeeping.jp/status</div></div>
+<div class="shell">
+<div class="top3"><div class="brand">Proof<em>Keeping</em><span>PLATFORM ADMIN</span></div><div class="psel">
+<button class="btn3"><span>🌐</span><span class="pn2">全テナント</span>
+<span class="rc4">42社 318施設</span><span class="cv">▼</span></button>
+<div class="pdd">
+<div class="ph4"><span>ProofKeeping · 全テナント</span><span>稼働 / 注意 / 停止</span></div>
+<div class="pi pall on" data-n="全テナント" data-r="42社 318施設">
+<span class="ck4">✓</span><span class="e6">🌐</span>
+<div class="nb"><div class="n5">全テナント</div><div class="d4">42社 318施設を横断表示</div></div>
+<div class="st5"><b class="d5">38</b><b class="r5">3</b><b class="f5">1</b></div></div>
+<div class="pi" data-n="サンプル清掃株式会社" data-r="8施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">サンプル清掃株式会社</div><div class="d4">Standard · 8施設 412室</div></div>
+<div class="st5"><b class="d5">稼働</b></div></div>
+<div class="pi" data-n="東京ハウスキープ株式会社" data-r="24施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">東京ハウスキープ株式会社</div><div class="d4">Enterprise · 24施設 1,840室</div></div>
+<div class="st5"><b class="d5">稼働</b></div></div>
+<div class="pi" data-n="関西クリーンサービス" data-r="16施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">関西クリーンサービス</div><div class="d4">Standard · 16施設 902室</div></div>
+<div class="st5"><b class="r5">注意</b></div></div>
+<div class="pi" data-n="九州ホテルサポート" data-r="6施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">九州ホテルサポート</div><div class="d4">Starter · 6施設 218室</div></div>
+<div class="st5"><b class="d5">稼働</b></div></div>
+<div class="pi" data-n="北海道リゾート清掃" data-r="4施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">北海道リゾート清掃</div><div class="d4">Starter · 4施設 96室 · 試用中</div></div>
+<div class="st5"><b class="r5">試用</b></div></div>
+</div></div>
+<div class="rt3"><div class="bell">🔔<span class="bd3">8</span></div><div class="usr">
+<button class="ub"><span class="av">運</span><span class="un">運営 · 山本</span><span class="cv2">▼</span></button>
+<div class="udd">
+<div class="uh"><div class="n6">山本 直樹</div><div class="m4">yamamoto@proofkeeping.jp</div>
+<span class="rl2">プラットフォーム運営 · 全テナント</span></div>
+<a>👤 アカウント設定</a>
+<a>🔔 通知の設定</a>
+<a class="lgw">🌐 言語<span class="rv">日本語 ›</span>
+<div class="lgm">
+<div class="on"><span>🇯🇵</span>日本語</div>
+<div><span>🇬🇧</span>English</div>
+<div><span>🇨🇳</span>简体中文</div>
+<div><span>🇻🇳</span>Tiếng Việt</div>
+<div><span>🇮🇩</span>Bahasa Indonesia</div>
+<div><span>🇲🇲</span>မြန်မာဘာသာ</div>
+<div><span>🇳🇵</span>नेपाली</div>
+</div></a>
+<a>📖 運用手順書</a>
+<a class="dgr">↩ ログアウト</a>
+</div></div></div></div>
+<div class="bd4"><div class="sb3"><nav><div class="sc3">稼働状況</div><a class="on" data-p="01"><span class="e7">📡</span>サービス稼働</a><a data-p="02"><span class="e7">🏢</span>テナント管理</a><a data-p="03"><span class="e7">📊</span>利用状況</a><div class="sc3">P4エンジン</div><a data-p="04"><span class="e7">🧠</span>ルール管理</a><a data-p="05"><span class="e7">🎯</span>精度モニタ<span class="bg4 r">3</span></a><a data-p="06"><span class="e7">🧪</span>検証と再学習</a><div class="sc3">サポート</div><a data-p="07"><span class="e7">🎫</span>問い合わせ<span class="bg4">5</span></a><a data-p="08"><span class="e7">🐞</span>不具合と要望</a><a data-p="09"><span class="e7">📢</span>お知らせ配信</a><div class="sc3">経営・統制</div><a data-p="10"><span class="e7">💴</span>契約と収益</a><a data-p="11"><span class="e7">🔐</span>監査と法令</a><a data-p="12"><span class="e7">⚙️</span>システム設定</a></nav><div class="sf">プラットフォーム運営<br><span style="opacity:.75">個人情報へのアクセスは制限されます</span></div></div>
+<div class="mn3"><div class="pgh"><div><h2>サービス稼働</h2>
+<div class="sub">2026年8月11日 09:56 · 全リージョン</div></div>
+<div class="rt4"><select class="sel"><option>直近24時間</option><option>直近7日</option></select>
+<button class="btn p">更新</button></div></div><div class="ct3">
+<div class="grid g5" style="margin-bottom:14px">
+<div class="kpi ok"><div class="k">📡 稼働率（30日）</div><div class="v">99.97<small>%</small></div>
+<div class="d">SLA 99.9% を達成</div></div>
+<div class="kpi ok"><div class="k">⚡ API応答（p95）</div><div class="v">184<small> ms</small></div>
+<div class="d">目標 500ms 以内</div></div>
+<div class="kpi"><div class="k">📱 同期キュー</div><div class="v">1,284<small> 件</small></div>
+<div class="d">処理待ち · 平均 4秒</div></div>
+<div class="kpi wn"><div class="k">⚠️ 同期の失敗</div><div class="v">18<small> 件</small></div>
+<div class="d">再試行中 · 直近1時間</div></div>
+<div class="kpi"><div class="k">💾 写真ストレージ</div><div class="v">4.82<small> TB</small></div>
+<div class="d">前月比 +8.2%</div></div>
+</div>
+
+<div class="grid g21" style="margin-bottom:14px">
+<div class="card"><h3>📡 コンポーネントの状態</h3><div class="bdy np">
+<table><thead><tr><th>コンポーネント</th><th style="width:110px">状態</th>
+<th class="num" style="width:100px">応答 p95</th><th style="width:130px">直近24時間</th>
+<th class="num" style="width:96px">エラー率</th></tr></thead>
+<tbody>
+<tr><td>清掃員モバイル API</td><td><span class="hlth up"><i></i>正常</span></td>
+<td class="num">142 ms</td>
+<td><div class="spark"><i style="height:60%"></i><i style="height:72%"></i><i style="height:55%"></i>
+<i style="height:68%"></i><i style="height:80%"></i><i style="height:62%"></i><i style="height:58%"></i>
+<i style="height:70%"></i><i style="height:64%"></i><i style="height:56%"></i></div></td>
+<td class="num">0.02%</td></tr>
+<tr><td>オーナー / 運営 Web</td><td><span class="hlth up"><i></i>正常</span></td>
+<td class="num">216 ms</td>
+<td><div class="spark"><i style="height:52%"></i><i style="height:60%"></i><i style="height:74%"></i>
+<i style="height:66%"></i><i style="height:58%"></i><i style="height:70%"></i><i style="height:62%"></i>
+<i style="height:55%"></i><i style="height:68%"></i><i style="height:60%"></i></div></td>
+<td class="num">0.01%</td></tr>
+<tr><td>写真アップロード</td><td><span class="hlth dg2"><i></i>低下</span></td>
+<td class="num" style="color:var(--warn)">642 ms</td>
+<td><div class="spark"><i style="height:50%"></i><i style="height:58%"></i><i style="height:64%"></i>
+<i style="height:72%"></i><i style="height:88%"></i><i style="height:96%"></i><i style="height:92%"></i>
+<i style="height:84%"></i><i style="height:78%"></i><i style="height:70%"></i></div></td>
+<td class="num" style="color:var(--warn)">0.41%</td></tr>
+<tr><td>P4 稼働照合エンジン</td><td><span class="hlth up"><i></i>正常</span></td>
+<td class="num">—</td>
+<td><div class="spark"><i style="height:64%"></i><i style="height:60%"></i><i style="height:68%"></i>
+<i style="height:62%"></i><i style="height:70%"></i><i style="height:58%"></i><i style="height:66%"></i>
+<i style="height:72%"></i><i style="height:60%"></i><i style="height:64%"></i></div></td>
+<td class="num">0.00%</td></tr>
+<tr><td>PMS連携（外部）</td><td><span class="hlth up"><i></i>正常</span></td>
+<td class="num">388 ms</td>
+<td><div class="spark"><i style="height:58%"></i><i style="height:66%"></i><i style="height:52%"></i>
+<i style="height:70%"></i><i style="height:62%"></i><i style="height:74%"></i><i style="height:60%"></i>
+<i style="height:56%"></i><i style="height:68%"></i><i style="height:64%"></i></div></td>
+<td class="num">0.08%</td></tr>
+<tr><td>通知配信（メール）</td><td><span class="hlth up"><i></i>正常</span></td>
+<td class="num">96 ms</td>
+<td><div class="spark"><i style="height:40%"></i><i style="height:88%"></i><i style="height:52%"></i>
+<i style="height:44%"></i><i style="height:60%"></i><i style="height:48%"></i><i style="height:92%"></i>
+<i style="height:56%"></i><i style="height:42%"></i><i style="height:50%"></i></div></td>
+<td class="num">0.03%</td></tr>
+</tbody></table></div></div>
+
+<div class="card"><h3>⚠️ 対応中の事象</h3><div class="bdy">
+<div class="al w" style="margin-bottom:11px">⚠️
+<div><b>写真アップロードの応答が低下しています</b>
+p95が642ms（通常240ms前後）。08:20頃から継続。ストレージ側のスループット上限に近づいている可能性があります。<br>
+<span class="mini" style="color:inherit;opacity:.85">影響：清掃員の体感が遅くなりますが、端末内に保存されているため記録は失われません。</span></div></div>
+<div class="al i">ℹ
+<div><b>同期の失敗18件は再試行中です</b>
+指数バックオフで再試行しています。3回失敗した項目は手動確認のキューに入ります。<br>
+<span class="mini" style="color:inherit;opacity:.85">端末内のデータは同期完了まで削除されません。</span></div></div>
+<div class="fl">直近の事象履歴</div>
+<table><tbody>
+<tr><td class="mini">8/11 08:20</td><td class="mini">写真アップロード低下</td>
+<td><span class="tag wn">対応中</span></td></tr>
+<tr><td class="mini">8/7 14:02</td><td class="mini">PMS連携の一時停止（外部要因）</td>
+<td><span class="tag ok">解消</span></td></tr>
+<tr><td class="mini">7/29 03:14</td><td class="mini">定期メンテナンス（計画）</td>
+<td><span class="tag ok">完了</span></td></tr>
+</tbody></table>
+</div></div>
+</div>
+
+<div class="grid g2">
+<div class="card"><h3>📱 オフライン同期の状況<span class="rt2">全テナント</span></h3><div class="bdy">
+<div class="rowsw"><div class="tx2"><div class="a">同期待ちの端末</div>
+<div class="b">オフラインで作業中の端末数</div></div>
+<span style="font-size:19px;font-weight:800">42<span style="font-size:12px"> 台</span></span></div>
+<div class="rowsw"><div class="tx2"><div class="a">キュー滞留の最長</div>
+<div class="b">最も長く未送信の記録</div></div>
+<span style="font-size:19px;font-weight:800">3<span style="font-size:12px">時間12分</span></span></div>
+<div class="rowsw"><div class="tx2"><div class="a">写真キューの上限到達</div>
+<div class="b">200枚を超えた端末数</div></div>
+<span style="font-size:19px;font-weight:800;color:var(--ok)">0<span style="font-size:12px"> 台</span></span></div>
+<div class="rowsw"><div class="tx2"><div class="a">競合の発生</div>
+<div class="b">同一タスクの二重完了など</div></div>
+<span style="font-size:19px;font-weight:800">2<span style="font-size:12px"> 件</span></span></div>
+<div class="al i" style="margin-top:12px;font-size:11px">ℹ
+<div>競合が起きても清掃員の記録は削除しません。採用されなかった記録も <code>conflictLog</code> に保持しています。</div></div>
+</div></div>
+
+<div class="card"><h3>📊 24時間のリクエスト量</h3><div class="bdy">
+<div class="hb">
+<div class="c"><span class="n">1.2</span><i style="height:24%"></i><span class="l">00時</span></div>
+<div class="c"><span class="n">2.8</span><i style="height:56%"></i><span class="l">03</span></div>
+<div class="c"><span class="n">4.2</span><i style="height:84%"></i><span class="l">06</span></div>
+<div class="c hl"><span class="n">5.0</span><i style="height:100%"></i><span class="l">09</span></div>
+<div class="c"><span class="n">4.6</span><i style="height:92%"></i><span class="l">12</span></div>
+<div class="c"><span class="n">3.8</span><i style="height:76%"></i><span class="l">15</span></div>
+<div class="c"><span class="n">2.4</span><i style="height:48%"></i><span class="l">18</span></div>
+<div class="c"><span class="n">1.6</span><i style="height:32%"></i><span class="l">21</span></div>
+</div>
+<div class="px"><span>単位：万リクエスト/時</span><span>ピーク <b>09時台</b></span></div>
+<div class="mini" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line2)">
+清掃業務は早朝から午前中に集中します。深夜帯のメンテナンスウィンドウは 02:00〜04:00 を基本とします。</div>
+</div></div>
+</div></div></div></div></div></div>
+<div class="notes">
+<div class="nc"><h3>🎯 影響を「現場の言葉」で書く</h3>
+<p>コンポーネントの異常を技術用語だけで書かず、<b>清掃員や施設に何が起きるか</b>を併記します。</p>
+<p>写真アップロードの低下には「清掃員の体感が遅くなりますが、端末内に保存されているため記録は失われません」と書いています。運営担当が問い合わせに答えるとき、そのまま使える表現にしておきます。</p>
+<div class="hnt">💡 サポート担当と開発担当が同じ画面を見て、同じ理解に到達できる状態を目指します。技術指標と業務影響を1つのカードに並べる理由です。</div></div>
+
+<div class="nc"><h3>📱 オフライン同期を監視項目にする</h3>
+<p>清掃現場は電波が届かない前提です。同期の健全性を専用カードで監視します。</p>
+<table><tr><th>指標</th><th>閾値</th></tr>
+<tr><td>キュー滞留の最長</td><td>6時間で警告</td></tr>
+<tr><td>写真キューの上限到達</td><td class="nx">1台でも発生したら警告</td></tr>
+<tr><td>競合の発生</td><td>日次で確認</td></tr></table>
+<div class="rmk2">❗ 写真キューが200枚に達すると古い任意写真から削除されます。1台でも到達したら、その端末が長時間オフラインだったことを意味します。0台であることを常態にします。</div></div>
+
+<div class="nc"><h3>✅ 確定事項</h3>
+<ul>
+<li>技術指標と業務影響を同じカードに並べる</li>
+<li>異常の説明に「記録は失われません」を明記する</li>
+<li>オフライン同期を独立した監視項目にする</li>
+<li>写真キュー上限到達は0台を常態とする</li>
+<li>メンテナンスは 02:00〜04:00 を基本とする</li>
+</ul></div></div></div>
+<div class="pg">
+<div class="hd"><h1>02. テナント管理</h1><p>契約金額ではなく記録の完備率をテナント一覧の主要列に置く。多言語対応と記録の保存期間はプランで差別化しない。清掃員が使う機能を課金で差別化しないため。</p></div>
+<div class="bf"><div class="bb"><div class="dt"><i></i><i></i><i></i></div>
+<div class="url">https://admin.proofkeeping.jp/tenants</div></div>
+<div class="shell">
+<div class="top3"><div class="brand">Proof<em>Keeping</em><span>PLATFORM ADMIN</span></div><div class="psel">
+<button class="btn3"><span>🌐</span><span class="pn2">全テナント</span>
+<span class="rc4">42社 318施設</span><span class="cv">▼</span></button>
+<div class="pdd">
+<div class="ph4"><span>ProofKeeping · 全テナント</span><span>稼働 / 注意 / 停止</span></div>
+<div class="pi pall on" data-n="全テナント" data-r="42社 318施設">
+<span class="ck4">✓</span><span class="e6">🌐</span>
+<div class="nb"><div class="n5">全テナント</div><div class="d4">42社 318施設を横断表示</div></div>
+<div class="st5"><b class="d5">38</b><b class="r5">3</b><b class="f5">1</b></div></div>
+<div class="pi" data-n="サンプル清掃株式会社" data-r="8施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">サンプル清掃株式会社</div><div class="d4">Standard · 8施設 412室</div></div>
+<div class="st5"><b class="d5">稼働</b></div></div>
+<div class="pi" data-n="東京ハウスキープ株式会社" data-r="24施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">東京ハウスキープ株式会社</div><div class="d4">Enterprise · 24施設 1,840室</div></div>
+<div class="st5"><b class="d5">稼働</b></div></div>
+<div class="pi" data-n="関西クリーンサービス" data-r="16施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">関西クリーンサービス</div><div class="d4">Standard · 16施設 902室</div></div>
+<div class="st5"><b class="r5">注意</b></div></div>
+<div class="pi" data-n="九州ホテルサポート" data-r="6施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">九州ホテルサポート</div><div class="d4">Starter · 6施設 218室</div></div>
+<div class="st5"><b class="d5">稼働</b></div></div>
+<div class="pi" data-n="北海道リゾート清掃" data-r="4施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">北海道リゾート清掃</div><div class="d4">Starter · 4施設 96室 · 試用中</div></div>
+<div class="st5"><b class="r5">試用</b></div></div>
+</div></div>
+<div class="rt3"><div class="bell">🔔<span class="bd3">8</span></div><div class="usr">
+<button class="ub"><span class="av">運</span><span class="un">運営 · 山本</span><span class="cv2">▼</span></button>
+<div class="udd">
+<div class="uh"><div class="n6">山本 直樹</div><div class="m4">yamamoto@proofkeeping.jp</div>
+<span class="rl2">プラットフォーム運営 · 全テナント</span></div>
+<a>👤 アカウント設定</a>
+<a>🔔 通知の設定</a>
+<a class="lgw">🌐 言語<span class="rv">日本語 ›</span>
+<div class="lgm">
+<div class="on"><span>🇯🇵</span>日本語</div>
+<div><span>🇬🇧</span>English</div>
+<div><span>🇨🇳</span>简体中文</div>
+<div><span>🇻🇳</span>Tiếng Việt</div>
+<div><span>🇮🇩</span>Bahasa Indonesia</div>
+<div><span>🇲🇲</span>မြန်မာဘာသာ</div>
+<div><span>🇳🇵</span>नेपाली</div>
+</div></a>
+<a>📖 運用手順書</a>
+<a class="dgr">↩ ログアウト</a>
+</div></div></div></div>
+<div class="bd4"><div class="sb3"><nav><div class="sc3">稼働状況</div><a data-p="01"><span class="e7">📡</span>サービス稼働</a><a class="on" data-p="02"><span class="e7">🏢</span>テナント管理</a><a data-p="03"><span class="e7">📊</span>利用状況</a><div class="sc3">P4エンジン</div><a data-p="04"><span class="e7">🧠</span>ルール管理</a><a data-p="05"><span class="e7">🎯</span>精度モニタ<span class="bg4 r">3</span></a><a data-p="06"><span class="e7">🧪</span>検証と再学習</a><div class="sc3">サポート</div><a data-p="07"><span class="e7">🎫</span>問い合わせ<span class="bg4">5</span></a><a data-p="08"><span class="e7">🐞</span>不具合と要望</a><a data-p="09"><span class="e7">📢</span>お知らせ配信</a><div class="sc3">経営・統制</div><a data-p="10"><span class="e7">💴</span>契約と収益</a><a data-p="11"><span class="e7">🔐</span>監査と法令</a><a data-p="12"><span class="e7">⚙️</span>システム設定</a></nav><div class="sf">プラットフォーム運営<br><span style="opacity:.75">個人情報へのアクセスは制限されます</span></div></div>
+<div class="mn3"><div class="pgh"><div><h2>テナント管理</h2>
+<div class="sub">42社 · 318施設 · 稼働中38社</div></div>
+<div class="rt4"><select class="sel"><option>全プラン</option><option>Enterprise</option><option>Standard</option><option>Starter</option></select>
+<button class="btn p">＋ テナントを追加</button></div></div><div class="ct3">
+<div class="grid g5" style="margin-bottom:14px">
+<div class="kpi"><div class="k">🏢 テナント</div><div class="v">42<small> 社</small></div></div>
+<div class="kpi ok"><div class="k">✓ 稼働中</div><div class="v">38<small> 社</small></div></div>
+<div class="kpi if"><div class="k">🧪 試用中</div><div class="v">3<small> 社</small></div>
+<div class="d">30日試用</div></div>
+<div class="kpi wn"><div class="k">⚠️ 注意</div><div class="v">1<small> 社</small></div>
+<div class="d">記録品質の低下</div></div>
+<div class="kpi"><div class="k">🏨 施設 / 客室</div><div class="v">318<small> / 18,420</small></div></div>
+</div>
+
+<div class="al w" style="margin-bottom:14px">⚠️
+<div><b>関西クリーンサービス様の記録品質が低下しています</b>
+既定値のまま確定した比率が全施設平均で91.4%に達しています。P4の確信度を20下げる閾値（90%）を超えました。担当室数や運用状況の確認をお願いします。</div></div>
+
+<div class="card" style="margin-bottom:14px"><h3>🏢 テナント一覧</h3><div class="bdy np">
+<table><thead><tr><th>テナント</th><th style="width:110px">プラン</th>
+<th class="num" style="width:74px">施設</th><th class="num" style="width:80px">客室</th>
+<th class="num" style="width:80px">スタッフ</th><th style="width:130px">記録の完備率</th>
+<th style="width:96px">状態</th><th style="width:74px"></th></tr></thead>
+<tbody>
+<tr><td><b>東京ハウスキープ株式会社</b><div class="mini">2024/04 契約</div></td>
+<td><span class="tag if">Enterprise</span></td><td class="num">24</td><td class="num">1,840</td>
+<td class="num">142</td>
+<td><div class="bar"><i style="width:98%"></i></div><span class="mini">98.2%</span></td>
+<td><span class="tag ok">稼働中</span></td><td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>関西クリーンサービス</b><div class="mini">2025/06 契約</div></td>
+<td><span class="tag gy">Standard</span></td><td class="num">16</td><td class="num">902</td>
+<td class="num">68</td>
+<td><div class="bar w"><i style="width:89%"></i></div><span class="mini">89.1%</span></td>
+<td><span class="tag wn">注意</span></td><td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>サンプル清掃株式会社</b><div class="mini">2025/09 契約</div></td>
+<td><span class="tag gy">Standard</span></td><td class="num">8</td><td class="num">412</td>
+<td class="num">31</td>
+<td><div class="bar"><i style="width:97%"></i></div><span class="mini">96.8%</span></td>
+<td><span class="tag ok">稼働中</span></td><td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>九州ホテルサポート</b><div class="mini">2025/11 契約</div></td>
+<td><span class="tag gy">Starter</span></td><td class="num">6</td><td class="num">218</td>
+<td class="num">18</td>
+<td><div class="bar"><i style="width:95%"></i></div><span class="mini">95.4%</span></td>
+<td><span class="tag ok">稼働中</span></td><td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>中部ステイサービス</b><div class="mini">2026/02 契約</div></td>
+<td><span class="tag gy">Standard</span></td><td class="num">12</td><td class="num">648</td>
+<td class="num">44</td>
+<td><div class="bar"><i style="width:96%"></i></div><span class="mini">96.1%</span></td>
+<td><span class="tag ok">稼働中</span></td><td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>北海道リゾート清掃</b><div class="mini">2026/07 試用開始</div></td>
+<td><span class="tag gy">Starter</span></td><td class="num">4</td><td class="num">96</td>
+<td class="num">11</td>
+<td><div class="bar"><i style="width:92%"></i></div><span class="mini">92.3%</span></td>
+<td><span class="tag if">試用中 · 残18日</span></td><td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>沖縄ホスピタリティ</b><div class="mini">2026/08 試用開始</div></td>
+<td><span class="tag gy">Starter</span></td><td class="num">3</td><td class="num">72</td>
+<td class="num">8</td>
+<td><div class="bar w"><i style="width:74%"></i></div><span class="mini">74.2%</span></td>
+<td><span class="tag if">試用中 · 残26日</span></td><td><button class="btn sm">詳細</button></td></tr>
+</tbody>
+<tfoot><tr><td>合計（42社）</td><td></td><td class="num">318</td><td class="num">18,420</td>
+<td class="num">1,284</td><td></td><td></td><td></td></tr></tfoot></table></div></div>
+
+<div class="grid g2">
+<div class="card"><h3>📐 プラン別の構成</h3><div class="bdy np">
+<table><thead><tr><th>プラン</th><th class="num" style="width:74px">社数</th>
+<th class="num" style="width:88px">施設数</th><th>主な制限</th></tr></thead>
+<tbody>
+<tr><td><span class="tag if">Enterprise</span></td><td class="num">6</td><td class="num">142</td>
+<td class="mini">施設無制限 · SSO · API連携 · 専任サポート</td></tr>
+<tr><td><span class="tag gy">Standard</span></td><td class="num">21</td><td class="num">148</td>
+<td class="mini">20施設まで · PMS連携 · メールサポート</td></tr>
+<tr><td><span class="tag gy">Starter</span></td><td class="num">15</td><td class="num">28</td>
+<td class="mini">8施設まで · PMS連携なし</td></tr>
+</tbody></table>
+<div style="padding:13px 15px"><div class="mini">
+プランによって<b>機能は制限しますが、記録の保存期間と多言語対応は制限しません</b>。清掃員が使う機能を課金で差別化しないためです。</div></div>
+</div></div>
+
+<div class="card"><h3>🧪 試用中テナントの状況</h3><div class="bdy">
+<div class="al i" style="margin-bottom:11px">🧪
+<div><b>北海道リゾート清掃様 · 残18日</b>
+完備率92.3%・入力時間中央値19秒。順調に定着しています。<br>
+<span class="mini" style="color:inherit;opacity:.85">導入研修は7言語で実施済み。</span></div></div>
+<div class="al w" style="margin-bottom:11px">⚠️
+<div><b>沖縄ホスピタリティ様 · 残26日</b>
+完備率74.2%・入力時間中央値8秒。入力が形骸化している可能性があります。<br>
+<span class="mini" style="color:inherit;opacity:.85">導入研修が日本語のみで行われた可能性があります。フォローアップをご検討ください。</span></div></div>
+<div class="fl">試用中の確認項目</div>
+<ul style="list-style:none">
+<li class="mini" style="padding:4px 0 4px 15px;position:relative">
+<span style="position:absolute;left:0;color:var(--accent)">▸</span>導入研修を母語で実施できたか</li>
+<li class="mini" style="padding:4px 0 4px 15px;position:relative">
+<span style="position:absolute;left:0;color:var(--accent)">▸</span>入力所要時間が20秒以内に収まっているか</li>
+<li class="mini" style="padding:4px 0 4px 15px;position:relative">
+<span style="position:absolute;left:0;color:var(--accent)">▸</span>1人あたりの担当室数が16室を超えていないか</li>
+<li class="mini" style="padding:4px 0 4px 15px;position:relative">
+<span style="position:absolute;left:0;color:var(--accent)">▸</span>差異が出たときの確認フローが機能しているか</li>
+</ul>
+</div></div>
+</div></div></div></div></div></div>
+<div class="notes">
+<div class="nc"><h3>🎯 記録の完備率をテナントの健全性指標にする</h3>
+<p>契約金額や施設数ではなく、<b>記録の完備率</b>をテナント一覧の主要列にしました。</p>
+<p>完備率が低いテナントは、P4の精度が出ず、結果として価値を感じられずに解約に向かいます。売上ではなく品質を先行指標として監視します。</p>
+<div class="hnt">💡 沖縄ホスピタリティ様の「完備率74.2%・入力時間8秒」は、導入研修が日本語のみで行われた可能性を示します。試用期間中に気づけば挽回できます。</div></div>
+
+<div class="nc"><h3>💰 課金で差別化しないもの</h3>
+<p>プランによって機能は制限しますが、<b>2つは制限しません</b>。</p>
+<table><tr><th>項目</th><th>プラン差</th></tr>
+<tr><td>施設数上限</td><td>あり</td></tr>
+<tr><td>SSO · API連携</td><td>あり</td></tr>
+<tr><td>サポート形態</td><td>あり</td></tr>
+<tr><td>記録の保存期間</td><td class="fx">差をつけない</td></tr>
+<tr><td>多言語対応</td><td class="fx">差をつけない</td></tr></table>
+<div class="rmk2">❗ 多言語対応を上位プラン限定にすると、Starterプランの清掃員が日本語だけのアプリを使うことになります。<b>清掃員が使う機能を課金で差別化しない</b>という原則です。記録の保存期間も同じ理由で共通にします。</div></div>
+
+<div class="nc"><h3>✅ 確定事項</h3>
+<ul>
+<li>テナント一覧の主要列に記録の完備率を置く</li>
+<li>完備率の低下を解約の先行指標として扱う</li>
+<li>多言語対応と保存期間はプランで差別化しない</li>
+<li>試用中テナントの確認項目を4点固定する</li>
+<li>導入研修を母語で実施できたかを必ず確認する</li>
+</ul></div></div></div>
+<div class="pg">
+<div class="hd"><h1>03. 利用状況</h1><p>品質の低いテナントを上に出し、支援が必要な相手を見つける画面。日本語利用者が6.9%という事実を常設し、全7言語でのレビューを促す。</p></div>
+<div class="bf"><div class="bb"><div class="dt"><i></i><i></i><i></i></div>
+<div class="url">https://admin.proofkeeping.jp/usage</div></div>
+<div class="shell">
+<div class="top3"><div class="brand">Proof<em>Keeping</em><span>PLATFORM ADMIN</span></div><div class="psel">
+<button class="btn3"><span>🌐</span><span class="pn2">全テナント</span>
+<span class="rc4">42社 318施設</span><span class="cv">▼</span></button>
+<div class="pdd">
+<div class="ph4"><span>ProofKeeping · 全テナント</span><span>稼働 / 注意 / 停止</span></div>
+<div class="pi pall on" data-n="全テナント" data-r="42社 318施設">
+<span class="ck4">✓</span><span class="e6">🌐</span>
+<div class="nb"><div class="n5">全テナント</div><div class="d4">42社 318施設を横断表示</div></div>
+<div class="st5"><b class="d5">38</b><b class="r5">3</b><b class="f5">1</b></div></div>
+<div class="pi" data-n="サンプル清掃株式会社" data-r="8施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">サンプル清掃株式会社</div><div class="d4">Standard · 8施設 412室</div></div>
+<div class="st5"><b class="d5">稼働</b></div></div>
+<div class="pi" data-n="東京ハウスキープ株式会社" data-r="24施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">東京ハウスキープ株式会社</div><div class="d4">Enterprise · 24施設 1,840室</div></div>
+<div class="st5"><b class="d5">稼働</b></div></div>
+<div class="pi" data-n="関西クリーンサービス" data-r="16施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">関西クリーンサービス</div><div class="d4">Standard · 16施設 902室</div></div>
+<div class="st5"><b class="r5">注意</b></div></div>
+<div class="pi" data-n="九州ホテルサポート" data-r="6施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">九州ホテルサポート</div><div class="d4">Starter · 6施設 218室</div></div>
+<div class="st5"><b class="d5">稼働</b></div></div>
+<div class="pi" data-n="北海道リゾート清掃" data-r="4施設">
+<span class="ck4">✓</span><span class="e6">🏢</span>
+<div class="nb"><div class="n5">北海道リゾート清掃</div><div class="d4">Starter · 4施設 96室 · 試用中</div></div>
+<div class="st5"><b class="r5">試用</b></div></div>
+</div></div>
+<div class="rt3"><div class="bell">🔔<span class="bd3">8</span></div><div class="usr">
+<button class="ub"><span class="av">運</span><span class="un">運営 · 山本</span><span class="cv2">▼</span></button>
+<div class="udd">
+<div class="uh"><div class="n6">山本 直樹</div><div class="m4">yamamoto@proofkeeping.jp</div>
+<span class="rl2">プラットフォーム運営 · 全テナント</span></div>
+<a>👤 アカウント設定</a>
+<a>🔔 通知の設定</a>
+<a class="lgw">🌐 言語<span class="rv">日本語 ›</span>
+<div class="lgm">
+<div class="on"><span>🇯🇵</span>日本語</div>
+<div><span>🇬🇧</span>English</div>
+<div><span>🇨🇳</span>简体中文</div>
+<div><span>🇻🇳</span>Tiếng Việt</div>
+<div><span>🇮🇩</span>Bahasa Indonesia</div>
+<div><span>🇲🇲</span>မြန်မာဘာသာ</div>
+<div><span>🇳🇵</span>नेपाली</div>
+</div></a>
+<a>📖 運用手順書</a>
+<a class="dgr">↩ ログアウト</a>
+</div></div></div></div>
+<div class="bd4"><div class="sb3"><nav><div class="sc3">稼働状況</div><a data-p="01"><span class="e7">📡</span>サービス稼働</a><a data-p="02"><span class="e7">🏢</span>テナント管理</a><a class="on" data-p="03"><span class="e7">📊</span>利用状況</a><div class="sc3">P4エンジン</div><a data-p="04"><span class="e7">🧠</span>ルール管理</a><a data-p="05"><span class="e7">🎯</span>精度モニタ<span class="bg4 r">3</span></a><a data-p="06"><span class="e7">🧪</span>検証と再学習</a><div class="sc3">サポート</div><a data-p="07"><span class="e7">🎫</span>問い合わせ<span class="bg4">5</span></a><a data-p="08"><span class="e7">🐞</span>不具合と要望</a><a data-p="09"><span class="e7">📢</span>お知らせ配信</a><div class="sc3">経営・統制</div><a data-p="10"><span class="e7">💴</span>契約と収益</a><a data-p="11"><span class="e7">🔐</span>監査と法令</a><a data-p="12"><span class="e7">⚙️</span>システム設定</a></nav><div class="sf">プラットフォーム運営<br><span style="opacity:.75">個人情報へのアクセスは制限されます</span></div></div>
+<div class="mn3"><div class="pgh"><div><h2>利用状況</h2>
+<div class="sub">全42テナント · 2026年8月（1日〜10日）</div></div>
+<div class="rt4"><select class="sel"><option>2026年8月</option><option>2026年7月</option></select>
+<button class="btn">CSV出力</button></div></div><div class="ct3">
+<div class="grid g5" style="margin-bottom:14px">
+<div class="kpi"><div class="k">📋 記録された清掃</div><div class="v">142,846<small> 室</small></div>
+<div class="d">10日間 · 1日平均 14,285室</div></div>
+<div class="kpi ok"><div class="k">✓ 記録の完備率</div><div class="v">95.8<small>%</small></div>
+<div class="d">全テナント平均</div></div>
+<div class="kpi"><div class="k">📷 写真</div><div class="v">684K<small> 枚</small></div>
+<div class="d">1室平均 4.8枚</div></div>
+<div class="kpi"><div class="k">👥 アクティブ端末</div><div class="v">1,184<small> 台</small></div>
+<div class="d">登録1,284台の92.2%</div></div>
+<div class="kpi if"><div class="k">⚠️ 検出された差異</div><div class="v">1,842<small> 件</small></div>
+<div class="d">差異率 1.29%</div></div>
+</div>
+
+<div class="grid g21" style="margin-bottom:14px">
+<div class="card"><h3>📊 記録の品質（テナント別）<span class="rt2">下位から表示</span></h3><div class="bdy np">
+<table><thead><tr><th>テナント</th><th style="width:130px">完備率</th>
+<th style="width:130px">既定値のまま</th><th class="num" style="width:96px">入力時間</th>
+<th style="width:96px">判定</th></tr></thead>
+<tbody>
+<tr><td>沖縄ホスピタリティ</td>
+<td><div class="bar w"><i style="width:74%"></i></div><span class="mini">74.2%</span></td>
+<td><div class="bar d"><i style="width:88%"></i></div><span class="mini">88%</span></td>
+<td class="num" style="color:var(--danger)">8秒</td>
+<td><span class="tag dg">要支援</span></td></tr>
+<tr><td>関西クリーンサービス</td>
+<td><div class="bar w"><i style="width:89%"></i></div><span class="mini">89.1%</span></td>
+<td><div class="bar d"><i style="width:91%"></i></div><span class="mini">91%</span></td>
+<td class="num" style="color:var(--danger)">9秒</td>
+<td><span class="tag dg">要支援</span></td></tr>
+<tr><td>北陸ハウスサービス</td>
+<td><div class="bar w"><i style="width:91%"></i></div><span class="mini">91.4%</span></td>
+<td><div class="bar w"><i style="width:76%"></i></div><span class="mini">76%</span></td>
+<td class="num" style="color:var(--warn)">12秒</td>
+<td><span class="tag wn">注意</span></td></tr>
+<tr><td>北海道リゾート清掃</td>
+<td><div class="bar"><i style="width:92%"></i></div><span class="mini">92.3%</span></td>
+<td><div class="bar"><i style="width:44%"></i></div><span class="mini">44%</span></td>
+<td class="num">19秒</td>
+<td><span class="tag ok">良好</span></td></tr>
+<tr><td>九州ホテルサポート</td>
+<td><div class="bar"><i style="width:95%"></i></div><span class="mini">95.4%</span></td>
+<td><div class="bar"><i style="width:39%"></i></div><span class="mini">39%</span></td>
+<td class="num">18秒</td>
+<td><span class="tag ok">良好</span></td></tr>
+<tr><td>サンプル清掃株式会社</td>
+<td><div class="bar"><i style="width:97%"></i></div><span class="mini">96.8%</span></td>
+<td><div class="bar"><i style="width:41%"></i></div><span class="mini">41%</span></td>
+<td class="num">17秒</td>
+<td><span class="tag ok">良好</span></td></tr>
+<tr><td>東京ハウスキープ株式会社</td>
+<td><div class="bar"><i style="width:98%"></i></div><span class="mini">98.2%</span></td>
+<td><div class="bar"><i style="width:34%"></i></div><span class="mini">34%</span></td>
+<td class="num">18秒</td>
+<td><span class="tag ok">良好</span></td></tr>
+</tbody></table>
+<div style="padding:13px 15px"><div class="mini">
+判定は3指標の組み合わせです。完備率90%未満・既定値70%超・入力時間10秒未満のうち2つ以上該当で「要支援」とします。</div></div>
+</div></div>
+
+<div class="card"><h3>🌐 言語の利用割合<span class="rt2">全1,284名</span></h3><div class="bdy np">
+<table><tbody>
+<tr><td>ベトナム語</td><td class="num">412名</td>
+<td style="width:110px"><div class="bar"><i style="width:100%"></i></div></td></tr>
+<tr><td>中国語</td><td class="num">286名</td>
+<td><div class="bar"><i style="width:69%"></i></div></td></tr>
+<tr><td>インドネシア語</td><td class="num">198名</td>
+<td><div class="bar"><i style="width:48%"></i></div></td></tr>
+<tr><td>ミャンマー語</td><td class="num">164名</td>
+<td><div class="bar"><i style="width:40%"></i></div></td></tr>
+<tr><td>ネパール語</td><td class="num">112名</td>
+<td><div class="bar"><i style="width:27%"></i></div></td></tr>
+<tr><td>日本語</td><td class="num">88名</td>
+<td><div class="bar"><i style="width:21%"></i></div></td></tr>
+<tr><td>英語</td><td class="num">24名</td>
+<td><div class="bar"><i style="width:6%"></i></div></td></tr>
+</tbody></table>
+<div style="padding:13px 15px">
+<div class="al i" style="font-size:11px">ℹ
+<div><b>日本語利用者は6.9%です</b>
+アプリの主要利用者は日本語を読まない方々です。文言変更のレビューは必ず全7言語で行ってください。</div></div>
+</div></div></div>
+</div>
+
+<div class="grid g2">
+<div class="card"><h3>📈 記録数の推移<span class="rt2">直近6か月</span></h3><div class="bdy">
+<div class="hb">
+<div class="c"><span class="n">312</span><i style="height:68%"></i><span class="l">3月</span></div>
+<div class="c"><span class="n">348</span><i style="height:76%"></i><span class="l">4月</span></div>
+<div class="c"><span class="n">386</span><i style="height:84%"></i><span class="l">5月</span></div>
+<div class="c"><span class="n">402</span><i style="height:87%"></i><span class="l">6月</span></div>
+<div class="c"><span class="n">428</span><i style="height:93%"></i><span class="l">7月</span></div>
+<div class="c hl"><span class="n">460</span><i style="height:100%"></i><span class="l">8月見込</span></div>
+</div>
+<div class="px"><span>単位：千室</span><span>前月比 <b>+7.5%</b></span>
+<span>6か月で <b>+47.4%</b></span></div>
+</div></div>
+
+<div class="card"><h3>💾 ストレージと通信</h3><div class="bdy">
+<div class="rowsw"><div class="tx2"><div class="a">写真ストレージ合計</div>
+<div class="b">保存期間90日を超えたものは自動削除</div></div>
+<span style="font-size:19px;font-weight:800">4.82<span style="font-size:12px"> TB</span></span></div>
+<div class="rowsw"><div class="tx2"><div class="a">1室あたりの平均容量</div>
+<div class="b">4.8枚 × 平均218KB</div></div>
+<span style="font-size:19px;font-weight:800">1.05<span style="font-size:12px"> MB</span></span></div>
+<div class="rowsw"><div class="tx2"><div class="a">1端末あたり月間通信量</div>
+<div class="b">従量制回線でも負担にならない水準</div></div>
+<span style="font-size:19px;font-weight:800">412<span style="font-size:12px"> MB</span></span></div>
+<div class="rowsw"><div class="tx2"><div class="a">自動削除された写真</div>
+<div class="b">90日経過分 · 今月</div></div>
+<span style="font-size:19px;font-weight:800">168K<span style="font-size:12px"> 枚</span></span></div>
+<div class="al i" style="margin-top:12px;font-size:11px">ℹ
+<div>1枚250KB以下という設計目標に対し、実測平均は218KBです。1端末あたり月412MBに収まっており、従量制回線の利用者にも負担をかけていません。</div></div>
+</div></div>
+</div></div></div></div></div></div>
+<div class="notes">
+<div class="nc"><h3>🎯 品質の低いテナントを上に出す</h3>
+<p>テナント別の品質テーブルは<b>下位から表示</b>します。上位を見て安心する画面ではなく、支援が必要な相手を見つける画面です。</p>
+<p>「要支援」の判定は3指標のうち2つ以上該当としました。1つだけなら偶然の可能性がありますが、2つ重なると構造的な問題です。</p>
+<div class="hnt">💡 判定名を「要支援」にしています。「不良」「警告」ではなく、こちらから手を差し伸べる対象という位置づけです。</div></div>
+
+<div class="nc"><h3>🌐 日本語利用者は6.9%という事実</h3>
+<p>1,284名のうち日本語利用者は88名（6.9%）です。この数字をプラットフォーム運営が常に見える場所に置きます。</p>
+<div class="rmk2">❗ 開発チームは日本語で作業するため、日本語版だけを確認して満足しがちです。実際の利用者の93%は日本語を読みません。<b>文言変更のレビューは必ず全7言語で行う</b>というルールをこの数字とともに示します。</div></div>
+
+<div class="nc"><h3>💾 設計目標との実測比較</h3>
+<table><tr><th>項目</th><th>目標</th><th>実測</th></tr>
+<tr><td>写真1枚</td><td>250KB以下</td><td class="fx">218KB</td></tr>
+<tr><td>1室あたり</td><td>—</td><td>1.05MB</td></tr>
+<tr><td>月間通信量</td><td>—</td><td>412MB</td></tr></table>
+<p>従量制回線を使う清掃員に負担をかけない水準を維持できているかを、毎月確認します。</p></div>
+
+<div class="nc"><h3>✅ 確定事項</h3>
+<ul>
+<li>品質テーブルは下位から表示する</li>
+<li>判定名を「要支援」とし、責める語を使わない</li>
+<li>3指標のうち2つ以上該当で要支援とする</li>
+<li>言語の利用割合を常設し、日本語が少数であることを示す</li>
+<li>写真容量と通信量を設計目標と対比して監視する</li>
+</ul></div></div></div>
+</div>
+<script>document.getElementById('dm').onclick=function(){
+document.querySelectorAll('.shell').forEach(s=>s.classList.toggle('dark'));
+this.textContent=document.querySelector('.shell').classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+document.querySelectorAll('.psel').forEach(p=>{
+p.querySelector('.btn3').onclick=e=>{e.stopPropagation();
+document.querySelectorAll('.usr').forEach(u=>u.classList.remove('open'));
+const o=p.classList.contains('open');
+document.querySelectorAll('.psel').forEach(x=>x.classList.remove('open'));
+if(!o)p.classList.add('open')};
+p.querySelectorAll('.pi').forEach(i=>i.onclick=function(){
+p.querySelectorAll('.pi').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+p.querySelector('.pn2').textContent=this.dataset.n;
+p.querySelector('.rc4').textContent=this.dataset.r;p.classList.remove('open')})});
+document.querySelectorAll('.usr').forEach(u=>{
+u.querySelector('.ub').onclick=e=>{e.stopPropagation();
+document.querySelectorAll('.psel').forEach(x=>x.classList.remove('open'));
+const o=u.classList.contains('open');
+document.querySelectorAll('.usr').forEach(x=>x.classList.remove('open'));
+if(!o)u.classList.add('open')};
+const lw=u.querySelector('.lgw');
+if(lw){lw.onclick=e=>{e.stopPropagation();lw.classList.toggle('op')};
+lw.querySelectorAll('.lgm div').forEach(d=>d.onclick=e=>{e.stopPropagation();
+lw.querySelectorAll('.lgm div').forEach(x=>x.classList.remove('on'));d.classList.add('on');
+lw.querySelector('.rv').textContent=d.textContent.trim()+' ›';
+lw.classList.remove('op');u.classList.remove('open');
+alert('表示言語を変更しました：'+d.textContent.trim())})}
+u.querySelectorAll('a:not(.lgw)').forEach(a=>a.onclick=e=>{e.stopPropagation();
+alert(a.textContent.trim()+' を開きます');u.classList.remove('open')})});
+document.addEventListener('click',()=>{
+document.querySelectorAll('.psel,.usr').forEach(x=>x.classList.remove('open'));
+document.querySelectorAll('.lgw').forEach(x=>x.classList.remove('op'))});
+document.querySelectorAll('.sb3 a').forEach(a=>a.onclick=function(){
+if(this.classList.contains('on'))return;alert('画面 '+this.dataset.p+' へ遷移します')});
+document.querySelectorAll('.bell').forEach(b=>b.onclick=()=>alert('通知（8件）\n\n・P4精度の低下 1件\n・問い合わせ 5件\n・在留期限アラート 2件'));
+document.querySelectorAll('.sw3').forEach(s=>s.onclick=function(){this.classList.toggle('on')});</script></body></html>

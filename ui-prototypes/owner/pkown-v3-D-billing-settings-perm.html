@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK-OWNER D（v3改修） — 請求・設定・権限</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--brandTop:#0E3229;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--surf3:#F1EFE7;--line:#DDD9CB;--line2:#EAE7DC;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DFEDE6;--warn:#C56A28;--warnbg:#F9E7D8;
+--info:#3A5C8F;--infobg:#E5EBF5;--danger:#9C3B32;--dangerbg:#F7E2DF;
+--dirty:#8A8F88;--dirtybg:#EDEBE3;--sh:0 1px 3px rgba(20,30,25,.06);
+--shPop:0 12px 40px rgba(10,20,15,.28)}
+.dark{--bg:#0D1512;--surf:#141F1B;--surf2:#18251F;--surf3:#1E2B25;--line:#283730;--line2:#22302A;
+--ink:#E7ECE8;--ink2:#B2BEB8;--muted:#7C8A84;--okbg:#14372A;--warnbg:#3B2515;
+--infobg:#18253C;--dangerbg:#381C19;--dirtybg:#212A25;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#98A19A;--sh:0 1px 3px rgba(0,0,0,.3)}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;
+background:#0A0E0C;color:#E7ECE8;line-height:1.6;font-size:14px}
+.dc{position:sticky;top:0;z-index:400;background:#070B09;border-bottom:1px solid #1B2621;
+padding:10px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.dc .lg{font-size:13.5px;font-weight:800}.dc .lg em{color:var(--accent2);font-style:normal}
+.dc .bt{font-size:10.5px;color:#00A8A8;background:#0C231F;padding:3px 9px;border-radius:5px;font-weight:700}
+.dc .gl{font-size:10px;color:#5B6862;align-self:center}
+.dc .dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #283730;
+background:#101714;color:#9AA7A0;font-size:11.5px;cursor:pointer;font-family:inherit}
+.wrap{padding:22px 20px 40px;max-width:1600px;margin:0 auto}
+.pg{margin-bottom:34px}
+.pg .hd h1{font-size:19px;margin-bottom:5px}
+.pg .hd p{font-size:12.5px;color:#7C8A84;margin-bottom:16px;line-height:1.75;max-width:1080px}
+.bf{border-radius:12px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.5);
+border:1px solid #202D27;background:var(--surf)}
+.bb{background:#111917;padding:9px 14px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #202D27}
+.bb .dt{display:flex;gap:6px}
+.bb .dt i{width:10px;height:10px;border-radius:50%;display:block}
+.bb .dt i:nth-child(1){background:#E0645A}.bb .dt i:nth-child(2){background:#E3B34C}
+.bb .dt i:nth-child(3){background:#57B77F}
+.bb .url{flex:1;background:#0B120F;border-radius:6px;padding:5px 12px;font-size:11px;color:#7C8A84;
+font-family:ui-monospace,monospace}
+.shell{display:flex;flex-direction:column;background:var(--bg);color:var(--ink);min-height:700px}
+.top3{height:58px;flex-shrink:0;background:var(--brandTop);color:#fff;display:flex;
+align-items:center;padding:0 16px 0 0;position:relative;z-index:120}
+.top3 .brand{width:214px;flex-shrink:0;padding-left:18px;font-size:15.5px;font-weight:800}
+.top3 .brand em{color:var(--accent2);font-style:normal}
+.top3 .brand span{display:block;font-size:8.5px;color:#9FBFAF;font-weight:700;letter-spacing:.06em}
+.psel{position:relative;flex-shrink:0}
+.psel .btn3{display:flex;align-items:center;gap:10px;padding:8px 13px;border-radius:9px;
+background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);cursor:pointer;
+color:#fff;font-family:inherit;font-size:13.5px;font-weight:700}
+.psel .btn3:hover{background:rgba(255,255,255,.15)}
+.psel.open .btn3{background:rgba(255,255,255,.17)}
+.psel .btn3 .rc4{font-size:11px;font-weight:600;color:#A9C6B7;background:rgba(0,0,0,.2);
+padding:2px 7px;border-radius:5px}
+.psel .btn3 .cv{font-size:10px;opacity:.7}
+.pdd{position:absolute;top:calc(100% + 7px);left:0;width:404px;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;box-shadow:var(--shPop);overflow:hidden;
+display:none;color:var(--ink)}
+.psel.open .pdd{display:block}
+.pdd .ph4{padding:11px 15px;background:var(--surf3);border-bottom:1px solid var(--line);
+font-size:10.5px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between}
+.pdd .pi{display:flex;align-items:center;gap:11px;padding:12px 15px;cursor:pointer;
+border-bottom:1px solid var(--line2)}
+.pdd .pi:last-child{border-bottom:0}
+.pdd .pi:hover{background:var(--surf2)}
+.pdd .pi.on{background:var(--okbg)}
+.pdd .pi .ck4{width:15px;flex-shrink:0;color:var(--ok);font-weight:800;font-size:13px;opacity:0}
+.pdd .pi.on .ck4{opacity:1}
+.pdd .pi .e6{font-size:17px}
+.pdd .pi .nb{flex:1;min-width:0}
+.pdd .pi .nb .n5{font-size:13px;font-weight:700}
+.pdd .pi .nb .d4{font-size:10.5px;color:var(--muted);margin-top:1px}
+.pdd .pi .st5{display:flex;gap:4px}
+.pdd .pi .st5 b{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:5px;min-width:26px;text-align:center}
+.pdd .pi .st5 b.d5{background:var(--okbg);color:var(--ok)}
+.pdd .pi .st5 b.r5{background:var(--warnbg);color:var(--warn)}
+.pdd .pi .st5 b.f5{background:var(--dangerbg);color:var(--danger)}
+.pdd .pall{border-bottom:2px solid var(--line)}
+.top3 .rt3{margin-left:auto;display:flex;align-items:center;gap:6px}
+.top3 .bell{position:relative;width:36px;height:36px;border-radius:9px;display:flex;
+align-items:center;justify-content:center;font-size:17px;cursor:pointer}
+.top3 .bell:hover{background:rgba(255,255,255,.11)}
+.top3 .bell .bd3{position:absolute;top:3px;right:3px;background:var(--accent);color:#241806;
+font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:8px;
+display:flex;align-items:center;justify-content:center;padding:0 4px}
+.usr{position:relative}
+.usr .ub{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;border-radius:9px;
+cursor:pointer;color:#fff;font-family:inherit;background:transparent;border:0}
+.usr .ub:hover{background:rgba(255,255,255,.11)}
+.usr.open .ub{background:rgba(255,255,255,.15)}
+.usr .av{width:29px;height:29px;border-radius:50%;background:var(--accent);color:#241806;
+display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.usr .un{font-size:12.5px;font-weight:700}
+.usr .cv2{font-size:9px;opacity:.7}
+.udd{position:absolute;top:calc(100% + 7px);right:0;width:258px;background:var(--surf);
+border:1px solid var(--line);border-radius:11px;box-shadow:var(--shPop);overflow:hidden;
+display:none;color:var(--ink)}
+.usr.open .udd{display:block}
+.udd .uh{padding:13px 15px;border-bottom:1px solid var(--line2);background:var(--surf3)}
+.udd .uh .n6{font-size:13px;font-weight:800}
+.udd .uh .m4{font-size:10.5px;color:var(--muted);margin-top:2px}
+.udd .uh .rl2{font-size:9.5px;font-weight:800;background:var(--infobg);color:var(--info);
+padding:2px 7px;border-radius:5px;display:inline-block;margin-top:6px}
+.udd a{display:flex;align-items:center;gap:9px;padding:10px 15px;font-size:12.5px;
+color:var(--ink2);text-decoration:none;cursor:pointer;border-bottom:1px solid var(--line2)}
+.udd a:last-child{border-bottom:0}
+.udd a:hover{background:var(--surf2)}
+.udd a .rv{margin-left:auto;font-size:11px;color:var(--muted);font-weight:600}
+.udd a.dgr{color:var(--danger)}
+.lgm{position:absolute;top:0;right:calc(100% + 6px);width:186px;background:var(--surf);
+border:1px solid var(--line);border-radius:10px;box-shadow:var(--shPop);display:none;overflow:hidden}
+.udd a.lgw{position:relative}
+.udd a.lgw.op .lgm{display:block}
+.lgm div{padding:9px 13px;font-size:12px;border-bottom:1px solid var(--line2);
+display:flex;align-items:center;gap:8px}
+.lgm div:last-child{border-bottom:0}
+.lgm div:hover{background:var(--surf2)}
+.lgm div.on{background:var(--okbg);color:var(--ok);font-weight:700}
+.bd4{display:flex;flex:1;min-height:0}
+.sb3{width:214px;flex-shrink:0;background:var(--brand);color:#fff;display:flex;flex-direction:column}
+.sb3 nav{padding:10px 0;flex:1;overflow-y:auto}
+.sb3 nav::-webkit-scrollbar{width:0}
+.sb3 .sc3{font-size:9px;color:#7DA391;font-weight:700;padding:12px 15px 5px;letter-spacing:.06em}
+.sb3 a{display:flex;align-items:center;gap:9px;padding:9px 15px;font-size:12.5px;
+color:#C6D9CE;text-decoration:none;cursor:pointer;border-left:3px solid transparent}
+.sb3 a:hover{background:rgba(255,255,255,.05)}
+.sb3 a.on{background:rgba(255,255,255,.1);color:#fff;font-weight:700;border-left-color:var(--accent)}
+.sb3 a .e7{font-size:15px;width:18px;text-align:center}
+.sb3 a .bg4{margin-left:auto;background:var(--accent);color:#241806;font-size:9.5px;font-weight:800;
+padding:1px 6px;border-radius:9px}
+.sb3 .sf{padding:12px 15px;border-top:1px solid rgba(255,255,255,.11);font-size:10px;color:#8FB3A2;line-height:1.6}
+.mn3{flex:1;min-width:0;display:flex;flex-direction:column}
+.pgh{background:var(--surf);border-bottom:1px solid var(--line);padding:13px 22px;
+display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pgh h2{font-size:16.5px;font-weight:800}
+.pgh .sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+.pgh .rt4{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ct3{padding:20px 22px 28px;overflow-y:auto;flex:1}
+.btn{padding:8px 14px;border-radius:7px;border:1px solid var(--line);background:var(--surf);
+color:var(--ink2);font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;
+display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surf3)}
+.btn.p{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn.sm{padding:5px 10px;font-size:11px}
+.sel{padding:8px 11px;border-radius:7px;border:1px solid var(--line);background:var(--surf);
+color:var(--ink);font-size:12px;font-family:inherit;cursor:pointer}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:11px;box-shadow:var(--sh)}
+.card>h3{font-size:13px;font-weight:800;padding:14px 16px;border-bottom:1px solid var(--line2);
+display:flex;align-items:center;gap:8px}
+.card>h3 .rt2{margin-left:auto;font-size:11px;font-weight:600;color:var(--muted)}
+.card .bdy{padding:16px}.card .bdy.np{padding:0}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}.g5{grid-template-columns:repeat(5,1fr)}
+.g21{grid-template-columns:2fr 1fr}.g12{grid-template-columns:1fr 2fr}
+.g31{grid-template-columns:3fr 1fr}.g13{grid-template-columns:1fr 3fr}
+.kpi{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px 15px;box-shadow:var(--sh)}
+.kpi .k{font-size:10.5px;color:var(--muted);font-weight:700}
+.kpi .v{font-size:27px;font-weight:800;line-height:1.15;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:12.5px;font-weight:700;color:var(--muted)}
+.kpi .d{font-size:10.5px;color:var(--muted);margin-top:3px}
+.kpi.ok{border-left:3px solid var(--ok)}.kpi.wn{border-left:3px solid var(--warn)}
+.kpi.dg{border-left:3px solid var(--danger)}.kpi.if{border-left:3px solid var(--info)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{background:var(--surf3);color:var(--ink2);font-size:11px;font-weight:700;
+padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--line2)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surf2)}
+tfoot td{padding:10px 12px;background:var(--surf3);font-weight:800;border-top:1px solid var(--line)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{font-size:10px;font-weight:800;padding:3px 8px;border-radius:5px;display:inline-block;white-space:nowrap}
+.tag.ok{background:var(--okbg);color:var(--ok)}.tag.wn{background:var(--warnbg);color:var(--warn)}
+.tag.dg{background:var(--dangerbg);color:var(--danger)}.tag.if{background:var(--infobg);color:var(--info)}
+.tag.gy{background:var(--dirtybg);color:var(--dirty)}
+.al{border-radius:9px;padding:12px 14px;font-size:12px;line-height:1.65;display:flex;gap:9px}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al.d{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al b{display:block;margin-bottom:2px}
+.bar{height:8px;background:var(--dirtybg);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:4px}
+.dark .bar i{background:var(--ok)}
+.bar.w i{background:var(--warn)}.bar.d i{background:var(--danger)}.bar.f i{background:var(--info)}
+.hb{display:flex;align-items:flex-end;gap:6px;height:118px}
+.hb .c{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.hb .c i{width:76%;background:var(--brand);border-radius:3px 3px 0 0;min-height:2px}
+.dark .hb .c i{background:var(--ok)}
+.hb .c.hl i{background:var(--accent)}
+.hb .c .l{font-size:9.5px;color:var(--muted);margin-top:5px}
+.hb .c .n{font-size:10px;font-weight:700;margin-bottom:3px}
+.px{font-size:11px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;margin-top:9px}
+.px b{color:var(--ink);font-weight:700}
+.lgd{display:flex;gap:13px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);align-items:center}
+.lgd i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:4px;vertical-align:-1px}
+.tl2{position:relative;padding-left:20px}
+.tl2:before{content:"";position:absolute;left:5px;top:5px;bottom:5px;width:2px;background:var(--line)}
+.tl2 .ev{position:relative;padding-bottom:13px}
+.tl2 .ev:last-child{padding-bottom:0}
+.tl2 .ev:before{content:"";position:absolute;left:-19px;top:5px;width:10px;height:10px;border-radius:50%;
+background:var(--line);border:2px solid var(--surf)}
+.tl2 .ev.ok:before{background:var(--ok)}.tl2 .ev.wn:before{background:var(--warn)}
+.tl2 .ev.dg:before{background:var(--danger)}.tl2 .ev.if:before{background:var(--info)}
+.tl2 .ev .t{font-size:10px;color:var(--muted);font-weight:700}
+.tl2 .ev .b{font-size:12.5px;font-weight:600;margin-top:1px}
+.tl2 .ev .s{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.55}
+.ph3{background:var(--surf3);border:1px solid var(--line);border-radius:8px;aspect-ratio:4/3;
+display:flex;flex-direction:column;align-items:center;justify-content:center;
+font-size:19px;color:var(--muted);cursor:pointer}
+.ph3 span{font-size:9px;margin-top:3px}
+.ph3:hover{border-color:var(--accent)}
+.rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:6px}
+.rm{aspect-ratio:1;border-radius:7px;border:1.5px solid var(--line);background:var(--surf2);
+display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;
+font-size:12.5px;font-weight:800;position:relative}
+.rm .s2{font-size:8px;font-weight:600;margin-top:1px;opacity:.85}
+.rm.dn{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.rm.run{background:var(--warnbg);border-color:var(--warn);color:var(--warn)}
+.rm.td{background:var(--dirtybg);border-color:var(--line);color:var(--dirty)}
+.rm.rw{background:var(--dangerbg);border-color:var(--danger);color:var(--danger)}
+.rm.hd2{background:var(--infobg);border-color:var(--info);color:var(--info)}
+.rm .dot{position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--danger)}
+.fl{font-size:10.5px;color:var(--muted);font-weight:700;margin:14px 0 7px}
+.fl:first-child{margin-top:0}
+.mini{font-size:11px;color:var(--muted);line-height:1.6}
+.sw3{width:42px;height:24px;border-radius:12px;background:var(--dirtybg);position:relative;cursor:pointer}
+.sw3:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.sw3.on{background:var(--ok)}.sw3.on:after{left:21px}
+.sw3.lk{opacity:.4;cursor:not-allowed}
+.rowsw{display:flex;align-items:center;justify-content:space-between;gap:14px;
+padding:12px 0;border-bottom:1px solid var(--line2)}
+.rowsw:last-child{border-bottom:0}
+.rowsw .tx2 .a{font-size:12.5px;font-weight:600}
+.rowsw .tx2 .b{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.5}
+.conf{background:var(--surf3);border-radius:7px;padding:3px;display:flex;gap:2px}
+.conf .o{padding:5px 11px;border-radius:5px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer}
+.conf .o.on{background:var(--surf);color:var(--ink);box-shadow:var(--sh)}
+.fld{margin-bottom:14px}
+.fld .lb{font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:5px}
+.fld .hp{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.55}
+.inp{width:100%;padding:9px 11px;border-radius:7px;border:1px solid var(--line);
+background:var(--surf2);color:var(--ink);font-size:12.5px;font-family:inherit}
+.lock{display:inline-flex;align-items:center;gap:4px;background:var(--dirtybg);color:var(--dirty);
+padding:2px 7px;border-radius:5px;font-size:9.5px;font-weight:700}
+.anon{display:inline-flex;align-items:center;gap:5px;background:var(--dirtybg);color:var(--dirty);
+padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:700}
+.cf{display:inline-flex;align-items:center;gap:7px}
+.cf .mtr{width:50px;height:6px;background:var(--dirtybg);border-radius:3px;overflow:hidden}
+.cf .mtr i{display:block;height:100%;border-radius:3px}
+.cf .nn{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;min-width:24px}
+.rl{display:flex;flex-direction:column;gap:2px}
+.rl .rc{font-size:10px;color:var(--muted);font-weight:700}
+.rl .rn2{font-size:12px}
+.sig{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;
+background:var(--surf2);display:flex;gap:12px;align-items:flex-start}
+.sig .sn{width:24px;height:24px;border-radius:7px;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.sig .sb3b{flex:1}
+.sig .sb3b .st4{font-size:12.5px;font-weight:700}
+.sig .sb3b .sd2{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.6}
+.sig .sp{text-align:right;flex-shrink:0}
+.sig .sp .spv{font-size:14px;font-weight:800;color:var(--accent)}
+.sig .sp .spl{font-size:9px;color:var(--muted)}
+.cmp{display:grid;grid-template-columns:1fr auto 1fr;border:1px solid var(--line);
+border-radius:10px;overflow:hidden}
+.cmp .hd3{padding:9px 14px;background:var(--surf3);font-size:11px;font-weight:800;
+color:var(--ink2);text-align:center}
+.cmp .rw2{padding:9px 14px;border-top:1px solid var(--line2);font-size:12.5px;
+display:flex;align-items:center;min-height:39px}
+.cmp .rw2.k2{background:var(--surf3);font-size:11px;font-weight:700;color:var(--ink2);
+justify-content:flex-end;text-align:right}
+.cmp .mid{border-left:1px solid var(--line);border-right:1px solid var(--line);
+display:flex;flex-direction:column}
+.cmp .df{color:var(--danger);font-weight:800}
+.stp{display:flex;margin-bottom:14px}
+.stp .s5{flex:1;padding:10px 12px;background:var(--surf2);border:1px solid var(--line);font-size:11.5px}
+.stp .s5:not(:last-child){border-right:0}
+.stp .s5:first-child{border-radius:9px 0 0 9px}
+.stp .s5:last-child{border-radius:0 9px 9px 0}
+.stp .s5 .n3{font-size:9.5px;font-weight:800;color:var(--muted)}
+.stp .s5 .t5{font-size:12px;font-weight:700;margin-top:2px}
+.stp .s5.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.stp .s5.on .n3{color:#9FBFAF}
+.stp .s5.dn2{background:var(--okbg);border-color:var(--ok)}
+.stp .s5.dn2 .t5{color:var(--ok)}
+.rp{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:22px 26px;
+max-width:800px;margin:0 auto}
+.rp .rh{border-bottom:2px solid var(--brand);padding-bottom:13px;margin-bottom:18px;
+display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.rp .rh .t6{font-size:18px;font-weight:800}
+.rp .rh .s7{font-size:11px;color:var(--muted);margin-top:3px}
+.rp .rh .lg2{font-size:11.5px;font-weight:800;color:var(--brand);text-align:right}
+.dark .rp .rh .lg2{color:var(--ok)}
+.rp .rh .lg2 em{color:var(--accent);font-style:normal}
+.rp .rh .lg2 span{display:block;font-size:8.5px;color:var(--muted);font-weight:600}
+.rp h4{font-size:12.5px;font-weight:800;margin:20px 0 9px;padding-left:9px;
+border-left:3px solid var(--accent)}
+.rp h4:first-of-type{margin-top:0}
+.rp p{font-size:11.5px;line-height:1.85;color:var(--ink2);margin-bottom:8px}
+.sm2{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:6px}
+.sm2 .b4{border:1px solid var(--line);border-radius:8px;padding:11px;text-align:center}
+.sm2 .b4 .v6{font-size:20px;font-weight:800;line-height:1.15}
+.sm2 .b4 .k6{font-size:9px;color:var(--muted);margin-top:3px}
+.sm2 .b4 .d3{font-size:9px;margin-top:3px;color:var(--ok)}
+.rp .ft3{margin-top:20px;padding-top:13px;border-top:1px solid var(--line);
+font-size:9.5px;color:var(--muted);line-height:1.7}
+.notes{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:13px}
+.nc{background:#101714;border:1px solid #1D2822;border-radius:11px;padding:15px}
+.nc h3{font-size:12.5px;color:#E7ECE8;margin-bottom:9px}
+.nc p{font-size:11.5px;color:#A2B0A9;line-height:1.75;margin-bottom:7px}
+.nc p:last-child{margin-bottom:0}
+.nc b{color:var(--accent2)}
+.nc code{background:#080D0B;padding:1px 6px;border-radius:3px;font-size:10.5px;color:var(--accent2)}
+.nc ul{list-style:none;margin-top:6px}
+.nc li{font-size:11px;color:#A2B0A9;padding:4px 0 4px 17px;position:relative;line-height:1.6}
+.nc li:before{content:"\u25b8";position:absolute;left:1px;color:var(--accent)}
+.nc table{margin-top:7px;font-size:10.5px}
+.nc thead th{background:#16211D;color:#8A968F;border-bottom:1px solid #22302A;padding:6px 8px}
+.nc tbody td{color:#A2B0A9;border-bottom:1px solid #1A2520;padding:6px 8px;background:transparent}
+.rmk2{background:#2A1917;border-left:3px solid var(--danger);padding:9px 12px;font-size:11px;
+color:#DFB4AD;margin-top:9px;line-height:1.65}
+.hnt{background:#080D0B;border-left:3px solid var(--accent);padding:9px 12px;font-size:11px;
+color:#96A39C;margin-top:9px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}</style></head><body>
+<div class="dc"><div class="lg">Proof<em>Keeping</em> v3</div>
+<div class="bt">第2批 D（v3改修） — オーナー · 請求・設定・権限（10〜12）</div>
+<span class="gl">施設セレクタ＝topbar左 / 通知・ユーザー＝topbar右 / 言語＝ユーザーメニュー内</span>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="wrap">
+<div class="pg">
+<div class="hd"><h1>10. 契約と請求</h1><p>v3改修：横幅が広くなったため内訳と契約内容を並置。KPIの1枚目は金額ではなく清掃件数で、根拠を先に見せます。</p></div>
+<div class="bf"><div class="bb"><div class="dt"><i></i><i></i><i></i></div>
+<div class="url">https://owner.proofkeeping.jp/billing</div></div>
+<div class="shell">
+<div class="top3"><div class="brand">Proof<em>Keeping</em><span>OWNER CONSOLE</span></div><div class="psel">
+<button class="btn3"><span>🏨</span><span class="pn2">サンプルホテル東京</span>
+<span class="rc4">60室</span><span class="cv">▼</span></button>
+<div class="pdd">
+<div class="ph4"><span>サンプル運営株式会社 · 3施設</span><span>完了 / 作業中 / 要対応</span></div>
+<div class="pi pall" data-n="全社サマリー" data-r="3施設 120室">
+<span class="ck4">✓</span><span class="e6">📊</span>
+<div class="nb"><div class="n5">全社サマリー</div><div class="d4">3施設 120室を横断表示</div></div>
+<div class="st5"><b class="d5">98</b><b class="r5">14</b><b class="f5">8</b></div></div>
+<div class="pi on" data-n="サンプルホテル東京" data-r="60室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル東京</div><div class="d4">東京都新宿区 · 60室</div></div>
+<div class="st5"><b class="d5">48</b><b class="r5">6</b><b class="f5">4</b></div></div>
+<div class="pi" data-n="サンプルホテル横浜" data-r="36室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル横浜</div><div class="d4">横浜市西区 · 36室</div></div>
+<div class="st5"><b class="d5">31</b><b class="r5">4</b><b class="f5">1</b></div></div>
+<div class="pi" data-n="サンプル旅館 箱根" data-r="24室">
+<span class="ck4">✓</span><span class="e6">♨️</span>
+<div class="nb"><div class="n5">サンプル旅館 箱根</div><div class="d4">神奈川県箱根町 · 24室</div></div>
+<div class="st5"><b class="d5">19</b><b class="r5">4</b><b class="f5">3</b></div></div>
+</div></div>
+<div class="rt3"><div class="bell">🔔<span class="bd3">4</span></div><div class="usr">
+<button class="ub"><span class="av">田</span><span class="un">田中</span><span class="cv2">▼</span></button>
+<div class="udd">
+<div class="uh"><div class="n6">田中 一郎 様</div><div class="m4">tanaka@sample-hotel.co.jp</div>
+<span class="rl2">オーナー · 自施設のみ</span></div>
+<a>👤 アカウント設定</a>
+<a>🔔 通知の設定</a>
+<a class="lgw">🌐 言語<span class="rv">日本語 ›</span>
+<div class="lgm">
+<div class="on"><span>🇯🇵</span>日本語</div><div><span>🇬🇧</span>English</div>
+<div><span>🇨🇳</span>简体中文</div><div><span>🇻🇳</span>Tiếng Việt</div>
+<div><span>🇮🇩</span>Bahasa Indonesia</div><div><span>🇲🇲</span>မြန်မာဘာသာ</div>
+<div><span>🇳🇵</span>नेपाली</div>
+</div></a>
+<a>❓ ヘルプ</a>
+<a class="dgr">↩ ログアウト</a>
+</div></div></div></div>
+<div class="bd4"><div class="sb3"><nav><div class="sc3">日次運用</div><a data-p="02"><span class="e7">📊</span>ダッシュボード</a><a data-p="03"><span class="e7">🏨</span>客室ボード</a><a data-p="04"><span class="e7">⚠️</span>稼働の差異<span class="bg4">4</span></a><div class="sc3">記録の確認</div><a data-p="05"><span class="e7">🔍</span>差異の詳細</a><a data-p="06"><span class="e7">📋</span>清掃記録</a><a data-p="07"><span class="e7">↻</span>検査・再清掃</a><div class="sc3">資材と分析</div><a data-p="08"><span class="e7">🧺</span>リネン消費</a><a data-p="09"><span class="e7">📈</span>月次レポート</a><a class="on" data-p="10"><span class="e7">💴</span>契約と請求</a><div class="sc3">設定</div><a data-p="11"><span class="e7">⚙️</span>施設設定</a><a data-p="12"><span class="e7">🔐</span>権限と監査</a></nav><div class="sf">閲覧権限：自施設のみ<br><span style="opacity:.75">清掃員の氏名は非表示</span></div></div>
+<div class="mn3"><div class="pgh"><div><h2>契約と請求</h2>
+<div class="sub">サンプルホテル東京 · 2026年7月分</div></div>
+<div class="rt4"><select class="sel"><option>2026年7月分</option><option>2026年6月分</option></select>
+<button class="btn p">📄 請求書PDF</button></div></div><div class="ct3">
+<div class="grid g4" style="margin-bottom:14px">
+<div class="kpi"><div class="k">📋 清掃件数</div><div class="v">1,286<small> 室</small></div>
+<div class="d">記録に基づく実績</div></div>
+<div class="kpi"><div class="k">💴 ご請求金額</div><div class="v">1,619,244<small> 円</small></div>
+<div class="d">税込 · 前月比 +4.1%</div></div>
+<div class="kpi if"><div class="k">📅 お支払期限</div><div class="v" style="font-size:21px">8月31日</div>
+<div class="d">銀行振込</div></div>
+<div class="kpi ok"><div class="k">✓ 状態</div><div class="v" style="font-size:21px">確定済み</div>
+<div class="d">8月5日に確定</div></div>
+</div>
+
+<div class="grid g21" style="margin-bottom:14px">
+<div class="card"><h3>💴 ご請求の内訳<span class="rt2">2026年7月1日〜7月31日</span></h3><div class="bdy np">
+<table><thead><tr><th>項目</th><th class="num" style="width:96px">単価</th>
+<th class="num" style="width:88px">数量</th><th class="num" style="width:120px">金額</th></tr></thead>
+<tbody>
+<tr><td>アウト清掃</td><td class="num">1,100 円</td><td class="num">1,024 室</td>
+<td class="num">1,126,400 円</td></tr>
+<tr><td>ステイ清掃</td><td class="num">700 円</td><td class="num">218 室</td>
+<td class="num">152,600 円</td></tr>
+<tr><td>点検</td><td class="num">400 円</td><td class="num">44 室</td>
+<td class="num">17,600 円</td></tr>
+<tr><td>再清掃</td><td class="num">0 円</td><td class="num">8 室</td>
+<td class="num" style="color:var(--ok)">0 円</td></tr>
+<tr><td>リネン交換手数料</td><td class="num">30 円</td><td class="num">5,848 枚</td>
+<td class="num">175,440 円</td></tr>
+</tbody>
+<tfoot>
+<tr><td colspan="3">小計</td><td class="num">1,472,040 円</td></tr>
+<tr><td colspan="3">消費税（10%）</td><td class="num">147,204 円</td></tr>
+<tr><td colspan="3">合計（税込）</td><td class="num" style="font-size:14px">1,619,244 円</td></tr>
+</tfoot></table>
+<div style="padding:13px 15px">
+<div class="al i" style="font-size:11px">ℹ
+<div><b>再清掃は無償です</b>
+検査で指摘があった再清掃、およびオーナー様からのご依頼による再清掃は、ご請求に含めておりません。</div></div>
+</div></div></div>
+
+<div class="card"><h3>📄 契約の内容</h3><div class="bdy np">
+<table><tbody>
+<tr><td class="mini">契約先</td><td>株式会社サンプル清掃</td></tr>
+<tr><td class="mini">契約期間</td><td>2026/04/01〜2027/03/31</td></tr>
+<tr><td class="mini">契約形態</td><td>件数単価制</td></tr>
+<tr><td class="mini">対象客室</td><td>60室（1F〜4F）</td></tr>
+<tr><td class="mini">締め日 / 支払期限</td><td>月末 / 翌月末</td></tr>
+</tbody></table>
+<div style="padding:13px 15px">
+<div class="fl" style="margin-top:0">単価表 <span class="lock">🔒 変更は契約手続き</span></div>
+<table><tbody>
+<tr><td class="mini">アウト清掃</td><td class="num">1,100 円</td></tr>
+<tr><td class="mini">ステイ清掃</td><td class="num">700 円</td></tr>
+<tr><td class="mini">点検</td><td class="num">400 円</td></tr>
+<tr><td class="mini">リネン交換</td><td class="num">30 円 / 枚</td></tr>
+<tr><td class="mini">再清掃</td><td class="num" style="color:var(--ok)">無償</td></tr>
+</tbody></table>
+<div class="mini" style="margin-top:10px">単価の変更は契約手続きが必要です。ご相談は運営管理者へお願いします。</div>
+</div></div></div>
+</div>
+
+<div class="card"><h3>📋 請求の履歴</h3><div class="bdy np">
+<table><thead><tr><th style="width:120px">対象月</th><th class="num" style="width:96px">清掃件数</th>
+<th class="num" style="width:130px">ご請求金額</th><th style="width:110px">状態</th>
+<th style="width:120px">お支払日</th><th style="width:88px"></th></tr></thead>
+<tbody>
+<tr><td><b>2026年7月</b></td><td class="num">1,286 室</td><td class="num">1,619,244 円</td>
+<td><span class="tag if">お支払待ち</span></td><td class="mini">—</td>
+<td><button class="btn sm">明細</button></td></tr>
+<tr><td>2026年6月</td><td class="num">1,234 室</td><td class="num">1,554,860 円</td>
+<td><span class="tag ok">お支払済み</span></td><td class="mini">7月30日</td>
+<td><button class="btn sm">明細</button></td></tr>
+<tr><td>2026年5月</td><td class="num">1,312 室</td><td class="num">1,648,120 円</td>
+<td><span class="tag ok">お支払済み</span></td><td class="mini">6月28日</td>
+<td><button class="btn sm">明細</button></td></tr>
+<tr><td>2026年4月</td><td class="num">1,189 室</td><td class="num">1,498,340 円</td>
+<td><span class="tag ok">お支払済み</span></td><td class="mini">5月29日</td>
+<td><button class="btn sm">明細</button></td></tr>
+</tbody></table></div></div></div></div></div></div></div>
+<div class="notes">
+<div class="nc"><h3>📐 v3改修点</h3>
+<p>レイアウト以外は変更していません。横幅が広くなったため内訳と契約内容を並置しています。</p></div>
+
+<div class="nc"><h3>🎯 記録と請求をつなぐ（変更なし）</h3>
+<p>清掃件数1,286室は06の清掃記録と同じ数字であり、オーナーが自分で検算できます。KPIの1枚目を金額ではなく清掃件数にしているのは、根拠を先に見せる順序です。</p></div>
+
+<div class="nc"><h3>💴 再清掃を無償にする</h3>
+<p>内訳に<b>再清掃 8室 · 0円</b>の行をあえて残しています。</p>
+<ul>
+<li>再清掃が発生した事実を隠さない</li>
+<li>無償であることを毎月確認できる</li>
+<li>オーナーが再清掃を依頼する心理的障壁を下げる</li>
+</ul>
+<div class="rmk2">❗ 再清掃を有償にすると、オーナーが費用を気にして依頼を控え、品質の問題が可視化されなくなります。</div></div>
+
+<div class="nc"><h3>✅ 確定事項</h3>
+<ul>
+<li>KPIの1枚目は金額ではなく清掃件数にする</li>
+<li>件数は06の清掃記録と一致させ、検算できるようにする</li>
+<li>再清掃は無償とし、0円の行も表示する</li>
+<li>単価は表示専用。画面から変更できない</li>
+</ul></div></div></div>
+<div class="pg">
+<div class="hd"><h1>11. 施設設定</h1><p>v3改修：設定を3カラムに並べ、「既定の施設」設定を追加しました。topbarのセレクタでの切替は保存されないためです。</p></div>
+<div class="bf"><div class="bb"><div class="dt"><i></i><i></i><i></i></div>
+<div class="url">https://owner.proofkeeping.jp/settings</div></div>
+<div class="shell">
+<div class="top3"><div class="brand">Proof<em>Keeping</em><span>OWNER CONSOLE</span></div><div class="psel">
+<button class="btn3"><span>🏨</span><span class="pn2">サンプルホテル東京</span>
+<span class="rc4">60室</span><span class="cv">▼</span></button>
+<div class="pdd">
+<div class="ph4"><span>サンプル運営株式会社 · 3施設</span><span>完了 / 作業中 / 要対応</span></div>
+<div class="pi pall" data-n="全社サマリー" data-r="3施設 120室">
+<span class="ck4">✓</span><span class="e6">📊</span>
+<div class="nb"><div class="n5">全社サマリー</div><div class="d4">3施設 120室を横断表示</div></div>
+<div class="st5"><b class="d5">98</b><b class="r5">14</b><b class="f5">8</b></div></div>
+<div class="pi on" data-n="サンプルホテル東京" data-r="60室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル東京</div><div class="d4">東京都新宿区 · 60室</div></div>
+<div class="st5"><b class="d5">48</b><b class="r5">6</b><b class="f5">4</b></div></div>
+<div class="pi" data-n="サンプルホテル横浜" data-r="36室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル横浜</div><div class="d4">横浜市西区 · 36室</div></div>
+<div class="st5"><b class="d5">31</b><b class="r5">4</b><b class="f5">1</b></div></div>
+<div class="pi" data-n="サンプル旅館 箱根" data-r="24室">
+<span class="ck4">✓</span><span class="e6">♨️</span>
+<div class="nb"><div class="n5">サンプル旅館 箱根</div><div class="d4">神奈川県箱根町 · 24室</div></div>
+<div class="st5"><b class="d5">19</b><b class="r5">4</b><b class="f5">3</b></div></div>
+</div></div>
+<div class="rt3"><div class="bell">🔔<span class="bd3">4</span></div><div class="usr">
+<button class="ub"><span class="av">田</span><span class="un">田中</span><span class="cv2">▼</span></button>
+<div class="udd">
+<div class="uh"><div class="n6">田中 一郎 様</div><div class="m4">tanaka@sample-hotel.co.jp</div>
+<span class="rl2">オーナー · 自施設のみ</span></div>
+<a>👤 アカウント設定</a>
+<a>🔔 通知の設定</a>
+<a class="lgw">🌐 言語<span class="rv">日本語 ›</span>
+<div class="lgm">
+<div class="on"><span>🇯🇵</span>日本語</div><div><span>🇬🇧</span>English</div>
+<div><span>🇨🇳</span>简体中文</div><div><span>🇻🇳</span>Tiếng Việt</div>
+<div><span>🇮🇩</span>Bahasa Indonesia</div><div><span>🇲🇲</span>မြန်မာဘာသာ</div>
+<div><span>🇳🇵</span>नेपाली</div>
+</div></a>
+<a>❓ ヘルプ</a>
+<a class="dgr">↩ ログアウト</a>
+</div></div></div></div>
+<div class="bd4"><div class="sb3"><nav><div class="sc3">日次運用</div><a data-p="02"><span class="e7">📊</span>ダッシュボード</a><a data-p="03"><span class="e7">🏨</span>客室ボード</a><a data-p="04"><span class="e7">⚠️</span>稼働の差異<span class="bg4">4</span></a><div class="sc3">記録の確認</div><a data-p="05"><span class="e7">🔍</span>差異の詳細</a><a data-p="06"><span class="e7">📋</span>清掃記録</a><a data-p="07"><span class="e7">↻</span>検査・再清掃</a><div class="sc3">資材と分析</div><a data-p="08"><span class="e7">🧺</span>リネン消費</a><a data-p="09"><span class="e7">📈</span>月次レポート</a><a data-p="10"><span class="e7">💴</span>契約と請求</a><div class="sc3">設定</div><a class="on" data-p="11"><span class="e7">⚙️</span>施設設定</a><a data-p="12"><span class="e7">🔐</span>権限と監査</a></nav><div class="sf">閲覧権限：自施設のみ<br><span style="opacity:.75">清掃員の氏名は非表示</span></div></div>
+<div class="mn3"><div class="pgh"><div><h2>施設設定</h2>
+<div class="sub">サンプルホテル東京</div></div>
+<div class="rt4"><button class="btn">元に戻す</button>
+<button class="btn p">変更を保存</button></div></div><div class="ct3">
+<div class="al i" style="margin-bottom:14px">ℹ
+<div><b>オーナー様が変更できる範囲</b>
+通知の受け取り方と表示に関する設定を変更できます。清掃手順・チェックリスト・単価などの運用に関わる項目は、🔒 のついた表示専用となります。変更のご相談は運営管理者へお願いします。</div></div>
+
+<div class="grid g3" style="margin-bottom:14px">
+<div class="card"><h3>🔔 通知の受け取り</h3><div class="bdy">
+<div class="rowsw"><div class="tx2"><div class="a">重要度 HIGH の差異</div>
+<div class="b">確信度80以上</div></div><div class="sw3 on"></div></div>
+<div class="rowsw"><div class="tx2"><div class="a">重要度 MEDIUM の差異</div>
+<div class="b">確信度50〜79</div></div><div class="sw3 on"></div></div>
+<div class="rowsw"><div class="tx2"><div class="a">重要度 LOW の差異</div>
+<div class="b">個別対応が不要です。既定はオフ</div></div><div class="sw3"></div></div>
+<div class="rowsw"><div class="tx2"><div class="a">再清掃の指示</div>
+<div class="b">検査で指摘があったとき</div></div><div class="sw3 on"></div></div>
+<div class="rowsw"><div class="tx2"><div class="a">当日の清掃完了</div>
+<div class="b">全客室の清掃が完了したとき</div></div><div class="sw3 on"></div></div>
+<div class="rowsw"><div class="tx2"><div class="a">月次レポートの確定</div>
+<div class="b">毎月5日</div></div><div class="sw3 on"></div></div>
+<div class="fld" style="margin-top:14px;margin-bottom:0"><div class="lb">通知の送信先</div>
+<input class="inp" value="tanaka@sample-hotel.co.jp">
+<div class="hp">複数のアドレスに送る場合はカンマで区切ってください。</div></div>
+</div></div>
+
+<div class="card"><h3>🖥 表示の設定</h3><div class="bdy">
+<div class="fld"><div class="lb">画面のテーマ</div>
+<div class="conf"><span class="o on">ライト</span><span class="o">ダーク</span><span class="o">端末に合わせる</span></div>
+<div class="hp">上部の「ダーク」ボタンでもお試しいただけます。</div></div>
+<div class="fld"><div class="lb">ログイン後に開く画面</div>
+<select class="sel" style="width:100%"><option>ダッシュボード</option>
+<option>客室ボード</option><option>稼働の差異</option></select></div>
+<div class="fld"><div class="lb">既定の施設</div>
+<select class="sel" style="width:100%"><option>全社サマリー</option>
+<option selected>サンプルホテル東京</option><option>サンプルホテル横浜</option></select>
+<div class="hp">topbarの施設セレクタで切り替えた内容は保存されません。既定はここで設定します。</div></div>
+<div class="fld" style="margin-bottom:0"><div class="lb">既定の集計期間</div>
+<select class="sel" style="width:100%"><option>直近7日</option>
+<option selected>直近30日</option><option>今月</option></select></div>
+</div></div>
+
+<div class="card"><h3>🏨 施設の情報 <span class="lock">🔒 表示専用</span></h3><div class="bdy np">
+<table><tbody>
+<tr><td class="mini">施設名</td><td>サンプルホテル東京</td></tr>
+<tr><td class="mini">住所</td><td>東京都新宿区西新宿1-2-3</td></tr>
+<tr><td class="mini">客室数</td><td>60室（1F〜4F）</td></tr>
+<tr><td class="mini">客室タイプ</td><td>シングル30 / ツイン24 / スイート6</td></tr>
+<tr><td class="mini">運営管理者</td><td>株式会社サンプル清掃</td></tr>
+<tr><td class="mini">ご担当者</td><td>佐藤（運営管理者）</td></tr>
+</tbody></table>
+<div style="padding:13px 15px"><div class="mini">施設情報の変更は運営管理者へご連絡ください。</div></div>
+</div></div>
+</div>
+
+<div class="card"><h3>📋 運用の設定 <span class="lock">🔒 表示専用</span></h3><div class="bdy">
+<div class="grid g2">
+<div>
+<div class="rowsw"><div class="tx2"><div class="a">チェックリストの項目数</div>
+<div class="b">アウト清掃16項目 / ステイ清掃9項目</div></div>
+<span class="mini" style="font-weight:700">16 / 9</span></div>
+<div class="rowsw"><div class="tx2"><div class="a">写真必須の項目数</div>
+<div class="b">シーツ交換後・浴槽清掃後・備品棚・客室全景</div></div>
+<span class="mini" style="font-weight:700">4項目</span></div>
+<div class="rowsw"><div class="tx2"><div class="a">抜き取り検査の比率</div>
+<div class="b">ランダム＋差異のある客室</div></div>
+<span class="mini" style="font-weight:700">10%</span></div>
+</div>
+<div>
+<div class="rowsw"><div class="tx2"><div class="a">写真の保存期間</div>
+<div class="b">期間を過ぎた写真は自動的に削除されます</div></div>
+<span class="mini" style="font-weight:700">90日</span></div>
+<div class="rowsw"><div class="tx2"><div class="a">目安時間</div>
+<div class="b">アウト40分 / ステイ25分 / 点検15分</div></div>
+<span class="mini" style="font-weight:700">40 / 25 / 15分</span></div>
+<div class="rowsw"><div class="tx2"><div class="a">記録する品目</div>
+<div class="b">歯ブラシ・カミソリ・シャンプー類・スリッパ</div></div>
+<span class="mini" style="font-weight:700">4品目</span></div>
+</div></div>
+<div class="al i" style="margin-top:13px;font-size:11px">ℹ
+<div>これらの設定は清掃の品質と作業時間に直結するため、運営管理者が管理しています。変更のご希望はご相談ください。</div></div>
+</div></div></div></div></div></div></div>
+<div class="notes">
+<div class="nc"><h3>📐 v3改修点</h3>
+<p>設定項目を3カラムに並べ、縦スクロールを減らしました。また<b>「既定の施設」設定を追加</b>しています。</p>
+<p>topbar の施設セレクタで切り替えた内容は一時的なもので保存されません。ログイン後にどの施設を開くかはここで設定します。v3で施設セレクタが常時表示になったため、既定値の設定場所が必要になりました。</p></div>
+
+<div class="nc"><h3>🎯 変更できる範囲を最初に書く（変更なし）</h3>
+<table><tr><th>オーナーが変更できる</th><th>運営管理者のみ</th></tr>
+<tr><td>通知の受け取り</td><td>チェックリストの項目</td></tr>
+<tr><td>通知の送信先</td><td>目安時間</td></tr>
+<tr><td>画面のテーマ</td><td>抜き取り検査の比率</td></tr>
+<tr><td>既定の施設・表示・期間</td><td>写真の保存期間</td></tr></table></div>
+
+<div class="nc"><h3>🔒 表示専用でも見せる</h3>
+<p>変更できない項目を<b>非表示にせず、値を見せたうえで施錠</b>します。抜き取り検査10%、写真保存90日といった運用条件はオーナーが知っておくべき情報です。</p>
+<p>スイッチをクリックすると「この項目は運営管理者のみ変更できます」と表示されます。</p></div>
+
+<div class="nc"><h3>✅ 確定事項</h3>
+<ul>
+<li>変更できる範囲を画面上部に明記する</li>
+<li>「既定の施設」を設定項目として追加する</li>
+<li>変更できない項目も値を見せて施錠する</li>
+<li>LOW の差異通知は既定でオフ</li>
+<li>清掃手順・単価に関わる項目は表示専用</li>
+</ul></div></div></div>
+<div class="pg">
+<div class="hd"><h1>12. 権限と監査</h1><p>v3改修：招待フォームをモーダルから常設カードに変更。権限一覧と招待を同じ画面で完結できます。</p></div>
+<div class="bf"><div class="bb"><div class="dt"><i></i><i></i><i></i></div>
+<div class="url">https://owner.proofkeeping.jp/permissions</div></div>
+<div class="shell">
+<div class="top3"><div class="brand">Proof<em>Keeping</em><span>OWNER CONSOLE</span></div><div class="psel">
+<button class="btn3"><span>🏨</span><span class="pn2">サンプルホテル東京</span>
+<span class="rc4">60室</span><span class="cv">▼</span></button>
+<div class="pdd">
+<div class="ph4"><span>サンプル運営株式会社 · 3施設</span><span>完了 / 作業中 / 要対応</span></div>
+<div class="pi pall" data-n="全社サマリー" data-r="3施設 120室">
+<span class="ck4">✓</span><span class="e6">📊</span>
+<div class="nb"><div class="n5">全社サマリー</div><div class="d4">3施設 120室を横断表示</div></div>
+<div class="st5"><b class="d5">98</b><b class="r5">14</b><b class="f5">8</b></div></div>
+<div class="pi on" data-n="サンプルホテル東京" data-r="60室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル東京</div><div class="d4">東京都新宿区 · 60室</div></div>
+<div class="st5"><b class="d5">48</b><b class="r5">6</b><b class="f5">4</b></div></div>
+<div class="pi" data-n="サンプルホテル横浜" data-r="36室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル横浜</div><div class="d4">横浜市西区 · 36室</div></div>
+<div class="st5"><b class="d5">31</b><b class="r5">4</b><b class="f5">1</b></div></div>
+<div class="pi" data-n="サンプル旅館 箱根" data-r="24室">
+<span class="ck4">✓</span><span class="e6">♨️</span>
+<div class="nb"><div class="n5">サンプル旅館 箱根</div><div class="d4">神奈川県箱根町 · 24室</div></div>
+<div class="st5"><b class="d5">19</b><b class="r5">4</b><b class="f5">3</b></div></div>
+</div></div>
+<div class="rt3"><div class="bell">🔔<span class="bd3">4</span></div><div class="usr">
+<button class="ub"><span class="av">田</span><span class="un">田中</span><span class="cv2">▼</span></button>
+<div class="udd">
+<div class="uh"><div class="n6">田中 一郎 様</div><div class="m4">tanaka@sample-hotel.co.jp</div>
+<span class="rl2">オーナー · 自施設のみ</span></div>
+<a>👤 アカウント設定</a>
+<a>🔔 通知の設定</a>
+<a class="lgw">🌐 言語<span class="rv">日本語 ›</span>
+<div class="lgm">
+<div class="on"><span>🇯🇵</span>日本語</div><div><span>🇬🇧</span>English</div>
+<div><span>🇨🇳</span>简体中文</div><div><span>🇻🇳</span>Tiếng Việt</div>
+<div><span>🇮🇩</span>Bahasa Indonesia</div><div><span>🇲🇲</span>မြန်မာဘာသာ</div>
+<div><span>🇳🇵</span>नेपाली</div>
+</div></a>
+<a>❓ ヘルプ</a>
+<a class="dgr">↩ ログアウト</a>
+</div></div></div></div>
+<div class="bd4"><div class="sb3"><nav><div class="sc3">日次運用</div><a data-p="02"><span class="e7">📊</span>ダッシュボード</a><a data-p="03"><span class="e7">🏨</span>客室ボード</a><a data-p="04"><span class="e7">⚠️</span>稼働の差異<span class="bg4">4</span></a><div class="sc3">記録の確認</div><a data-p="05"><span class="e7">🔍</span>差異の詳細</a><a data-p="06"><span class="e7">📋</span>清掃記録</a><a data-p="07"><span class="e7">↻</span>検査・再清掃</a><div class="sc3">資材と分析</div><a data-p="08"><span class="e7">🧺</span>リネン消費</a><a data-p="09"><span class="e7">📈</span>月次レポート</a><a data-p="10"><span class="e7">💴</span>契約と請求</a><div class="sc3">設定</div><a data-p="11"><span class="e7">⚙️</span>施設設定</a><a class="on" data-p="12"><span class="e7">🔐</span>権限と監査</a></nav><div class="sf">閲覧権限：自施設のみ<br><span style="opacity:.75">清掃員の氏名は非表示</span></div></div>
+<div class="mn3"><div class="pgh"><div><h2>権限と監査</h2>
+<div class="sub">サンプルホテル東京 · アクセス権限と操作履歴</div></div>
+<div class="rt4"><button class="btn">📄 CSV出力</button>
+<button class="btn p">＋ 閲覧者を招待</button></div></div><div class="ct3">
+<div class="grid g2" style="margin-bottom:14px">
+<div class="card"><h3>👥 この施設を見られる方</h3><div class="bdy np">
+<table><thead><tr><th>お名前</th><th style="width:120px">役割</th>
+<th style="width:140px">見える範囲</th><th style="width:104px">最終ログイン</th></tr></thead>
+<tbody>
+<tr><td><b>田中 様</b><div class="mini">tanaka@sample-hotel.co.jp</div></td>
+<td><span class="tag if">オーナー</span></td>
+<td class="mini">自施設のみ<br>個人名は非表示</td><td class="mini">8/11 10:12</td></tr>
+<tr><td>山田 様<div class="mini">yamada@sample-hotel.co.jp</div></td>
+<td><span class="tag if">オーナー</span></td>
+<td class="mini">自施設のみ<br>個人名は非表示</td><td class="mini">8/10 19:22</td></tr>
+<tr><td>佐藤<div class="mini">運営管理者</div></td>
+<td><span class="tag gy">運営管理者</span></td>
+<td class="mini">契約範囲の全施設</td><td class="mini">8/11 01:05</td></tr>
+<tr><td>鈴木<div class="mini">現場責任者</div></td>
+<td><span class="tag gy">現場責任者</span></td>
+<td class="mini">担当施設のチーム</td><td class="mini">8/11 00:14</td></tr>
+</tbody></table>
+<div style="padding:13px 15px">
+<div class="al i" style="font-size:11px">ℹ
+<div><b>清掃スタッフはこの画面に表示されません</b>
+清掃スタッフは自分の記録のみを閲覧でき、オーナー画面にはアクセスできません。</div></div>
+</div></div></div>
+
+<div class="card"><h3>🔐 役割ごとの権限</h3><div class="bdy np">
+<table><thead><tr><th>項目</th><th style="width:84px">オーナー</th>
+<th style="width:96px">運営管理者</th><th style="width:84px">清掃員</th></tr></thead>
+<tbody>
+<tr><td>清掃記録の閲覧</td><td class="fx">自施設</td><td class="fx">全施設</td><td class="fx">自分のみ</td></tr>
+<tr><td>稼働の差異の閲覧</td><td class="fx">自施設</td><td class="fx">全施設</td><td class="nx">×</td></tr>
+<tr><td>清掃員の氏名</td><td class="nx">×</td><td class="fx">○</td><td class="fx">自分のみ</td></tr>
+<tr><td>個人別の実績</td><td class="nx">×</td><td class="fx">○</td><td class="fx">自分のみ</td></tr>
+<tr><td>再清掃の依頼</td><td class="fx">依頼可</td><td class="fx">指示可</td><td class="nx">×</td></tr>
+<tr><td>清掃手順の変更</td><td class="nx">×</td><td class="fx">○</td><td class="nx">×</td></tr>
+<tr><td>単価・契約条件</td><td class="fx">閲覧のみ</td><td class="fx">○</td><td class="nx">×</td></tr>
+<tr><td>閲覧者の招待</td><td class="fx">自施設</td><td class="fx">全施設</td><td class="nx">×</td></tr>
+</tbody></table></div></div>
+</div>
+
+<div class="grid g21">
+<div class="card"><h3>📜 操作の履歴<span class="rt2">直近の操作 · 90日間保存</span></h3><div class="bdy np">
+<table><thead><tr><th style="width:120px">日時</th><th style="width:150px">操作者</th>
+<th>操作</th><th style="width:120px">IPアドレス</th></tr></thead>
+<tbody>
+<tr><td class="mini">8/11 10:12</td><td>田中 様</td><td class="mini">ログイン</td>
+<td class="mini">203.0.113.42</td></tr>
+<tr><td class="mini">8/11 02:15</td><td>佐藤（運営管理者）</td><td class="mini">検査結果の登録 · 311号室</td>
+<td class="mini">198.51.100.7</td></tr>
+<tr><td class="mini">8/10 19:34</td><td>山田 様</td><td class="mini">差異の確認結果を記録 · 318号室</td>
+<td class="mini">203.0.113.88</td></tr>
+<tr><td class="mini">8/10 19:22</td><td>山田 様</td><td class="mini">ログイン</td>
+<td class="mini">203.0.113.88</td></tr>
+<tr><td class="mini">8/10 01:34</td><td>佐藤（運営管理者）</td>
+<td class="mini">再清掃タスクの作成 · 409号室（オーナー依頼より）</td>
+<td class="mini">198.51.100.7</td></tr>
+<tr><td class="mini">8/10 01:20</td><td>田中 様</td><td class="mini">再清掃の依頼 · 409号室（浴室・床）</td>
+<td class="mini">203.0.113.42</td></tr>
+<tr><td class="mini">8/8 10:02</td><td>田中 様</td><td class="mini">月次レポートの出力 · 2026年7月分</td>
+<td class="mini">203.0.113.42</td></tr>
+<tr><td class="mini">8/5 09:14</td><td>システム</td><td class="mini">月次レポートの確定 · 2026年7月分</td>
+<td class="mini">—</td></tr>
+</tbody></table>
+<div style="padding:13px 15px"><div class="mini">
+操作の履歴は90日間保存されます。清掃スタッフの操作履歴はオーナー画面には表示されません。勤務時間や作業ペースが間接的に見えてしまうためです。</div></div>
+</div></div>
+
+<div class="card"><h3>👥 閲覧者を招待</h3><div class="bdy">
+<div class="fld"><div class="lb">メールアドレス</div>
+<input class="inp" placeholder="example@sample-hotel.co.jp"></div>
+<div class="fld"><div class="lb">役割</div>
+<select class="sel" style="width:100%"><option>オーナー（自施設のみ）</option>
+<option>閲覧のみ（レポート・記録の閲覧）</option></select>
+<div class="hp">オーナー権限では再清掃の依頼と設定の変更ができます。閲覧のみの権限では記録とレポートの確認だけができます。</div></div>
+<div class="al i" style="font-size:11px">ℹ
+<div><b>招待できる権限の範囲</b>
+オーナー様が招待できるのは自施設の閲覧権限までです。清掃スタッフの氏名や個人別の実績は、招待した方にも表示されません。</div></div>
+<div style="display:flex;gap:9px;justify-content:flex-end;margin-top:13px">
+<button class="btn p" style="width:100%;justify-content:center">招待を送信</button></div>
+<div class="fl">見直しが必要なアカウント</div>
+<div class="al w" style="font-size:11px">⚠️
+<div><b>90日以上ログインのないアカウント 1件</b>
+前オーナー様のアカウントが残っています。無効化をご検討ください。</div></div>
+</div></div>
+</div></div></div></div></div></div>
+<div class="notes">
+<div class="nc"><h3>📐 v3改修点</h3>
+<p>招待フォームをモーダルから<b>常設カードに変更</b>しました。横幅が広くなり、操作履歴と並置できるようになったためです。</p>
+<p>モーダルを開く操作が1つ減り、権限一覧と招待を同じ画面で完結できます。</p></div>
+
+<div class="nc"><h3>🎯 権限表を全部見せる（変更なし）</h3>
+<p><b>「清掃員の氏名：オーナー×」</b>という行を明示的に置いています。03・05・06で「非表示」と表示してきた理由が、ここで権限設計として確認できます。</p>
+<div class="rmk2">❗ 権限を隠すと不信を生みます。設計として明示したほうが受け入れられます。同時にこの表は清掃会社側にとっても、契約時に示せる資料になります。</div></div>
+
+<div class="nc"><h3>📜 操作履歴に自分の操作も出す</h3>
+<p>操作履歴には<b>オーナー自身の操作も記録</b>されます。他者を監視する画面ではなく、双方の操作が等しく残る仕組みです。</p>
+<ul>
+<li>ログイン・レポート出力・再清掃の依頼を記録</li>
+<li>運営管理者の操作も同じ形式で記録</li>
+<li>90日間保存</li>
+<li><b>清掃スタッフの操作履歴は表示しない</b></li>
+</ul>
+<div class="hnt">💡 清掃スタッフの操作履歴を出さないのは、操作時刻から勤務時間や作業ペースが間接的に見えてしまうためです。</div></div>
+
+<div class="nc"><h3>✅ 確定事項</h3>
+<ul>
+<li>招待フォームを常設カードにする</li>
+<li>役割ごとの権限表を全項目開示する</li>
+<li>「清掃員の氏名：オーナー×」を明示する</li>
+<li>操作履歴にオーナー自身の操作も記録する</li>
+<li>清掃スタッフの操作履歴は表示しない</li>
+<li>自分より広い権限は招待できない</li>
+</ul></div></div></div>
+</div>
+<script>document.getElementById('dm').onclick=function(){
+document.querySelectorAll('.shell').forEach(s=>s.classList.toggle('dark'));
+this.textContent=document.querySelector('.shell').classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+document.querySelectorAll('.psel').forEach(p=>{
+p.querySelector('.btn3').onclick=e=>{e.stopPropagation();
+document.querySelectorAll('.usr').forEach(u=>u.classList.remove('open'));
+const o=p.classList.contains('open');
+document.querySelectorAll('.psel').forEach(x=>x.classList.remove('open'));
+if(!o)p.classList.add('open')};
+p.querySelectorAll('.pi').forEach(i=>i.onclick=function(){
+p.querySelectorAll('.pi').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+p.querySelector('.pn2').textContent=this.dataset.n;
+p.querySelector('.rc4').textContent=this.dataset.r;p.classList.remove('open')})});
+document.querySelectorAll('.usr').forEach(u=>{
+u.querySelector('.ub').onclick=e=>{e.stopPropagation();
+document.querySelectorAll('.psel').forEach(x=>x.classList.remove('open'));
+const o=u.classList.contains('open');
+document.querySelectorAll('.usr').forEach(x=>x.classList.remove('open'));
+if(!o)u.classList.add('open')};
+const lw=u.querySelector('.lgw');
+if(lw){lw.onclick=e=>{e.stopPropagation();lw.classList.toggle('op')};
+lw.querySelectorAll('.lgm div').forEach(d=>d.onclick=e=>{e.stopPropagation();
+lw.querySelectorAll('.lgm div').forEach(x=>x.classList.remove('on'));d.classList.add('on');
+lw.querySelector('.rv').textContent=d.textContent.trim()+' ›';
+lw.classList.remove('op');u.classList.remove('open');
+alert('表示言語を変更しました：'+d.textContent.trim()+'\n\nこの設定はご自身のアカウントにのみ適用されます')})}
+u.querySelectorAll('a:not(.lgw)').forEach(a=>a.onclick=e=>{e.stopPropagation();
+alert(a.textContent.trim()+' を開きます');u.classList.remove('open')})});
+document.addEventListener('click',()=>{
+document.querySelectorAll('.psel,.usr').forEach(x=>x.classList.remove('open'));
+document.querySelectorAll('.lgw').forEach(x=>x.classList.remove('op'))});
+document.querySelectorAll('.sb3 a').forEach(a=>a.onclick=function(){
+if(this.classList.contains('on'))return;alert('画面 '+this.dataset.p+' へ遷移します')});
+document.querySelectorAll('.bell').forEach(b=>b.onclick=()=>alert('通知（4件）\n\n・412号室 稼働の差異 HIGH\n・208号室 稼働の差異 MEDIUM\n・409号室 再清掃の指示\n・311号室 再清掃の指示\n\n重要度LOWは通知に含まれません'));
+document.querySelectorAll('.sw3').forEach(s=>s.onclick=function(){
+if(this.classList.contains('lk')){alert('この項目は運営管理者のみ変更できます');return}
+this.classList.toggle('on')});
+document.querySelectorAll('.conf').forEach(c=>c.querySelectorAll('.o').forEach(o=>o.onclick=function(){
+c.querySelectorAll('.o').forEach(x=>x.classList.remove('on'));this.classList.add('on')}));
+document.querySelectorAll('.rm').forEach(r=>r.onclick=()=>alert('客室の記録を表示します\n\n担当者の氏名は表示されません'));</script></body></html>

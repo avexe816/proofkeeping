@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 02 — 本日のタスク v2</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1180px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:322px;border-radius:34px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:25px;overflow:hidden;height:700px;
+display:flex;flex-direction:column;color:var(--ink)}
+.ofl{background:var(--warn);color:#fff;padding:9px 12px;font-size:11.5px;font-weight:700;
+display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ofl button{background:rgba(255,255,255,.25);border:none;color:#fff;padding:5px 11px;
+border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px}
+.top .a .rf{margin-left:auto;font-size:15px;opacity:.85;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.psw{display:flex;align-items:center;gap:7px;background:#0C2E26;border:1px solid #1D5044;
+border-radius:8px;padding:8px 11px;margin-top:9px;font-size:11.5px;cursor:pointer}
+.psw .ar{margin-left:auto;color:#8FAAA0;font-size:10px}
+.pg{display:flex;background:var(--surf);border-bottom:1px solid var(--line);padding:9px 2px}
+.pg div.c{text-align:center;flex:1;min-width:0}
+.pg div.c .v{font-size:18px;font-weight:800;line-height:1.1}
+.pg div.c .k{font-size:8.5px;color:var(--muted);margin-top:2px;white-space:nowrap}
+.pg .t .v{color:var(--dirty)}.pg .r .v{color:var(--warn)}
+.pg .w .v{color:var(--danger)}.pg .b .v{color:var(--dirty);opacity:.7}
+.pg .d .v{color:var(--ok)}
+.pg .sp{flex:0 0 1px;background:var(--line);margin:3px 0}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.bd{flex:1;padding:10px 12px 14px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.gh{display:flex;align-items:center;gap:9px;background:var(--brand);color:#fff;
+border-radius:10px;padding:11px 12px;margin:2px 0 10px;cursor:pointer}
+.gh .ic{font-size:16px}.gh .nm{font-size:12.5px;font-weight:700;flex:1}
+.gh .ct{font-size:11.5px;color:#B9CFC2}.gh .cv{font-size:11px;color:#B9CFC2;margin-left:4px}
+.gh.mv{background:var(--surf);color:var(--ink);border:1.5px dashed var(--line);
+margin-top:14px;cursor:default}
+.gh.mv .ct{color:var(--muted)}
+.gwrap.fold .tb{display:none}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid;background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.new{border-color:var(--line)}
+.tb.blk{border-color:var(--dirty);background:var(--dirtybg);opacity:.78}
+.tb.dn{border-color:var(--ok);background:var(--okbg);opacity:.72}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:36px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tb .pr{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+.tb .pr .bar{flex:1;height:6px;background:rgba(0,0,0,.09);border-radius:4px;overflow:hidden}
+body.dark .tb .pr .bar{background:rgba(255,255,255,.1)}
+.tb .pr .bar i{display:block;height:100%;background:var(--warn)}
+.tb .pr .pv{font-size:10.5px;font-weight:700;color:var(--warn)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.empty{text-align:center;padding:36px 16px;color:var(--muted);font-size:12.5px;line-height:1.8}
+.empty .i{font-size:40px;display:block;margin-bottom:10px;opacity:.5}
+.panel{flex:1;min-width:340px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.chk{background:#0d2622;border:1px solid #17453b;border-radius:11px;padding:16px}
+.chk h3{color:#5BC192;font-size:13.5px;margin-bottom:11px}
+.chk .q{font-size:12.5px;color:#C8D6CE;padding:9px 0;border-bottom:1px solid #17453b;line-height:1.65}
+.chk .q:last-child{border:0}
+.chk .q b{color:#7fd9b0;display:block;font-size:11px;margin-bottom:2px}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">02 / 16 — 本日のタスク v2</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">STATE</span>
+<button class="gb st on" data-s="multi">2施設</button>
+<button class="gb st" data-s="single">1施設</button>
+<button class="gb st" data-s="online">オンライン</button>
+<button class="gb st" data-s="empty">全完了</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">02. 本日のタスク（清掃員のホーム）</h1>
+<p data-i="d">清掃員が1日で最も長く見る画面。複数施設を「切替」させず、施設ごとにグループ化して1画面に並べる。カウンタは5段（未着手・作業中・再清掃・入室不可・完了）。右上の STATE で状態を切り替えて確認できます。</p></div>
+<div class="row">
+<div class="ph"><div class="sc">
+<div class="ofl" id="ofl"><span>⚠ <span data-i="ofl">オフライン ・ 未送信 2件</span></span>
+<button data-i="snd">送信する</button></div>
+<div class="top"><div class="a">📋 <span data-i="ttl">本日のタスク</span>
+<span class="rf" id="rf">🔄</span></div>
+<div class="b">8/10(月) 14:23 · Nguyen (11) · <span data-i="upd">更新</span></div>
+<div class="psw" id="psw"><span>🏢</span><span data-i="p2">2施設を担当</span><span class="ar">▼</span></div></div>
+
+<div class="pg">
+<div class="c t"><div class="v" id="c1">6</div><div class="k" data-i="k_todo">未着手</div></div>
+<div class="sp"></div>
+<div class="c r"><div class="v" id="c2">1</div><div class="k" data-i="k_run">作業中</div></div>
+<div class="sp"></div>
+<div class="c w"><div class="v" id="c3">1</div><div class="k" data-i="k_rwk">再清掃</div></div>
+<div class="sp"></div>
+<div class="c b"><div class="v" id="c4">1</div><div class="k" data-i="k_blk">入室不可</div></div>
+<div class="sp"></div>
+<div class="c d"><div class="v" id="c5">10</div><div class="k" data-i="k_done">完了</div></div>
+</div>
+
+<div class="tabs"><div class="t on"><span data-i="f_all">すべて</span> <b id="n-all">19</b></div>
+<div class="t"><span data-i="k_todo">未着手</span> <b>6</b></div>
+<div class="t"><span data-i="k_done">完了</span> <b>10</b></div></div>
+<div class="bd" id="bd">
+
+<div class="gwrap" data-pg="A">
+<div class="gh"><span class="ic">🏨</span><span class="nm">サンプルホテル東京</span>
+<span class="ct">12<span data-i="ken">件</span></span><span class="cv">▾</span></div>
+
+<div class="tb rwk"><div class="r1"><div class="no">401</div>
+<div class="tg" style="background:var(--danger);color:#fff">↺ <span data-i="s_rwk">再清掃</span></div></div>
+<div class="wn">🚿 <span data-i="rwk_m">浴室の鏡に水滴跡があります</span></div>
+<div class="mt">⏰ 14:30 <span data-i="due">期限</span> · <b style="color:var(--danger)"><span data-i="rest">残り</span>18<span data-i="min">分</span></b></div>
+<button class="big r">↺ <span data-i="b_rwk">対応する</span></button></div>
+
+<div class="tb run"><div class="r1"><div class="no">305</div>
+<div class="tg" style="background:var(--warn);color:#fff">⟳ 12<span data-i="min">分</span></div></div>
+<div class="ty"><span data-i="ty_stay">滞在清掃</span> · 3F · <span data-i="rt_d">ダブル</span> · 1<span data-i="nin">名</span></div>
+<div class="pr"><div class="bar"><i style="width:67%"></i></div><div class="pv">8/12</div></div>
+<div class="mt">📷 1 &nbsp; 🧺 <span data-i="not_yet">未入力</span></div>
+<button class="big w"><span data-i="b_res">続きから</span> →</button></div>
+
+<div class="tb new"><div class="r1"><div class="no">302</div>
+<div class="tg" style="background:var(--dirtybg);color:var(--dirty)"><span data-i="k_todo">未着手</span></div></div>
+<div class="ty"><span data-i="ty_out">アウト清掃</span> · 3F · <span data-i="rt_t">ツイン</span> · 2<span data-i="nin">名</span></div>
+<div class="mt">⏱ <span data-i="std">目安</span>40<span data-i="min">分</span> &nbsp; ✅ 0/16 &nbsp; 🕒 15:00 IN</div>
+<button class="big">▶ <span data-i="b_st">開始する</span></button></div>
+
+<div class="tb new"><div class="r1"><div class="no">303</div>
+<div class="tg" style="background:var(--dirtybg);color:var(--dirty)"><span data-i="k_todo">未着手</span></div></div>
+<div class="ty"><span data-i="ty_out">アウト清掃</span> · 3F · <span data-i="rt_s">シングル</span></div>
+<div class="mt">⏱ <span data-i="std">目安</span>30<span data-i="min">分</span></div>
+<button class="big">▶ <span data-i="b_st">開始する</span></button></div>
+
+<div class="tb blk"><div class="r1"><div class="no">307</div>
+<div class="tg" style="background:var(--dirty);color:#fff">🚫 <span data-i="k_blk">入室不可</span></div></div>
+<div class="ty" data-i="blk_m">お客様がご滞在中です。15時以降に再確認します。</div>
+<button class="big o" data-i="b_chk">状況を確認する</button></div>
+
+<div class="tb dn"><div class="r1"><div class="no">301</div>
+<div class="tg" style="background:var(--ok);color:#fff">✓ <span data-i="s_ok">検査済</span></div></div>
+<div class="ty">13:12 - 13:48 · 36<span data-i="min">分</span> · 📷 4</div></div>
+</div>
+
+<div class="gh mv" id="mvb"><span class="ic">🚃</span>
+<span class="nm" data-i="mv">移動 · 約25分</span><span class="ct">14:30 →</span></div>
+
+<div class="gwrap" data-pg="B">
+<div class="gh"><span class="ic">🏨</span><span class="nm">ビジネスH横浜</span>
+<span class="ct">7<span data-i="ken">件</span></span><span class="cv">▾</span></div>
+
+<div class="tb new"><div class="r1"><div class="no">208</div>
+<div class="tg" style="background:var(--dirtybg);color:var(--dirty)"><span data-i="k_todo">未着手</span></div></div>
+<div class="ty"><span data-i="ty_out">アウト清掃</span> · 2F · <span data-i="rt_t">ツイン</span></div>
+<div class="mt">⏱ <span data-i="std">目安</span>35<span data-i="min">分</span></div>
+<button class="big">▶ <span data-i="b_st">開始する</span></button></div>
+
+<div class="tb new"><div class="r1"><div class="no">209</div>
+<div class="tg" style="background:var(--dirtybg);color:var(--dirty)"><span data-i="k_todo">未着手</span></div></div>
+<div class="ty"><span data-i="ty_out">アウト清掃</span> · 2F · <span data-i="rt_s">シングル</span></div>
+<div class="mt">⏱ <span data-i="std">目安</span>30<span data-i="min">分</span></div>
+<button class="big">▶ <span data-i="b_st">開始する</span></button></div>
+</div>
+
+<div class="empty" id="emp" style="display:none"><span class="i">🎉</span>
+<b data-i="e_t">本日のタスクは<br>すべて完了しました</b><br>
+<span style="font-size:11.5px" data-i="e_s">お疲れさまでした。<br>完了 19件 · 作業時間 7時間40分</span></div>
+</div>
+<div class="ft"><div class="on"><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>✅ <span data-i="upd_t">今回の変更（Q1採用）</span></h3>
+<p data-i="upd_a"><b>カウンタを5段に拡張。</b>「入室不可」を独立表示にした。DND や施錠で入れない部屋は、後から再訪する必要があるため、未着手と混ぜると当日の残量を読み違える。</p>
+<div class="hint" data-i="upd_b">💡 5段になっても横幅は足りています。数値18px・ラベル8.5pxで、iPhone SE（375px）でも折り返しません。区切り線を入れて視認性を確保しました。</div></div>
+
+<div class="card"><h3>🎯 <span data-i="c1t">この画面の設計意図</span></h3>
+<p data-i="c1a"><b>「施設を切り替える」概念を持たせない。</b>清掃会社のスタッフは1日2〜3施設を回る。切替UIを置くと、切替を忘れて別施設のタスクを開始する誤操作が起きる。施設ごとにグループ化した単一リストにした。</p>
+<p data-i="c1b"><b>施設間に移動ブロックを挟む。</b>「14:30 →」で次の施設への移動時間を示す。現場は1日の動線として把握しているため、時間軸に沿った並びが自然。</p>
+<p data-i="c1c"><b>再清掃を最上部＋期限カウントダウン。</b>日本のホテルは15:00チェックインが多く、再清掃の見落としが直接READY遅延になる。並び順だけでなく「残り18分」を赤字で表示する。</p></div>
+
+<div class="card"><h3>📐 <span data-i="c2t">5段カウンタの定義</span></h3>
+<table><tr><th data-i="th_n">段</th><th data-i="th_s">状態</th><th data-i="th_d">意味</th></tr>
+<tr><td>1</td><td data-i="g1">未着手</td><td data-i="d1">CREATED / ASSIGNED</td></tr>
+<tr><td>2</td><td data-i="g2">作業中</td><td data-i="d2">IN_PROGRESS / PAUSED</td></tr>
+<tr><td>3</td><td data-i="g3">再清掃</td><td data-i="d3">REWORK（差戻し中）</td></tr>
+<tr><td>4</td><td data-i="g4">入室不可</td><td data-i="d4">BLOCKED（DND・施錠・在室）</td></tr>
+<tr><td>5</td><td data-i="g5">完了</td><td data-i="d5">AWAITING_INSPECTION / COMPLETED</td></tr></table>
+<div class="hint" data-i="c2h">💡「検査待ち」は完了に含めます。清掃員から見れば自分の作業は終わっているためです。検査員の画面（14）では別枠で扱います。</div></div>
+
+<div class="card"><h3>📐 <span data-i="c3t">並び順の規則</span></h3>
+<table><tr><th>#</th><th data-i="th_o">優先</th><th data-i="th_r">理由</th></tr>
+<tr><td>1</td><td data-i="o1">再清掃</td><td data-i="r1">READY遅延に直結</td></tr>
+<tr><td>2</td><td data-i="o2">作業中</td><td data-i="r2">中断からの復帰を最短に</td></tr>
+<tr><td>3</td><td data-i="o3">未着手（優先度順）</td><td data-i="r3">当日IN予定の部屋が先</td></tr>
+<tr><td>4</td><td data-i="o4">入室不可</td><td data-i="r4">後で再確認するもの</td></tr>
+<tr><td>5</td><td data-i="o5">完了</td><td data-i="r5">確認用。自動で折りたたむ</td></tr></table></div>
+
+<div class="card"><h3>📡 <span data-i="c4t">オフライン時の挙動</span></h3><ul>
+<li data-i="l1">最上部にオレンジの帯で「未送信 N件」を常時表示</li>
+<li data-i="l2">「送信する」をタップすると即座に再送を試行</li>
+<li data-i="l3">タスク一覧は最後に取得した内容を表示し、取得時刻を明示</li>
+<li data-i="l4">送信キューは施設をまたいで1本。施設ごとに分けない</li>
+<li data-i="l5">24時間以上未送信が残ると帯が赤くなる</li>
+<li data-i="l6">Background Sync は使わない。画面表示時・オンライン復帰時・手動タップ時に flush</li>
+</ul></div>
+
+<div class="chk"><h3>✅ <span data-i="c5t">確認結果</span></h3>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q1t">Q1. カウンタ5段（入室不可を追加） — 確定</span></b>
+<span data-i="q1">後から再訪が必要な部屋を独立表示。当日の残量を正確に把握できる。</span></div>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q2t">Q2. 完了タスクは薄く表示 — 確定</span></b>
+<span data-i="q2">不透明度72%で「すべて」タブに残す。自分の作業履歴の確認に使える。</span></div>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q3t">Q3. 移動時間は管理者が入力 — 確定</span></b>
+<span data-i="q3">シフト作成時に入力。未登録なら移動ブロックを出さない。地図API自動計算は初期版では行わない。</span></div>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q4t">Q4. DND再確認は固定文 — 確定</span></b>
+<span data-i="q4">「15時以降に再確認」を既定。施設ごとの時刻設定は将来の拡張とする。</span></div>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q5t">Q5. チェックイン時刻を表示 — 確定</span></b>
+<span data-i="q5">稼働記録がある場合のみ「🕒 15:00 IN」を表示。優先度判断に有効。</span></div>
+</div></div></div></div>
+<script>
+const I18N={ja:{},
+en:{t:"02. Today's Tasks (cleaner home)",
+d:"The screen a cleaner looks at longest. Instead of switching properties, tasks are grouped by property in one list. Five counters: to do, running, rework, cannot enter, done. Use STATE at the top right to try different states.",
+ofl:"Offline · 2 unsent",snd:"Send now",ttl:"Today's Tasks",upd:"updated",p2:"Covering 2 properties",
+k_todo:"To Do",k_run:"Running",k_rwk:"Rework",k_blk:"No Entry",k_done:"Done",f_all:"All",ken:"",min:"m",nin:"",
+s_rwk:"Rework",rwk_m:"Water spots on the bathroom mirror",due:"due",rest:"",b_rwk:"Fix Now",
+ty_stay:"Stayover Clean",ty_out:"Checkout Clean",rt_d:"Double",rt_t:"Twin",rt_s:"Single",
+not_yet:"not entered",b_res:"Resume",std:"target ",b_st:"Start",
+blk_m:"Guest is still in the room. Will re-check after 15:00.",b_chk:"Check status",s_ok:"Inspected",
+mv:"Travel · approx 25 min",tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+e_t:"All of today's tasks<br>are complete",e_s:"Well done.<br>19 done · 7h40m worked",
+upd_t:"Change in this revision (Q1 adopted)",
+upd_a:"<b>Counters expanded to five.</b> \\"Cannot enter\\" is now separate. Rooms blocked by DND or a lock need a later revisit, so mixing them into \\"to do\\" makes the remaining workload look wrong.",
+upd_b:"💡 Five columns still fit. Numbers at 18px and labels at 8.5px do not wrap even on an iPhone SE (375px). Divider lines keep them readable.",
+c1t:"Design intent",
+c1a:"<b>No concept of switching properties.</b> Cleaning staff cover 2-3 properties a day. A switcher invites the error of starting a task at the wrong property.",
+c1b:"<b>Travel block between properties.</b> \\"14:30 →\\" shows travel time to the next site. Staff think of the day as a route.",
+c1c:"<b>Rework at the very top with a countdown.</b> Japanese hotels commonly check in at 15:00, so missed rework directly delays READY.",
+c2t:"Definition of the five counters",th_n:"#",th_s:"State",th_d:"Meaning",
+g1:"To do",d1:"CREATED / ASSIGNED",g2:"Running",d2:"IN_PROGRESS / PAUSED",
+g3:"Rework",d3:"REWORK (sent back)",g4:"Cannot enter",d4:"BLOCKED (DND, locked, occupied)",
+g5:"Done",d5:"AWAITING_INSPECTION / COMPLETED",
+c2h:"💡 \\"Awaiting inspection\\" counts as done, because from the cleaner's view their work is finished. The inspector screen (14) treats it separately.",
+c3t:"Ordering rules",th_o:"Priority",th_r:"Reason",
+o1:"Rework",r1:"Directly delays READY",o2:"Running",r2:"Fastest return from a pause",
+o3:"To do (by priority)",r3:"Rooms with a check-in today come first",
+o4:"Cannot enter",r4:"To be re-checked later",o5:"Done",r5:"For reference. Auto-collapsed",
+c4t:"Offline behaviour",
+l1:"An orange bar at the top always shows \\"N unsent\\"",l2:"Tapping \\"Send now\\" retries immediately",
+l3:"The list shows the last fetched content with its fetch time",
+l4:"One send queue across all properties — never split per property",
+l5:"The bar turns red if anything stays unsent for over 24 hours",
+l6:"Background Sync is not used. Flush on view, on reconnect and on manual tap",
+c5t:"Confirmed decisions",
+q1t:"Q1. Five counters incl. Cannot enter — confirmed",
+q1:"Rooms needing a revisit are shown separately so the remaining workload is accurate.",
+q2t:"Q2. Completed tasks shown faded — confirmed",
+q2:"Kept in the All tab at 72% opacity, useful for reviewing one's own work.",
+q3t:"Q3. Travel time entered by the admin — confirmed",
+q3:"Entered when building shifts. Without it no travel block appears. Map-API auto-calculation is out of scope for v1.",
+q4t:"Q4. Fixed DND message — confirmed",
+q4:"\\"Re-check after 15:00\\" as default. Per-property times are a future extension.",
+q5t:"Q5. Show the check-in time — confirmed",
+q5:"\\"🕒 15:00 IN\\" appears only when occupancy data exists. Useful for prioritising."},
+zh:{t:"02. 今日任务（清扫员主画面）",
+d:"清扫员一天里看得最久的画面。不让他们「切换设施」，而是按设施分组显示在同一列表。计数器为 5 段：未开始・作业中・返工・无法进入・完成。可用右上 STATE 切换状态确认。",
+ofl:"离线 ・ 未发送 2件",snd:"立即发送",ttl:"今日任务",upd:"更新",p2:"担当 2 家设施",
+k_todo:"未开始",k_run:"作业中",k_rwk:"返工",k_blk:"无法进入",k_done:"完成",f_all:"全部",ken:"件",min:"分",nin:"名",
+s_rwk:"返工",rwk_m:"浴室镜子上有水渍",due:"期限",rest:"剩余",b_rwk:"立即处理",
+ty_stay:"住中清扫",ty_out:"退房清扫",rt_d:"大床",rt_t:"双床",rt_s:"单床",
+not_yet:"未输入",b_res:"继续",std:"目标",b_st:"开始",
+blk_m:"客人仍在房内。15 点以后再确认。",b_chk:"确认状况",s_ok:"已检查",
+mv:"移动 · 约 25 分",tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+e_t:"今日任务<br>已全部完成",e_s:"辛苦了。<br>完成 19 件 · 作业时间 7 小时 40 分",
+upd_t:"本次变更（采纳 Q1）",
+upd_a:"<b>计数器扩展为 5 段。</b>把「无法进入」独立显示。因 DND 或上锁而进不去的房间需要之后再访，混在未开始里会误判当天的剩余量。",
+upd_b:"💡 5 段横向宽度仍然够用。数值 18px、标签 8.5px，在 iPhone SE（375px）也不换行。加了分隔线确保可读性。",
+c1t:"本画面的设计意图",
+c1a:"<b>不让员工有「切换设施」的概念。</b>清扫公司的员工一天跑 2〜3 家。放切换 UI 会导致忘记切换而误开始别家的任务。",
+c1b:"<b>设施之间插入移动块。</b>「14:30 →」显示到下一设施的移动时间。现场是按一天的动线来把握的。",
+c1c:"<b>返工放最上方＋期限倒计时。</b>日本酒店多为 15:00 入住，返工漏掉直接造成 READY 延迟。",
+c2t:"5 段计数器的定义",th_n:"段",th_s:"状态",th_d:"含义",
+g1:"未开始",d1:"CREATED / ASSIGNED",g2:"作业中",d2:"IN_PROGRESS / PAUSED",
+g3:"返工",d3:"REWORK（被退回中）",g4:"无法进入",d4:"BLOCKED（DND・上锁・在室）",
+g5:"完成",d5:"AWAITING_INSPECTION / COMPLETED",
+c2h:"💡「待检查」计入完成。因为从清扫员的角度看自己的作业已经结束。检查员画面（14）里另作处理。",
+c3t:"排序规则",th_o:"优先",th_r:"理由",
+o1:"返工",r1:"直接影响 READY",o2:"作业中",r2:"从中断恢复最快",
+o3:"未开始（按优先度）",r3:"当日有入住的房间优先",
+o4:"无法进入",r4:"稍后再确认的",o5:"完成",r5:"仅供确认。自动折叠",
+c4t:"离线时的行为",
+l1:"最上方橙色条常显「未发送 N 件」",l2:"点「立即发送」即刻重试",
+l3:"任务列表显示最后取得的内容，并标明取得时刻",l4:"发送队列跨设施只有 1 条，不按设施分开",
+l5:"超过 24 小时仍未发送则条变红",l6:"不使用 Background Sync。在画面显示时・恢复联网时・手动点击时 flush",
+c5t:"确认结果",
+q1t:"Q1. 计数器 5 段（追加无法进入）— 已确定",
+q1:"需要之后再访的房间独立显示，能准确掌握当天剩余量。",
+q2t:"Q2. 完成任务淡色显示 — 已确定",
+q2:"以 72% 不透明度留在「全部」标签，可用于确认自己的作业履历。",
+q3t:"Q3. 移动时间由管理者输入 — 已确定",
+q3:"排班时输入。未登录则不显示移动块。地图 API 自动计算不在初版范围。",
+q4t:"Q4. DND 再确认为固定文 — 已确定",
+q4:"以「15 点以后再确认」为默认。按设施设定时刻作为将来的扩展。",
+q5t:"Q5. 显示入住时刻 — 已确定",
+q5:"仅在有稼働记录时显示「🕒 15:00 IN」。有助于判断优先度。"},
+vi:{t:"02. Nhiệm vụ hôm nay",d:"Màn hình nhân viên xem lâu nhất. Năm bộ đếm: chưa làm, đang làm, dọn lại, không vào được, xong.",
+ofl:"Ngoại tuyến · 2 chưa gửi",snd:"Gửi ngay",ttl:"Nhiệm vụ hôm nay",upd:"cập nhật",p2:"Phụ trách 2 cơ sở",
+k_todo:"Chưa làm",k_run:"Đang làm",k_rwk:"Dọn lại",k_blk:"Không vào",k_done:"Xong",f_all:"Tất cả",ken:"",min:"phút",nin:"người",
+s_rwk:"Dọn lại",rwk_m:"Có vết nước trên gương phòng tắm",due:"hạn",rest:"còn ",b_rwk:"Xử lý ngay",
+ty_stay:"Dọn khi khách ở",ty_out:"Dọn sau khách đi",rt_d:"Giường đôi",rt_t:"2 giường",rt_s:"1 giường",
+not_yet:"chưa nhập",b_res:"Tiếp tục",std:"mục tiêu ",b_st:"Bắt đầu",
+blk_m:"Khách vẫn ở trong phòng. Sẽ kiểm tra lại sau 15:00.",b_chk:"Kiểm tra tình trạng",s_ok:"Đã kiểm tra",
+mv:"Di chuyển · khoảng 25 phút",tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+e_t:"Tất cả nhiệm vụ hôm nay<br>đã hoàn thành",e_s:"Cảm ơn bạn.<br>19 việc · 7 giờ 40 phút",
+upd_t:"Thay đổi lần này (áp dụng Q1)",
+upd_a:"<b>Mở rộng thành năm bộ đếm.</b> \\"Không vào được\\" tách riêng. Phòng bị DND hay khóa cần quay lại sau.",
+upd_b:"💡 Năm cột vẫn vừa. Số 18px, nhãn 8.5px không bị ngắt dòng trên iPhone SE.",
+c1t:"Ý đồ thiết kế",
+c1a:"<b>Không có khái niệm chuyển cơ sở.</b> Nhân viên đi 2-3 cơ sở mỗi ngày.",
+c1b:"<b>Khối di chuyển giữa các cơ sở.</b> Hiển thị thời gian di chuyển.",
+c1c:"<b>Dọn lại ở trên cùng kèm đếm ngược.</b> Khách sạn Nhật thường nhận phòng 15:00.",
+c2t:"Định nghĩa năm bộ đếm",th_n:"#",th_s:"Trạng thái",th_d:"Ý nghĩa",
+g1:"Chưa làm",d1:"CREATED / ASSIGNED",g2:"Đang làm",d2:"IN_PROGRESS / PAUSED",
+g3:"Dọn lại",d3:"REWORK",g4:"Không vào được",d4:"BLOCKED",g5:"Xong",d5:"AWAITING_INSPECTION / COMPLETED",
+c2h:"💡 \\"Chờ kiểm tra\\" tính là xong vì công việc của nhân viên đã hết.",
+c3t:"Quy tắc sắp xếp",th_o:"Ưu tiên",th_r:"Lý do",
+o1:"Dọn lại",r1:"Ảnh hưởng trực tiếp READY",o2:"Đang làm",r2:"Quay lại nhanh nhất",
+o3:"Chưa làm",r3:"Phòng nhận hôm nay trước",o4:"Không vào được",r4:"Kiểm tra lại sau",
+o5:"Xong",r5:"Để tham khảo",
+c4t:"Hành vi ngoại tuyến",
+l1:"Thanh cam luôn hiện \\"N chưa gửi\\"",l2:"Nhấn \\"Gửi ngay\\" để thử lại",
+l3:"Hiện nội dung lấy lần cuối kèm thời gian",l4:"Một hàng đợi cho mọi cơ sở",
+l5:"Thanh đỏ nếu quá 24 giờ",l6:"Không dùng Background Sync",
+c5t:"Kết quả xác nhận",
+q1t:"Q1. Năm bộ đếm — đã xác nhận",q1:"Phòng cần quay lại hiện riêng.",
+q2t:"Q2. Việc xong hiện mờ — đã xác nhận",q2:"Giữ ở tab Tất cả với độ mờ 72%.",
+q3t:"Q3. Quản lý nhập thời gian di chuyển — đã xác nhận",q3:"Nhập khi lập lịch.",
+q4t:"Q4. Thông báo DND cố định — đã xác nhận",q4:"Mặc định \\"sau 15:00\\".",
+q5t:"Q5. Hiện giờ nhận phòng — đã xác nhận",q5:"Chỉ khi có dữ liệu."},
+id:{t:"02. Tugas Hari Ini",d:"Layar yang paling lama dilihat petugas. Lima penghitung: belum, berjalan, ulang, tidak bisa masuk, selesai.",
+ofl:"Offline · 2 belum terkirim",snd:"Kirim sekarang",ttl:"Tugas Hari Ini",upd:"diperbarui",p2:"Menangani 2 properti",
+k_todo:"Belum",k_run:"Berjalan",k_rwk:"Ulang",k_blk:"Tak Bisa",k_done:"Selesai",f_all:"Semua",ken:"",min:"mnt",nin:"org",
+s_rwk:"Bersih Ulang",rwk_m:"Ada bekas air di cermin kamar mandi",due:"batas",rest:"sisa ",b_rwk:"Perbaiki",
+ty_stay:"Bersih Menginap",ty_out:"Bersih Checkout",rt_d:"Double",rt_t:"Twin",rt_s:"Single",
+not_yet:"belum diisi",b_res:"Lanjutkan",std:"target ",b_st:"Mulai",
+blk_m:"Tamu masih di kamar. Akan dicek lagi setelah 15:00.",b_chk:"Cek status",s_ok:"Diperiksa",
+mv:"Perjalanan · sekitar 25 mnt",tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+e_t:"Semua tugas hari ini<br>sudah selesai",e_s:"Terima kasih.<br>19 selesai · 7 jam 40 mnt",
+upd_t:"Perubahan kali ini (Q1 diadopsi)",
+upd_a:"<b>Penghitung menjadi lima.</b> \\"Tidak bisa masuk\\" kini terpisah. Kamar DND atau terkunci perlu dikunjungi ulang.",
+upd_b:"💡 Lima kolom masih pas. Angka 18px dan label 8.5px tidak terpotong di iPhone SE.",
+c1t:"Maksud desain",
+c1a:"<b>Tanpa konsep ganti properti.</b> Petugas menangani 2-3 properti sehari.",
+c1b:"<b>Blok perjalanan antar properti.</b> Menunjukkan waktu tempuh.",
+c1c:"<b>Bersih ulang di paling atas dengan hitung mundur.</b> Hotel Jepang umumnya check-in 15:00.",
+c2t:"Definisi lima penghitung",th_n:"#",th_s:"Status",th_d:"Arti",
+g1:"Belum",d1:"CREATED / ASSIGNED",g2:"Berjalan",d2:"IN_PROGRESS / PAUSED",
+g3:"Ulang",d3:"REWORK",g4:"Tidak bisa masuk",d4:"BLOCKED",g5:"Selesai",d5:"AWAITING_INSPECTION / COMPLETED",
+c2h:"💡 \\"Menunggu inspeksi\\" dihitung selesai karena pekerjaan petugas sudah berakhir.",
+c3t:"Aturan urutan",th_o:"Prioritas",th_r:"Alasan",
+o1:"Ulang",r1:"Langsung menunda READY",o2:"Berjalan",r2:"Kembali paling cepat",
+o3:"Belum",r3:"Kamar check-in hari ini dulu",o4:"Tidak bisa masuk",r4:"Dicek ulang nanti",
+o5:"Selesai",r5:"Untuk referensi",
+c4t:"Perilaku offline",
+l1:"Bilah oranye selalu menampilkan \\"N belum terkirim\\"",l2:"Ketuk \\"Kirim sekarang\\"",
+l3:"Menampilkan data terakhir beserta waktunya",l4:"Satu antrean untuk semua properti",
+l5:"Bilah merah jika lewat 24 jam",l6:"Background Sync tidak dipakai",
+c5t:"Hasil konfirmasi",
+q1t:"Q1. Lima penghitung — dikonfirmasi",q1:"Kamar yang perlu dikunjungi ulang tampil terpisah.",
+q2t:"Q2. Tugas selesai tampil pudar — dikonfirmasi",q2:"Tetap di tab Semua dengan opasitas 72%.",
+q3t:"Q3. Admin mengisi waktu tempuh — dikonfirmasi",q3:"Diisi saat membuat jadwal.",
+q4t:"Q4. Pesan DND tetap — dikonfirmasi",q4:"Default \\"setelah 15:00\\".",
+q5t:"Q5. Tampilkan waktu check-in — dikonfirmasi",q5:"Hanya bila ada data."},
+my:{t:"၀၂. ဒီနေ့အလုပ်များ",d:"အကြာဆုံးကြည့်သည့် မျက်နှာပြင်။ ကောင်တာ ၅ ခု။",
+ofl:"အော့ဖ်လိုင် · မပို့ရသေး ၂ ခု",snd:"ချက်ချင်းပို့",ttl:"ဒီနေ့အလုပ်များ",upd:"အသစ်",p2:"အဆောက်အအုံ ၂ ခု",
+k_todo:"မစသေး",k_run:"လုပ်နေ",k_rwk:"ပြန်လုပ်",k_blk:"မဝင်ရ",k_done:"ပြီး",f_all:"အားလုံး",ken:"ခု",min:"မိနစ်",nin:"ဦး",
+s_rwk:"ပြန်လုပ်",rwk_m:"ရေချိုးခန်းမှန်တွင် ရေစက်ရာရှိသည်",due:"သတ်မှတ်ချိန်",rest:"ကျန် ",b_rwk:"ပြင်ရန်",
+ty_stay:"တည်းခိုသန့်ရှင်းမှု",ty_out:"ထွက်ခွာသန့်ရှင်းမှု",rt_d:"အိပ်ရာကြီး",rt_t:"အိပ်ရာ၂လုံး",rt_s:"အိပ်ရာ၁လုံး",
+not_yet:"မထည့်သေး",b_res:"ဆက်လုပ်",std:"ပန်းတိုင် ",b_st:"စတင်",
+blk_m:"ဧည့်သည် အခန်းတွင်ရှိသည်။ ၁၅ နာရီနောက် ပြန်စစ်မည်။",b_chk:"အခြေအနေစစ်",s_ok:"စစ်ပြီး",
+mv:"ရွေ့လျား · ၂၅ မိနစ်ခန့်",tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+e_t:"ဒီနေ့အလုပ်များ<br>အားလုံးပြီးပါပြီ",e_s:"ကျေးဇူးတင်ပါသည်။<br>၁၉ ခု · ၇ နာရီ ၄၀ မိနစ်",
+upd_t:"ဤအကြိမ်ပြောင်းလဲမှု（Q1 လက်ခံ）",
+upd_a:"<b>ကောင်တာ ၅ ခုသို့ တိုးချဲ့။</b> \\"မဝင်ရ\\" ကို သီးသန့်ပြသည်။ DND သို့မဟုတ် သော့ပိတ်ထားသောအခန်းများ နောက်မှ ပြန်လာရန်လိုသည်။",
+upd_b:"💡 ကော်လံ ၅ ခု အကျယ် လုံလောက်သည်။",
+c1t:"ဒီဇိုင်းရည်ရွယ်ချက်",
+c1a:"<b>အဆောက်အအုံပြောင်းသည့် အယူအဆ မထားပါ။</b> တစ်ရက် ၂-၃ အဆောက်အအုံ လှည့်ရသည်။",
+c1b:"<b>အဆောက်အအုံအကြား ရွေ့လျားအချိန်။</b>",
+c1c:"<b>ပြန်လုပ်ကို အပေါ်ဆုံး၊ အချိန်ရေတွက်။</b> ဂျပန်ဟိုတယ် ၁၅ နာရီ ဝင်ရောက်သည်။",
+c2t:"ကောင်တာ ၅ ခု အဓိပ္ပါယ်",th_n:"#",th_s:"အခြေအနေ",th_d:"အဓိပ္ပါယ်",
+g1:"မစသေး",d1:"CREATED / ASSIGNED",g2:"လုပ်နေ",d2:"IN_PROGRESS / PAUSED",
+g3:"ပြန်လုပ်",d3:"REWORK",g4:"မဝင်ရ",d4:"BLOCKED",g5:"ပြီး",d5:"AWAITING_INSPECTION / COMPLETED",
+c2h:"💡 \\"စစ်ဆေးရန်စောင့်\\" ကို ပြီးအဖြစ် ရေတွက်သည်။",
+c3t:"အစီအစဉ် စည်းမျဉ်း",th_o:"ဦးစားပေး",th_r:"အကြောင်းရင်း",
+o1:"ပြန်လုပ်",r1:"READY နှောင့်နှေးမှု",o2:"လုပ်နေ",r2:"အမြန်ဆုံးဆက်လုပ်",
+o3:"မစသေး",r3:"ဒီနေ့ဝင်မည့်အခန်း ဦးစား",o4:"မဝင်ရ",r4:"နောက်မှ ပြန်စစ်",
+o5:"ပြီး",r5:"အတည်ပြုရန်",
+c4t:"အော့ဖ်လိုင် အပြုအမူ",
+l1:"လိမ္မော်ရောင်ဘား အမြဲပြ",l2:"\\"ချက်ချင်းပို့\\" နှိပ်",
+l3:"နောက်ဆုံးရယူချိန်ကို ပြ",l4:"ပို့စာတန်း ၁ ခုသာ",
+l5:"၂၄ နာရီကြာပါက အနီ",l6:"Background Sync မသုံးပါ",
+c5t:"အတည်ပြုရလဒ်",
+q1t:"မေး၁. ကောင်တာ ၅ ခု — အတည်",q1:"ပြန်လာရန်လိုသောအခန်းကို သီးသန့်ပြသည်။",
+q2t:"မေး၂. ပြီးသောအလုပ် မှိန်ပြ — အတည်",q2:"အားလုံးတက်ဘ်တွင် ၇၂% မှိန်။",
+q3t:"မေး၃. ရွေ့လျားအချိန် စီမံသူထည့် — အတည်",q3:"အလုပ်ချိန်ဇယားရေးဆွဲစဉ်။",
+q4t:"မေး၄. DND အမြဲတမ်းစာ — အတည်",q4:"မူရင်း \\"၁၅ နာရီနောက်\\"။",
+q5t:"မေး၅. ဝင်ရောက်ချိန်ပြ — အတည်",q5:"ဒေတာရှိမှသာ။"},
+ne:{t:"०२. आजका कामहरू",d:"सबैभन्दा लामो हेर्ने स्क्रिन। पाँच काउन्टर।",
+ofl:"अफलाइन · २ पठाइएको छैन",snd:"अहिले पठाउने",ttl:"आजका कामहरू",upd:"अद्यावधिक",p2:"२ सुविधा",
+k_todo:"बाँकी",k_run:"चलिरहेको",k_rwk:"पुनः सफाई",k_blk:"पस्न मिल्दैन",k_done:"सम्पन्न",f_all:"सबै",ken:"",min:"मिनेट",nin:"जना",
+s_rwk:"पुनः सफाई",rwk_m:"बाथरुमको ऐनामा पानीको दाग छ",due:"समयसीमा",rest:"बाँकी ",b_rwk:"अहिले मिलाउने",
+ty_stay:"बास बस्दाको सफाई",ty_out:"चेकआउट सफाई",rt_d:"डबल",rt_t:"ट्विन",rt_s:"सिंगल",
+not_yet:"हालिएको छैन",b_res:"जारी राख्ने",std:"लक्ष्य ",b_st:"सुरु",
+blk_m:"पाहुना कोठामा छन्। १५:०० पछि पुनः जाँच्नेछौं।",b_chk:"स्थिति जाँच्ने",s_ok:"जाँचिएको",
+mv:"यात्रा · लगभग २५ मिनेट",tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+e_t:"आजका सबै काम<br>सम्पन्न भयो",e_s:"धन्यवाद।<br>१९ काम · ७ घण्टा ४० मिनेट",
+upd_t:"यस पटकको परिवर्तन (Q1 स्वीकृत)",
+upd_a:"<b>काउन्टर पाँचमा विस्तार।</b> \\"पस्न मिल्दैन\\" अब छुट्टै। DND वा तालाबन्द कोठा पछि पुनः जानुपर्छ।",
+upd_b:"💡 पाँच स्तम्भ अझै मिल्छ।",
+c1t:"डिजाइनको उद्देश्य",
+c1a:"<b>सुविधा फेर्ने अवधारणा छैन।</b> कर्मचारी दिनमा २–३ सुविधा घुम्छन्।",
+c1b:"<b>सुविधाबीच यात्रा ब्लक।</b>",
+c1c:"<b>पुनः सफाई माथि, समय गन्ती सहित।</b> जापानी होटेलमा १५:०० चेक-इन।",
+c2t:"पाँच काउन्टरको परिभाषा",th_n:"#",th_s:"अवस्था",th_d:"अर्थ",
+g1:"बाँकी",d1:"CREATED / ASSIGNED",g2:"चलिरहेको",d2:"IN_PROGRESS / PAUSED",
+g3:"पुनः सफाई",d3:"REWORK",g4:"पस्न मिल्दैन",d4:"BLOCKED",g5:"सम्पन्न",d5:"AWAITING_INSPECTION / COMPLETED",
+c2h:"💡 \\"निरीक्षण प्रतीक्षा\\" सम्पन्नमा गणना हुन्छ।",
+c3t:"क्रम नियम",th_o:"प्राथमिकता",th_r:"कारण",
+o1:"पुनः सफाई",r1:"READY ढिलाइ",o2:"चलिरहेको",r2:"छिटो फर्कन",
+o3:"बाँकी",r3:"आज चेक-इन हुने पहिले",o4:"पस्न मिल्दैन",r4:"पछि जाँच्ने",
+o5:"सम्पन्न",r5:"सन्दर्भ",
+c4t:"अफलाइन व्यवहार",
+l1:"सुन्तला पट्टी सधैं देखिन्छ",l2:"\\"अहिले पठाउने\\" थिच्ने",
+l3:"अन्तिम प्राप्त समय देखाउँछ",l4:"सबै सुविधाका लागि एउटै लाइन",
+l5:"२४ घण्टा भए रातो",l6:"Background Sync प्रयोग हुँदैन",
+c5t:"पुष्टि भएका निर्णय",
+q1t:"प्रश्न१. पाँच काउन्टर — पुष्टि",q1:"पुनः जानुपर्ने कोठा छुट्टै देखिन्छ।",
+q2t:"प्रश्न२. सम्पन्न काम धमिलो — पुष्टि",q2:"सबै ट्याबमा ७२% धमिलो।",
+q3t:"प्रश्न३. प्रशासकले यात्रा समय — पुष्टि",q3:"तालिका बनाउँदा हाल्ने।",
+q4t:"प्रश्न४. DND सन्देश निश्चित — पुष्टि",q4:"पूर्वनिर्धारित \\"१५:०० पछि\\"।",
+q5t:"प्रश्न५. चेक-इन समय — पुष्टि",q5:"डाटा भएमा मात्र।"}};
+const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+const ofl=document.getElementById('ofl'),gB=document.querySelector('[data-pg="B"]'),
+mvb=document.getElementById('mvb'),psw=document.getElementById('psw'),
+emp=document.getElementById('emp'),bd=document.getElementById('bd');
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const s=this.dataset.s;
+bd.querySelectorAll('.gwrap').forEach(g=>g.style.display='');
+emp.style.display='none';ofl.style.display='';mvb.style.display='';psw.style.display='';
+const set=(a,b,c,d,e,n)=>{document.getElementById('c1').textContent=a;
+document.getElementById('c2').textContent=b;document.getElementById('c3').textContent=c;
+document.getElementById('c4').textContent=d;document.getElementById('c5').textContent=e;
+document.getElementById('n-all').textContent=n};
+if(s==='single'){gB.style.display='none';mvb.style.display='none';psw.style.display='none';
+set(4,1,1,1,5,12)}
+else if(s==='online'){ofl.style.display='none';set(6,1,1,1,10,19)}
+else if(s==='empty'){bd.querySelectorAll('.gwrap').forEach(g=>g.style.display='none');
+mvb.style.display='none';ofl.style.display='none';emp.style.display='';set(0,0,0,0,19,19)}
+else set(6,1,1,1,10,19)});
+document.querySelectorAll('.tabs .t').forEach(t=>t.onclick=function(){
+this.parentNode.querySelectorAll('.t').forEach(x=>x.classList.remove('on'));this.classList.add('on')});
+document.querySelectorAll('.gwrap .gh').forEach(h=>h.onclick=function(){
+const w=this.closest('.gwrap');w.classList.toggle('fold');
+this.querySelector('.cv').textContent=w.classList.contains('fold')?'▸':'▾'});
+document.getElementById('rf').onclick=function(){this.style.transition='.5s';
+this.style.transform='rotate(360deg)';setTimeout(()=>{this.style.transform='';this.style.transition=''},520)};
+document.querySelectorAll('.ofl button').forEach(b=>b.onclick=()=>{
+ofl.style.background='var(--ok)';ofl.querySelector('span span').textContent='送信しました';
+setTimeout(()=>{ofl.style.display='none'},900)});
+document.querySelectorAll('.big').forEach(b=>b.onclick=()=>{
+const c=b.closest('.tb');if(!c)return;const n=c.querySelector('.no');
+if(n)alert('→ 05 タスク詳細\n\n'+n.textContent+'号室')});
+</script></body></html>

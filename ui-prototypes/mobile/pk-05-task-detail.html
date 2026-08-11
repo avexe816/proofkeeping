@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 05 — タスク詳細</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.nav{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.nav a{font-size:10.5px;padding:5px 9px;border-radius:5px;background:#111815;
+border:1px solid #1E2A25;color:#8C9A93;text-decoration:none;font-weight:600}
+.nav a.on{background:var(--accent);color:#1A1206;border-color:var(--accent)}
+.tmr{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:14px;
+margin-bottom:12px;display:flex;justify-content:space-around;text-align:center}
+.tmr div .v{font-size:23px;font-weight:800;line-height:1.1}
+.tmr div .k{font-size:9.5px;color:var(--muted);margin-top:3px}
+.tmr .ov .v{color:var(--warn)}
+.tmr .g .v{color:var(--ok)}
+.prg{height:8px;background:var(--dirtybg);border-radius:5px;overflow:hidden;margin:11px 0 4px}
+.prg i{display:block;height:100%;background:var(--brand);transition:.3s}
+body.dark .prg i{background:var(--ok)}
+.prg.ov i{background:var(--warn)}
+.pgl{display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.memo{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:12px;
+font-size:12px;color:var(--muted);min-height:56px;cursor:text}
+.jump{background:var(--surf);border:2px solid var(--line);border-radius:12px;padding:15px;
+margin-bottom:10px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.jump:active{transform:scale(.99)}
+.jump.done{border-color:var(--ok);background:var(--okbg)}
+.jump.warn{border-color:var(--warn);background:var(--warnbg)}
+.jump .ic{font-size:24px}
+.jump .nm{flex:1}.jump .nm b{font-size:14px;display:block}
+.jump .nm s{font-size:11px;color:var(--muted);text-decoration:none}
+.jump .ar{font-size:16px;color:var(--muted)}
+.info{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.info .p{background:var(--surf);border:1px solid var(--line);border-radius:8px;
+padding:7px 11px;font-size:11px}
+.info .p b{font-weight:700}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">05 / 16 — タスク詳細</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">STATE</span>
+<button class="gb st on" data-s="mid">作業中</button>
+<button class="gb st" data-s="over">時間超過</button>
+<button class="gb st" data-s="ready">完了可</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">05. タスク詳細</h1>
+<p data-i="d">作業中の中心画面。3段タイマーで目安・経過・進捗を示す。超過してもオレンジまでにとどめ、赤は使わない。急かす表現を避けるため。チェックリストと写真は別画面へ遷移する。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="bk">←</span> 302<span data-i="go">号室</span></div>
+<div class="b">🏨 サンプルホテル東京 · 3F · <span data-i="rt">ツイン</span> 2<span data-i="nin">名</span></div></div>
+<div class="bd">
+
+<div class="tmr"><div><div class="v">40<span style="font-size:11px" data-i="min">分</span></div>
+<div class="k" data-i="k_std">目安</div></div>
+<div class="ov" id="tv"><div class="v">23<span style="font-size:11px" data-i="min">分</span></div>
+<div class="k" data-i="k_el">経過</div></div>
+<div class="g"><div class="v" id="ck">12<span style="font-size:11px">/16</span></div>
+<div class="k" data-i="k_ck">チェック</div></div></div>
+
+<div class="prg" id="pb"><i style="width:57%"></i></div>
+<div class="pgl"><span data-i="pl1">開始 14:02</span><span id="pgr" data-i="pl2">残り約17分</span></div>
+
+<div class="info" style="margin-top:14px">
+<div class="p">📋 <b data-i="ty_out">アウト清掃</b></div>
+<div class="p">🕒 15:00 <b>IN</b></div>
+<div class="p">🧺 <b data-i="linen_n">未入力</b></div></div>
+
+<div class="jump warn" id="j1"><span class="ic">📝</span>
+<span class="nm"><b data-i="j_ck">チェックリスト</b><s><span data-i="j_ck2">必須4件が残っています</span></s></span>
+<span class="ar">12/16 ›</span></div>
+
+<div class="jump done"><span class="ic">🔍</span>
+<span class="nm"><b data-i="j_ob">入室時の記録</b><s data-i="j_ob2">記録済み · 14:03</s></span>
+<span class="ar">✓ ›</span></div>
+
+<div class="sec"><span>📷 <span data-i="s_ph">写真</span></span><span class="cn">3 / 20</span></div>
+<div class="ph2"><div class="p has">📷</div><div class="p has">📷</div><div class="p has">📷</div>
+<div class="p add" id="addp">＋</div></div>
+
+<div class="sec"><span>📝 <span data-i="s_mm">メモ</span></span>
+<span class="cn" style="color:var(--muted);font-weight:400" data-i="opt">任意</span></div>
+<div class="memo" data-i="mm_ph">気づいたことがあれば入力してください（任意）</div>
+
+<div class="two" style="margin-top:14px">
+<button class="big o" style="font-size:13px" id="bp">⏸ <span data-i="b_pa">中断</span></button>
+<button class="big o" style="font-size:13px" id="bb">🚫 <span data-i="b_bl">入室不可</span></button></div>
+
+<button class="big dis" id="bc" style="margin-top:10px">✓ <span data-i="b_cp">完了する</span>
+<span id="rest">（4<span data-i="nokori">件残り</span>）</span></button>
+</div>
+<div class="ft"><div class="on"><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">この画面の設計意図</span></h3>
+<p data-i="c1a"><b>3段タイマーで状況を一目に。</b>目安・経過・チェック進捗を横並びにした。清掃員は「あと何分か」ではなく「あとどれだけ作業が残っているか」で判断するため、時間と進捗を同時に見せる。</p>
+<p data-i="c1b"><b>超過表示に赤を使わない。</b>経過が目安を超えたらオレンジ、1.5倍でグレーにする。赤は「異常」「失敗」を意味してしまい、丁寧に作業している人を追い詰める。</p>
+<p data-i="c1c"><b>チェックリストと写真は別画面へ。</b>1画面に詰め込むとスクロールが長くなり、手袋での操作が難しくなる。ここは「今どこまで進んだか」を見る場所に絞る。</p>
+<p data-i="c1d"><b>完了ボタンは条件を満たすまで押せない。</b>グレー表示＋残件数を併記し、何が足りないかを明示する。押してからエラーを出すより早く気づける。</p></div>
+
+<div class="card"><h3>⏱ <span data-i="c2t">タイマーの色分け</span></h3>
+<table><tr><th data-i="th_c">経過</th><th data-i="th_s">表示</th><th data-i="th_r">意図</th></tr>
+<tr><td data-i="e1">目安以内</td><td data-i="v1">通常色</td><td data-i="rr1">問題なし</td></tr>
+<tr><td data-i="e2">目安を超過</td><td class="nx" data-i="v2">オレンジ</td><td data-i="rr2">気づかせるが責めない</td></tr>
+<tr><td data-i="e3">目安の1.5倍</td><td data-i="v3">グレー</td><td data-i="rr3">超過の意味を薄める</td></tr>
+<tr><td data-i="e4">2倍以上</td><td data-i="v4">グレー（変えない）</td><td data-i="rr4">長時間でも責めない</td></tr></table>
+<div class="rmk" data-i="c2r">❗ 赤は使いません。清掃時間が長くなる理由は、汚れがひどい・設備不具合・新人研修中など、本人の責任でないことが多いためです。時間で人を評価しない方針を UI で徹底します。</div></div>
+
+<div class="card"><h3>🔀 <span data-i="c3t">状態遷移</span></h3>
+<ul>
+<li data-i="tl1"><code>⏸ 中断</code> → 理由選択（リネン待ち・休憩・他業務・その他）</li>
+<li data-i="tl2"><code>🚫 入室不可</code> → 理由選択（DND・在室・施錠・その他）</li>
+<li data-i="tl3"><code>✓ 完了</code> → 必須チェック全完了＋写真必須項目クリアで有効化</li>
+<li data-i="tl4">中断・再開はすべて <code>taskTimeLog</code> に記録される</li>
+<li data-i="tl5">実作業時間は中断を除いた合計で算出</li>
+</ul>
+<div class="hint" data-i="c3h">💡 中断を3回挟んでも <code>actualMinutes</code> が正しく計算されることを、テストの必須項目にしています（PK-SPEC-P1 §14.1）。</div></div>
+
+<div class="card"><h3>📋 <span data-i="c4t">表示する情報の選定</span></h3>
+<table><tr><th data-i="th_i">項目</th><th data-i="th_y">表示理由</th></tr>
+<tr><td data-i="i1">🕒 15:00 IN</td><td data-i="y1">急ぐべきか判断できる</td></tr>
+<tr><td data-i="i2">🧺 リネン未入力</td><td data-i="y2">完了前に必要な作業を思い出せる</td></tr>
+<tr><td data-i="i3">入室時の記録 ✓</td><td data-i="y3">記録済みかを確認できる</td></tr>
+<tr><td data-i="i4">写真 3/20</td><td data-i="y4">撮影済み枚数を把握</td></tr></table>
+<div class="hint" data-i="c4h">💡 前回清掃者や過去の指摘履歴は表示しません。他人の評価につながる情報を現場に出さない方針です。</div></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="f1">3段タイマー（目安・経過・チェック）</li>
+<li data-i="f2">超過表示はオレンジ→グレー。赤は使わない</li>
+<li data-i="f3">完了ボタンは条件未達で非活性＋残件数表示</li>
+<li data-i="f4">チェックリスト・写真・リネンは別画面</li>
+<li data-i="f5">メモは任意。入力を強制しない</li>
+<li data-i="f6">前回清掃者・過去の指摘は表示しない</li>
+</ul></div>
+</div></div></div>
+<script>const I18N={ja:{},
+en:{t:"05. Task Detail",
+d:"The main screen while working. A three-part timer shows target, elapsed and progress. Overrun stops at orange — red is never used, to avoid rushing anyone. Checklist and photos open as separate screens.",
+go:"",rt:"Twin",nin:"",min:"m",k_std:"Target",k_el:"Elapsed",k_ck:"Checked",
+pl1:"Started 14:02",pl2:"about 17m left",ty_out:"Checkout Clean",linen_n:"not entered",
+j_ck:"Checklist",j_ck2:"4 required items remaining",
+j_ob:"Entry Record",j_ob2:"Recorded · 14:03",
+s_ph:"Photos",s_mm:"Memo",opt:"optional",
+mm_ph:"Note anything you noticed (optional)",
+b_pa:"Pause",b_bl:"Can't Enter",b_cp:"Complete",nokori:" left",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"Design intent",
+c1a:"<b>A three-part timer for instant context.</b> Target, elapsed and checklist progress sit side by side. Cleaners judge by \"how much work is left\" rather than \"how many minutes remain\", so time and progress are shown together.",
+c1b:"<b>Never red for overrun.</b> Past the target it turns orange; at 1.5× it goes grey. Red signals \"abnormal\" or \"failure\" and corners someone who is simply being thorough.",
+c1c:"<b>Checklist and photos are separate screens.</b> Cramming everything into one screen makes the page long and hard to operate with gloves. This screen is only for seeing how far you have got.",
+c1d:"<b>Complete stays disabled until conditions are met.</b> Greyed out with the remaining count, so what is missing is obvious before tapping rather than after an error.",
+c2t:"Timer colour rules",th_c:"Elapsed",th_s:"Display",th_r:"Intent",
+e1:"Within target",v1:"Normal",rr1:"No issue",
+e2:"Past target",v2:"Orange",rr2:"Notice without blame",
+e3:"1.5× target",v3:"Grey",rr3:"Dilute the meaning of overrun",
+e4:"2× or more",v4:"Grey (unchanged)",rr4:"No blame even for long jobs",
+c2r:"❗ Red is never used. Cleaning takes longer for reasons rarely within the cleaner's control — heavy soiling, equipment faults, a trainee on shift. The policy of not judging people by time is enforced in the UI.",
+c3t:"State transitions",
+tl1:"<code>⏸ Pause</code> → choose a reason (waiting for linen, break, other duty, other)",
+tl2:"<code>🚫 Can't enter</code> → choose a reason (DND, occupied, locked, other)",
+tl3:"<code>✓ Complete</code> → enabled once all required checks and required photos are done",
+tl4:"Every pause and resume is written to <code>taskTimeLog</code>",
+tl5:"Actual minutes are summed excluding pauses",
+c3h:"💡 That <code>actualMinutes</code> stays correct across three pauses is a mandatory test item (PK-SPEC-P1 §14.1).",
+c4t:"Choosing what to display",th_i:"Item",th_y:"Why",
+i1:"🕒 15:00 IN",y1:"Lets the cleaner judge urgency",
+i2:"🧺 Linen not entered",y2:"Recalls work needed before completing",
+i3:"Entry record ✓",y3:"Confirms it was recorded",
+i4:"Photos 3/20",y4:"Shows how many were taken",
+c4h:"💡 The previous cleaner and past defect history are not shown. Information that could rate another person is kept out of the field.",
+c5t:"Decisions fixed on this screen",
+f1:"Three-part timer (target, elapsed, checked)",
+f2:"Overrun shows orange then grey. Never red",
+f3:"Complete disabled with remaining count when unmet",
+f4:"Checklist, photos and linen are separate screens",
+f5:"Memo is optional and never forced",
+f6:"Previous cleaner and past defects are not shown"},
+zh:{t:"05. 任务详情",
+d:"作业中的核心画面。3 段计时器显示目标・经过・进度。超时最多到橙色，不用红色，避免催促。检查表与照片跳转到独立画面。",
+go:"号房",rt:"双床",nin:"名",min:"分",k_std:"目标",k_el:"经过",k_ck:"勾选",
+pl1:"开始 14:02",pl2:"约剩 17 分",ty_out:"退房清扫",linen_n:"未输入",
+j_ck:"检查表",j_ck2:"还有 4 项必需未完成",
+j_ob:"入室记录",j_ob2:"已记录 · 14:03",
+s_ph:"照片",s_mm:"备注",opt:"任意",
+mm_ph:"如有发现请输入（任意）",
+b_pa:"暂停",b_bl:"无法进入",b_cp:"完成",nokori:"项未完成",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"本画面的设计意图",
+c1a:"<b>3 段计时器让状况一目了然。</b>目标・经过・勾选进度横向并排。清扫员判断的依据不是「还剩几分钟」，而是「还剩多少作业」，所以时间和进度同时显示。",
+c1b:"<b>超时不用红色。</b>超过目标变橙，1.5 倍变灰。红色意味着「异常」「失败」，会把认真作业的人逼到角落。",
+c1c:"<b>检查表与照片放到独立画面。</b>塞在一屏里会让滚动变长，戴手套难操作。这里只作为「看进度」的地方。",
+c1d:"<b>完成按钮在条件未满足前不能按。</b>灰色显示并标注剩余件数，让人在按之前就知道缺什么，比按了之后弹错误更早察觉。",
+c2t:"计时器的配色规则",th_c:"经过",th_s:"显示",th_r:"意图",
+e1:"目标以内",v1:"常色",rr1:"没问题",
+e2:"超过目标",v2:"橙色",rr2:"提醒但不指责",
+e3:"目标的 1.5 倍",v3:"灰色",rr3:"淡化超时的含义",
+e4:"2 倍以上",v4:"灰色（不变）",rr4:"长时间也不指责",
+c2r:"❗ 不使用红色。清扫时间变长的原因多数不在本人——脏污严重、设备故障、新人研修中等。用 UI 彻底贯彻「不以时间评价人」的方针。",
+c3t:"状态迁移",
+tl1:"<code>⏸ 暂停</code> → 选择理由（等布草・休息・其他业务・其他）",
+tl2:"<code>🚫 无法进入</code> → 选择理由（DND・在室・上锁・其他）",
+tl3:"<code>✓ 完成</code> → 必需勾选全完成＋照片必需项达成后启用",
+tl4:"暂停・恢复全部记录到 <code>taskTimeLog</code>",
+tl5:"实际作业时间按扣除暂停后的合计算出",
+c3h:"💡「中断 3 次后 <code>actualMinutes</code> 仍正确计算」是测试的必需项目（PK-SPEC-P1 §14.1）。",
+c4t:"显示信息的选定",th_i:"项目",th_y:"显示理由",
+i1:"🕒 15:00 IN",y1:"能判断是否该赶",
+i2:"🧺 布草未输入",y2:"能想起完成前必要的作业",
+i3:"入室记录 ✓",y3:"能确认是否已记录",
+i4:"照片 3/20",y4:"把握已拍摄的张数",
+c4h:"💡 不显示上次清扫者和过去的指摘履历。方针是不把可能导致评价他人的信息放到现场。",
+c5t:"本画面的确定事项",
+f1:"3 段计时器（目标・经过・勾选）",
+f2:"超时显示为橙→灰，不用红色",
+f3:"完成按钮条件未达时非活性＋显示剩余件数",
+f4:"检查表・照片・布草为独立画面",
+f5:"备注为任意，不强制输入",
+f6:"不显示上次清扫者与过去指摘"},
+vi:{t:"05. Chi tiết nhiệm vụ",d:"Màn hình chính khi làm việc. Bộ đếm ba phần: mục tiêu, đã qua, tiến độ. Quá giờ chỉ đến màu cam, không dùng đỏ.",
+go:"",rt:"2 giường",nin:"người",min:"phút",k_std:"Mục tiêu",k_el:"Đã qua",k_ck:"Đã chọn",
+pl1:"Bắt đầu 14:02",pl2:"còn khoảng 17 phút",ty_out:"Dọn sau khách đi",linen_n:"chưa nhập",
+j_ck:"Danh sách kiểm tra",j_ck2:"Còn 4 mục bắt buộc",
+j_ob:"Ghi nhận khi vào",j_ob2:"Đã ghi · 14:03",
+s_ph:"Ảnh",s_mm:"Ghi chú",opt:"tùy chọn",mm_ph:"Ghi điều bạn thấy (tùy chọn)",
+b_pa:"Tạm dừng",b_bl:"Không vào được",b_cp:"Hoàn thành",nokori:" còn lại",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Ý đồ thiết kế",
+c1a:"<b>Bộ đếm ba phần cho bối cảnh tức thì.</b> Nhân viên phán đoán theo \"còn bao nhiêu việc\" chứ không phải \"còn mấy phút\".",
+c1b:"<b>Không bao giờ dùng đỏ cho quá giờ.</b> Đỏ hàm ý bất thường và ép người làm cẩn thận.",
+c1c:"<b>Danh sách và ảnh là màn hình riêng.</b> Dồn hết vào một màn hình khó bấm khi đeo găng.",
+c1d:"<b>Nút Hoàn thành bị khóa đến khi đủ điều kiện.</b> Hiện số mục còn lại để biết trước khi bấm.",
+c2t:"Quy tắc màu bộ đếm",th_c:"Đã qua",th_s:"Hiển thị",th_r:"Ý đồ",
+e1:"Trong mục tiêu",v1:"Bình thường",rr1:"Không vấn đề",
+e2:"Quá mục tiêu",v2:"Cam",rr2:"Nhắc nhưng không quy lỗi",
+e3:"1.5× mục tiêu",v3:"Xám",rr3:"Giảm ý nghĩa quá giờ",
+e4:"Từ 2× trở lên",v4:"Xám (không đổi)",rr4:"Không quy lỗi dù lâu",
+c2r:"❗ Không dùng đỏ. Dọn lâu thường do bẩn nhiều, thiết bị lỗi, người mới — ít khi do lỗi nhân viên.",
+c3t:"Chuyển trạng thái",
+tl1:"<code>⏸ Tạm dừng</code> → chọn lý do",
+tl2:"<code>🚫 Không vào được</code> → chọn lý do",
+tl3:"<code>✓ Hoàn thành</code> → bật khi đủ mục và ảnh bắt buộc",
+tl4:"Mọi lần dừng/tiếp ghi vào <code>taskTimeLog</code>",
+tl5:"Thời gian thực trừ đi thời gian tạm dừng",
+c3h:"💡 <code>actualMinutes</code> đúng sau ba lần dừng là mục kiểm thử bắt buộc.",
+c4t:"Chọn thông tin hiển thị",th_i:"Mục",th_y:"Lý do",
+i1:"🕒 15:00 IN",y1:"Giúp phán đoán độ gấp",
+i2:"🧺 Khăn chưa nhập",y2:"Nhắc việc cần trước khi hoàn thành",
+i3:"Ghi nhận khi vào ✓",y3:"Xác nhận đã ghi",
+i4:"Ảnh 3/20",y4:"Biết đã chụp bao nhiêu",
+c4h:"💡 Không hiện người dọn trước và lịch sử lỗi cũ.",
+c5t:"Quyết định đã chốt",
+f1:"Bộ đếm ba phần",f2:"Quá giờ: cam rồi xám. Không đỏ",
+f3:"Hoàn thành bị khóa kèm số còn lại",f4:"Danh sách, ảnh, khăn là màn hình riêng",
+f5:"Ghi chú tùy chọn",f6:"Không hiện người dọn trước"},
+id:{t:"05. Detail Tugas",d:"Layar utama saat bekerja. Penghitung tiga bagian: target, berlalu, progres. Kelebihan waktu hanya sampai oranye, tidak merah.",
+go:"",rt:"Twin",nin:"org",min:"mnt",k_std:"Target",k_el:"Berlalu",k_ck:"Dicentang",
+pl1:"Mulai 14:02",pl2:"sisa sekitar 17 mnt",ty_out:"Bersih Checkout",linen_n:"belum diisi",
+j_ck:"Daftar Periksa",j_ck2:"4 item wajib tersisa",
+j_ob:"Catatan Masuk",j_ob2:"Tercatat · 14:03",
+s_ph:"Foto",s_mm:"Catatan",opt:"opsional",mm_ph:"Catat yang Anda lihat (opsional)",
+b_pa:"Jeda",b_bl:"Tidak Bisa Masuk",b_cp:"Selesaikan",nokori:" tersisa",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Maksud desain",
+c1a:"<b>Penghitung tiga bagian.</b> Petugas menilai dari \"berapa pekerjaan tersisa\" bukan \"berapa menit lagi\".",
+c1b:"<b>Tidak pernah merah untuk kelebihan waktu.</b> Merah berarti abnormal dan menekan orang yang bekerja teliti.",
+c1c:"<b>Daftar periksa dan foto di layar terpisah.</b> Menumpuk semua membuat sulit dioperasikan dengan sarung tangan.",
+c1d:"<b>Tombol Selesai nonaktif sampai syarat terpenuhi.</b> Jumlah sisa ditampilkan agar tahu sebelum menekan.",
+c2t:"Aturan warna penghitung",th_c:"Berlalu",th_s:"Tampilan",th_r:"Maksud",
+e1:"Dalam target",v1:"Normal",rr1:"Tidak masalah",
+e2:"Melewati target",v2:"Oranye",rr2:"Mengingatkan tanpa menyalahkan",
+e3:"1.5× target",v3:"Abu",rr3:"Meredakan arti kelebihan",
+e4:"2× atau lebih",v4:"Abu (tetap)",rr4:"Tak menyalahkan meski lama",
+c2r:"❗ Merah tidak dipakai. Waktu lebih lama sering karena kotor berat, kerusakan alat, atau staf baru.",
+c3t:"Transisi status",
+tl1:"<code>⏸ Jeda</code> → pilih alasan",tl2:"<code>🚫 Tidak bisa masuk</code> → pilih alasan",
+tl3:"<code>✓ Selesai</code> → aktif bila semua wajib dan foto terpenuhi",
+tl4:"Setiap jeda dan lanjut dicatat ke <code>taskTimeLog</code>",
+tl5:"Menit aktual dihitung tanpa jeda",
+c3h:"💡 <code>actualMinutes</code> tetap benar setelah tiga jeda adalah item uji wajib.",
+c4t:"Memilih info yang ditampilkan",th_i:"Item",th_y:"Alasan",
+i1:"🕒 15:00 IN",y1:"Menilai urgensi",i2:"🧺 Linen belum diisi",y2:"Mengingat pekerjaan sebelum selesai",
+i3:"Catatan masuk ✓",y3:"Memastikan sudah tercatat",i4:"Foto 3/20",y4:"Mengetahui jumlah foto",
+c4h:"💡 Petugas sebelumnya dan riwayat cacat lama tidak ditampilkan.",
+c5t:"Keputusan yang ditetapkan",
+f1:"Penghitung tiga bagian",f2:"Kelebihan: oranye lalu abu. Tidak merah",
+f3:"Selesai nonaktif dengan jumlah sisa",f4:"Daftar, foto, linen layar terpisah",
+f5:"Catatan opsional",f6:"Petugas sebelumnya tidak ditampilkan"},
+my:{t:"၀၅. အလုပ်အသေးစိတ်",d:"အလုပ်လုပ်ဆဲ အဓိကမျက်နှာပြင်။ ကောင်တာ ၃ ပိုင်း：ပန်းတိုင်၊ ကုန်ဆုံး၊ တိုးတက်မှု။ အချိန်ကျော်ပါက လိမ္မော်ရောင်အထိသာ။",
+go:"",rt:"အိပ်ရာ၂လုံး",nin:"ဦး",min:"မိနစ်",k_std:"ပန်းတိုင်",k_el:"ကုန်ဆုံး",k_ck:"အမှတ်",
+pl1:"စတင် ၁၄:၀၂",pl2:"၁၇ မိနစ်ခန့်ကျန်",ty_out:"ထွက်ခွာသန့်ရှင်းမှု",linen_n:"မထည့်သေး",
+j_ck:"စစ်ဆေးစာရင်း",j_ck2:"မလိုမဖြစ် ၄ ခု ကျန်",
+j_ob:"အခန်းဝင်မှတ်တမ်း",j_ob2:"မှတ်ပြီး · ၁၄:၀၃",
+s_ph:"ဓာတ်ပုံ",s_mm:"မှတ်ချက်",opt:"မလိုအပ်",mm_ph:"သတိထားမိသည်ကို ရေးပါ（မလိုအပ်）",
+b_pa:"ခေတ္တရပ်",b_bl:"အခန်းမဝင်ရ",b_cp:"ပြီးဆုံး",nokori:" ကျန်",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"ဒီဇိုင်းရည်ရွယ်ချက်",
+c1a:"<b>ကောင်တာ ၃ ပိုင်း။</b> ဝန်ထမ်းများသည် \"မိနစ်မည်မှုကျန်\" မဟုတ်ဘဲ \"အလုပ်မည်မှုကျန်\" ဖြင့် ဆုံးဖြတ်သည်။",
+c1b:"<b>အချိန်ကျော်ပါက အနီ မသုံးပါ။</b> အနီသည် \"ချွတ်ယွင်း\" ကို ဖော်ပြ၍ သေသေချာချာလုပ်သူကို ဖိအားပေးသည်။",
+c1c:"<b>စစ်ဆေးစာရင်းနှင့် ဓာတ်ပုံ သီးသန့်မျက်နှာပြင်။</b>",
+c1d:"<b>ပြီးဆုံးခလုတ်သည် အခြေအနေမပြည့်မီ နှိပ်မရပါ။</b>",
+c2t:"ကောင်တာ အရောင်စည်းမျဉ်း",th_c:"ကုန်ဆုံး",th_s:"ပြသမှု",th_r:"ရည်ရွယ်ချက်",
+e1:"ပန်းတိုင်အတွင်း",v1:"ပုံမှန်",rr1:"အခက်အခဲမရှိ",
+e2:"ပန်းတိုင်ကျော်",v2:"လိမ္မော်",rr2:"သတိပေးသော်လည်း အပြစ်မတင်",
+e3:"ပန်းတိုင် ၁.၅ ဆ",v3:"မီးခိုး",rr3:"ကျော်လွန်မှု အဓိပ္ပါယ် လျှော့ချ",
+e4:"၂ ဆအထက်",v4:"မီးခိုး（မပြောင်း）",rr4:"ကြာလည်း အပြစ်မတင်",
+c2r:"❗ အနီ မသုံးပါ။ သန့်ရှင်းချိန်ကြာရသည့်အကြောင်းသည် အညစ်အကြေးများ၊ ပစ္စည်းချွတ်ယွင်း၊ လေ့လာသင်ကြားသူ စသည် ကိုယ်တိုင်၏အမှားမဟုတ်သည်များ ဖြစ်သည်။",
+c3t:"အခြေအနေ ကူးပြောင်းမှု",
+tl1:"<code>⏸ ခေတ္တရပ်</code> → အကြောင်းရင်းရွေး",
+tl2:"<code>🚫 မဝင်ရ</code> → အကြောင်းရင်းရွေး",
+tl3:"<code>✓ ပြီးဆုံး</code> → မလိုမဖြစ်အားလုံးပြီးမှ အသုံးပြုနိုင်",
+tl4:"ခေတ္တရပ်・ဆက်လုပ် အားလုံး <code>taskTimeLog</code> တွင် မှတ်",
+tl5:"အမှန်တကယ်အလုပ်ချိန်ကို ခေတ္တရပ်ချိန်ဖြုတ်၍ တွက်",
+c3h:"💡 ၃ ကြိမ်ရပ်ပြီးလည်း <code>actualMinutes</code> မှန်ကန်မှုသည် မလိုမဖြစ်စမ်းသပ်မှုဖြစ်သည်။",
+c4t:"ပြသမည့်အချက်အလက် ရွေးချယ်မှု",th_i:"အချက်",th_y:"အကြောင်းရင်း",
+i1:"🕒 ၁၅:၀၀ IN",y1:"အလျင်လိုမလို ဆုံးဖြတ်နိုင်",
+i2:"🧺 အခင်း မထည့်သေး",y2:"ပြီးဆုံးမည့်အလိုတွင် လိုအပ်သည်ကို သတိရ",
+i3:"အခန်းဝင်မှတ်တမ်း ✓",y3:"မှတ်ပြီးမပြီး အတည်ပြု",
+i4:"ဓာတ်ပုံ ၃/၂၀",y4:"ရိုက်ပြီးအရေအတွက် သိရ",
+c4h:"💡 ရှေးသန့်ရှင်းသူနှင့် ရှေးထောက်ပြမှုမှတ်တမ်း မပြပါ။",
+c5t:"ဤမျက်နှာပြင်၏ အတည်ပြုချက်",
+f1:"ကောင်တာ ၃ ပိုင်း",f2:"ကျော်လွန်ပါက လိမ္မော်→မီးခိုး။ အနီမသုံး",
+f3:"အခြေအနေမပြည့်ပါက ပြီးဆုံးခလုတ် မဖွင့်",f4:"စစ်ဆေးစာရင်း・ဓာတ်ပုံ・အခင်း သီးသန့်",
+f5:"မှတ်ချက် မလိုအပ်",f6:"ရှေးသန့်ရှင်းသူ မပြ"},
+ne:{t:"०५. कामको विवरण",d:"काम गर्दाको मुख्य स्क्रिन। तीन भागको टाइमर: लक्ष्य, बितेको, प्रगति। समय नाघेमा सुन्तलासम्म मात्र।",
+go:"",rt:"ट्विन",nin:"जना",min:"मिनेट",k_std:"लक्ष्य",k_el:"बितेको",k_ck:"जाँचिएको",
+pl1:"सुरु १४:०२",pl2:"लगभग १७ मिनेट बाँकी",ty_out:"चेकआउट सफाई",linen_n:"हालिएको छैन",
+j_ck:"जाँच सूची",j_ck2:"४ अनिवार्य बाँकी",
+j_ob:"प्रवेश रेकर्ड",j_ob2:"रेकर्ड भयो · १४:०३",
+s_ph:"तस्बिर",s_mm:"टिप्पणी",opt:"स्वैच्छिक",mm_ph:"देखेको कुरा लेख्नुहोस् (स्वैच्छिक)",
+b_pa:"रोक्ने",b_bl:"पस्न मिल्दैन",b_cp:"सम्पन्न",nokori:" बाँकी",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"डिजाइनको उद्देश्य",
+c1a:"<b>तीन भागको टाइमर।</b> कर्मचारी \"कति मिनेट बाँकी\" भन्दा \"कति काम बाँकी\" भनी निर्णय गर्छन्।",
+c1b:"<b>समय नाघ्दा रातो कदापि नहुने।</b> रातोले असामान्य बुझाउँछ र होसियार काम गर्नेलाई दबाब दिन्छ।",
+c1c:"<b>जाँच सूची र तस्बिर छुट्टै स्क्रिन।</b> सबै एकै ठाउँमा राख्दा पञ्जा लगाएर चलाउन कठिन।",
+c1d:"<b>सर्त पूरा नभएसम्म सम्पन्न बटन निष्क्रिय।</b> बाँकी संख्या देखाइन्छ।",
+c2t:"टाइमरको रङ नियम",th_c:"बितेको",th_s:"देखावट",th_r:"उद्देश्य",
+e1:"लक्ष्यभित्र",v1:"सामान्य",rr1:"समस्या छैन",
+e2:"लक्ष्य नाघेको",v2:"सुन्तला",rr2:"सचेत गर्ने तर दोष नदिने",
+e3:"लक्ष्यको १.५ गुणा",v3:"खैरो",rr3:"नाघ्नुको अर्थ घटाउने",
+e4:"२ गुणा वा बढी",v4:"खैरो (नबदल्ने)",rr4:"लामो भए पनि दोष नदिने",
+c2r:"❗ रातो प्रयोग हुँदैन। सफाई लामो हुनुको कारण प्रायः फोहोर धेरै, उपकरण बिग्रेको वा नयाँ कर्मचारी हुन्छ।",
+c3t:"अवस्था परिवर्तन",
+tl1:"<code>⏸ रोक्ने</code> → कारण छान्ने",tl2:"<code>🚫 पस्न मिल्दैन</code> → कारण छान्ने",
+tl3:"<code>✓ सम्पन्न</code> → सबै अनिवार्य र तस्बिर पूरा भएपछि सक्रिय",
+tl4:"हरेक रोकाइ र पुनः सुरु <code>taskTimeLog</code> मा लेखिन्छ",
+tl5:"वास्तविक समय रोकाइ घटाएर जोडिन्छ",
+c3h:"💡 तीन पटक रोकेपछि पनि <code>actualMinutes</code> सही हुनु अनिवार्य परीक्षण हो।",
+c4t:"देखाउने जानकारी छनोट",th_i:"वस्तु",th_y:"कारण",
+i1:"🕒 १५:०० IN",y1:"हतार चाहिन्छ कि थाहा",
+i2:"🧺 लिनेन हालिएको छैन",y2:"सम्पन्न गर्नुअघि चाहिने काम सम्झाउने",
+i3:"प्रवेश रेकर्ड ✓",y3:"रेकर्ड भएको पुष्टि",i4:"तस्बिर ३/२०",y4:"कति खिचिएको थाहा",
+c4h:"💡 अघिल्लो सफाईकर्मी र पुरानो त्रुटि इतिहास देखाइँदैन।",
+c5t:"यो स्क्रिनमा तय भएका कुरा",
+f1:"तीन भागको टाइमर",f2:"नाघ्दा सुन्तला त्यसपछि खैरो। रातो नहुने",
+f3:"सर्त पूरा नभए सम्पन्न निष्क्रिय",f4:"जाँच सूची, तस्बिर, लिनेन छुट्टै",
+f5:"टिप्पणी स्वैच्छिक",f6:"अघिल्लो सफाईकर्मी नदेखाउने"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const s=this.dataset.s,tv=document.getElementById('tv'),pb=document.getElementById('pb'),
+bc=document.getElementById('bc'),j1=document.getElementById('j1'),
+ck=document.getElementById('ck'),rest=document.getElementById('rest'),pgr=document.getElementById('pgr');
+if(s==='over'){tv.querySelector('.v').innerHTML='52<span style="font-size:11px">分</span>';
+tv.className='';tv.querySelector('.v').style.color='var(--dirty)';
+pb.className='prg';pb.querySelector('i').style.width='100%';
+pb.querySelector('i').style.background='var(--dirty)';pgr.textContent='目安を12分超過';}
+else if(s==='ready'){tv.querySelector('.v').innerHTML='34<span style="font-size:11px">分</span>';
+tv.className='';tv.querySelector('.v').style.color='';
+pb.className='prg';pb.querySelector('i').style.width='85%';pb.querySelector('i').style.background='';
+ck.innerHTML='16<span style="font-size:11px">/16</span>';
+bc.className='big g';rest.textContent='';j1.className='jump done';
+j1.querySelector('s').textContent='すべて完了しています';j1.querySelector('.ar').textContent='16/16 ✓';
+pgr.textContent='残り約6分';}
+else{tv.querySelector('.v').innerHTML='23<span style="font-size:11px">分</span>';
+tv.className='ov';tv.querySelector('.v').style.color='';
+pb.className='prg';pb.querySelector('i').style.width='57%';pb.querySelector('i').style.background='';
+ck.innerHTML='12<span style="font-size:11px">/16</span>';
+bc.className='big dis';rest.innerHTML='（4件残り）';j1.className='jump warn';
+j1.querySelector('s').textContent='必須4件が残っています';j1.querySelector('.ar').textContent='12/16 ›';
+pgr.textContent='残り約17分';}});
+document.getElementById('j1').onclick=()=>alert('→ 08 チェックリスト');
+document.querySelectorAll('.jump.done').forEach(j=>j.onclick=()=>alert('→ 06 入室時の記録'));
+document.getElementById('addp').onclick=()=>alert('→ 09 写真の撮影');
+document.getElementById('bp').onclick=()=>alert('中断の理由を選択\n\n・リネン待ち\n・休憩\n・他業務\n・その他');
+document.getElementById('bb').onclick=()=>alert('入室不可の理由を選択\n\n・DND\n・在室\n・施錠\n・その他');
+document.getElementById('bc').onclick=function(){
+if(this.classList.contains('dis'))alert('→ 11 完了確認\n\n必須4件が未完了です');
+else alert('→ 11 完了確認\n\n完了できます');};
+</script></body></html>

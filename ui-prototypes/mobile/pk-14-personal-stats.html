@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 14 — 個人実績</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.q{font-size:14px;font-weight:700;margin:14px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:16px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;min-height:74px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:25px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tg2{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}
+.tg2 .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tg2 .sw{width:52px;height:30px;border-radius:16px;background:var(--dirtybg);
+position:relative;transition:.2s;flex-shrink:0}
+.tg2 .sw:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg2.on .sw{background:var(--ok)}.tg2.on .sw:after{left:25px}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid var(--line);background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.dn{border-color:var(--ok);background:var(--okbg)}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:34px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.ov{position:absolute;inset:0;background:rgba(10,16,13,.62);display:none;
+align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px);z-index:20}
+.ov.on{display:flex}
+.mo{background:var(--surf);border-radius:18px;width:100%;overflow:hidden;max-height:92%;
+display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.mo .mh{padding:14px;text-align:center;background:var(--accent);color:#1A1206}
+.mo .mh.r2{background:var(--danger);color:#fff}
+.mo .mh .i{font-size:29px;line-height:1;display:block;margin-bottom:6px}
+.mo .mh .t{font-size:14.5px;font-weight:800}
+.mo .mb{padding:16px;overflow-y:auto}
+.mo .mb::-webkit-scrollbar{width:3px}
+.rlist .ro{display:flex;align-items:center;gap:11px;padding:14px 13px;border-radius:11px;
+border:2px solid var(--line);background:var(--surf2);margin-bottom:8px;cursor:pointer;font-size:13px}
+.rlist .ro:active{transform:scale(.98)}
+.rlist .ro .e3{font-size:22px}
+.rlist .ro.on{border-color:var(--brand);background:var(--okbg)}
+.big2{background:var(--brand);color:#fff;border-radius:14px;padding:18px 15px;margin-bottom:12px;text-align:center}
+.big2 .vv2{font-size:40px;font-weight:800;line-height:1}
+.big2 .kk{font-size:11.5px;color:#B9CFC2;margin-top:5px}
+.big2 .sub2{font-size:11px;color:#8FAF9E;margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.16)}
+.g3{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+.g3 .cc{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:13px;text-align:center}
+.g3 .cc .v3{font-size:24px;font-weight:800;line-height:1.1}
+.g3 .cc .k3{font-size:10px;color:var(--muted);margin-top:4px}
+.bars{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:14px}
+.bars .br{margin-bottom:13px}
+.bars .br:last-child{margin-bottom:0}
+.bars .br .lb3{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:5px}
+.bars .br .lb3 b{font-variant-numeric:tabular-nums}
+.bars .br .tk{height:9px;background:var(--dirtybg);border-radius:5px;overflow:hidden}
+.bars .br .tk i{display:block;height:100%;background:var(--brand);border-radius:5px;transition:.4s}
+body.dark .bars .br .tk i{background:var(--ok)}
+.wk{display:flex;gap:5px;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:14px 11px}
+.wk .d2{flex:1;text-align:center}
+.wk .d2 .bar2{height:76px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:6px}
+.wk .d2 .bar2 i{width:75%;background:var(--brand);border-radius:4px 4px 0 0;min-height:3px;transition:.4s}
+body.dark .wk .d2 .bar2 i{background:var(--ok)}
+.wk .d2.tdy .bar2 i{background:var(--accent)}
+.wk .d2 .dl{font-size:9.5px;color:var(--muted)}
+.wk .d2 .dv3{font-size:10px;font-weight:700;margin-top:1px}
+.noc{background:var(--infobg);border:1px solid var(--info);color:var(--info);border-radius:11px;
+padding:12px;font-size:11px;line-height:1.6;margin-top:12px}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">14 / 16 — 個人実績</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">PERIOD</span>
+<button class="gb st on" data-s="d">本日</button>
+<button class="gb st" data-s="w">今週</button>
+<button class="gb st" data-s="m">今月</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">14. 個人実績</h1>
+<p data-i="d">自分の記録だけを見る画面。他人との比較、順位、平均との差は一切表示しない。表示するのは「自分が何をしたか」の事実のみ。競争を持ち込むと、記録の正確さより速さが優先されてしまう。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">📊 <span data-i="ttl">わたしの記録</span></div>
+<div class="b">Nguyen Van A · <span id="pl" data-i="p_d">2026年8月10日（月）</span></div></div>
+<div class="bd">
+
+<div class="big2"><div class="vv2" id="v_main">11</div>
+<div class="kk" data-i="k_main">完了した部屋</div>
+<div class="sub2" id="v_sub">🏨 2施設 · ⏱ 実作業 6時間12分</div></div>
+
+<div class="g3">
+<div class="cc"><div class="v3" id="v_a">34<span style="font-size:12px" data-i="min">分</span></div>
+<div class="k3" data-i="k_a">1部屋の平均</div></div>
+<div class="cc"><div class="v3" id="v_b">42</div><div class="k3" data-i="k_b">撮影した写真</div></div>
+<div class="cc"><div class="v3" id="v_c">11</div><div class="k3" data-i="k_c">入室時の記録</div></div>
+<div class="cc"><div class="v3" id="v_d">2<span style="font-size:12px" data-i="kai">回</span></div>
+<div class="k3" data-i="k_d">中断</div></div></div>
+
+<div class="sec">📋 <span data-i="s_ty">作業の種別</span></div>
+<div class="bars" id="bars1">
+<div class="br"><div class="lb3"><span data-i="ty1">アウト清掃</span><b>8</b></div>
+<div class="tk"><i style="width:73%"></i></div></div>
+<div class="br"><div class="lb3"><span data-i="ty2">ステイ清掃</span><b>2</b></div>
+<div class="tk"><i style="width:18%"></i></div></div>
+<div class="br"><div class="lb3"><span data-i="ty3">点検</span><b>1</b></div>
+<div class="tk"><i style="width:9%"></i></div></div></div>
+
+<div class="sec" id="wk_t">📅 <span data-i="s_wk">直近7日</span></div>
+<div class="wk" id="wk">
+<div class="d2"><div class="bar2"><i style="height:58%"></i></div><div class="dl" data-i="w1">月</div><div class="dv3">9</div></div>
+<div class="d2"><div class="bar2"><i style="height:71%"></i></div><div class="dl" data-i="w2">火</div><div class="dv3">11</div></div>
+<div class="d2"><div class="bar2"><i style="height:52%"></i></div><div class="dl" data-i="w3">水</div><div class="dv3">8</div></div>
+<div class="d2"><div class="bar2"><i style="height:84%"></i></div><div class="dl" data-i="w4">木</div><div class="dv3">13</div></div>
+<div class="d2"><div class="bar2"><i style="height:65%"></i></div><div class="dl" data-i="w5">金</div><div class="dv3">10</div></div>
+<div class="d2"><div class="bar2"><i style="height:0%"></i></div><div class="dl" data-i="w6">土</div><div class="dv3">休</div></div>
+<div class="d2 tdy"><div class="bar2"><i style="height:71%"></i></div><div class="dl" data-i="w7">日</div><div class="dv3">11</div></div>
+</div>
+
+<div class="noc">ℹ <span data-i="noc_t">この画面には他の方との比較や順位は表示されません。ご自身の記録のみを表示しています。</span></div>
+
+<button class="big o" id="bx" style="margin-top:12px">📄 <span data-i="b_ex">記録を書き出す</span></button>
+</div>
+
+<div class="ft"><div><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div class="on"><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">比較を持ち込まない</span></h3>
+<p data-i="c1a">この画面の設計判断は<b>何を表示しないか</b>で決まる。競争を持ち込むと、記録の正確さより速さが優先される。</p>
+<table><tr><th class="nx" data-i="th_no">表示しない</th><th data-i="th_wy">理由</th></tr>
+<tr><td data-i="n1">他人との比較</td><td data-i="y1">速さの競争になる</td></tr>
+<tr><td data-i="n2">チーム内の順位</td><td data-i="y2">同僚を競争相手にする</td></tr>
+<tr><td data-i="n3">平均との差</td><td data-i="y3">平均以下という感覚を生む</td></tr>
+<tr><td data-i="n4">目標達成率</td><td data-i="y4">未達が失敗に見える</td></tr>
+<tr><td data-i="n5">評価スコア</td><td data-i="y5">記録が評価の道具になる</td></tr>
+<tr><td data-i="n6">連続達成日数</td><td data-i="y6">休むことに罪悪感が出る</td></tr></table>
+<div class="rmk" data-i="c1r">❗ ゲーミフィケーションは意図的に排除しています。バッジや連続記録は短期的に入力率を上げますが、記録の目的が「バッジを取ること」に変わり、データの質が落ちます。</div></div>
+
+<div class="card"><h3>📊 <span data-i="c2t">表示する項目</span></h3>
+<table><tr><th class="fx" data-i="th_ys">表示する</th><th data-i="th_wy">理由</th></tr>
+<tr><td data-i="s1">完了した部屋数</td><td data-i="w1x">自分の作業量が分かる</td></tr>
+<tr><td data-i="s2">1部屋の平均時間</td><td data-i="w2x">自分のペースが分かる</td></tr>
+<tr><td data-i="s3">撮影した写真数</td><td data-i="w3x">記録の量が分かる</td></tr>
+<tr><td data-i="s4">作業の種別</td><td data-i="w4x">どんな仕事をしたか分かる</td></tr>
+<tr><td data-i="s5">直近7日の推移</td><td data-i="w5x">自分の変化が分かる</td></tr></table>
+<div class="hint" data-i="c2h">💡 「1部屋の平均時間」は自分の過去とだけ比べられます。目安時間との比較も出しません。目安は施設の想定であり、個人の評価基準ではないためです。</div></div>
+
+<div class="card"><h3>📄 <span data-i="c3t">記録の書き出し</span></h3>
+<p data-i="c3a">自分の記録をPDFで書き出せる。<b>本人が自分の労働記録を保持できる</b>ようにするため。</p>
+<ul>
+<li data-i="e1">期間を選んで出力（日・週・月）</li>
+<li data-i="e2">完了した部屋、作業時間、中断の記録を含む</li>
+<li data-i="e3">検査結果や再清掃の履歴は含まない</li>
+<li data-i="e4">7言語すべてで出力できる</li>
+<li data-i="e5">出力操作は <code>auditLog</code> に記録するが通知はしない</li>
+</ul>
+<div class="hint" data-i="c3h">💡 労働時間の記録を本人が持てることは、外国人労働者にとって特に重要です。雇用トラブルの際に自分の側の記録があるかどうかで立場が変わります。</div></div>
+
+<div class="card"><h3>🔒 <span data-i="c4t">誰が何を見られるか</span></h3>
+<table><tr><th data-i="th_r2">役割</th><th data-i="th_sc">見える範囲</th></tr>
+<tr><td data-i="rl1">清掃員</td><td data-i="sc1">自分の記録のみ</td></tr>
+<tr><td data-i="rl2">現場責任者</td><td data-i="sc2">担当施設のチーム全体</td></tr>
+<tr><td data-i="rl3">運営管理者</td><td data-i="sc3">契約範囲の全施設</td></tr>
+<tr><td data-i="rl4">施設オーナー</td><td data-i="sc4">自施設のみ・個人名なし</td></tr></table>
+<div class="rmk" data-i="c4r">❗ 施設オーナーには個人名を出しません。清掃会社の従業員の個人成績を発注元が閲覧できる構造にすると、圧力が個人に向かうためです。オーナーには施設単位の集計のみ提供します。</div></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="f1">他人との比較・順位・平均差を表示しない</li>
+<li data-i="f2">バッジ・連続記録などのゲーミフィケーションを実装しない</li>
+<li data-i="f3">目安時間との比較も表示しない</li>
+<li data-i="f4">自分の記録をPDFで書き出せる</li>
+<li data-i="f5">画面に「比較や順位は表示されません」と明記</li>
+<li data-i="f6">施設オーナーには個人名を出さない</li>
+</ul></div>
+</div></div></div><script>const I18N={ja:{},
+en:{t:"14. Personal Record",
+d:"A screen for viewing only your own record. No comparison with others, no ranking, no gap from the average. Only the facts of what you did. Bringing in competition makes speed matter more than accuracy.",
+ttl:"My Record",p_d:"Monday, 10 August 2026",
+k_main:"Rooms completed",min:"m",kai:"",
+k_a:"Average per room",k_b:"Photos taken",k_c:"Entry records",k_d:"Pauses",
+s_ty:"Types of work",ty1:"Checkout clean",ty2:"Stay clean",ty3:"Inspection",
+s_wk:"Last 7 days",w1:"Mon",w2:"Tue",w3:"Wed",w4:"Thu",w5:"Fri",w6:"Sat",w7:"Sun",
+noc_t:"This screen shows no comparison with others and no ranking. Only your own record is displayed.",
+b_ex:"Export my record",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"No comparison here",
+c1a:"This screen is defined by <b>what it does not show</b>. Bringing in competition makes speed outrank accuracy.",
+th_no:"Never shown",th_wy:"Reason",
+n1:"Comparison with others",y1:"It becomes a race for speed",
+n2:"Ranking within the team",y2:"It turns colleagues into rivals",
+n3:"Gap from the average",y3:"It creates a feeling of being below average",
+n4:"Goal attainment rate",y4:"Falling short looks like failure",
+n5:"An evaluation score",y5:"The record becomes a tool for assessment",
+n6:"Consecutive-day streaks",y6:"Taking a day off starts to feel like guilt",
+c1r:"❗ Gamification is deliberately excluded. Badges and streaks raise entry rates in the short term, but the purpose of recording shifts to earning badges and data quality drops.",
+c2t:"What is shown",th_ys:"Shown",
+s1:"Rooms completed",w1x:"Shows your own workload",
+s2:"Average time per room",w2x:"Shows your own pace",
+s3:"Photos taken",w3x:"Shows how much was recorded",
+s4:"Types of work",w4x:"Shows what kind of work you did",
+s5:"Last 7 days",w5x:"Shows your own change over time",
+c2h:"💡 \"Average time per room\" can only be compared with your own past. Even the comparison against the target time is withheld, because the target is the property's assumption, not a personal standard.",
+c3t:"Exporting the record",
+c3a:"Your own record can be exported as a PDF, so <b>you can keep your own work record</b>.",
+e1:"Choose the period (day, week, month)",
+e2:"Includes rooms completed, working time and pauses",
+e3:"Does not include inspection results or rework history",
+e4:"Can be exported in all seven languages",
+e5:"The export is written to <code>auditLog</code> but nobody is notified",
+c3h:"💡 Holding your own record of working hours matters especially for foreign workers. In an employment dispute, having your own record changes your position.",
+c4t:"Who can see what",th_r2:"Role",th_sc:"Visible scope",
+rl1:"Cleaner",sc1:"Only their own record",
+rl2:"Site supervisor",sc2:"The whole team at their properties",
+rl3:"Operations manager",sc3:"All properties under contract",
+rl4:"Property owner",sc4:"Their property only, no personal names",
+c4r:"❗ Property owners never see personal names. If a client could view individual performance of the cleaning company's staff, pressure would land on individuals. Owners receive property-level totals only.",
+c5t:"Decisions fixed on this screen",
+f1:"No comparison, ranking or gap from average",
+f2:"No badges, streaks or other gamification",
+f3:"No comparison against the target time either",
+f4:"Your own record can be exported as a PDF",
+f5:"\"No comparison or ranking is shown\" stated on screen",
+f6:"No personal names shown to property owners"},
+zh:{t:"14. 个人实绩",
+d:"只看自己记录的画面。与他人的比较、排名、与平均的差一概不显示。显示的只有「自己做了什么」这个事实。引入竞争，记录的准确性就会被速度压过。",
+ttl:"我的记录",p_d:"2026年8月10日（周一）",
+k_main:"完成的房间",min:"分",kai:"次",
+k_a:"1 间的平均",k_b:"拍摄的照片",k_c:"入室记录",k_d:"中断",
+s_ty:"作业的种别",ty1:"退房清扫",ty2:"续住清扫",ty3:"点检",
+s_wk:"最近 7 天",w1:"一",w2:"二",w3:"三",w4:"四",w5:"五",w6:"六",w7:"日",
+noc_t:"本画面不显示与其他人的比较或排名。只显示您自己的记录。",
+b_ex:"导出记录",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"不引入比较",
+c1a:"本画面的设计判断由<b>不显示什么</b>决定。引入竞争，记录的准确性就会被速度压过。",
+th_no:"不显示",th_wy:"理由",
+n1:"与他人的比较",y1:"会变成速度的竞争",
+n2:"团队内的排名",y2:"把同事变成竞争对手",
+n3:"与平均的差",y3:"产生「低于平均」的感觉",
+n4:"目标达成率",y4:"未达会看起来像失败",
+n5:"评价分数",y5:"记录变成评价的工具",
+n6:"连续达成天数",y6:"休息会产生罪恶感",
+c1r:"❗ 游戏化是有意排除的。徽章和连续记录短期内能提高输入率，但记录的目的会变成「拿徽章」，数据质量随之下降。",
+c2t:"显示的项目",th_ys:"显示",
+s1:"完成的房间数",w1x:"能知道自己的作业量",
+s2:"1 间的平均时间",w2x:"能知道自己的节奏",
+s3:"拍摄的照片数",w3x:"能知道记录的量",
+s4:"作业的种别",w4x:"能知道做了什么工作",
+s5:"最近 7 天的推移",w5x:"能知道自己的变化",
+c2h:"💡「1 间的平均时间」只能和自己的过去比。与目标时间的比较也不出。因为目标是设施的设想，不是个人的评价基准。",
+c3t:"记录的导出",
+c3a:"可以把自己的记录导出为 PDF。为了让<b>本人能保有自己的劳动记录</b>。",
+e1:"选期间输出（日・周・月）",
+e2:"包含完成的房间、作业时间、中断的记录",
+e3:"不包含检查结果和再清扫履历",
+e4:"7 种语言都能输出",
+e5:"导出操作记录到 <code>auditLog</code> 但不通知",
+c3h:"💡 本人能持有劳动时间的记录，对外国劳动者尤其重要。发生雇佣纠纷时，自己一方有没有记录会改变立场。",
+c4t:"谁能看到什么",th_r2:"角色",th_sc:"可见范围",
+rl1:"清扫员",sc1:"只有自己的记录",
+rl2:"现场负责人",sc2:"担当设施的整个团队",
+rl3:"运营管理者",sc3:"契约范围的全部设施",
+rl4:"设施业主",sc4:"只有自己设施・无个人名",
+c4r:"❗ 不给设施业主显示个人名。如果做成发包方能查看清扫公司员工个人成绩的结构，压力就会指向个人。给业主只提供设施单位的集计。",
+c5t:"本画面的确定事项",
+f1:"不显示与他人的比较・排名・平均差",
+f2:"不实现徽章・连续记录等游戏化",
+f3:"与目标时间的比较也不显示",
+f4:"可以把自己的记录导出为 PDF",
+f5:"画面上明记「不显示比较或排名」",
+f6:"不给设施业主显示个人名"},
+vi:{t:"14. Thành tích cá nhân",
+d:"Màn hình chỉ xem ghi nhận của chính bạn. Không so sánh, không xếp hạng, không chênh lệch với trung bình.",
+ttl:"Ghi nhận của tôi",p_d:"Thứ Hai, 10/08/2026",
+k_main:"Số phòng hoàn thành",min:"phút",kai:" lần",
+k_a:"Trung bình mỗi phòng",k_b:"Ảnh đã chụp",k_c:"Ghi nhận khi vào",k_d:"Tạm dừng",
+s_ty:"Loại công việc",ty1:"Dọn sau khách đi",ty2:"Dọn khách đang ở",ty3:"Kiểm tra",
+s_wk:"7 ngày gần nhất",w1:"T2",w2:"T3",w3:"T4",w4:"T5",w5:"T6",w6:"T7",w7:"CN",
+noc_t:"Màn hình này không hiện so sánh với người khác hay xếp hạng. Chỉ hiện ghi nhận của bạn.",
+b_ex:"Xuất ghi nhận",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Không đưa so sánh vào",
+c1a:"Màn hình này được định nghĩa bởi <b>những gì nó không hiện</b>. Có cạnh tranh thì tốc độ sẽ vượt lên trên độ chính xác.",
+th_no:"Không bao giờ hiện",th_wy:"Lý do",
+n1:"So sánh với người khác",y1:"Thành cuộc đua tốc độ",
+n2:"Xếp hạng trong nhóm",y2:"Biến đồng nghiệp thành đối thủ",
+n3:"Chênh lệch với trung bình",y3:"Tạo cảm giác dưới trung bình",
+n4:"Tỉ lệ đạt mục tiêu",y4:"Không đạt trông như thất bại",
+n5:"Điểm đánh giá",y5:"Ghi nhận thành công cụ đánh giá",
+n6:"Chuỗi ngày liên tiếp",y6:"Nghỉ một ngày sinh cảm giác tội lỗi",
+c1r:"❗ Trò chơi hóa bị loại có chủ ý. Huy hiệu nâng tỉ lệ nhập ngắn hạn nhưng mục đích ghi nhận chuyển thành lấy huy hiệu.",
+c2t:"Những gì được hiện",th_ys:"Được hiện",
+s1:"Số phòng hoàn thành",w1x:"Cho biết khối lượng của bạn",
+s2:"Thời gian trung bình mỗi phòng",w2x:"Cho biết nhịp độ của bạn",
+s3:"Số ảnh đã chụp",w3x:"Cho biết lượng ghi nhận",
+s4:"Loại công việc",w4x:"Cho biết bạn đã làm việc gì",
+s5:"7 ngày gần nhất",w5x:"Cho biết thay đổi của bạn",
+c2h:"💡 Trung bình mỗi phòng chỉ so với quá khứ của bạn. Ngay cả so với thời gian mục tiêu cũng không hiện.",
+c3t:"Xuất ghi nhận",
+c3a:"Ghi nhận của bạn xuất được ra PDF, để <b>bạn giữ được ghi nhận lao động của mình</b>.",
+e1:"Chọn kỳ (ngày, tuần, tháng)",e2:"Gồm phòng hoàn thành, thời gian làm và tạm dừng",
+e3:"Không gồm kết quả kiểm tra hay lịch sử dọn lại",e4:"Xuất được ở cả bảy ngôn ngữ",
+e5:"Việc xuất ghi vào <code>auditLog</code> nhưng không thông báo ai",
+c3h:"💡 Giữ ghi nhận giờ làm rất quan trọng với lao động nước ngoài. Khi tranh chấp, có ghi nhận của mình sẽ khác.",
+c4t:"Ai thấy được gì",th_r2:"Vai trò",th_sc:"Phạm vi thấy",
+rl1:"Nhân viên dọn",sc1:"Chỉ ghi nhận của mình",
+rl2:"Giám sát hiện trường",sc2:"Cả nhóm tại cơ sở phụ trách",
+rl3:"Quản lý vận hành",sc3:"Mọi cơ sở trong hợp đồng",
+rl4:"Chủ cơ sở",sc4:"Chỉ cơ sở của mình, không có tên cá nhân",
+c4r:"❗ Chủ cơ sở không bao giờ thấy tên cá nhân. Nếu khách hàng xem được thành tích cá nhân, áp lực sẽ dồn lên từng người.",
+c5t:"Quyết định đã chốt",
+f1:"Không so sánh, xếp hạng hay chênh lệch",f2:"Không huy hiệu hay chuỗi ngày",
+f3:"Cũng không so với thời gian mục tiêu",f4:"Xuất được ghi nhận ra PDF",
+f5:"Ghi rõ không hiện so sánh hay xếp hạng",f6:"Không hiện tên cá nhân cho chủ cơ sở"},
+id:{t:"14. Catatan Pribadi",
+d:"Layar untuk melihat catatan Anda sendiri saja. Tanpa perbandingan, tanpa peringkat, tanpa selisih rata-rata.",
+ttl:"Catatan Saya",p_d:"Senin, 10 Agustus 2026",
+k_main:"Kamar diselesaikan",min:"mnt",kai:" kali",
+k_a:"Rata-rata per kamar",k_b:"Foto diambil",k_c:"Catatan masuk",k_d:"Jeda",
+s_ty:"Jenis pekerjaan",ty1:"Bersih checkout",ty2:"Bersih menginap",ty3:"Pemeriksaan",
+s_wk:"7 hari terakhir",w1:"Sen",w2:"Sel",w3:"Rab",w4:"Kam",w5:"Jum",w6:"Sab",w7:"Min",
+noc_t:"Layar ini tidak menampilkan perbandingan dengan orang lain atau peringkat. Hanya catatan Anda.",
+b_ex:"Ekspor catatan",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Tanpa perbandingan",
+c1a:"Layar ini ditentukan oleh <b>apa yang tidak ditampilkan</b>. Persaingan membuat kecepatan mengalahkan ketepatan.",
+th_no:"Tak pernah ditampilkan",th_wy:"Alasan",
+n1:"Perbandingan dengan orang lain",y1:"Menjadi lomba kecepatan",
+n2:"Peringkat dalam tim",y2:"Menjadikan rekan sebagai pesaing",
+n3:"Selisih dari rata-rata",y3:"Menimbulkan rasa di bawah rata-rata",
+n4:"Tingkat pencapaian target",y4:"Tak tercapai terlihat seperti gagal",
+n5:"Skor penilaian",y5:"Catatan menjadi alat penilaian",
+n6:"Rentetan hari berturut",y6:"Mengambil libur mulai terasa bersalah",
+c1r:"❗ Gamifikasi sengaja dihilangkan. Lencana menaikkan tingkat pengisian jangka pendek, tapi tujuan mencatat bergeser jadi mengejar lencana.",
+c2t:"Yang ditampilkan",th_ys:"Ditampilkan",
+s1:"Kamar diselesaikan",w1x:"Menunjukkan beban kerja Anda",
+s2:"Waktu rata-rata per kamar",w2x:"Menunjukkan tempo Anda",
+s3:"Foto diambil",w3x:"Menunjukkan banyaknya catatan",
+s4:"Jenis pekerjaan",w4x:"Menunjukkan pekerjaan apa saja",
+s5:"7 hari terakhir",w5x:"Menunjukkan perubahan Anda",
+c2h:"💡 Rata-rata per kamar hanya dibandingkan dengan masa lalu Anda. Perbandingan dengan waktu target pun tidak ditampilkan.",
+c3t:"Mengekspor catatan",
+c3a:"Catatan Anda bisa diekspor sebagai PDF, agar <b>Anda bisa menyimpan catatan kerja sendiri</b>.",
+e1:"Pilih periode (hari, minggu, bulan)",e2:"Mencakup kamar, waktu kerja dan jeda",
+e3:"Tidak mencakup hasil inspeksi atau riwayat bersih ulang",e4:"Bisa diekspor dalam tujuh bahasa",
+e5:"Ekspor ditulis ke <code>auditLog</code> tapi tak ada yang diberi tahu",
+c3h:"💡 Memiliki catatan jam kerja sendiri penting terutama bagi pekerja asing. Dalam sengketa, catatan sendiri mengubah posisi.",
+c4t:"Siapa melihat apa",th_r2:"Peran",th_sc:"Lingkup terlihat",
+rl1:"Petugas kebersihan",sc1:"Hanya catatan sendiri",
+rl2:"Pengawas lapangan",sc2:"Seluruh tim di properti mereka",
+rl3:"Manajer operasi",sc3:"Semua properti dalam kontrak",
+rl4:"Pemilik properti",sc4:"Hanya propertinya, tanpa nama pribadi",
+c4r:"❗ Pemilik properti tak pernah melihat nama pribadi. Bila klien bisa melihat kinerja individu, tekanan akan jatuh pada perorangan.",
+c5t:"Keputusan yang ditetapkan",
+f1:"Tanpa perbandingan, peringkat atau selisih",f2:"Tanpa lencana atau rentetan",
+f3:"Tanpa perbandingan dengan waktu target",f4:"Catatan bisa diekspor sebagai PDF",
+f5:"Tertulis tanpa perbandingan atau peringkat",f6:"Tanpa nama pribadi bagi pemilik"},
+my:{t:"၁၄. ကိုယ်ပိုင်မှတ်တမ်း",
+d:"မိမိမှတ်တမ်းကိုသာ ကြည့်သည့်မျက်နှာပြင်။ အခြားသူနှင့် နှိုင်းယှဉ်မှု၊ အစီအစဉ်၊ ပျမ်းမျှနှင့်ကွာဟမှု လုံးဝ မပြပါ။",
+ttl:"ကျွန်ုပ်၏မှတ်တမ်း",p_d:"၂၀၂၆ အောက်စ် ၁၀ （တနင်္လာ）",
+k_main:"ပြီးဆုံးအခန်း",min:"မိနစ်",kai:" ကြိမ်",
+k_a:"အခန်းတစ်ခု ပျမ်းမျှ",k_b:"ရိုက်ခဲ့သည့်ဓာတ်ပုံ",k_c:"အခန်းဝင်မှတ်တမ်း",k_d:"ခေတ္တရပ်",
+s_ty:"အလုပ်အမျိုးအစား",ty1:"ထွက်ခွာသန့်ရှင်းမှု",ty2:"ဆက်တည်းသန့်ရှင်းမှု",ty3:"စစ်ဆေးမှု",
+s_wk:"နောက်ဆုံး ၇ ရက်",w1:"တနင်္လာ",w2:"အင်္ဂါ",w3:"ဗုဒ္ဓဟူး",w4:"ကြာသ",w5:"သောကြာ",w6:"စနေ",w7:"တနင်္ဂနွေ",
+noc_t:"ဤမျက်နှာပြင်တွင် အခြားသူများနှင့် နှိုင်းယှဉ်မှု သို့မဟုတ် အစီအစဉ် မပြပါ။ သင်၏မှတ်တမ်းသာ ပြသည်။",
+b_ex:"မှတ်တမ်း ထုတ်ယူ",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"နှိုင်းယှဉ်မှု ထည့်မသွင်းပါ",
+c1a:"ဤမျက်နှာပြင်ကို <b>မည်သည်ကို မပြသလဲ</b> ဖြင့် သတ်မှတ်သည်။ ပြိုင်ဆိုင်မှု ထည့်ပါက အမြန်နှုန်းသည် တိကျမှုကို ကျော်လွန်မည်။",
+th_no:"မပြပါ",th_wy:"အကြောင်းရင်း",
+n1:"အခြားသူနှင့် နှိုင်းယှဉ်မှု",y1:"အမြန်နှုန်း ပြိုင်ပွဲ ဖြစ်လာ",
+n2:"အဖွဲ့တွင်း အစီအစဉ်",y2:"လုပ်ဖော်ကိုင်ဖက်များကို ပြိုင်ဖက် ဖြစ်စေ",
+n3:"ပျမ်းမျှနှင့် ကွာဟမှု",y3:"ပျမ်းမျှအောက် ဟူသော ခံစားမှု ဖြစ်စေ",
+n4:"ပန်းတိုင်ပြည့်မီနှုန်း",y4:"မပြည့်မီပါက မအောင်မြင်ဟု မြင်စေ",
+n5:"အဆင့်သတ်မှတ်အမှတ်",y5:"မှတ်တမ်းသည် အဆင့်သတ်မှတ်မှုကိရိယာ ဖြစ်လာ",
+n6:"ဆက်တိုက်နေ့ရက်",y6:"အနားယူသည်ကို အပြစ်ရှိသလို ခံစားစေ",
+c1r:"❗ ကစားပုံစံပြုမှုကို ရည်ရွယ်ချက်ရှိရှိ ဖယ်ထုတ်သည်။ တံဆိပ်များသည် ကာလတိုတွင် ထည့်သွင်းနှုန်း တိုးသော်လည်း မှတ်တမ်း၏ရည်ရွယ်ချက်သည် တံဆိပ်ရရန် ဖြစ်လာမည်။",
+c2t:"ပြသည့်အချက်များ",th_ys:"ပြသည်",
+s1:"ပြီးဆုံးအခန်းအရေအတွက်",w1x:"မိမိအလုပ်ပမာဏ သိရ",
+s2:"အခန်းတစ်ခု ပျမ်းမျှချိန်",w2x:"မိမိအရှိန် သိရ",
+s3:"ရိုက်ခဲ့သည့်ဓာတ်ပုံအရေအတွက်",w3x:"မှတ်တမ်းပမာဏ သိရ",
+s4:"အလုပ်အမျိုးအစား",w4x:"မည်သည့်အလုပ်လုပ်ခဲ့သည် သိရ",
+s5:"နောက်ဆုံး ၇ ရက်",w5x:"မိမိပြောင်းလဲမှု သိရ",
+c2h:"💡 \"အခန်းတစ်ခုပျမ်းမျှချိန်\" ကို မိမိ၏အတိတ်နှင့်သာ နှိုင်းယှဉ်နိုင်သည်။ ပန်းတိုင်ချိန်နှင့် နှိုင်းယှဉ်မှုပါ မပြပါ။",
+c3t:"မှတ်တမ်း ထုတ်ယူမှု",
+c3a:"မိမိမှတ်တမ်းကို PDF ဖြင့် ထုတ်ယူနိုင်သည်။ <b>ကိုယ်တိုင် မိမိအလုပ်မှတ်တမ်းကို ထားရှိနိုင်စေရန်</b>ဖြစ်သည်။",
+e1:"ကာလရွေး၍ ထုတ်（နေ့・ရက်သတ္တပတ်・လ）",e2:"ပြီးဆုံးအခန်း၊ အလုပ်ချိန်၊ ခေတ္တရပ်မှတ်တမ်း ပါဝင်",
+e3:"စစ်ဆေးမှုရလဒ်နှင့် ပြန်သန့်ရှင်းမှတ်တမ်း မပါဝင်",e4:"ဘာသာစကား ၇ မျိုးဖြင့် ထုတ်နိုင်",
+e5:"ထုတ်ယူမှုကို <code>auditLog</code> တွင် မှတ်သော်လည်း အသိပေးမှု မလုပ်",
+c3h:"💡 အလုပ်ချိန်မှတ်တမ်းကို ကိုယ်တိုင် ထားရှိနိုင်ခြင်းသည် နိုင်ငံခြားလုပ်သားများအတွက် အထူးအရေးကြီးသည်။",
+c4t:"မည်သူ မည်သည် မြင်နိုင်သလဲ",th_r2:"အခန်းကဏ္ဍ",th_sc:"မြင်နိုင်သည့်အတိုင်းအတာ",
+rl1:"သန့်ရှင်းရေးဝန်ထမ်း",sc1:"မိမိမှတ်တမ်းသာ",
+rl2:"လုပ်ငန်းခွင်တာဝန်ခံ",sc2:"တာဝန်ယူအဆောက်အအုံ၏ အဖွဲ့တစ်ခုလုံး",
+rl3:"လုပ်ငန်းစီမံခန့်ခွဲသူ",sc3:"စာချုပ်အတိုင်းအတာအတွင်း အဆောက်အအုံအားလုံး",
+rl4:"အဆောက်အအုံပိုင်ရှင်",sc4:"မိမိအဆောက်အအုံသာ・ပုဂ္ဂိုလ်အမည်မရှိ",
+c4r:"❗ အဆောက်အအုံပိုင်ရှင်ကို ပုဂ္ဂိုလ်အမည် မပြပါ။ မှာယူသူသည် ဝန်ထမ်းပုဂ္ဂိုလ်စွမ်းဆောင်ရည်ကို ကြည့်နိုင်ပါက ဖိအားသည် ပုဂ္ဂိုလ်သို့ ရောက်မည်။",
+c5t:"အတည်ပြုချက်",
+f1:"နှိုင်းယှဉ်မှု・အစီအစဉ်・ပျမ်းမျှကွာဟမှု မပြ",f2:"တံဆိပ်・ဆက်တိုက်မှတ်တမ်း မလုပ်",
+f3:"ပန်းတိုင်ချိန်နှင့် နှိုင်းယှဉ်မှုပါ မပြ",f4:"မိမိမှတ်တမ်းကို PDF ထုတ်နိုင်",
+f5:"\"နှိုင်းယှဉ်မှု・အစီအစဉ် မပြ\" ဖော်ပြ",f6:"ပိုင်ရှင်ကို ပုဂ္ဂိုလ်အမည် မပြ"},
+ne:{t:"१४. व्यक्तिगत नतिजा",
+d:"आफ्नो मात्र रेकर्ड हेर्ने स्क्रिन। अरूसँग तुलना, श्रेणी, औसतसँगको फरक कदापि देखाइँदैन।",
+ttl:"मेरो रेकर्ड",p_d:"सोमबार, १० अगस्ट २०२६",
+k_main:"सम्पन्न कोठा",min:"मिनेट",kai:" पटक",
+k_a:"प्रति कोठा औसत",k_b:"खिचेका तस्बिर",k_c:"प्रवेश रेकर्ड",k_d:"रोकाइ",
+s_ty:"कामको प्रकार",ty1:"चेकआउट सफाई",ty2:"बसाइ सफाई",ty3:"निरीक्षण",
+s_wk:"पछिल्ला ७ दिन",w1:"सोम",w2:"मङ्गल",w3:"बुध",w4:"बिहि",w5:"शुक्र",w6:"शनि",w7:"आइत",
+noc_t:"यो स्क्रिनमा अरूसँग तुलना वा श्रेणी देखाइँदैन। तपाईंको मात्र रेकर्ड देखाइन्छ।",
+b_ex:"रेकर्ड निर्यात",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"तुलना नल्याउने",
+c1a:"यो स्क्रिन <b>के देखाउँदैन</b> भन्नेले परिभाषित हुन्छ। प्रतिस्पर्धा ल्याउँदा गति शुद्धतामाथि हुन्छ।",
+th_no:"कदापि नदेखाउने",th_wy:"कारण",
+n1:"अरूसँग तुलना",y1:"गतिको दौड बन्छ",
+n2:"टिमभित्र श्रेणी",y2:"सहकर्मीलाई प्रतिस्पर्धी बनाउँछ",
+n3:"औसतसँगको फरक",y3:"औसतभन्दा तल भएको महसुस",
+n4:"लक्ष्य प्राप्ति दर",y4:"पूरा नभएको असफल देखिन्छ",
+n5:"मूल्याङ्कन अंक",y5:"रेकर्ड मूल्याङ्कनको औजार बन्छ",
+n6:"लगातार दिनको शृंखला",y6:"बिदा लिन अपराधबोध हुन्छ",
+c1r:"❗ गेमीकरण जानाजान हटाइएको छ। ब्याज छोटो अवधिमा दर बढाउँछ तर रेकर्डको उद्देश्य ब्याज पाउनु बन्छ।",
+c2t:"देखाइने कुरा",th_ys:"देखाइने",
+s1:"सम्पन्न कोठा",w1x:"आफ्नो कार्यभार थाहा",
+s2:"प्रति कोठा औसत समय",w2x:"आफ्नो गति थाहा",
+s3:"खिचेका तस्बिर",w3x:"रेकर्डको मात्रा थाहा",
+s4:"कामको प्रकार",w4x:"कस्तो काम गरेको थाहा",
+s5:"पछिल्ला ७ दिन",w5x:"आफ्नो परिवर्तन थाहा",
+c2h:"💡 प्रति कोठा औसत आफ्नै विगतसँग मात्र तुलना हुन्छ। लक्ष्य समयसँगको तुलना पनि देखाइँदैन।",
+c3t:"रेकर्ड निर्यात",
+c3a:"आफ्नो रेकर्ड PDF मा निर्यात गर्न सकिन्छ, ताकि <b>आफ्नो श्रम रेकर्ड आफै राख्न सकियोस्</b>।",
+e1:"अवधि छानी निकाल्ने (दिन, हप्ता, महिना)",e2:"सम्पन्न कोठा, कार्य समय र रोकाइ समावेश",
+e3:"निरीक्षण नतिजा वा पुनः सफाई इतिहास समावेश नहुने",e4:"सातै भाषामा निकाल्न सकिने",
+e5:"निर्यात <code>auditLog</code> मा लेखिन्छ तर सूचना जाँदैन",
+c3h:"💡 आफ्नो कामको घण्टाको रेकर्ड राख्नु विदेशी कामदारका लागि विशेष महत्त्वपूर्ण छ।",
+c4t:"कसले के देख्न पाउँछ",th_r2:"भूमिका",th_sc:"देखिने दायरा",
+rl1:"सफाईकर्मी",sc1:"आफ्नो मात्र रेकर्ड",
+rl2:"स्थल पर्यवेक्षक",sc2:"आफ्ना सुविधाका पूरा टिम",
+rl3:"सञ्चालन प्रबन्धक",sc3:"सम्झौताभित्रका सबै सुविधा",
+rl4:"सुविधा मालिक",sc4:"आफ्नो सुविधा मात्र, व्यक्तिगत नाम बिना",
+c4r:"❗ सुविधा मालिकले व्यक्तिगत नाम कदापि देख्दैन। ग्राहकले व्यक्तिगत प्रदर्शन हेर्न पाए दबाब व्यक्तिमा पर्छ।",
+c5t:"तय भएका कुरा",
+f1:"तुलना, श्रेणी वा औसत फरक नदेखाउने",f2:"ब्याज वा शृंखला नराख्ने",
+f3:"लक्ष्य समयसँगको तुलना पनि नदेखाउने",f4:"रेकर्ड PDF निर्यात",
+f5:"तुलना वा श्रेणी नदेखाइने लेखिएको",f6:"मालिकलाई व्यक्तिगत नाम नदेखाउने"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+const D={d:{main:'11',sub:'🏨 2施設 · ⏱ 実作業 6時間12分',a:'34分',b:'42',c:'11',d:'2回',
+pl:'2026年8月10日（月）',ty:[['アウト清掃','8',73],['ステイ清掃','2',18],['点検','1',9]],wk:true},
+w:{main:'62',sub:'🏨 4施設 · ⏱ 実作業 34時間48分',a:'33分',b:'238',c:'59',d:'11回',
+pl:'2026年8月4日 - 8月10日',ty:[['アウト清掃','44',71],['ステイ清掃','13',21],['点検','5',8]],wk:true},
+m:{main:'241',sub:'🏨 6施設 · ⏱ 実作業 132時間20分',a:'33分',b:'901',c:'228',d:'38回',
+pl:'2026年8月',ty:[['アウト清掃','171',71],['ステイ清掃','52',22],['点検','18',7]],wk:false}};
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const k=this.dataset.s,o=D[k];
+document.getElementById('v_main').textContent=o.main;
+document.getElementById('v_sub').textContent=o.sub;
+document.getElementById('v_a').innerHTML=o.a.replace('分','<span style="font-size:12px">分</span>');
+document.getElementById('v_b').textContent=o.b;
+document.getElementById('v_c').textContent=o.c;
+document.getElementById('v_d').innerHTML=o.d.replace('回','<span style="font-size:12px">回</span>');
+document.getElementById('pl').textContent=o.pl;
+document.getElementById('bars1').innerHTML=o.ty.map(t=>
+'<div class="br"><div class="lb3"><span>'+t[0]+'</span><b>'+t[1]+'</b></div>'+
+'<div class="tk"><i style="width:'+t[2]+'%"></i></div></div>').join('');
+document.getElementById('wk').style.display=o.wk?'':'none';
+document.getElementById('wk_t').style.display=o.wk?'':'none';
+document.getElementById('k_main2')});
+document.getElementById('bx').onclick=()=>alert('記録を書き出します\n\n形式：PDF\n期間：選択中の期間\n言語：現在の表示言語\n\n含まれるもの\n・完了した部屋\n・作業時間と中断の記録\n\n含まれないもの\n・検査結果\n・再清掃の履歴');
+</script></body></html>

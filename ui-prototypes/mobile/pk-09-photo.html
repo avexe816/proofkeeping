@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 09 — 写真の撮影</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.q{font-size:14px;font-weight:700;margin:14px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:16px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;min-height:74px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:25px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tg2{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}
+.tg2 .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tg2 .sw{width:52px;height:30px;border-radius:16px;background:var(--dirtybg);
+position:relative;transition:.2s;flex-shrink:0}
+.tg2 .sw:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg2.on .sw{background:var(--ok)}.tg2.on .sw:after{left:25px}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.tri{display:flex;gap:5px;flex-shrink:0}
+.tri .b{width:40px;height:40px;border-radius:9px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:17px;font-weight:800;color:var(--ink2);cursor:pointer;font-family:inherit}
+.tri .b.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.tri .b.ng{background:var(--danger);border-color:var(--danger);color:#fff}
+.tri .b.na{font-size:14px}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid var(--line);background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.dn{border-color:var(--ok);background:var(--okbg);opacity:.75}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:34px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.cam{background:#0d0f0e;border-radius:14px;aspect-ratio:3/4;position:relative;overflow:hidden;
+display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.cam .gd{position:absolute;inset:0;pointer-events:none}
+.cam .gd:before,.cam .gd:after{content:"";position:absolute;background:rgba(255,255,255,.16)}
+.cam .gd:before{left:33.3%;top:0;bottom:0;width:1px;box-shadow:66.6% 0 0 rgba(255,255,255,.16)}
+.cam .gd:after{top:33.3%;left:0;right:0;height:1px;box-shadow:0 66.6% 0 rgba(255,255,255,.16)}
+.cam .ct2{color:#5a655f;text-align:center;font-size:12px;line-height:1.7}
+.cam .ct2 .e{font-size:46px;display:block;margin-bottom:9px}
+.cam .ov2{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.75));
+padding:22px 12px 11px;color:#fff;font-size:10.5px;line-height:1.5}
+.cam .bd2{position:absolute;top:9px;left:9px;background:rgba(184,137,59,.94);color:#1A1206;
+font-size:10px;font-weight:800;padding:4px 9px;border-radius:5px}
+.shb{width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid var(--brand);
+margin:0 auto;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:29px}
+.shb:active{transform:scale(.93)}
+.gal{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}
+.gal .g{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:17px;
+color:var(--muted);position:relative;cursor:pointer}
+.gal .g.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.gal .g .tg3{position:absolute;bottom:3px;left:3px;right:3px;font-size:7.5px;
+background:rgba(0,0,0,.55);color:#fff;border-radius:3px;padding:1px 2px;text-align:center}
+.gal .g .del{position:absolute;top:2px;right:3px;font-size:11px;color:var(--danger)}
+.rq2{display:flex;gap:7px;overflow-x:auto;padding-bottom:5px;margin-bottom:12px}
+.rq2::-webkit-scrollbar{height:3px}
+.rq2 .c{flex-shrink:0;padding:8px 11px;border-radius:9px;border:1.5px solid var(--line);
+background:var(--surf);font-size:10.5px;font-weight:700;white-space:nowrap;cursor:pointer}
+.rq2 .c.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.rq2 .c.dn{background:var(--okbg);border-color:var(--ok);color:var(--ok)}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">09 / 16 — 写真の撮影</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">STATE</span>
+<button class="gb st on" data-s="cam">撮影中</button>
+<button class="gb st" data-s="off">オフライン</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">09. 写真の撮影</h1>
+<p data-i="d">用途を先に選んでから撮る。撮影後に「これは何の写真か」を思い出す作業をなくすため。全画像はEXIFのGPS情報を削除して保存し、撮影時刻はサーバー時刻で上書きする。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="bk">←</span> 📷 302 · <span data-i="ttl">写真</span></div>
+<div class="b"><span id="cnt">3</span> / 20 · <span data-i="req_ph">必須</span> <b id="rq">2</b> <span data-i="nokori">件残り</span></div></div>
+<div class="bd">
+
+<div class="rq2" id="rqb">
+<div class="c dn">✓ <span data-i="u1">シーツ交換後</span></div>
+<div class="c dn">✓ <span data-i="u2">浴槽清掃後</span></div>
+<div class="c on" data-i="u3">備品棚</div>
+<div class="c" data-i="u4">客室全景</div>
+<div class="c" data-i="u5">その他</div></div>
+
+<div class="cam" id="cm">
+<div class="bd2">📷 <span data-i="u3">備品棚</span></div>
+<div class="gd"></div>
+<div class="ct2"><span class="e">📷</span><span data-i="cam_h">備品棚の全景を撮影してください<br>棚全体が入るように</span></div>
+<div class="ov2" id="ovt">🕒 <span data-i="srv">サーバー時刻</span> 14:52:08 · 📍 <span data-i="nogps">位置情報なし</span></div>
+</div>
+
+<div class="shb" id="sh">📷</div>
+
+<div class="sec">🖼 <span data-i="s_g">撮影済み</span><span class="cn"><span id="cnt2">3</span> / 20</span></div>
+<div class="gal" id="gl">
+<div class="g has">🖼<span class="tg3" data-i="u1">シーツ交換後</span><span class="del">✕</span></div>
+<div class="g has">🖼<span class="tg3" data-i="u2">浴槽清掃後</span><span class="del">✕</span></div>
+<div class="g has">🖼<span class="tg3" data-i="u5">その他</span><span class="del">✕</span></div>
+</div>
+
+<div class="al i" style="margin-top:14px">🔒 <span data-i="priv">位置情報は保存されません。撮影時刻はサーバー時刻を使用します。</span></div>
+
+<button class="big o" style="margin-top:4px" id="bk2">← <span data-i="b_back">タスクに戻る</span></button>
+</div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">用途を先に選ぶ</span></h3>
+<p data-i="c1a">一般的なカメラアプリは「撮ってから分類」だが、この画面は<b>先に用途を選んでから撮る</b>。理由は3つある。</p>
+<ul>
+<li data-i="w1">撮影ガイドを用途に合わせて表示できる（「棚全体が入るように」など）</li>
+<li data-i="w2">後で分類する手間がなくなる。1日80枚を分類する作業は現実的でない</li>
+<li data-i="w3">必須の用途が撮れているかを即座に判定できる</li>
+</ul>
+<div class="hint" data-i="c1h">💡 用途チップは横スクロールで、完了したものは緑になります。上部の「必須2件残り」と連動しています。</div></div>
+
+<div class="card"><h3>🔒 <span data-i="c2t">プライバシー保護</span></h3>
+<table><tr><th data-i="th_i">処理</th><th data-i="th_w">内容</th></tr>
+<tr><td data-i="pv1">EXIF GPS</td><td class="nx" data-i="pw1">アップロード前に端末側で削除</td></tr>
+<tr><td data-i="pv2">撮影時刻</td><td data-i="pw2">サーバー時刻で上書き</td></tr>
+<tr><td data-i="pv3">端末情報</td><td class="nx" data-i="pw3">機種名・シリアルを削除</td></tr>
+<tr><td data-i="pv4">サムネイル</td><td data-i="pw4">EXIF内の縮小画像も削除</td></tr>
+<tr><td data-i="pv5">顔検出</td><td class="nx" data-i="pw5">実装しない</td></tr></table>
+<div class="rmk" data-i="c2r">❗ 撮影時刻を端末時刻ではなくサーバー時刻にするのは、端末の時刻がずれていると証跡の時系列が崩れるためです。ただしオフライン撮影時はキュー投入時刻を記録し、同期時にサーバー時刻との差分をログに残します。</div></div>
+
+<div class="card"><h3>📶 <span data-i="c3t">オフライン時の扱い</span></h3>
+<ul>
+<li data-i="o1">端末内に暗号化して保存。IndexedDB を使用</li>
+<li data-i="o2">1端末あたり最大200枚までキューに保持</li>
+<li data-i="o3">接続復帰時に順次アップロード</li>
+<li data-i="o4">アップロード前でもチェックリストは○にできる</li>
+<li data-i="o5">200枚を超えたら古い任意写真から削除。必須写真は残す</li>
+</ul>
+<div class="hint" data-i="c3h">💡 STATEを「オフライン」に切り替えると、撮影後の表示がどう変わるかを確認できます。</div></div>
+
+<div class="card"><h3>📐 <span data-i="c4t">画像の仕様</span></h3>
+<table><tr><th data-i="th_k">項目</th><th data-i="th_v2">値</th></tr>
+<tr><td data-i="q1">長辺</td><td>1600 px</td></tr>
+<tr><td data-i="q2">形式</td><td>JPEG (WebP fallback)</td></tr>
+<tr><td data-i="q3">品質</td><td>78</td></tr>
+<tr><td data-i="q4">目標サイズ</td><td data-i="q4v">1枚 250KB 以下</td></tr>
+<tr><td data-i="q5">1タスク上限</td><td data-i="q5v">20枚</td></tr>
+<tr><td data-i="q6">保存期間</td><td data-i="q6v">90日（施設ごとに設定可）</td></tr></table>
+<div class="hint" data-i="c4h">💡 1日20室×4枚×250KB = 20MB/日。従量制の回線でも負担にならない水準に抑えています。</div></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="f1">用途を先に選んでから撮影</li>
+<li data-i="f2">EXIFのGPSは端末側で削除</li>
+<li data-i="f3">撮影時刻はサーバー時刻</li>
+<li data-i="f4">顔検出は実装しない</li>
+<li data-i="f5">オフラインでもチェックリストを進められる</li>
+<li data-i="f6">画面に「位置情報は保存されません」を明記</li>
+</ul></div>
+</div></div></div><script>const I18N={ja:{},
+en:{t:"09. Taking Photos",
+d:"The purpose is chosen before shooting, so nobody has to recall later what a photo was for. All images have EXIF GPS stripped and the capture time is overwritten with server time.",
+ttl:"Photos",req_ph:"required",nokori:" left",
+u1:"After sheet change",u2:"After tub cleaning",u3:"Fixture shelf",u4:"Whole room",u5:"Other",
+cam_h:"Photograph the whole fixture shelf<br>so the entire shelf fits in frame",
+srv:"Server time",nogps:"no location",
+s_g:"Taken",priv:"Location is not saved. Capture time uses server time.",
+b_back:"Back to task",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"Purpose first, then shoot",
+c1a:"Ordinary camera apps shoot then sort. This screen <b>picks the purpose before shooting</b>, for three reasons.",
+w1:"Shooting guidance can match the purpose (\"so the entire shelf fits\")",
+w2:"No sorting afterwards — classifying 80 photos a day is not realistic",
+w3:"Whether required purposes are covered can be judged instantly",
+c1h:"💡 Purpose chips scroll horizontally and turn green when done. They are linked to the \"2 required left\" counter at the top.",
+c2t:"Privacy protection",th_i:"Processing",th_w:"Detail",
+pv1:"EXIF GPS",pw1:"Stripped on the device before upload",
+pv2:"Capture time",pw2:"Overwritten with server time",
+pv3:"Device info",pw3:"Model name and serial removed",
+pv4:"Thumbnail",pw4:"Embedded EXIF preview removed too",
+pv5:"Face detection",pw5:"Not implemented",
+c2r:"❗ Server time is used instead of device time because a skewed device clock breaks the chronology of the evidence. For offline shots the queue timestamp is recorded, and the difference from server time is logged at sync.",
+c3t:"Offline behaviour",
+o1:"Stored encrypted on the device using IndexedDB",
+o2:"Up to 200 photos held in the queue per device",
+o3:"Uploaded in order when connectivity returns",
+o4:"Checklist items can be marked done before upload",
+o5:"Beyond 200, oldest optional photos are dropped; required ones are kept",
+c3h:"💡 Switch STATE to Offline to see how the post-capture display changes.",
+c4t:"Image specification",th_k:"Item",th_v2:"Value",
+q1:"Long edge",q2:"Format",q3:"Quality",
+q4:"Target size",q4v:"under 250KB each",
+q5:"Cap per task",q5v:"20 photos",
+q6:"Retention",q6v:"90 days (configurable per property)",
+c4h:"💡 20 rooms × 4 photos × 250KB = 20MB a day, kept low enough not to burden a metered connection.",
+c5t:"Decisions fixed on this screen",
+f1:"Purpose chosen before shooting",
+f2:"EXIF GPS stripped on the device",
+f3:"Capture time uses server time",
+f4:"Face detection is not implemented",
+f5:"Checklist can progress while offline",
+f6:"\"Location is not saved\" stated on screen"},
+zh:{t:"09. 照片的拍摄",
+d:"先选用途再拍。为了消除拍完之后回想「这是什么照片」的工作。全部图像删除 EXIF 的 GPS 信息后保存，拍摄时刻用服务器时刻覆盖。",
+ttl:"照片",req_ph:"必需",nokori:"件剩余",
+u1:"换床单后",u2:"浴缸清扫后",u3:"备品架",u4:"客房全景",u5:"其他",
+cam_h:"请拍摄备品架的全景<br>让整个架子都进画面",
+srv:"服务器时刻",nogps:"无位置信息",
+s_g:"已拍摄",priv:"不保存位置信息。拍摄时刻使用服务器时刻。",
+b_back:"返回任务",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"先选用途",
+c1a:"一般的相机应用是「拍完再分类」，本画面则是<b>先选用途再拍</b>。理由有 3 个。",
+w1:"可以按用途显示拍摄指引（如「让整个架子进画面」）",
+w2:"省去之后分类的手间。一天分类 80 张不现实",
+w3:"能立即判定必需的用途是否已拍到",
+c1h:"💡 用途标签可横向滚动，完成的变绿。与顶部的「必需 2 件剩余」联动。",
+c2t:"隐私保护",th_i:"处理",th_w:"内容",
+pv1:"EXIF GPS",pw1:"上传前在端侧删除",
+pv2:"拍摄时刻",pw2:"用服务器时刻覆盖",
+pv3:"端末信息",pw3:"删除机型名・序列号",
+pv4:"缩略图",pw4:"EXIF 内的缩小图也删除",
+pv5:"人脸检测",pw5:"不实现",
+c2r:"❗ 拍摄时刻用服务器时刻而非端末时刻，是因为端末时刻偏移会让证迹的时序崩坏。但离线拍摄时记录入队时刻，同步时把与服务器时刻的差分留在日志里。",
+c3t:"离线时的处理",
+o1:"在端末内加密保存。使用 IndexedDB",
+o2:"每台端末最多在队列保持 200 张",
+o3:"连接恢复时依次上传",
+o4:"上传前也能把检查表打○",
+o5:"超过 200 张时从旧的任意照片开始删除。必需照片保留",
+c3h:"💡 把 STATE 切到「离线」，可以确认拍摄后的显示如何变化。",
+c4t:"图像的规格",th_k:"项目",th_v2:"值",
+q1:"长边",q2:"格式",q3:"品质",
+q4:"目标大小",q4v:"每张 250KB 以下",
+q5:"1 任务上限",q5v:"20 张",
+q6:"保存期间",q6v:"90 天（可按设施设定）",
+c4h:"💡 一天 20 间×4 张×250KB = 20MB/日。压到即使按量计费的线路也不成负担的水准。",
+c5t:"本画面的确定事项",
+f1:"先选用途再拍摄",
+f2:"EXIF 的 GPS 在端侧删除",
+f3:"拍摄时刻用服务器时刻",
+f4:"不实现人脸检测",
+f5:"离线也能推进检查表",
+f6:"画面上明记「不保存位置信息」"},
+vi:{t:"09. Chụp ảnh",
+d:"Chọn mục đích trước khi chụp. Mọi ảnh bị xóa GPS trong EXIF và thời gian chụp ghi đè bằng giờ server.",
+ttl:"Ảnh",req_ph:"bắt buộc",nokori:" còn lại",
+u1:"Sau khi đổi ga",u2:"Sau khi vệ sinh bồn",u3:"Kệ vật dụng",u4:"Toàn phòng",u5:"Khác",
+cam_h:"Chụp toàn cảnh kệ vật dụng<br>sao cho cả kệ vào khung",
+srv:"Giờ server",nogps:"không có vị trí",
+s_g:"Đã chụp",priv:"Không lưu vị trí. Thời gian chụp dùng giờ server.",
+b_back:"Về nhiệm vụ",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Chọn mục đích trước rồi chụp",
+c1a:"Ứng dụng camera thường chụp rồi phân loại. Màn hình này <b>chọn mục đích trước</b>, vì ba lý do.",
+w1:"Hướng dẫn chụp khớp với mục đích",
+w2:"Không phải phân loại sau — 80 ảnh mỗi ngày là không thực tế",
+w3:"Biết ngay các mục đích bắt buộc đã đủ chưa",
+c1h:"💡 Thẻ mục đích cuộn ngang và chuyển xanh khi xong.",
+c2t:"Bảo vệ quyền riêng tư",th_i:"Xử lý",th_w:"Chi tiết",
+pv1:"EXIF GPS",pw1:"Xóa trên thiết bị trước khi tải lên",
+pv2:"Thời gian chụp",pw2:"Ghi đè bằng giờ server",
+pv3:"Thông tin thiết bị",pw3:"Xóa tên máy và số máy",
+pv4:"Ảnh thu nhỏ",pw4:"Xóa cả ảnh xem trước trong EXIF",
+pv5:"Nhận diện mặt",pw5:"Không triển khai",
+c2r:"❗ Dùng giờ server vì đồng hồ thiết bị lệch sẽ làm sai trình tự bằng chứng. Ảnh offline ghi thời điểm vào hàng đợi và ghi log chênh lệch khi đồng bộ.",
+c3t:"Hành vi khi offline",
+o1:"Lưu mã hóa trên thiết bị bằng IndexedDB",
+o2:"Tối đa 200 ảnh trong hàng đợi mỗi thiết bị",
+o3:"Tải lên theo thứ tự khi có mạng",
+o4:"Có thể đánh xong danh sách trước khi tải lên",
+o5:"Vượt 200 sẽ bỏ ảnh tùy chọn cũ nhất; giữ ảnh bắt buộc",
+c3h:"💡 Chuyển STATE sang Offline để xem hiển thị sau khi chụp thay đổi thế nào.",
+c4t:"Thông số ảnh",th_k:"Mục",th_v2:"Giá trị",
+q1:"Cạnh dài",q2:"Định dạng",q3:"Chất lượng",
+q4:"Kích thước mục tiêu",q4v:"dưới 250KB mỗi ảnh",
+q5:"Giới hạn mỗi nhiệm vụ",q5v:"20 ảnh",
+q6:"Thời gian lưu",q6v:"90 ngày (cấu hình theo cơ sở)",
+c4h:"💡 20 phòng × 4 ảnh × 250KB = 20MB mỗi ngày.",
+c5t:"Quyết định đã chốt",
+f1:"Chọn mục đích trước khi chụp",f2:"Xóa GPS trên thiết bị",f3:"Thời gian chụp dùng giờ server",
+f4:"Không nhận diện mặt",f5:"Danh sách vẫn tiến khi offline",f6:"Ghi rõ không lưu vị trí"},
+id:{t:"09. Mengambil Foto",
+d:"Tujuan dipilih sebelum memotret. Semua gambar dihapus GPS EXIF dan waktu ambil ditimpa waktu server.",
+ttl:"Foto",req_ph:"wajib",nokori:" tersisa",
+u1:"Setelah ganti sprei",u2:"Setelah bersih bak",u3:"Rak perlengkapan",u4:"Seluruh kamar",u5:"Lainnya",
+cam_h:"Foto seluruh rak perlengkapan<br>agar rak masuk seluruhnya",
+srv:"Waktu server",nogps:"tanpa lokasi",
+s_g:"Sudah diambil",priv:"Lokasi tidak disimpan. Waktu ambil memakai waktu server.",
+b_back:"Kembali ke tugas",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Pilih tujuan lalu potret",
+c1a:"Aplikasi kamera biasa memotret lalu menyortir. Layar ini <b>memilih tujuan lebih dulu</b>, karena tiga alasan.",
+w1:"Panduan pengambilan bisa sesuai tujuan",
+w2:"Tak perlu menyortir sesudahnya — 80 foto sehari tak realistis",
+w3:"Bisa langsung dinilai apakah tujuan wajib sudah terpenuhi",
+c1h:"💡 Chip tujuan bergulir mendatar dan menjadi hijau bila selesai.",
+c2t:"Perlindungan privasi",th_i:"Pemrosesan",th_w:"Rincian",
+pv1:"EXIF GPS",pw1:"Dihapus di perangkat sebelum unggah",
+pv2:"Waktu ambil",pw2:"Ditimpa waktu server",
+pv3:"Info perangkat",pw3:"Nama model dan serial dihapus",
+pv4:"Thumbnail",pw4:"Pratinjau dalam EXIF juga dihapus",
+pv5:"Deteksi wajah",pw5:"Tidak diterapkan",
+c2r:"❗ Waktu server dipakai karena jam perangkat yang menyimpang merusak kronologi bukti. Foto offline mencatat waktu masuk antrean dan selisihnya dicatat saat sinkronisasi.",
+c3t:"Perilaku saat offline",
+o1:"Disimpan terenkripsi memakai IndexedDB",
+o2:"Hingga 200 foto dalam antrean per perangkat",
+o3:"Diunggah berurutan saat koneksi kembali",
+o4:"Daftar periksa bisa ditandai sebelum unggah",
+o5:"Di atas 200, foto opsional terlama dibuang; yang wajib dipertahankan",
+c3h:"💡 Ubah STATE ke Offline untuk melihat perubahan tampilan setelah memotret.",
+c4t:"Spesifikasi gambar",th_k:"Item",th_v2:"Nilai",
+q1:"Sisi panjang",q2:"Format",q3:"Kualitas",
+q4:"Ukuran target",q4v:"di bawah 250KB per foto",
+q5:"Batas per tugas",q5v:"20 foto",
+q6:"Masa simpan",q6v:"90 hari (dapat diatur per properti)",
+c4h:"💡 20 kamar × 4 foto × 250KB = 20MB sehari.",
+c5t:"Keputusan yang ditetapkan",
+f1:"Tujuan dipilih sebelum memotret",f2:"GPS EXIF dihapus di perangkat",f3:"Waktu ambil memakai waktu server",
+f4:"Deteksi wajah tidak diterapkan",f5:"Daftar periksa jalan saat offline",f6:"Tertulis lokasi tidak disimpan"},
+my:{t:"၀၉. ဓာတ်ပုံရိုက်ခြင်း",
+d:"ရိုက်မည့်အလိုတွင် ရည်ရွယ်ချက် ရွေးသည်။ ဓာတ်ပုံအားလုံး၏ EXIF GPS ဖျက်၍ ရိုက်ချိန်ကို ဆာဗာချိန်ဖြင့် အစားထိုးသည်။",
+ttl:"ဓာတ်ပုံ",req_ph:"မလိုမဖြစ်",nokori:" ကျန်",
+u1:"အိပ်ရာခင်းလဲပြီး",u2:"ရေချိုးကန်သန့်ပြီး",u3:"ပစ္စည်းစင်",u4:"အခန်းတစ်ခုလုံး",u5:"အခြား",
+cam_h:"ပစ္စည်းစင် တစ်ခုလုံး ရိုက်ပါ<br>စင်တစ်ခုလုံး ဝင်စေရန်",
+srv:"ဆာဗာချိန်",nogps:"တည်နေရာမရှိ",
+s_g:"ရိုက်ပြီး",priv:"တည်နေရာ မသိမ်းပါ။ ရိုက်ချိန်သည် ဆာဗာချိန်ကို အသုံးပြုသည်။",
+b_back:"အလုပ်သို့ပြန်",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"ရည်ရွယ်ချက် အရင်ရွေး၊ ပြီးမှ ရိုက်",
+c1a:"ပုံမှန်ကင်မရာအက်ပ်များသည် ရိုက်ပြီးမှ အမျိုးအစားခွဲသည်။ ဤမျက်နှာပြင်သည် <b>ရည်ရွယ်ချက်ကို အရင်ရွေးသည်</b>။ အကြောင်း ၃ ချက်ရှိသည်။",
+w1:"ရိုက်ကူးလမ်းညွှန်ကို ရည်ရွယ်ချက်နှင့် ကိုက်စေနိုင်",
+w2:"နောက်ပိုင်း အမျိုးအစားခွဲရန် မလိုတော့။ တစ်ရက် ၈၀ ပုံ ခွဲရန် လက်တွေ့မကျ",
+w3:"မလိုမဖြစ်ရည်ရွယ်ချက်များ ရိုက်ပြီးမပြီး ချက်ချင်း သိရ",
+c1h:"💡 ရည်ရွယ်ချက်တဲများ ဘေးတိုက်လှိမ်းနိုင်၍ ပြီးသည်များ အစိမ်းဖြစ်သည်။",
+c2t:"ကိုယ်ရေးလုံခြုံမှု",th_i:"လုပ်ဆောင်မှု",th_w:"အကြောင်းအရာ",
+pv1:"EXIF GPS",pw1:"တင်မည့်အလို ဖုန်းတွင် ဖျက်",
+pv2:"ရိုက်ချိန်",pw2:"ဆာဗာချိန်ဖြင့် အစားထိုး",
+pv3:"ဖုန်းအချက်အလက်",pw3:"မော်ဒယ်အမည်・စီရီယယ် ဖျက်",
+pv4:"ပုံငယ်",pw4:"EXIF အတွင်း ပုံငယ်ပါ ဖျက်",
+pv5:"မျက်နှာရှာဖွေမှု",pw5:"မလုပ်ပါ",
+c2r:"❗ ဖုန်းချိန်မဟုတ်ဘဲ ဆာဗာချိန် အသုံးပြုရသည့်အကြောင်း：ဖုန်းချိန် လွဲပါက အထောက်အထားအချိန်စဉ် ပျက်သွားမည်။ အွန်လိုင်းမရှိချိန် ရိုက်ပါက တန်းစီချိန် မှတ်၍ ချိန်ကိုက်ချိန် ကွာဟမှုကို လော့ဂ်တွင် ထားသည်။",
+c3t:"အွန်လိုင်းမရှိချိန်",
+o1:"ဖုန်းအတွင်း လုံခြုံစွာသိမ်း။ IndexedDB အသုံးပြု",
+o2:"ဖုန်းတစ်လုံးလျှင် တန်းစီတွင် ၂၀၀ ပုံအထိ",
+o3:"ချိတ်ဆက်မှုပြန်ရချိန် အစီအစဉ်လိုက် တင်",
+o4:"တင်မည့်အလိုတွင်လည်း စစ်ဆေးစာရင်း အမှတ်ပြုနိုင်",
+o5:"၂၀၀ ကျော်ပါက အဟောင်းမလိုအပ်ပုံများ ဖျက်။ မလိုမဖြစ်ပုံများ ထား",
+c3h:"💡 STATE ကို အွန်လိုင်းမရှိ ဖြောင်းပါက ရိုက်ပြီးပြသမှု ပြောင်းလဲမှု တွေ့နိုင်သည်။",
+c4t:"ဓာတ်ပုံ အသေးစိတ်",th_k:"အချက်",th_v2:"တန်ဖိုး",
+q1:"အလျားရှည်ဘက်",q2:"ဖော်မတ်",q3:"အရည်အသွေး",
+q4:"ပန်းတိုင်အရွယ်",q4v:"တစ်ပုံ ၂၅၀KB အောက်",
+q5:"အလုပ်တစ်ခု ကန့်သတ်",q5v:"၂၀ ပုံ",
+q6:"သိမ်းဆည်းကာလ",q6v:"၉၀ ရက်（အဆောက်အအုံအလိုက် သတ်မှတ်နိုင်）",
+c4h:"💡 တစ်ရက် အခန်း ၂၀ × ၄ ပုံ × ၂၅၀KB = ၂၀MB。",
+c5t:"အတည်ပြုချက်",
+f1:"ရည်ရွယ်ချက် အရင်ရွေး",f2:"EXIF GPS ဖုန်းတွင် ဖျက်",f3:"ရိုက်ချိန် ဆာဗာချိန်",
+f4:"မျက်နှာရှာဖွေမှု မလုပ်",f5:"အွန်လိုင်းမရှိလည်း စစ်ဆေးစာရင်း ဆက်နိုင်",f6:"တည်နေရာ မသိမ်းကြောင်း ဖော်ပြ"},
+ne:{t:"०९. तस्बिर खिच्ने",
+d:"खिच्नुअघि उद्देश्य छानिन्छ। सबै तस्बिरको EXIF GPS हटाइन्छ र खिचेको समय सर्भर समयले बदलिन्छ।",
+ttl:"तस्बिर",req_ph:"अनिवार्य",nokori:" बाँकी",
+u1:"तनना फेरेपछि",u2:"बाथटब सफा गरेपछि",u3:"सामान र्‍याक",u4:"पूरा कोठा",u5:"अन्य",
+cam_h:"सामान र्‍याकको पूरा दृश्य खिच्नुहोस्<br>पूरै र्‍याक फ्रेममा आउने गरी",
+srv:"सर्भर समय",nogps:"स्थान छैन",
+s_g:"खिचिएको",priv:"स्थान सुरक्षित हुँदैन। खिचेको समय सर्भर समय प्रयोग हुन्छ।",
+b_back:"काममा फर्कने",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"उद्देश्य पहिले, त्यसपछि खिच्ने",
+c1a:"साधारण क्यामेरा एपले खिचेपछि छुट्याउँछ। यो स्क्रिनले <b>पहिले उद्देश्य छान्छ</b>, तीन कारणले।",
+w1:"खिच्ने निर्देशन उद्देश्यअनुसार देखाउन सकिन्छ",
+w2:"पछि छुट्याउनु पर्दैन — दिनको ८० तस्बिर छुट्याउनु व्यावहारिक छैन",
+w3:"अनिवार्य उद्देश्य पूरा भयो कि तुरुन्तै थाहा हुन्छ",
+c1h:"💡 उद्देश्य चिप तेर्सो स्क्रोल हुन्छ र सम्पन्न भएपछि हरियो बन्छ।",
+c2t:"गोपनीयता संरक्षण",th_i:"प्रक्रिया",th_w:"विवरण",
+pv1:"EXIF GPS",pw1:"अपलोड अघि यन्त्रमै हटाइन्छ",
+pv2:"खिचेको समय",pw2:"सर्भर समयले बदलिन्छ",
+pv3:"यन्त्र जानकारी",pw3:"मोडेल नाम र सिरियल हटाइन्छ",
+pv4:"थम्बनेल",pw4:"EXIF भित्रको पूर्वावलोकन पनि हटाइन्छ",
+pv5:"अनुहार पहिचान",pw5:"लागू गरिँदैन",
+c2r:"❗ यन्त्रको घडी बिग्रिए प्रमाणको क्रम बिग्रिने भएकोले सर्भर समय प्रयोग हुन्छ। अफलाइन तस्बिरमा कतार समय लेखिन्छ र सिंकमा फरक लग हुन्छ।",
+c3t:"अफलाइन व्यवहार",
+o1:"IndexedDB प्रयोग गरी यन्त्रमै इन्क्रिप्ट",
+o2:"प्रति यन्त्र कतारमा २०० तस्बिरसम्म",
+o3:"जडान फर्केपछि क्रमशः अपलोड",
+o4:"अपलोड अघि पनि जाँच सूची टिक गर्न सकिन्छ",
+o5:"२०० नाघेपछि पुराना स्वैच्छिक तस्बिर हटाइन्छ; अनिवार्य रहन्छ",
+c3h:"💡 STATE अफलाइन गर्दा खिचेपछिको देखावट कसरी बदलिन्छ हेर्न सकिन्छ।",
+c4t:"तस्बिर विशिष्टता",th_k:"वस्तु",th_v2:"मान",
+q1:"लामो किनारा",q2:"ढाँचा",q3:"गुणस्तर",
+q4:"लक्ष्य आकार",q4v:"प्रति तस्बिर २५०KB भन्दा कम",
+q5:"प्रति काम सीमा",q5v:"२० तस्बिर",
+q6:"भण्डारण अवधि",q6v:"९० दिन (सुविधाअनुसार सेट)",
+c4h:"💡 दिनको २० कोठा × ४ तस्बिर × २५०KB = २०MB।",
+c5t:"तय भएका कुरा",
+f1:"खिच्नुअघि उद्देश्य छनोट",f2:"EXIF GPS यन्त्रमै हटाइन्छ",f3:"खिचेको समय सर्भर समय",
+f4:"अनुहार पहिचान लागू नहुने",f5:"अफलाइनमा पनि जाँच सूची अघि बढ्ने",f6:"स्थान सुरक्षित हुँदैन लेखिएको"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+let n=3,off=false;const rqs=['シーツ交換後','浴槽清掃後','備品棚','客室全景'];
+function pick(el){document.querySelectorAll('.rq2 .c').forEach(c=>c.classList.remove('on'));
+el.classList.add('on');const t=el.textContent.replace('✓','').trim();
+document.querySelector('.cam .bd2').innerHTML='📷 '+t;
+const g={'備品棚':'備品棚の全景を撮影してください<br>棚全体が入るように',
+'客室全景':'入口から客室全体を撮影してください','シーツ交換後':'交換後のベッド全景を撮影してください',
+'浴槽清掃後':'清掃後の浴槽内部を撮影してください','その他':'気づいた点を撮影してください'};
+document.querySelector('.cam .ct2').innerHTML='<span class="e">📷</span>'+(g[t]||'撮影してください')}
+document.querySelectorAll('.rq2 .c').forEach(c=>c.onclick=()=>pick(c));
+document.getElementById('sh').onclick=function(){
+if(n>=20){alert('1タスクの上限20枚に達しています');return}
+const cur=document.querySelector('.rq2 .c.on'),t=cur.textContent.replace('✓','').trim();
+n++;document.getElementById('cnt').textContent=n;document.getElementById('cnt2').textContent=n;
+const d=document.createElement('div');d.className='g has';
+d.innerHTML='🖼<span class="tg3">'+t+'</span><span class="del">✕</span>'+
+(off?'<span style="position:absolute;top:2px;left:3px;font-size:9px">📶</span>':'');
+document.getElementById('gl').appendChild(d);
+if(rqs.includes(t)&&!cur.classList.contains('dn')){cur.classList.add('dn');
+cur.innerHTML='✓ '+t;let r=0;document.querySelectorAll('.rq2 .c').forEach((c,i)=>{
+if(i<4&&!c.classList.contains('dn'))r++});document.getElementById('rq').textContent=r}
+if(off)alert('端末内に保存しました（'+n+'枚）\n\n接続復帰時にアップロードされます\nチェックリストは今すぐ○にできます');
+else alert('撮影しました（'+n+'枚）\n\nEXIFのGPSを削除\n撮影時刻をサーバー時刻で上書き');};
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+off=this.dataset.s==='off';const o=document.getElementById('ovt');
+o.innerHTML=off?'📶 <span>オフライン</span> · <span>キュー投入 14:52:08</span> · 📍 位置情報なし'
+:'🕒 <span>サーバー時刻</span> 14:52:08 · 📍 <span>位置情報なし</span>';
+o.style.background=off?'linear-gradient(transparent,rgba(197,106,40,.85))':'linear-gradient(transparent,rgba(0,0,0,.75))'});
+document.getElementById('gl').onclick=e=>{if(e.target.classList.contains('del')){
+e.target.parentNode.remove();n--;document.getElementById('cnt').textContent=n;
+document.getElementById('cnt2').textContent=n}};
+document.getElementById('bk2').onclick=()=>alert('→ 05 タスク詳細 に戻ります');
+</script></body></html>

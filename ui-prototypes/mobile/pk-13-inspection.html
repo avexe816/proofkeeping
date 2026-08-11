@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 13 — 検査画面</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.q{font-size:14px;font-weight:700;margin:14px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:16px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;min-height:74px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:25px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tg2{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}
+.tg2 .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tg2 .sw{width:52px;height:30px;border-radius:16px;background:var(--dirtybg);
+position:relative;transition:.2s;flex-shrink:0}
+.tg2 .sw:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg2.on .sw{background:var(--ok)}.tg2.on .sw:after{left:25px}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid var(--line);background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.dn{border-color:var(--ok);background:var(--okbg)}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:34px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.ov{position:absolute;inset:0;background:rgba(10,16,13,.62);display:none;
+align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px);z-index:20}
+.ov.on{display:flex}
+.mo{background:var(--surf);border-radius:18px;width:100%;overflow:hidden;max-height:92%;
+display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.mo .mh{padding:14px;text-align:center;background:var(--accent);color:#1A1206}
+.mo .mh.r2{background:var(--danger);color:#fff}
+.mo .mh .i{font-size:29px;line-height:1;display:block;margin-bottom:6px}
+.mo .mh .t{font-size:14.5px;font-weight:800}
+.mo .mb{padding:16px;overflow-y:auto}
+.mo .mb::-webkit-scrollbar{width:3px}
+.rlist .ro{display:flex;align-items:center;gap:11px;padding:14px 13px;border-radius:11px;
+border:2px solid var(--line);background:var(--surf2);margin-bottom:8px;cursor:pointer;font-size:13px}
+.rlist .ro:active{transform:scale(.98)}
+.rlist .ro .e3{font-size:22px}
+.rlist .ro.on{border-color:var(--brand);background:var(--okbg)}
+.tl{position:relative;padding-left:22px}
+.tl:before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.tl .ev{position:relative;padding:0 0 15px}
+.tl .ev:before{content:"";position:absolute;left:-20px;top:4px;width:11px;height:11px;
+border-radius:50%;background:var(--line);border:2px solid var(--bg)}
+.tl .ev.ok:before{background:var(--ok)}
+.tl .ev.ng:before{background:var(--danger)}
+.tl .ev.wn:before{background:var(--warn)}
+.tl .ev .tm3{font-size:10px;color:var(--muted);font-weight:700}
+.tl .ev .tt{font-size:12.5px;font-weight:600;margin-top:1px}
+.tl .ev .ds{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5}
+.insp{background:var(--surf);border:2px solid var(--line);border-radius:13px;padding:14px;margin-bottom:11px}
+.insp .hh{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px}
+.insp .hh .nn{font-size:13px;font-weight:700}
+.tri2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tri2 .b2{padding:15px 6px;border-radius:11px;border:2px solid var(--line);background:var(--surf2);
+font-size:13px;font-weight:800;color:var(--ink2);cursor:pointer;font-family:inherit;
+display:flex;flex-direction:column;align-items:center;gap:4px}
+.tri2 .b2 .ee{font-size:22px}
+.tri2 .b2:active{transform:scale(.97)}
+.tri2 .b2.selok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.tri2 .b2.selng{background:var(--dangerbg);border-color:var(--danger);color:var(--danger)}
+.rwk2{display:none;margin-top:11px}
+.rwk2.on{display:block}
+.pk2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pk2 .oo{padding:12px 8px;border-radius:10px;border:2px solid var(--line);background:var(--surf2);
+font-size:11.5px;font-weight:700;color:var(--ink2);cursor:pointer;text-align:center}
+.pk2 .oo.on{border-color:var(--danger);background:var(--dangerbg);color:var(--danger)}
+.evb{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
+.evb .e4{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted)}
+.evb .e4.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">13 / 16 — 検査画面（管理者用）</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">STATE</span>
+<button class="gb st on" data-s="new">未検査</button>
+<button class="gb st" data-s="pass">合格</button>
+<button class="gb st" data-s="rwk">再清掃</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">13. 検査画面（管理者用）</h1>
+<p data-i="d">清掃員が記録した内容を管理者が確認する画面。清掃員の名前は上部に出さず、記録内容を先に見せる。人ではなく作業を評価するため。再清掃を指示する場合も理由を選択式にする。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="bk">←</span> 👁 302<span data-i="go">号室</span></div>
+<div class="b">🏨 サンプルホテル東京 · 8/10 14:56 <span data-i="done2">完了</span></div></div>
+<div class="bd">
+
+<div class="al i" id="ab13">👁 <span data-i="ab_t">記録内容をご確認のうえ、検査結果を入力してください</span></div>
+
+<div class="sec">📋 <span data-i="s_rec">記録された内容</span></div>
+<div class="cd" style="padding:8px 14px">
+<div class="rw"><span data-i="k1">チェックリスト</span><b class="fx">16 / 16</b></div>
+<div class="rw"><span data-i="k2">入室時の記録</span><b class="fx">✓</b></div>
+<div class="rw"><span data-i="k3">写真</span><b class="fx">5 <span data-i="mai">枚</span></b></div>
+<div class="rw"><span data-i="k4">リネン記録</span><b class="fx">✓</b></div>
+<div class="rw"><span data-i="k5">実作業時間</span><b>48<span data-i="min">分</span> <span style="color:var(--muted);font-weight:400">/ 40<span data-i="min">分</span></span></b></div></div>
+
+<div class="sec">📷 <span data-i="s_ev">記録写真</span><span class="cn">5</span></div>
+<div class="evb"><div class="e4 has">🖼</div><div class="e4 has">🖼</div><div class="e4 has">🖼</div>
+<div class="e4 has">🖼</div><div class="e4 has">🖼</div><div class="e4"></div></div>
+
+<div class="sec">🕒 <span data-i="s_tl">作業の記録</span></div>
+<div class="cd"><div class="tl">
+<div class="ev ok"><div class="tm3">14:02</div><div class="tt" data-i="e1">作業開始</div></div>
+<div class="ev ok"><div class="tm3">14:03</div><div class="tt" data-i="e2">入室時の記録</div>
+<div class="ds" data-i="e2d">ベッド2台 / ゴミ通常 / タオル各2</div></div>
+<div class="ev ok"><div class="tm3">14:31</div><div class="tt" data-i="e3">写真 3枚</div></div>
+<div class="ev ok"><div class="tm3">14:52</div><div class="tt" data-i="e4">リネン記録</div>
+<div class="ds" data-i="e4d">回収9 / 補充9 · 差分なし</div></div>
+<div class="ev ok"><div class="tm3">14:56</div><div class="tt" data-i="e5">完了</div>
+<div class="ds" data-i="e5d">実作業48分（中断なし）</div></div>
+</div></div>
+
+<div class="sec">👁 <span data-i="s_in">検査結果</span></div>
+<div class="insp"><div class="hh"><div class="nn" data-i="in_q">この部屋の状態は問題ありませんか？</div></div>
+<div class="tri2"><button class="b2" id="bok"><span class="ee">✓</span><span data-i="pass2">問題なし</span></button>
+<button class="b2" id="bng"><span class="ee">↻</span><span data-i="rwk3">再清掃が必要</span></button></div>
+
+<div class="rwk2" id="rw2">
+<div style="font-size:11.5px;font-weight:700;margin:13px 0 8px;color:var(--danger)"
+data-i="rw_q">再清掃が必要な箇所を選んでください</div>
+<div class="pk2" id="pk13">
+<div class="oo" data-i="rr1">浴室</div><div class="oo" data-i="rr2">ベッド</div>
+<div class="oo" data-i="rr3">床</div><div class="oo" data-i="rr4">水回り</div>
+<div class="oo" data-i="rr5">備品の不足</div><div class="oo" data-i="rr6">その他</div></div>
+<div class="al w" style="margin-top:11px">⚠ <span data-i="rw_n">再清掃タスクが作成され、担当者に通知されます。元のタスクの記録は保持されます。</span></div>
+</div></div>
+
+<button class="big dis" id="bs13" style="margin-top:4px">✓ <span data-i="b_save">検査結果を記録</span></button>
+<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:11px;line-height:1.6"
+data-i="note13">担当者名は結果を記録したあとに表示されます</div>
+</div>
+
+<div class="ft"><div><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div class="on"><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">担当者名を先に出さない</span></h3>
+<p data-i="c1a">この画面の最大の設計判断は、<b>検査結果を入力するまで清掃員の名前を表示しない</b>こと。名前を先に見ると、その人への印象が検査結果に影響する。</p>
+<ul>
+<li data-i="w1">「あの人だからきっと丁寧」という先入観を防ぐ</li>
+<li data-i="w2">「新人だから厳しく見る」という偏りを防ぐ</li>
+<li data-i="w3">評価するのは人ではなく作業だと構造的に示す</li>
+<li data-i="w4">結果を記録した後に名前が表示され、必要な引き継ぎはできる</li>
+</ul>
+<div class="rmk" data-i="c1r">❗ 完全に隠すのではなく<b>順序を変える</b>だけです。誰が担当したかは記録後に確認でき、必要なフォローアップは可能です。判断の瞬間だけ名前を見せない設計です。</div></div>
+
+<div class="card"><h3>🕒 <span data-i="c2t">時系列で見せる</span></h3>
+<p data-i="c2a">記録を時系列に並べると、<b>作業の流れが自然だったか</b>が分かる。数字の羅列より判断しやすい。</p>
+<table><tr><th data-i="th_p">パターン</th><th data-i="th_r">読み取れること</th></tr>
+<tr><td data-i="p1">開始直後に入室記録</td><td class="fx" data-i="r1">通常の流れ</td></tr>
+<tr><td data-i="p2">完了直前にまとめて記録</td><td class="nx" data-i="r2">後追い入力の可能性</td></tr>
+<tr><td data-i="p3">写真が完了間際に集中</td><td class="nx" data-i="r3">同上</td></tr>
+<tr><td data-i="p4">中断が複数回</td><td data-i="r4">供給や設備の問題かもしれない</td></tr></table>
+<div class="hint" data-i="c2h">💡 「後追い入力の可能性」は疑いではなく、業務フローの改善点を探す手がかりとして扱います。リネンが届かず後でまとめて入力せざるを得ない状況などが背景にあります。</div></div>
+
+<div class="card"><h3>↻ <span data-i="c3t">再清掃の指示</span></h3>
+<p data-i="c3a">再清掃は<b>箇所を選択するだけ</b>で指示できる。自由記述を必須にすると入力が面倒で、結果として口頭連絡に戻ってしまう。</p>
+<ul>
+<li data-i="s1">箇所は6つの選択肢＋「その他」</li>
+<li data-i="s2">複数選択できる</li>
+<li data-i="s3">写真を添付できる（任意）</li>
+<li data-i="s4">補足コメントは任意</li>
+<li data-i="s5">元のタスクの記録は削除せず保持</li>
+<li data-i="s6">再清掃タスクは新規タスクとして作成</li>
+</ul></div>
+
+<div class="card"><h3>📐 <span data-i="c4t">検査の運用方針</span></h3>
+<table><tr><th data-i="th_i">項目</th><th data-i="th_v">方針</th></tr>
+<tr><td data-i="i1">検査の対象</td><td data-i="v1">全室ではなく抜き取り（既定10%）</td></tr>
+<tr><td data-i="i2">抜き取りの選び方</td><td data-i="v2">ランダム＋P4の差異がある部屋</td></tr>
+<tr><td data-i="i3">検査の期限</td><td data-i="v3">完了から24時間</td></tr>
+<tr><td data-i="i4">未検査の扱い</td><td data-i="v4">24時間後に自動で合格</td></tr>
+<tr><td data-i="i5">再清掃率の表示</td><td class="nx" data-i="v5">個人別には出さない</td></tr></table>
+<div class="hint" data-i="c4h">💡 個人別の再清掃率を出さないのは、この数字が管理指標になると検査者が指摘を控えるようになるためです。施設単位の推移だけを管理画面に出します。</div></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="f1">検査結果の入力まで担当者名を表示しない</li>
+<li data-i="f2">記録を時系列で並べる</li>
+<li data-i="f3">再清掃の理由は選択式。自由記述は任意</li>
+<li data-i="f4">元のタスクの記録は削除せず保持</li>
+<li data-i="f5">抜き取り検査を既定10%とする</li>
+<li data-i="f6">個人別の再清掃率は表示しない</li>
+</ul></div>
+</div></div></div><script>const I18N={ja:{},
+en:{t:"13. Inspection Screen (for managers)",
+d:"Where a manager reviews what the cleaner recorded. The cleaner's name is not shown at the top — the record comes first, because the work is being assessed rather than the person. Rework reasons are also selected, not typed.",
+go:"",done2:"completed",min:"m",mai:"photos",
+ab_t:"Please review the record, then enter the inspection result",
+s_rec:"What was recorded",
+k1:"Checklist",k2:"Entry record",k3:"Photos",k4:"Linen record",k5:"Actual working time",
+s_ev:"Recorded photos",s_tl:"Work record",
+e1:"Work started",e2:"Entry record",e2d:"2 beds / normal trash / 2 of each towel",
+e3:"3 photos",e4:"Linen record",e4d:"collected 9 / restocked 9 · no difference",
+e5:"Completed",e5d:"48 minutes actual (no pauses)",
+s_in:"Inspection result",in_q:"Is the condition of this room acceptable?",
+pass2:"No issues",rwk3:"Rework needed",
+rw_q:"Please select where rework is needed",
+rr1:"Bathroom",rr2:"Bed",rr3:"Floor",rr4:"Water fittings",rr5:"Missing fixtures",rr6:"Other",
+rw_n:"A rework task will be created and the assignee notified. The original record is preserved.",
+b_save:"Save inspection result",
+note13:"The assignee's name appears after the result is saved",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"The name comes later",
+c1a:"The biggest decision here is that <b>the cleaner's name is hidden until the result is entered</b>. Seeing the name first lets an impression of that person colour the inspection.",
+w1:"Prevents \"it's them, so it's surely thorough\"",
+w2:"Prevents \"they're new, so look harder\"",
+w3:"Structurally signals that the work, not the person, is assessed",
+w4:"The name appears after saving, so any follow-up is still possible",
+c1r:"❗ Nothing is permanently hidden — only <b>the order is changed</b>. Who did the work can be checked after saving and follow-up remains possible. The name is withheld only at the moment of judgement.",
+c2t:"Shown as a timeline",
+c2a:"Arranged chronologically, it becomes visible <b>whether the flow of work was natural</b>. Easier to judge than a list of figures.",
+th_p:"Pattern",th_r:"What it suggests",
+p1:"Entry record right after starting",r1:"A normal flow",
+p2:"Everything recorded just before completing",r2:"Possibly entered after the fact",
+p3:"Photos clustered near the end",r3:"Same as above",
+p4:"Multiple pauses",r4:"Possibly a supply or equipment problem",
+c2h:"💡 \"Possibly entered after the fact\" is not suspicion but a clue for improving the workflow — for example linen not arriving, forcing entries to be batched later.",
+c3t:"Ordering rework",
+c3a:"Rework is ordered by <b>selecting the area only</b>. Requiring free text makes it tedious, and people fall back on verbal instructions.",
+s1:"Six area options plus Other",s2:"Multiple selections allowed",
+s3:"Photos can be attached (optional)",s4:"Additional comments are optional",
+s5:"The original task's record is kept, never deleted",s6:"Rework is created as a new task",
+c4t:"Inspection policy",th_i:"Item",th_v:"Policy",
+i1:"Scope",v1:"Sampling, not every room (default 10%)",
+i2:"How samples are chosen",v2:"Random plus rooms with P4 findings",
+i3:"Deadline",v3:"24 hours after completion",
+i4:"If not inspected",v4:"Automatically passes after 24 hours",
+i5:"Per-person rework rate",v5:"Never shown per individual",
+c4h:"💡 Per-person rework rates are withheld because once that number becomes a management metric, inspectors start holding back findings. Only property-level trends appear in the admin.",
+c5t:"Decisions fixed on this screen",
+f1:"The assignee's name is hidden until the result is entered",
+f2:"Records are arranged chronologically",
+f3:"Rework reasons are selected; free text is optional",
+f4:"The original record is preserved, never deleted",
+f5:"Sampling inspection defaults to 10%",
+f6:"Per-person rework rates are not displayed"},
+zh:{t:"13. 检查画面（管理者用）",
+d:"管理者确认清扫员记录内容的画面。清扫员的名字不放在上部，先看记录内容。因为评价的是作业而不是人。指示再清扫时理由也用选择式。",
+go:"号房",done2:"完成",min:"分",mai:"张",
+ab_t:"请确认记录内容后输入检查结果",
+s_rec:"记录的内容",
+k1:"检查表",k2:"入室记录",k3:"照片",k4:"布草记录",k5:"实作业时间",
+s_ev:"记录照片",s_tl:"作业的记录",
+e1:"作业开始",e2:"入室记录",e2d:"床 2 张 / 垃圾正常 / 毛巾各 2",
+e3:"照片 3 张",e4:"布草记录",e4d:"回收 9 / 补充 9 · 无差分",
+e5:"完成",e5d:"实作业 48 分（无中断）",
+s_in:"检查结果",in_q:"这个房间的状态没有问题吗？",
+pass2:"没问题",rwk3:"需要再清扫",
+rw_q:"请选择需要再清扫的部位",
+rr1:"浴室",rr2:"床",rr3:"地面",rr4:"水路",rr5:"备品不足",rr6:"其他",
+rw_n:"会创建再清扫任务并通知担当者。原任务的记录会保留。",
+b_save:"记录检查结果",
+note13:"担当者名会在记录结果后显示",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"不先出担当者名",
+c1a:"本画面最大的设计判断是<b>在输入检查结果之前不显示清扫员的名字</b>。先看到名字，对那个人的印象就会影响检查结果。",
+w1:"防止「是那个人所以肯定细致」的先入之见",
+w2:"防止「是新人所以要严格看」的偏差",
+w3:"从结构上表明评价的是作业而不是人",
+w4:"记录结果后会显示名字，必要的交接仍可进行",
+c1r:"❗ 不是完全隐藏，只是<b>改变顺序</b>。谁负责的在记录后可以确认，必要的后续跟进也能做。只在判断的那一瞬间不让看名字。",
+c2t:"用时序展示",
+c2a:"把记录按时序排列，就能看出<b>作业流程是否自然</b>。比数字罗列更容易判断。",
+th_p:"模式",th_r:"能读出的信息",
+p1:"开始后立刻入室记录",r1:"通常的流程",
+p2:"完成前才一起记录",r2:"有事后补录的可能",
+p3:"照片集中在完成前",r3:"同上",
+p4:"中断多次",r4:"可能是供给或设备的问题",
+c2h:"💡「事后补录的可能」不是怀疑，而是作为寻找业务流程改善点的线索。背景可能是布草没送到，只能之后一起输入。",
+c3t:"再清扫的指示",
+c3a:"再清扫<b>只选部位</b>就能指示。把自由记述做成必需，输入就麻烦，结果会退回到口头联络。",
+s1:"部位为 6 个选项＋「其他」",s2:"可多选",
+s3:"可附加照片（任意）",s4:"补充评论为任意",
+s5:"原任务的记录不删除而保留",s6:"再清扫任务作为新任务创建",
+c4t:"检查的运用方针",th_i:"项目",th_v:"方针",
+i1:"检查对象",v1:"不是全室而是抽检（默认 10%）",
+i2:"抽检的选法",v2:"随机＋有 P4 差异的房间",
+i3:"检查期限",v3:"完成后 24 小时",
+i4:"未检查的处理",v4:"24 小时后自动合格",
+i5:"再清扫率的显示",v5:"不按个人显示",
+c4h:"💡 不出个人别再清扫率，是因为这个数字一旦成为管理指标，检查者就会开始压制指摘。管理画面只出设施单位的推移。",
+c5t:"本画面的确定事项",
+f1:"输入检查结果前不显示担当者名",
+f2:"记录按时序排列",
+f3:"再清扫理由用选择式。自由记述为任意",
+f4:"原任务的记录不删除而保留",
+f5:"抽检默认为 10%",
+f6:"不显示个人别再清扫率"},
+vi:{t:"13. Màn hình kiểm tra (cho quản lý)",
+d:"Nơi quản lý xem lại những gì nhân viên đã ghi. Tên nhân viên không hiện ở đầu — ghi nhận đến trước, vì đánh giá công việc chứ không phải con người.",
+go:"",done2:"hoàn thành",min:"phút",mai:"ảnh",
+ab_t:"Xem lại ghi nhận rồi nhập kết quả kiểm tra",
+s_rec:"Nội dung đã ghi",
+k1:"Danh sách kiểm tra",k2:"Ghi nhận khi vào",k3:"Ảnh",k4:"Ghi nhận khăn vải",k5:"Thời gian làm thực tế",
+s_ev:"Ảnh đã ghi",s_tl:"Ghi nhận công việc",
+e1:"Bắt đầu làm",e2:"Ghi nhận khi vào",e2d:"2 giường / rác bình thường / 2 mỗi loại khăn",
+e3:"3 ảnh",e4:"Ghi nhận khăn vải",e4d:"thu 9 / bổ sung 9 · không chênh lệch",
+e5:"Hoàn thành",e5d:"48 phút thực tế (không dừng)",
+s_in:"Kết quả kiểm tra",in_q:"Tình trạng phòng này có ổn không?",
+pass2:"Không vấn đề",rwk3:"Cần dọn lại",
+rw_q:"Chọn nơi cần dọn lại",
+rr1:"Phòng tắm",rr2:"Giường",rr3:"Sàn",rr4:"Thiết bị nước",rr5:"Thiếu vật dụng",rr6:"Khác",
+rw_n:"Nhiệm vụ dọn lại sẽ được tạo và thông báo cho người phụ trách. Ghi nhận gốc được giữ.",
+b_save:"Lưu kết quả kiểm tra",
+note13:"Tên người phụ trách hiện sau khi lưu kết quả",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Tên hiện sau",
+c1a:"Quyết định lớn nhất ở đây là <b>ẩn tên nhân viên tới khi nhập kết quả</b>. Thấy tên trước sẽ để ấn tượng về người đó ảnh hưởng kết quả.",
+w1:"Tránh \"là người đó nên chắc kỹ\"",w2:"Tránh \"người mới nên xem khắt khe\"",
+w3:"Về cấu trúc thể hiện đánh giá công việc chứ không phải người",
+w4:"Tên hiện sau khi lưu nên vẫn theo dõi được",
+c1r:"❗ Không ẩn vĩnh viễn — chỉ <b>đổi thứ tự</b>. Ai làm có thể xem sau khi lưu.",
+c2t:"Hiển thị theo dòng thời gian",
+c2a:"Xếp theo thời gian sẽ thấy <b>dòng công việc có tự nhiên hay không</b>.",
+th_p:"Mẫu hình",th_r:"Điều gợi ra",
+p1:"Ghi nhận ngay sau khi bắt đầu",r1:"Dòng bình thường",
+p2:"Ghi hết ngay trước khi hoàn thành",r2:"Có thể nhập sau khi làm",
+p3:"Ảnh dồn về cuối",r3:"Như trên",
+p4:"Nhiều lần dừng",r4:"Có thể vấn đề cung ứng hoặc thiết bị",
+c2h:"💡 \"Có thể nhập sau\" không phải nghi ngờ mà là gợi ý cải thiện quy trình.",
+c3t:"Ra lệnh dọn lại",
+c3a:"Dọn lại chỉ cần <b>chọn khu vực</b>. Bắt buộc nhập chữ sẽ khiến người ta quay lại chỉ thị bằng miệng.",
+s1:"Sáu lựa chọn khu vực cộng Khác",s2:"Cho phép chọn nhiều",
+s3:"Có thể gắn ảnh (tùy chọn)",s4:"Bình luận thêm là tùy chọn",
+s5:"Ghi nhận gốc được giữ, không xóa",s6:"Dọn lại tạo thành nhiệm vụ mới",
+c4t:"Chính sách kiểm tra",th_i:"Mục",th_v:"Chính sách",
+i1:"Phạm vi",v1:"Lấy mẫu, không phải mọi phòng (mặc định 10%)",
+i2:"Cách chọn mẫu",v2:"Ngẫu nhiên cộng phòng có phát hiện P4",
+i3:"Thời hạn",v3:"24 giờ sau khi hoàn thành",
+i4:"Nếu không kiểm tra",v4:"Tự động đạt sau 24 giờ",
+i5:"Tỉ lệ dọn lại theo người",v5:"Không bao giờ hiện theo cá nhân",
+c4h:"💡 Không hiện tỉ lệ theo người vì khi con số thành chỉ tiêu quản lý, người kiểm tra sẽ giữ lại phát hiện.",
+c5t:"Quyết định đã chốt",
+f1:"Ẩn tên tới khi nhập kết quả",f2:"Ghi nhận xếp theo thời gian",
+f3:"Lý do dọn lại chọn sẵn",f4:"Ghi nhận gốc được giữ",
+f5:"Kiểm tra mẫu mặc định 10%",f6:"Không hiện tỉ lệ theo cá nhân"},
+id:{t:"13. Layar Inspeksi (untuk manajer)",
+d:"Tempat manajer meninjau apa yang dicatat petugas. Nama petugas tidak ditampilkan di atas — catatan lebih dulu, karena yang dinilai pekerjaan bukan orangnya.",
+go:"",done2:"selesai",min:"mnt",mai:"foto",
+ab_t:"Tinjau catatan lalu masukkan hasil inspeksi",
+s_rec:"Yang dicatat",
+k1:"Daftar periksa",k2:"Catatan masuk",k3:"Foto",k4:"Catatan linen",k5:"Waktu kerja aktual",
+s_ev:"Foto tercatat",s_tl:"Catatan pekerjaan",
+e1:"Pekerjaan dimulai",e2:"Catatan masuk",e2d:"2 tempat tidur / sampah normal / 2 tiap handuk",
+e3:"3 foto",e4:"Catatan linen",e4d:"diambil 9 / diisi 9 · tanpa selisih",
+e5:"Selesai",e5d:"48 menit aktual (tanpa jeda)",
+s_in:"Hasil inspeksi",in_q:"Apakah kondisi kamar ini dapat diterima?",
+pass2:"Tanpa masalah",rwk3:"Perlu bersih ulang",
+rw_q:"Pilih bagian yang perlu dibersihkan ulang",
+rr1:"Kamar mandi",rr2:"Tempat tidur",rr3:"Lantai",rr4:"Instalasi air",rr5:"Perlengkapan kurang",rr6:"Lainnya",
+rw_n:"Tugas bersih ulang dibuat dan penanggung jawab diberi tahu. Catatan asli dipertahankan.",
+b_save:"Simpan hasil inspeksi",
+note13:"Nama penanggung jawab muncul setelah hasil disimpan",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Nama muncul kemudian",
+c1a:"Keputusan terbesar di sini: <b>nama petugas disembunyikan sampai hasil dimasukkan</b>. Melihat nama lebih dulu membuat kesan atas orang itu mewarnai inspeksi.",
+w1:"Mencegah \"ini dia, pasti teliti\"",w2:"Mencegah \"dia baru, lihat lebih keras\"",
+w3:"Secara struktur menandakan yang dinilai pekerjaan",
+w4:"Nama muncul setelah disimpan sehingga tindak lanjut tetap mungkin",
+c1r:"❗ Tak ada yang disembunyikan permanen — hanya <b>urutannya diubah</b>. Siapa pelaksananya bisa dilihat setelah disimpan.",
+c2t:"Ditampilkan sebagai garis waktu",
+c2a:"Disusun kronologis, terlihat <b>apakah alur kerjanya wajar</b>.",
+th_p:"Pola",th_r:"Yang disarankan",
+p1:"Catatan masuk tepat setelah mulai",r1:"Alur normal",
+p2:"Semua dicatat tepat sebelum selesai",r2:"Mungkin diisi belakangan",
+p3:"Foto menumpuk di akhir",r3:"Sama seperti di atas",
+p4:"Beberapa kali jeda",r4:"Mungkin masalah pasokan atau peralatan",
+c2h:"💡 \"Mungkin diisi belakangan\" bukan kecurigaan tapi petunjuk memperbaiki alur kerja.",
+c3t:"Memerintahkan bersih ulang",
+c3a:"Bersih ulang diperintahkan dengan <b>memilih area saja</b>. Mewajibkan teks bebas membuat orang kembali ke instruksi verbal.",
+s1:"Enam pilihan area plus Lainnya",s2:"Boleh pilih beberapa",
+s3:"Foto bisa dilampirkan (opsional)",s4:"Komentar tambahan opsional",
+s5:"Catatan tugas asli disimpan, tak pernah dihapus",s6:"Bersih ulang dibuat sebagai tugas baru",
+c4t:"Kebijakan inspeksi",th_i:"Item",th_v:"Kebijakan",
+i1:"Lingkup",v1:"Sampling, bukan semua kamar (default 10%)",
+i2:"Cara memilih sampel",v2:"Acak plus kamar dengan temuan P4",
+i3:"Tenggat",v3:"24 jam setelah selesai",
+i4:"Bila tak diinspeksi",v4:"Otomatis lulus setelah 24 jam",
+i5:"Tingkat bersih ulang per orang",v5:"Tak pernah per individu",
+c4h:"💡 Tingkat per orang tidak ditampilkan karena begitu angka itu jadi metrik manajemen, inspektor mulai menahan temuan.",
+c5t:"Keputusan yang ditetapkan",
+f1:"Nama disembunyikan sampai hasil dimasukkan",f2:"Catatan disusun kronologis",
+f3:"Alasan bersih ulang dipilih",f4:"Catatan asli dipertahankan",
+f5:"Inspeksi sampling default 10%",f6:"Tingkat per individu tak ditampilkan"},
+my:{t:"၁၃. စစ်ဆေးမှုမျက်နှာပြင်（စီမံခန့်ခွဲသူအတွက်）",
+d:"ဝန်ထမ်း မှတ်တမ်းတင်သည်ကို စီမံခန့်ခွဲသူ စစ်ဆေးသည့် မျက်နှာပြင်။ ဝန်ထမ်းအမည်ကို အထက်တွင် မပြဘဲ မှတ်တမ်းကို အရင်ပြသည်။",
+go:"",done2:"ပြီးဆုံး",min:"မိနစ်",mai:"ပုံ",
+ab_t:"မှတ်တမ်း စစ်ဆေးပြီး စစ်ဆေးမှုရလဒ် ထည့်ပါ",
+s_rec:"မှတ်တမ်းတင်သည့်အကြောင်းအရာ",
+k1:"စစ်ဆေးစာရင်း",k2:"အခန်းဝင်မှတ်တမ်း",k3:"ဓာတ်ပုံ",k4:"အခင်းမှတ်တမ်း",k5:"အမှန်တကယ်အလုပ်ချိန်",
+s_ev:"မှတ်တမ်းဓာတ်ပုံ",s_tl:"အလုပ်မှတ်တမ်း",
+e1:"အလုပ်စတင်",e2:"အခန်းဝင်မှတ်တမ်း",e2d:"အိပ်ရာ ၂ / အမှိုက်ပုံမှန် / တဘက်တစ်မျိုး ၂",
+e3:"ဓာတ်ပုံ ၃ ပုံ",e4:"အခင်းမှတ်တမ်း",e4d:"ပြန်သိမ်း ၉ / ဖြည့်တင်း ၉ · ကွာဟမှုမရှိ",
+e5:"ပြီးဆုံး",e5d:"အမှန်တကယ် ၄၈ မိနစ်（ခေတ္တရပ်မရှိ）",
+s_in:"စစ်ဆေးမှုရလဒ်",in_q:"ဤအခန်း၏အခြေအနေ ပြဿနာမရှိပါသလား။",
+pass2:"ပြဿနာမရှိ",rwk3:"ပြန်သန့်ရှင်းရန်လို",
+rw_q:"ပြန်သန့်ရှင်းရန်လိုသည့်နေရာ ရွေးပါ",
+rr1:"ရေချိုးခန်း",rr2:"အိပ်ရာ",rr3:"ကြမ်းပြင်",rr4:"ရေသွယ်ပိုက်",rr5:"ပစ္စည်းလိုအပ်မှု",rr6:"အခြား",
+rw_n:"ပြန်သန့်ရှင်းမှုအလုပ် ဖန်တီး၍ တာဝန်ခံကို အသိပေးမည်။ မူရင်းမှတ်တမ်း ထားရှိသည်။",
+b_save:"စစ်ဆေးမှုရလဒ် မှတ်တမ်းတင်",
+note13:"တာဝန်ခံအမည်သည် ရလဒ်မှတ်ပြီးမှ ပြမည်",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"တာဝန်ခံအမည်ကို အရင်မပြပါ",
+c1a:"ဤမျက်နှာပြင်၏ အကြီးမားဆုံးဆုံးဖြတ်ချက်သည် <b>စစ်ဆေးမှုရလဒ်ထည့်သည်အထိ ဝန်ထမ်းအမည် မပြခြင်း</b>ဖြစ်သည်။",
+w1:"\"ထိုသူဖြစ်သဖြင့် သေချာမည်\" ဟူသော ကြိုတင်ထင်မြင်ချက် တားဆီး",
+w2:"\"အသစ်ဖြစ်သဖြင့် တင်းကြပ်ကြည့်\" ဟူသော ချိန်ခွင်လျှာ တားဆီး",
+w3:"အဆင့်သတ်မှတ်သည်မှာ လူမဟုတ်ဘဲ အလုပ်ဖြစ်ကြောင်း တည်ဆောက်မှုအရ ဖော်ပြ",
+w4:"ရလဒ်မှတ်ပြီးမှ အမည်ပြသဖြင့် လိုအပ်သည့်ဆက်လုပ်မှု ပြုနိုင်",
+c1r:"❗ လုံးဝဖုံးကွယ်ခြင်းမဟုတ်ဘဲ <b>အစီအစဉ် ပြောင်းခြင်း</b> သာဖြစ်သည်။",
+c2t:"အချိန်စဉ်ဖြင့် ပြသည်",
+c2a:"မှတ်တမ်းကို အချိန်စဉ်စီပါက <b>အလုပ်လည်ပတ်မှု သဘာဝကျမကျ</b> သိရသည်။",
+th_p:"ပုံစံ",th_r:"ဖတ်ရသည်",
+p1:"စတင်ပြီးချက်ချင်း အခန်းဝင်မှတ်တမ်း",r1:"ပုံမှန်လည်ပတ်မှု",
+p2:"ပြီးဆုံးမည့်အလိုမှ စုပြီးမှတ်",r2:"နောက်မှ ထည့်သွင်းဖွယ်ရှိ",
+p3:"ဓာတ်ပုံ ပြီးဆုံးနီးတွင် စုပြုံ",r3:"အထက်နှင့်တူ",
+p4:"ခေတ္တရပ် အကြိမ်များ",r4:"ပေးသွင်းမှု သို့မဟုတ် ပစ္စည်းပြဿနာ ဖြစ်နိုင်",
+c2h:"💡 \"နောက်မှထည့်ဖွယ်\" သည် သံသယမဟုတ်ဘဲ လုပ်ငန်းစဉ်တိုးတက်မှုအတွက် အရိပ်အမြွက်ဖြစ်သည်။",
+c3t:"ပြန်သန့်ရှင်းမှု ခိုင်းမှု",
+c3a:"ပြန်သန့်ရှင်းမှုကို <b>နေရာရွေးရုံ</b>ဖြင့် ခိုင်းနိုင်သည်။ လွတ်လပ်စာရေးမှုကို မလိုမဖြစ်လုပ်ပါက ပါးစပ်ဖြင့် ဆက်သွယ်မှုသို့ ပြန်လည်သွားမည်။",
+s1:"နေရာ ရွေးချယ်မှု ၆ ခုနှင့် \"အခြား\"",s2:"အများ ရွေးနိုင်",
+s3:"ဓာတ်ပုံ ပူးတွဲနိုင်（မလိုအပ်）",s4:"ထပ်လောင်းမှတ်ချက် မလိုအပ်",
+s5:"မူရင်းအလုပ်၏မှတ်တမ်း မဖျက်ဘဲ ထား",s6:"ပြန်သန့်ရှင်းမှုကို အလုပ်အသစ်အဖြစ် ဖန်တီး",
+c4t:"စစ်ဆေးမှု လုပ်ငန်းမူဝါဒ",th_i:"အချက်",th_v:"မူဝါဒ",
+i1:"စစ်ဆေးမှုအကျုံးဝင်မှု",v1:"အခန်းအားလုံးမဟုတ်ဘဲ နမူနာ（မူရင်း ၁၀%）",
+i2:"နမူနာ ရွေးနည်း",v2:"ကျပန်းနှင့် P4 ကွာဟမှုရှိအခန်းများ",
+i3:"စစ်ဆေးမှုကာလ",v3:"ပြီးဆုံးပြီး ၂၄ နာရီ",
+i4:"မစစ်ဆေးပါက",v4:"၂၄ နာရီအကြာ အလိုအလျောက် အောင်",
+i5:"ပြန်သန့်ရှင်းနှုန်း ပြသမှု",v5:"ပုဂ္ဂိုလ်အလိုက် မပြပါ",
+c4h:"💡 ပုဂ္ဂိုလ်အလိုက် ပြန်သန့်ရှင်းနှုန်း မပြရသည့်အကြောင်း：ဤနံပါတ်သည် စီမံခန့်ခွဲမှုအညွှန်း ဖြစ်လာပါက စစ်ဆေးသူများ ထောက်ပြမှု ချုပ်ကိုင်လာမည်။",
+c5t:"အတည်ပြုချက်",
+f1:"ရလဒ်ထည့်သည်အထိ တာဝန်ခံအမည် မပြ",f2:"မှတ်တမ်းကို အချိန်စဉ်စီ",
+f3:"ပြန်သန့်ရှင်းအကြောင်းရင်း ရွေးချယ်မှုစနစ်",f4:"မူရင်းမှတ်တမ်း ထားရှိ",
+f5:"နမူနာစစ်ဆေးမှု မူရင်း ၁၀%",f6:"ပုဂ္ဂိုလ်အလိုက် ပြန်သန့်ရှင်းနှုန်း မပြ"},
+ne:{t:"१३. निरीक्षण स्क्रिन (प्रबन्धकका लागि)",
+d:"कर्मचारीले लेखेको प्रबन्धकले जाँच्ने स्क्रिन। कर्मचारीको नाम माथि देखाइँदैन — रेकर्ड पहिले आउँछ, किनकि काम मूल्याङ्कन हुन्छ, व्यक्ति होइन।",
+go:"",done2:"सम्पन्न",min:"मिनेट",mai:"तस्बिर",
+ab_t:"रेकर्ड जाँचेपछि निरीक्षण नतिजा हाल्नुहोस्",
+s_rec:"लेखिएको सामग्री",
+k1:"जाँच सूची",k2:"प्रवेश रेकर्ड",k3:"तस्बिर",k4:"लिनेन रेकर्ड",k5:"वास्तविक कार्य समय",
+s_ev:"रेकर्ड तस्बिर",s_tl:"कामको रेकर्ड",
+e1:"काम सुरु",e2:"प्रवेश रेकर्ड",e2d:"२ ओछ्यान / सामान्य फोहोर / प्रत्येक तौलिया २",
+e3:"३ तस्बिर",e4:"लिनेन रेकर्ड",e4d:"संकलन ९ / पुनःपूर्ति ९ · फरक छैन",
+e5:"सम्पन्न",e5d:"४८ मिनेट वास्तविक (रोकाइ छैन)",
+s_in:"निरीक्षण नतिजा",in_q:"यो कोठाको अवस्था ठीक छ?",
+pass2:"समस्या छैन",rwk3:"पुनः सफाई चाहिन्छ",
+rw_q:"पुनः सफाई चाहिने भाग छान्नुहोस्",
+rr1:"बाथरूम",rr2:"ओछ्यान",rr3:"भुइँ",rr4:"पानीको फिटिङ",rr5:"सामान कम",rr6:"अन्य",
+rw_n:"पुनः सफाई काम बन्नेछ र जिम्मेवारलाई सूचना जान्छ। मूल रेकर्ड रहन्छ।",
+b_save:"निरीक्षण नतिजा सुरक्षित",
+note13:"जिम्मेवारको नाम नतिजा सुरक्षित गरेपछि देखिन्छ",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"नाम पछि आउँछ",
+c1a:"यहाँको सबैभन्दा ठूलो निर्णय: <b>नतिजा नहालेसम्म कर्मचारीको नाम लुकाइन्छ</b>। नाम पहिले देख्दा त्यो व्यक्तिको छाप निरीक्षणमा मिसिन्छ।",
+w1:"\"उनी हुन् त्यसैले पक्कै राम्रो\" भन्ने पूर्वाग्रह रोक्छ",
+w2:"\"नयाँ हुन् त्यसैले कडा हेर्नु\" भन्ने झुकाव रोक्छ",
+w3:"संरचनात्मक रूपमा काम मूल्याङ्कन हुन्छ भन्ने देखाउँछ",
+w4:"नाम सुरक्षित गरेपछि देखिने भएकोले अनुगमन सम्भव रहन्छ",
+c1r:"❗ स्थायी रूपमा लुकाइँदैन — केवल <b>क्रम बदलिन्छ</b>। कसले गरेको सुरक्षित गरेपछि हेर्न सकिन्छ।",
+c2t:"समयरेखाको रूपमा देखाउने",
+c2a:"कालक्रमिक मिलाउँदा <b>कामको बहाव स्वाभाविक थियो कि</b> देखिन्छ।",
+th_p:"ढाँचा",th_r:"के सुझाउँछ",
+p1:"सुरु गरेलगत्तै प्रवेश रेकर्ड",r1:"सामान्य बहाव",
+p2:"सम्पन्न हुनुअघि सबै एकैचोटि",r2:"पछि हालेको हुनसक्छ",
+p3:"तस्बिर अन्तिममा जम्मा",r3:"माथिकै जस्तै",
+p4:"धेरै रोकाइ",r4:"आपूर्ति वा उपकरण समस्या हुनसक्छ",
+c2h:"💡 \"पछि हालेको हुनसक्छ\" शंका होइन, कार्यप्रवाह सुधारको सङ्केत हो।",
+c3t:"पुनः सफाईको आदेश",
+c3a:"पुनः सफाई <b>क्षेत्र छानेर मात्र</b> आदेश दिइन्छ। स्वतन्त्र लेखन अनिवार्य बनाउँदा मानिस मौखिक निर्देशनमा फर्किन्छन्।",
+s1:"छ क्षेत्र विकल्प र अन्य",s2:"धेरै छान्न सकिने",
+s3:"तस्बिर जोड्न सकिने (स्वैच्छिक)",s4:"थप टिप्पणी स्वैच्छिक",
+s5:"मूल कामको रेकर्ड रहन्छ, मेटिँदैन",s6:"पुनः सफाई नयाँ कामको रूपमा",
+c4t:"निरीक्षण नीति",th_i:"वस्तु",th_v:"नीति",
+i1:"दायरा",v1:"नमूना, सबै कोठा होइन (पूर्वनिर्धारित १०%)",
+i2:"नमूना छनोट",v2:"अनियमित र P4 चेतावनी भएका कोठा",
+i3:"समयसीमा",v3:"सम्पन्न भएको २४ घण्टा",
+i4:"निरीक्षण नभए",v4:"२४ घण्टापछि स्वतः उत्तीर्ण",
+i5:"व्यक्तिगत पुनः सफाई दर",v5:"व्यक्तिगत रूपमा कदापि नदेखाउने",
+c4h:"💡 व्यक्तिगत दर नदेखाउने कारण: यो अंक व्यवस्थापन मापक बनेपछि निरीक्षक चेतावनी रोक्न थाल्छन्।",
+c5t:"तय भएका कुरा",
+f1:"नतिजा नहालेसम्म नाम लुकाउने",f2:"रेकर्ड कालक्रमिक",
+f3:"पुनः सफाई कारण छनोट",f4:"मूल रेकर्ड रहने",
+f5:"नमूना निरीक्षण पूर्वनिर्धारित १०%",f6:"व्यक्तिगत दर नदेखाउने"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+let res=null;
+const bok=document.getElementById('bok'),bng=document.getElementById('bng'),
+rw2=document.getElementById('rw2'),bs=document.getElementById('bs13');
+function chk(){if(res==='ok'){bs.className='big g'}
+else if(res==='ng'){bs.className=document.querySelectorAll('#pk13 .oo.on').length?'big r':'big dis'}
+else bs.className='big dis'}
+bok.onclick=()=>{res='ok';bok.className='b2 selok';bng.className='b2';rw2.classList.remove('on');chk()};
+bng.onclick=()=>{res='ng';bng.className='b2 selng';bok.className='b2';rw2.classList.add('on');chk()};
+document.querySelectorAll('#pk13 .oo').forEach(o=>o.onclick=function(){this.classList.toggle('on');chk()});
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const s=this.dataset.s;
+document.querySelectorAll('#pk13 .oo').forEach(o=>o.classList.remove('on'));
+if(s==='pass'){res='ok';bok.className='b2 selok';bng.className='b2';rw2.classList.remove('on')}
+else if(s==='rwk'){res='ng';bng.className='b2 selng';bok.className='b2';rw2.classList.add('on');
+document.querySelectorAll('#pk13 .oo')[0].classList.add('on')}
+else{res=null;bok.className='b2';bng.className='b2';rw2.classList.remove('on')}chk()});
+bs.onclick=function(){
+if(this.classList.contains('dis')){alert(res?'再清掃の箇所を選択してください':'検査結果を選択してください');return}
+if(res==='ok')alert('検査結果を記録しました\n\n判定：問題なし\n担当者：Nguyen Van A\n\n担当者名は記録後に表示されます');
+else{const a=[...document.querySelectorAll('#pk13 .oo.on')].map(o=>o.textContent).join('・');
+alert('再清掃を指示しました\n\n箇所：'+a+'\n担当者：Nguyen Van A\n\n再清掃タスクを作成しました\n元のタスクの記録は保持されます')}};
+</script></body></html>

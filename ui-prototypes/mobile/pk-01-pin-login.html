@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 01 — PINログイン v2</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--danger:#9C3B32;--dangerbg:#F6DFDC}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--dangerbg:#3A1E1B;--ok:#5BC192;--warn:#E29556;--danger:#D98B80}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1120px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:320px;border-radius:34px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:25px;overflow:hidden;min-height:680px;
+display:flex;flex-direction:column;color:var(--ink)}
+.lang{display:flex;gap:5px;padding:11px 12px;background:var(--surf2);
+border-bottom:1px solid var(--line);overflow-x:auto}
+.lang::-webkit-scrollbar{height:0}
+.lang .l{padding:8px 12px;border-radius:19px;font-size:11px;font-weight:700;white-space:nowrap;
+border:1.5px solid var(--line);background:var(--surf);color:var(--ink2);cursor:pointer;transition:.15s}
+.lang .l.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.bd{flex:1;padding:18px 16px;display:flex;flex-direction:column;justify-content:center;gap:13px}
+.brand{text-align:center;margin-bottom:6px}
+.brand .n{font-size:23px;font-weight:800}
+.brand .n em{color:var(--accent);font-style:normal}
+.brand .s{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.6}
+.fld .k{font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:6px;
+display:flex;align-items:center;gap:6px}
+.fld .k .rq{color:var(--danger);font-size:13px}
+.inp{background:var(--surf);border:2px solid var(--line);border-radius:12px;padding:16px;
+font-size:22px;font-weight:800;letter-spacing:4px;text-align:center;
+font-family:inherit;color:var(--ink);width:100%;transition:.15s}
+.inp:focus{outline:none;border-color:var(--brand);background:var(--okbg)}
+.inp.pin{font-size:27px;letter-spacing:13px;padding:15px}
+.err{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger);
+border-radius:10px;padding:11px 13px;font-size:11.5px;font-weight:600;display:none;line-height:1.55}
+.err.on{display:block}
+.big{width:100%;padding:19px;border-radius:13px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s}
+.big:active{transform:scale(.98)}
+.help{font-size:10.5px;color:var(--muted);text-align:center;line-height:1.7}
+.kb{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kb .k{padding:15px 0;border-radius:11px;border:1.5px solid var(--line);background:var(--surf);
+font-size:21px;font-weight:800;cursor:pointer;font-family:inherit;color:var(--ink);transition:.1s}
+.kb .k:active{background:var(--okbg);border-color:var(--brand)}
+.kb .k.fn{font-size:13px;font-weight:700;color:var(--ink2)}
+.panel{flex:1;min-width:340px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.chk{background:#0d2622;border:1px solid #17453b;border-radius:11px;padding:16px}
+.chk h3{color:#5BC192;font-size:13.5px;margin-bottom:11px}
+.chk .q{font-size:12.5px;color:#C8D6CE;padding:9px 0;border-bottom:1px solid #17453b;line-height:1.65}
+.chk .q:last-child{border:0}
+.chk .q b{color:#7fd9b0;display:block;font-size:11px;margin-bottom:2px}
+.fx{color:#5BC192}.nx{color:#D98B80}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">01 / 16 — PINログイン v2</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+
+<div class="page">
+<div class="hd"><h1 data-i="t">01. PINログイン</h1>
+<p data-i="d">清掃員・検査員の入口。7言語切替を最上部に常設し、日本語が読めなくても自分の言語を選べる。数字はテンキーで入力し、OSキーボードを出さない。</p></div>
+
+<div class="row">
+<div class="ph"><div class="sc">
+<div class="lang"><div class="l on" data-sl="ja">日本語</div><div class="l" data-sl="en">English</div>
+<div class="l" data-sl="vi">Tiếng Việt</div><div class="l" data-sl="id">Indonesia</div>
+<div class="l" data-sl="my">မြန်မာ</div><div class="l" data-sl="ne">नेपाली</div>
+<div class="l" data-sl="zh">简体中文</div></div>
+<div class="bd">
+<div class="brand"><div class="n">Proof<em>Keeping</em></div>
+<div class="s" data-i="sub">施設コードとスタッフ番号、<br>PINを入力してください</div></div>
+<div class="err" id="err">⚠ <span id="emsg" data-i="e_msg">PINが違います。あと3回間違えると15分ロックされます。</span></div>
+<div class="fld"><div class="k"><span data-i="f_code">施設コード</span><span class="rq">*</span></div>
+<input class="inp" id="i1" maxlength="8" value="HTLA"></div>
+<div class="fld"><div class="k"><span data-i="f_no">スタッフ番号</span><span class="rq">*</span></div>
+<input class="inp" id="i2" maxlength="4" value="11"></div>
+<div class="fld"><div class="k">PIN<span class="rq">*</span>
+<span style="margin-left:auto;font-weight:400;color:var(--muted)" data-i="f_pin4">4桁</span></div>
+<input class="inp pin" id="i3" readonly></div>
+<div class="kb" id="kb">
+<button class="k">1</button><button class="k">2</button><button class="k">3</button>
+<button class="k">4</button><button class="k">5</button><button class="k">6</button>
+<button class="k">7</button><button class="k">8</button><button class="k">9</button>
+<button class="k fn" id="clr" data-i="k_clr">消去</button><button class="k">0</button>
+<button class="k fn" id="del">⌫</button></div>
+<button class="big" id="go"><span data-i="btn">ログイン</span> →</button>
+<div class="help" data-i="help">PINを忘れた場合は<br>現場責任者にお伝えください</div>
+</div></div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">この画面の設計意図</span></h3>
+<p data-i="c1a"><b>言語切替を最上部に常設。</b>初回利用の外国籍スタッフが、日本語のログイン画面を読む前に自分の言語を選べる。設定画面の奥に置くと初回で詰まる。</p>
+<p data-i="c1b"><b>テンキーを画面内に実装。</b>OSキーボードは画面を半分隠し、手袋では小さいキーを押しにくい。数字入力はすべて自前テンキーで行う。</p>
+<p data-i="c1c"><b>メールアドレスを使わない。</b>清掃スタッフはメールを持たない前提。施設コード＋番号＋PINの3点で識別する。</p></div>
+
+<div class="card"><h3>🔐 <span data-i="c2t">認証仕様（PK-SPEC-P0 §6.4）</span></h3>
+<table><tr><th data-i="th_i">項目</th><th data-i="th_v">仕様</th></tr>
+<tr><td data-i="r1">施設コード</td><td>2〜8桁英数・毎回入力</td></tr>
+<tr><td data-i="r2">スタッフ番号</td><td>2〜4桁数字（施設内ユニーク）</td></tr>
+<tr><td>PIN</td><td>4桁 / bcrypt cost 10</td></tr>
+<tr><td data-i="r3">失敗ロック</td><td>5回で15分（責任者が解除可）</td></tr>
+<tr><td data-i="r4">セッション</td><td>16時間（1勤務）</td></tr>
+<tr><td data-i="r5">初回</td><td>PIN変更を強制</td></tr>
+<tr><td data-i="r6">拒否するPIN</td><td>連番1234 / ゾロ目1111 / 生年月日形式</td></tr></table></div>
+
+<div class="card"><h3>🌐 <span data-i="c5t">対応言語（7言語・確定）</span></h3>
+<table><tr><th data-i="th_l">言語</th><th data-i="th_s">表示</th><th data-i="th_u">用途</th></tr>
+<tr><td>日本語</td><td>日本語</td><td data-i="u1">既定・管理画面も対応</td></tr>
+<tr><td>English</td><td>English</td><td data-i="u2">モバイルのみ</td></tr>
+<tr><td>Tiếng Việt</td><td>Tiếng Việt</td><td data-i="u2">モバイルのみ</td></tr>
+<tr><td>Indonesia</td><td>Indonesia</td><td data-i="u2">モバイルのみ</td></tr>
+<tr><td>မြန်မာ</td><td>ミャンマー語</td><td data-i="u2">モバイルのみ</td></tr>
+<tr><td>नेपाली</td><td data-i="ne_lbl">ネパール語 ✚新規</td><td data-i="u2">モバイルのみ</td></tr>
+<tr><td>简体中文</td><td data-i="zh_lbl">簡体字</td><td data-i="u2">モバイルのみ</td></tr></table></div>
+
+<div class="card"><h3>⚙️ <span data-i="c3t">実装メモ</span></h3><ul>
+<li data-i="l1">言語選択は端末に保存し、次回起動時も維持（<code>localStorage</code>）</li>
+<li data-i="l2">ブラウザの言語設定は参照しない。共用端末で誤動作するため</li>
+<li data-i="l3">施設コードは大文字に自動変換</li>
+<li data-i="l4">PIN入力中は伏せ字。表示切替ボタンは置かない（覗き見防止）</li>
+<li data-i="l5">ログイン失敗は5回目のみ <code>AuditLog</code> に記録</li>
+<li data-i="l6">オフライン時はログインできない旨を明示</li>
+<li data-i="l7">ネパール語・ミャンマー語は <code>Noto Sans Devanagari / Myanmar</code> を同梱</li>
+</ul></div>
+
+<div class="chk"><h3>✅ <span data-i="c4t">確認結果</span></h3>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q1t">Q1. 施設コードは毎回入力 — 確定</span></b>
+<span data-i="q1">端末を持ち回る清掃会社を想定し、保存しない方式で確定。</span></div>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q2t">Q2. PIN 4桁＋5回ロック — 確定</span></b>
+<span data-i="q2">現場の入力負担と安全性の均衡点として4桁を採用。</span></div>
+<div class="q"><b><span class="nx">❌</span> <span data-i="q3t">Q3. QRコードログイン — 不採用</span></b>
+<span data-i="q3">施設コードの手入力に統一。iOSのカメラ制約を回避でき、実装もシンプルになる。</span></div>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q4t">Q4. 対応言語 7言語 — 確定</span></b>
+<span data-i="q4">日本語・英語・ベトナム語・インドネシア語・ミャンマー語・ネパール語・簡体字。</span></div>
+</div></div></div></div>
+<script>
+const I18N={ja:{},
+en:{t:"01. PIN Login",d:"Entry point for cleaners and inspectors. The language switcher stays at the top so staff can pick their own language before reading any Japanese. Numbers use an in-app keypad, never the OS keyboard.",
+sub:"Enter the property code,<br>staff number and PIN",
+e_msg:"Incorrect PIN. 3 attempts left before a 15-minute lock.",
+f_code:"Property Code",f_no:"Staff No.",f_pin4:"4 digits",k_clr:"Clear",btn:"Log In",
+help:"Forgot your PIN?<br>Please ask your site supervisor.",
+c1t:"Design intent",
+c1a:"<b>Language switcher fixed at the top.</b> A first-time foreign staff member can pick their language before having to read the Japanese login screen. Burying it in settings blocks the very first use.",
+c1b:"<b>In-app numeric keypad.</b> The OS keyboard hides half the screen and its keys are hard to hit with gloves. All numeric entry uses our own keypad.",
+c1c:"<b>No email address.</b> Cleaning staff are assumed not to have work email. Identity is property code + staff number + PIN.",
+c2t:"Auth spec (PK-SPEC-P0 §6.4)",th_i:"Item",th_v:"Spec",
+r1:"Property code",r2:"Staff number",r3:"Lockout",r4:"Session",r5:"First login",r6:"Rejected PINs",
+c5t:"Supported languages (7, confirmed)",th_l:"Language",th_s:"Label",th_u:"Scope",
+u1:"Default. Admin screens too.",u2:"Mobile only",ne_lbl:"Nepali ✚new",zh_lbl:"Simplified Chinese",
+c3t:"Implementation notes",
+l1:"Store the language choice on the device and keep it next launch (<code>localStorage</code>)",
+l2:"Do not read the browser language setting — it misbehaves on shared devices",
+l3:"Auto-uppercase the property code",
+l4:"Mask the PIN. No show/hide toggle (shoulder-surfing)",
+l5:"Log only the 5th failed attempt to <code>AuditLog</code>",
+l6:"State clearly that login is unavailable offline",
+l7:"Bundle <code>Noto Sans Devanagari / Myanmar</code> for Nepali and Burmese",
+c4t:"Confirmed decisions",
+q1t:"Q1. Property code typed every time — confirmed",
+q1:"Not remembered, assuming cleaning companies rotate devices between sites.",
+q2t:"Q2. 4-digit PIN + 5-attempt lock — confirmed",
+q2:"Four digits balances field friction against security.",
+q3t:"Q3. QR code login — not adopted",
+q3:"Property code is always typed manually. This avoids iOS camera constraints and keeps the implementation simple.",
+q4t:"Q4. 7 languages — confirmed",
+q4:"Japanese, English, Vietnamese, Indonesian, Burmese, Nepali, Simplified Chinese."},
+zh:{t:"01. PIN 登录",d:"清扫员与检查员的入口。语言切换常设在最上方，让员工在读日文之前就能选自己的语言。数字用画面内键盘输入，不弹系统键盘。",
+sub:"请输入设施代码、员工编号<br>与 PIN",
+e_msg:"PIN 不正确。再错 3 次将锁定 15 分钟。",
+f_code:"设施代码",f_no:"员工编号",f_pin4:"4位",k_clr:"清除",btn:"登录",
+help:"忘记 PIN 时<br>请联系现场负责人",
+c1t:"本画面的设计意图",
+c1a:"<b>语言切换常设在最上方。</b>初次使用的外籍员工可以在读日文登录画面之前先选语言。放进设置深处会导致第一次就卡住。",
+c1b:"<b>画面内自带数字键盘。</b>系统键盘会遮住半个屏幕，戴手套也难按小键。所有数字输入都用自己的键盘。",
+c1c:"<b>不使用邮箱地址。</b>清扫员以没有工作邮箱为前提，用设施代码＋编号＋PIN 三点识别。",
+c2t:"认证规格（PK-SPEC-P0 §6.4）",th_i:"项目",th_v:"规格",
+r1:"设施代码",r2:"员工编号",r3:"失败锁定",r4:"会话",r5:"初次登录",r6:"拒绝的 PIN",
+c5t:"对应语言（7 种・已确定）",th_l:"语言",th_s:"显示",th_u:"适用范围",
+u1:"默认。管理画面也支持",u2:"仅手机端",ne_lbl:"尼泊尔语 ✚新增",zh_lbl:"简体中文",
+c3t:"实现备注",
+l1:"语言选择保存在设备上，下次启动仍保持（<code>localStorage</code>）",
+l2:"不参照浏览器语言设置，共用设备上会误动作",
+l3:"设施代码自动转为大写",
+l4:"PIN 输入时遮蔽，不放显示切换按钮（防偷看）",
+l5:"登录失败仅第 5 次记入 <code>AuditLog</code>",
+l6:"离线时明示无法登录",
+l7:"尼泊尔语与缅甸语需同时打包 <code>Noto Sans Devanagari / Myanmar</code>",
+c4t:"确认结果",
+q1t:"Q1. 设施代码每次输入 — 已确定",
+q1:"考虑清扫公司轮流带设备，采用不保存的方式。",
+q2t:"Q2. PIN 4位＋5次锁定 — 已确定",
+q2:"4 位是现场输入负担与安全性的平衡点。",
+q3t:"Q3. 二维码登录 — 不采用",
+q3:"统一为手动输入设施代码。可回避 iOS 相机限制，实现也更简单。",
+q4t:"Q4. 对应语言 7 种 — 已确定",
+q4:"日文、英文、越南语、印尼语、缅甸语、尼泊尔语、简体中文。"},
+vi:{t:"01. Đăng nhập PIN",d:"Cửa vào cho nhân viên dọn và kiểm tra. Bộ chọn ngôn ngữ luôn ở trên cùng.",
+sub:"Nhập mã cơ sở, số nhân viên<br>và PIN",
+e_msg:"PIN không đúng. Còn 3 lần trước khi bị khóa 15 phút.",
+f_code:"Mã cơ sở",f_no:"Số nhân viên",f_pin4:"4 số",k_clr:"Xóa",btn:"Đăng nhập",
+help:"Quên PIN?<br>Hãy hỏi người phụ trách.",
+c1t:"Ý đồ thiết kế",
+c1a:"<b>Bộ chọn ngôn ngữ ở trên cùng.</b> Nhân viên nước ngoài lần đầu có thể chọn ngôn ngữ trước khi đọc tiếng Nhật.",
+c1b:"<b>Bàn phím số trong ứng dụng.</b> Bàn phím hệ thống che nửa màn hình và khó bấm khi đeo găng.",
+c1c:"<b>Không dùng email.</b> Nhận diện bằng mã cơ sở + số nhân viên + PIN.",
+c2t:"Thông số xác thực",th_i:"Mục",th_v:"Thông số",
+r1:"Mã cơ sở",r2:"Số nhân viên",r3:"Khóa",r4:"Phiên",r5:"Lần đầu",r6:"PIN bị từ chối",
+c5t:"Ngôn ngữ hỗ trợ (7)",th_l:"Ngôn ngữ",th_s:"Nhãn",th_u:"Phạm vi",
+u1:"Mặc định",u2:"Chỉ di động",ne_lbl:"Tiếng Nepal ✚mới",zh_lbl:"Tiếng Trung giản thể",
+c3t:"Ghi chú triển khai",
+l1:"Lưu lựa chọn ngôn ngữ trên thiết bị",
+l2:"Không đọc cài đặt ngôn ngữ trình duyệt",
+l3:"Tự chuyển mã cơ sở thành chữ in hoa",
+l4:"Che PIN. Không có nút hiện/ẩn",
+l5:"Chỉ ghi lần thất bại thứ 5 vào <code>AuditLog</code>",
+l6:"Nêu rõ không thể đăng nhập khi ngoại tuyến",
+l7:"Đóng gói <code>Noto Sans Devanagari / Myanmar</code>",
+c4t:"Kết quả xác nhận",
+q1t:"Q1. Nhập mã cơ sở mỗi lần — đã xác nhận",q1:"Không lưu, vì thiết bị được luân chuyển.",
+q2t:"Q2. PIN 4 số + khóa 5 lần — đã xác nhận",q2:"4 số cân bằng giữa tiện lợi và an toàn.",
+q3t:"Q3. Đăng nhập QR — không áp dụng",q3:"Luôn nhập mã cơ sở thủ công.",
+q4t:"Q4. 7 ngôn ngữ — đã xác nhận",q4:"Nhật, Anh, Việt, Indonesia, Myanmar, Nepal, Trung giản thể."},
+id:{t:"01. Masuk dengan PIN",d:"Pintu masuk petugas dan inspektur. Pemilih bahasa selalu di atas.",
+sub:"Masukkan kode properti, no. staf<br>dan PIN",
+e_msg:"PIN salah. 3 percobaan lagi sebelum terkunci 15 menit.",
+f_code:"Kode Properti",f_no:"No. Staf",f_pin4:"4 digit",k_clr:"Hapus",btn:"Masuk",
+help:"Lupa PIN?<br>Tanyakan ke atasan lapangan.",
+c1t:"Maksud desain",
+c1a:"<b>Pemilih bahasa di paling atas.</b> Staf asing baru bisa memilih bahasanya sebelum membaca bahasa Jepang.",
+c1b:"<b>Papan angka di dalam aplikasi.</b> Papan sistem menutupi separuh layar dan sulit ditekan dengan sarung tangan.",
+c1c:"<b>Tanpa alamat email.</b> Identitas: kode properti + no. staf + PIN.",
+c2t:"Spesifikasi autentikasi",th_i:"Item",th_v:"Spesifikasi",
+r1:"Kode properti",r2:"No. staf",r3:"Penguncian",r4:"Sesi",r5:"Login pertama",r6:"PIN ditolak",
+c5t:"Bahasa didukung (7)",th_l:"Bahasa",th_s:"Label",th_u:"Cakupan",
+u1:"Bawaan",u2:"Hanya ponsel",ne_lbl:"Bahasa Nepal ✚baru",zh_lbl:"Mandarin",
+c3t:"Catatan implementasi",
+l1:"Simpan pilihan bahasa di perangkat",
+l2:"Jangan baca setelan bahasa peramban",
+l3:"Ubah kode properti jadi huruf besar otomatis",
+l4:"Sembunyikan PIN. Tanpa tombol tampil/sembunyi",
+l5:"Catat hanya kegagalan ke-5 ke <code>AuditLog</code>",
+l6:"Nyatakan jelas tidak bisa masuk saat offline",
+l7:"Sertakan <code>Noto Sans Devanagari / Myanmar</code>",
+c4t:"Hasil konfirmasi",
+q1t:"Q1. Kode properti diketik setiap kali — dikonfirmasi",q1:"Tidak disimpan karena perangkat dirotasi.",
+q2t:"Q2. PIN 4 digit + kunci 5 kali — dikonfirmasi",q2:"4 digit menyeimbangkan kemudahan dan keamanan.",
+q3t:"Q3. Login QR — tidak diadopsi",q3:"Kode properti selalu diketik manual.",
+q4t:"Q4. 7 bahasa — dikonfirmasi",q4:"Jepang, Inggris, Vietnam, Indonesia, Myanmar, Nepal, Mandarin."},
+my:{t:"၀၁. PIN ဝင်ရောက်ခြင်း",d:"သန့်ရှင်းရေးနှင့် စစ်ဆေးသူများ၏ အဝင်။ ဘာသာစကားရွေးချယ်မှုကို အပေါ်ဆုံးတွင် အမြဲထားသည်။",
+sub:"အဆောက်အအုံကုဒ်၊ ဝန်ထမ်းနံပါတ်နှင့်<br>PIN ထည့်ပါ",
+e_msg:"PIN မှားသည်။ ၃ ကြိမ်ထပ်မှားပါက ၁၅ မိနစ် ပိတ်ခံရမည်။",
+f_code:"အဆောက်အအုံကုဒ်",f_no:"ဝန်ထမ်းနံပါတ်",f_pin4:"၄ လုံး",k_clr:"ဖျက်",btn:"ဝင်ရောက်",
+help:"PIN မေ့ပါက<br>တာဝန်ခံကို ပြောပါ။",
+c1t:"ဒီဇိုင်းရည်ရွယ်ချက်",
+c1a:"<b>ဘာသာစကားရွေးချယ်မှု အပေါ်ဆုံး။</b> ပထမဆုံးအသုံးပြုသည့် နိုင်ငံခြားဝန်ထမ်းသည် ဂျပန်စာမဖတ်မီ မိမိဘာသာစကားကို ရွေးနိုင်သည်။",
+c1b:"<b>အက်ပ်အတွင်း နံပါတ်ခလုတ်။</b> စနစ်ခလုတ်ခုံသည် မျက်နှာပြင်ထက်ဝက်ကို ကာဆီးသည်။",
+c1c:"<b>အီးမေးလ် မလိုပါ။</b> အဆောက်အအုံကုဒ် + ဝန်ထမ်းနံပါတ် + PIN ဖြင့် ခွဲခြားသည်။",
+c2t:"အတည်ပြုမှု သတ်မှတ်ချက်",th_i:"အချက်",th_v:"သတ်မှတ်ချက်",
+r1:"အဆောက်အအုံကုဒ်",r2:"ဝန်ထမ်းနံပါတ်",r3:"ပိတ်ခြင်း",r4:"ဆက်ရှင်",r5:"ပထမဆုံး",r6:"ငြင်းပယ်သည့် PIN",
+c5t:"ပံ့ပိုးသည့်ဘာသာစကား (၇)",th_l:"ဘာသာစကား",th_s:"အညွှန်း",th_u:"အသုံးပြုမှု",
+u1:"မူရင်း",u2:"ဖုန်းသာ",ne_lbl:"နီပေါဘာသာ ✚အသစ်",zh_lbl:"ရိုးရှင်းတရုတ်",
+c3t:"အကောင်အထည်ဖော်မှု မှတ်စု",
+l1:"ဘာသာစကားရွေးချယ်မှုကို စက်တွင် သိမ်းပါ",
+l2:"ဘရောက်ဇာဘာသာစကား ဆက်တင်ကို မကြည့်ပါ",
+l3:"အဆောက်အအုံကုဒ်ကို စာလုံးကြီး အလိုအလျောက် ပြောင်းပါ",
+l4:"PIN ကို ဖုံးပါ။ ပြ/ဖုံး ခလုတ် မထားပါ",
+l5:"၅ ကြိမ်မြောက် မအောင်မြင်မှုကိုသာ <code>AuditLog</code> တွင် မှတ်ပါ",
+l6:"အော့ဖ်လိုင်တွင် ဝင်ရောက်မရကြောင်း ဖော်ပြပါ",
+l7:"<code>Noto Sans Devanagari / Myanmar</code> ကို ထည့်သွင်းပါ",
+c4t:"အတည်ပြုရလဒ်",
+q1t:"မေး၁. အဆောက်အအုံကုဒ် အခါတိုင်းထည့် — အတည်",q1:"စက်များ လှည့်အသုံးပြုသဖြင့် မသိမ်းပါ။",
+q2t:"မေး၂. PIN ၄ လုံး + ၅ ကြိမ်ပိတ် — အတည်",q2:"၄ လုံးသည် လွယ်ကူမှုနှင့် လုံခြုံမှု ချိန်ခွင်လျာ။",
+q3t:"မေး၃. QR ဝင်ရောက်မှု — မလုပ်ပါ",q3:"အဆောက်အအုံကုဒ်ကို လက်ဖြင့်သာ ထည့်မည်။",
+q4t:"မေး၄. ဘာသာစကား ၇ မျိုး — အတည်",q4:"ဂျပန်၊ အင်္ဂလိပ်၊ ဗီယက်နမ်၊ အင်ဒိုနီးရှား၊ မြန်မာ၊ နီပေါ၊ ရိုးရှင်းတရုတ်။"},
+ne:{t:"०१. PIN लगइन",d:"सफाई कर्मचारी र निरीक्षकको प्रवेशद्वार। भाषा छनोट सधैं माथि रहन्छ, जापानी पढ्नु अघि नै आफ्नो भाषा छान्न सकिन्छ।",
+sub:"सुविधा कोड, कर्मचारी नम्बर<br>र PIN हाल्नुहोस्",
+e_msg:"PIN मिलेन। ३ प्रयास बाँकी, त्यसपछि १५ मिनेट लक हुनेछ।",
+f_code:"सुविधा कोड",f_no:"कर्मचारी नम्बर",f_pin4:"४ अंक",k_clr:"मेटाउने",btn:"लगइन",
+help:"PIN बिर्सिएमा<br>साइट प्रमुखलाई सोध्नुहोस्।",
+c1t:"डिजाइनको उद्देश्य",
+c1a:"<b>भाषा छनोट सबैभन्दा माथि।</b> पहिलो पटक प्रयोग गर्ने विदेशी कर्मचारीले जापानी पढ्नु अघि आफ्नो भाषा छान्न सक्छ।",
+c1b:"<b>एपभित्रै नम्बर किप्याड।</b> सिस्टम किबोर्डले आधा स्क्रिन ढाक्छ र पञ्जा लगाएर थिच्न कठिन हुन्छ।",
+c1c:"<b>इमेल चाहिँदैन।</b> सुविधा कोड + कर्मचारी नम्बर + PIN ले पहिचान गर्छ।",
+c2t:"प्रमाणीकरण विवरण",th_i:"वस्तु",th_v:"विवरण",
+r1:"सुविधा कोड",r2:"कर्मचारी नम्बर",r3:"लक",r4:"सेसन",r5:"पहिलो पटक",r6:"अस्वीकृत PIN",
+c5t:"समर्थित भाषा (७)",th_l:"भाषा",th_s:"नाम",th_u:"क्षेत्र",
+u1:"पूर्वनिर्धारित",u2:"मोबाइल मात्र",ne_lbl:"नेपाली ✚नयाँ",zh_lbl:"सरलीकृत चिनियाँ",
+c3t:"कार्यान्वयन टिप्पणी",
+l1:"भाषा छनोट यन्त्रमा सुरक्षित राख्नुहोस्",
+l2:"ब्राउजरको भाषा सेटिङ नपढ्नुहोस्",
+l3:"सुविधा कोड स्वतः ठूलो अक्षरमा बदल्नुहोस्",
+l4:"PIN लुकाउनुहोस्। देखाउने बटन नराख्नुहोस्",
+l5:"५ औं असफल प्रयास मात्र <code>AuditLog</code> मा लेख्नुहोस्",
+l6:"अफलाइनमा लगइन नहुने स्पष्ट लेख्नुहोस्",
+l7:"<code>Noto Sans Devanagari / Myanmar</code> समावेश गर्नुहोस्",
+c4t:"पुष्टि भएका निर्णय",
+q1t:"प्रश्न१. सुविधा कोड हरेक पटक — पुष्टि",q1:"यन्त्र घुमाइने हुनाले सुरक्षित राखिँदैन।",
+q2t:"प्रश्न२. ४ अंकको PIN + ५ प्रयास लक — पुष्टि",q2:"४ अंक सजिलो र सुरक्षाको सन्तुलन हो।",
+q3t:"प्रश्न३. QR लगइन — प्रयोग नगर्ने",q3:"सुविधा कोड सधैं हातले हालिन्छ।",
+q4t:"प्रश्न४. ७ भाषा — पुष्टि",q4:"जापानी, अंग्रेजी, भियतनामी, इन्डोनेसियाली, बर्मी, नेपाली, सरलीकृत चिनियाँ।"}};
+const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k];});
+document.documentElement.lang=l;
+document.querySelectorAll('.lang .l').forEach(x=>x.classList.toggle('on',x.dataset.sl===l));
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l));}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.querySelectorAll('.lang .l').forEach(b=>b.onclick=()=>setL(b.dataset.sl));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク';};
+let pin="";const i3=document.getElementById('i3'),err=document.getElementById('err');
+function draw(){i3.value="•".repeat(pin.length)}
+document.querySelectorAll('#kb .k').forEach(k=>{if(k.id)return;
+k.onclick=()=>{if(pin.length<4){pin+=k.textContent;draw();err.classList.remove('on')}
+if(pin.length===4&&pin!=="1357")setTimeout(()=>err.classList.add('on'),250)}});
+document.getElementById('clr').onclick=()=>{pin="";draw();err.classList.remove('on')};
+document.getElementById('del').onclick=()=>{pin=pin.slice(0,-1);draw();err.classList.remove('on')};
+document.getElementById('go').onclick=()=>{
+if(pin.length<4){err.classList.add('on');return}
+if(pin==="1357"){err.classList.remove('on');alert('ログイン成功 → 02 本日のタスク\n\nPIN 1357 が正解です')}
+else err.classList.add('on')};
+document.getElementById('i1').oninput=function(){this.value=this.value.toUpperCase()};
+draw();
+</script></body></html>

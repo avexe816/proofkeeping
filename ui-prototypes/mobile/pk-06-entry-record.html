@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 06 — 入室時の記録</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.nav{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.nav a{font-size:10.5px;padding:5px 9px;border-radius:5px;background:#111815;
+border:1px solid #1E2A25;color:#8C9A93;text-decoration:none;font-weight:600}
+.nav a.on{background:var(--accent);color:#1A1206;border-color:var(--accent)}
+.q{font-size:14px;font-weight:700;margin:4px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}
+.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:17px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;transition:.12s;min-height:78px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:26px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;transition:.1s;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tim{position:absolute;top:8px;right:12px;background:rgba(18,60,50,.92);color:#fff;
+font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:14px;z-index:5}
+.dflt{background:var(--infobg);border:1px solid var(--info);color:var(--info);border-radius:10px;
+padding:10px 12px;font-size:11px;line-height:1.55;margin-bottom:13px}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">06 / 16 — 入室時の記録</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">STATE</span>
+<button class="gb st on" data-s="occ">稼働あり</button>
+<button class="gb st" data-s="vac">空室予定</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">06. 入室時の記録（15秒で終わる設計）</h1>
+<p data-i="d">P4の稼働照合エンジンの入力源。清掃員に「判断」させず、見たものだけを選ばせる。全項目に既定値をプリセットし、変更がなければ1タップで確定できる。キーボードは一切出さない。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="tim" id="tm">⏱ 0秒</div>
+<div class="top"><div class="a">🔍 302 · <span data-i="ttl">入室時の記録</span></div>
+<div class="b" data-i="sub">見たものだけを記録してください</div></div>
+<div class="bd">
+
+<div class="dflt" id="df">ℹ <span data-i="df_t">稼働記録から推定した値を入れています。違っていれば変更してください。</span></div>
+
+<div class="q">🛏 <span data-i="q1">ベッドの使用</span><span class="rq" data-i="req">必須</span></div>
+<div class="pk c3" data-g="bed">
+<div class="o"><span class="i">🛏</span><span class="x">0 <span data-i="dai">台</span></span></div>
+<div class="o on"><span class="i">🛏</span><span class="x">1 <span data-i="dai">台</span></span></div>
+<div class="o"><span class="i">🛏🛏</span><span class="x">2 <span data-i="dai">台</span></span></div></div>
+
+<div class="q">🗑 <span data-i="q2">ゴミの量</span><span class="rq" data-i="req">必須</span></div>
+<div class="pk c4" data-g="tr">
+<div class="o"><span class="i">⬜</span><span class="x" data-i="lv0">なし</span></div>
+<div class="o"><span class="i">🗑</span><span class="x" data-i="lv1">少ない</span></div>
+<div class="o on"><span class="i">🗑</span><span class="x" data-i="lv2">通常</span></div>
+<div class="o"><span class="i">🗑</span><span class="x" data-i="lv3">多い</span></div></div>
+
+<div class="q">🧺 <span data-i="q3">使用済みタオル</span><span class="rq" data-i="req">必須</span></div>
+<div class="st"><div class="lb"><span class="e">🛁</span> <span data-i="tw1">バスタオル</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb"><span class="e">🧴</span> <span data-i="tw2">フェイスタオル</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb"><span class="e">🦶</span> <span data-i="tw3">バスマット</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">1</span><button class="mb">＋</button></div></div>
+
+<button class="big" id="bs" style="margin-top:14px">✓ <span data-i="b_ok">この内容で記録</span></button>
+<button class="big o" style="margin-top:9px" id="bm">＋ <span data-i="b_more">詳しく入力する（アメニティ等）</span></button>
+<button class="big o" style="margin-top:9px;border-style:dashed" id="bk" data-i="b_skip">今回は記録しない</button>
+<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:11px;line-height:1.6"
+data-i="note">この記録は清掃品質の管理と<br>業務改善のために使用します</div>
+</div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">設計の核心：判断させない</span></h3>
+<p data-i="c1a">この画面はP4の稼働照合エンジンの<b>唯一の入力源</b>。ここでのデータ品質がP4の精度をそのまま決める。</p>
+<table><tr><th class="nx" data-i="th_ng">禁止する設問</th><th class="fx" data-i="th_ok">許可する設問</th></tr>
+<tr><td data-i="ng1">この部屋は使われましたか？</td><td data-i="ok1">ベッドはいくつ使われていましたか？</td></tr>
+<tr><td data-i="ng2">不審な点はありましたか？</td><td data-i="ok2">ゴミの量は？</td></tr>
+<tr><td data-i="ng3">宿泊人数は何人だと思いますか？</td><td data-i="ok3">使用済みタオルは何枚ありましたか？</td></tr></table>
+<div class="rmk" data-i="c1r">❗ 差は「解釈」か「観察」か。清掃員は目に見えたものだけを答え、判定はサーバーが行います。清掃員に判断を求めると、疑いを向ける役割を負わせることになり、入力が歪みます。</div></div>
+
+<div class="card"><h3>⏱ <span data-i="c2t">15秒で終わらせる工夫</span></h3>
+<ul>
+<li data-i="s1">既定値を稼働予定と客室タイプから推定してプリセット</li>
+<li data-i="s2">変更がなければ「この内容で記録」の1タップで完了</li>
+<li data-i="s3">数値はステッパーのみ。<b>キーボードを一切出さない</b></li>
+<li data-i="s4">必須項目は5つまで。アメニティ等は任意の別画面へ</li>
+<li data-i="s5">選択ボタンは78px以上。手袋着用を前提</li>
+<li data-i="s6">入力所要時間を <code>inputDurationMs</code> に記録し、UX指標として監視</li>
+</ul>
+<div class="hint" data-i="c2h">💡 1日30室分を入力します。1室60秒かかると1日30分の追加負担になり、必ず形骸化します。中央値20秒以内が受け入れ基準です（PK-SPEC-P3 §0.3）。</div></div>
+
+<div class="card"><h3>🔓 <span data-i="c3t">スキップを必ず用意する</span></h3>
+<p data-i="c3a">「今回は記録しない」を残すのは、<b>必須化すると適当な値を入れられる</b>ため。それは無記録より有害。</p>
+<ul>
+<li data-i="k1">スキップの理由は聞かない</li>
+<li data-i="k2">スキップしたこと自体は <code>observationSkipped</code> に記録</li>
+<li data-i="k3">未記録のタスクはP4の照合対象から除外</li>
+<li data-i="k4">施設ごとの未記録率が20%を超えたら管理画面で警告</li>
+</ul></div>
+
+<div class="card"><h3>📊 <span data-i="c4t">既定値の推定ロジック</span></h3>
+<table><tr><th data-i="th_p">稼働予定</th><th data-i="th_d">既定値</th></tr>
+<tr><td data-i="p1">チェックアウトあり・2名</td><td data-i="d1">ベッド2台 / ゴミ通常 / タオル各2</td></tr>
+<tr><td data-i="p2">チェックアウトあり・1名</td><td data-i="d2">ベッド1台 / ゴミ通常 / タオル各1</td></tr>
+<tr><td data-i="p3">空室予定</td><td data-i="d3">ベッド0台 / ゴミなし / タオル0</td></tr>
+<tr><td data-i="p4">稼働記録なし</td><td data-i="d4">客室タイプの標準定員から推定</td></tr></table>
+<div class="rmk" data-i="c4r">❗ 既定値のまま確定した場合 <code>usedDefaults = true</code> を記録します。この比率が90%を超える施設は入力が形骸化している可能性があり、P4では該当する差異の確信度を20下げます。</div></div>
+
+<div class="card"><h3>🚫 <span data-i="c5t">UIで使わない言葉</span></h3>
+<table><tr><th class="nx" data-i="th_no">使わない</th><th class="fx" data-i="th_use">使う</th></tr>
+<tr><td data-i="w1">不審な点</td><td data-i="u1">気づいたこと</td></tr>
+<tr><td data-i="w2">異常</td><td data-i="u2">通常と違う点</td></tr>
+<tr><td data-i="w3">チェック（監視の意味）</td><td data-i="u3">記録</td></tr>
+<tr><td data-i="w4">報告義務</td><td data-i="u4">記録のお願い</td></tr></table>
+<div class="hint" data-i="c5h">💡 画面下部に「清掃品質の管理と業務改善のために使用します」と明記しています。何のためのデータかを伝えることで、監視されている感覚を減らします。</div></div>
+</div></div></div>
+<script>const I18N={ja:{},
+en:{t:"06. Entry Record (designed to finish in 15 seconds)",
+d:"The only data source for the P4 reconciliation engine. Cleaners are never asked to judge, only to report what they saw. Every field is pre-filled, so one tap confirms if nothing changed. The keyboard never appears.",
+ttl:"Entry Record",sub:"Record only what you saw",
+df_t:"Values estimated from the occupancy record are pre-filled. Change them if they differ.",
+q1:"Beds used",q2:"Amount of trash",q3:"Used towels",req:"required",dai:"",
+lv0:"None",lv1:"Low",lv2:"Normal",lv3:"High",
+tw1:"Bath towel",tw2:"Face towel",tw3:"Bath mat",
+b_ok:"Save this",b_more:"Add details (amenities etc.)",b_skip:"Skip this time",
+note:"These records are used for cleaning quality<br>management and operational improvement",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"Core principle: never ask for judgement",
+c1a:"This screen is the <b>only input source</b> for the P4 reconciliation engine. Data quality here directly determines P4's accuracy.",
+th_ng:"Forbidden questions",th_ok:"Allowed questions",
+ng1:"Was this room used?",ok1:"How many beds were used?",
+ng2:"Did you notice anything suspicious?",ok2:"How much trash was there?",
+ng3:"How many guests do you think stayed?",ok3:"How many used towels were there?",
+c1r:"❗ The difference is interpretation versus observation. Cleaners report only what was visible; the server does the judging. Asking a cleaner to judge makes them the one casting suspicion, which distorts the input.",
+c2t:"How we get it done in 15 seconds",
+s1:"Defaults estimated from the occupancy plan and room type",
+s2:"One tap on Save this completes it when nothing changed",
+s3:"Numbers use steppers only — <b>the keyboard never appears</b>",
+s4:"At most five required fields. Amenities go to an optional screen",
+s5:"Option buttons are 78px or larger, assuming gloves",
+s6:"Input duration is stored in <code>inputDurationMs</code> and monitored as a UX metric",
+c2h:"💡 This is filled 30 times a day. At 60 seconds per room that is 30 extra minutes daily and it will inevitably become a formality. A median under 20 seconds is the acceptance criterion (PK-SPEC-P3 §0.3).",
+c3t:"Always offer a skip",
+c3a:"Skip this time exists because <b>making it mandatory invites careless values</b>, which is worse than no record.",
+k1:"No reason is asked for skipping",
+k2:"The skip itself is recorded in <code>observationSkipped</code>",
+k3:"Unrecorded tasks are excluded from P4 reconciliation",
+k4:"A warning appears when a property's skip rate exceeds 20%",
+c4t:"How defaults are estimated",th_p:"Occupancy plan",th_d:"Default",
+p1:"Checkout, 2 guests",d1:"2 beds / normal trash / 2 of each towel",
+p2:"Checkout, 1 guest",d2:"1 bed / normal trash / 1 of each towel",
+p3:"Vacant expected",d3:"0 beds / no trash / 0 towels",
+p4:"No occupancy record",d4:"Estimated from the room type's standard capacity",
+c4r:"❗ Confirming without changes records <code>usedDefaults = true</code>. A property above 90% may have hollowed-out input, and P4 lowers the confidence of related findings by 20.",
+c5t:"Words we never use in the UI",th_no:"Never",th_use:"Instead",
+w1:"Suspicious point",u1:"Something you noticed",
+w2:"Abnormal",u2:"Different from usual",
+w3:"Check (as in surveillance)",u3:"Record",
+w4:"Reporting obligation",u4:"A request to record",
+c5h:"💡 The footer states the data is used for cleaning quality management and operational improvement. Saying what the data is for reduces the feeling of being watched."},
+zh:{t:"06. 入室记录（15 秒完成的设计）",
+d:"P4 稼働对账引擎的唯一输入源。不让清扫员做「判断」，只让他们选看到的东西。全项目预填默认值，没有变更时一键确定。完全不弹键盘。",
+ttl:"入室记录",sub:"只记录看到的情况",
+df_t:"已填入根据稼働记录推定的值。如有不同请修改。",
+q1:"床的使用",q2:"垃圾量",q3:"用过的毛巾",req:"必需",dai:"张",
+lv0:"无",lv1:"少",lv2:"正常",lv3:"多",
+tw1:"浴巾",tw2:"面巾",tw3:"地垫",
+b_ok:"按此记录",b_more:"输入详情（洗漱用品等）",b_skip:"本次不记录",
+note:"此记录用于清扫质量管理<br>与业务改善",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"设计的核心：不让人判断",
+c1a:"本画面是 P4 稼働对账引擎的<b>唯一输入源</b>。这里的数据质量直接决定 P4 的精度。",
+th_ng:"禁止的设问",th_ok:"许可的设问",
+ng1:"这个房间被使用了吗？",ok1:"床被用了几张？",
+ng2:"有可疑之处吗？",ok2:"垃圾量是多少？",
+ng3:"你认为住了几个人？",ok3:"用过的毛巾有几条？",
+c1r:"❗ 差别在于「解释」还是「观察」。清扫员只回答目视可见的内容，判定由服务器完成。要求清扫员判断，等于让他们承担投向怀疑的角色，会让输入失真。",
+c2t:"15 秒完成的做法",
+s1:"从稼働预定和客房类型推定默认值并预填",
+s2:"没有变更时按「按此记录」一键完成",
+s3:"数值只用步进器，<b>完全不弹键盘</b>",
+s4:"必需项目最多 5 个。洗漱用品等放到任意的独立画面",
+s5:"选择按钮 78px 以上，以戴手套为前提",
+s6:"把输入所需时间记录到 <code>inputDurationMs</code>，作为 UX 指标监控",
+c2h:"💡 一天要输入 30 间。每间花 60 秒的话，一天就多 30 分钟负担，必然会形骸化。中位数 20 秒以内是验收标准（PK-SPEC-P3 §0.3）。",
+c3t:"必须准备跳过",
+c3a:"保留「本次不记录」是因为<b>做成必需就会被填入随意的值</b>，那比不记录更有害。",
+k1:"不问跳过的理由",
+k2:"跳过本身记录到 <code>observationSkipped</code>",
+k3:"未记录的任务从 P4 的对账对象中排除",
+k4:"设施的未记录率超过 20% 时在管理画面警告",
+c4t:"默认值的推定逻辑",th_p:"稼働预定",th_d:"默认值",
+p1:"有退房・2 名",d1:"床 2 张 / 垃圾正常 / 毛巾各 2",
+p2:"有退房・1 名",d2:"床 1 张 / 垃圾正常 / 毛巾各 1",
+p3:"空室预定",d3:"床 0 张 / 无垃圾 / 毛巾 0",
+p4:"无稼働记录",d4:"按客房类型的标准定员推定",
+c4r:"❗ 保持默认值确定时记录 <code>usedDefaults = true</code>。该比率超过 90% 的设施可能输入已形骸化，P4 会把相关差异的确信度下调 20。",
+c5t:"UI 中不使用的词",th_no:"不使用",th_use:"使用",
+w1:"可疑之处",u1:"注意到的事",
+w2:"异常",u2:"与平常不同之处",
+w3:"检查（监视的含义）",u3:"记录",
+w4:"报告义务",u4:"记录的请求",
+c5h:"💡 画面下方明记「用于清扫质量管理与业务改善」。告知数据用途可以减轻被监视的感觉。"},
+vi:{t:"06. Ghi nhận khi vào (thiết kế xong trong 15 giây)",
+d:"Nguồn dữ liệu duy nhất cho công cụ đối chiếu P4. Không yêu cầu nhân viên phán đoán, chỉ ghi những gì thấy.",
+ttl:"Ghi nhận khi vào",sub:"Chỉ ghi những gì bạn thấy",
+df_t:"Giá trị suy ra từ dữ liệu lưu trú đã điền sẵn. Hãy sửa nếu khác.",
+q1:"Giường đã dùng",q2:"Lượng rác",q3:"Khăn đã dùng",req:"bắt buộc",dai:"",
+lv0:"Không",lv1:"Ít",lv2:"Bình thường",lv3:"Nhiều",
+tw1:"Khăn tắm",tw2:"Khăn mặt",tw3:"Thảm tắm",
+b_ok:"Lưu như vậy",b_more:"Thêm chi tiết",b_skip:"Lần này không ghi",
+note:"Ghi nhận này dùng cho quản lý chất lượng<br>và cải thiện công việc",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Nguyên tắc cốt lõi: không yêu cầu phán đoán",
+c1a:"Đây là <b>nguồn nhập duy nhất</b> cho công cụ đối chiếu P4.",
+th_ng:"Câu hỏi bị cấm",th_ok:"Câu hỏi được phép",
+ng1:"Phòng này có được dùng không?",ok1:"Có bao nhiêu giường đã dùng?",
+ng2:"Bạn thấy gì đáng ngờ?",ok2:"Lượng rác thế nào?",
+ng3:"Bạn nghĩ có bao nhiêu khách?",ok3:"Có bao nhiêu khăn đã dùng?",
+c1r:"❗ Khác biệt là giải thích so với quan sát. Nhân viên chỉ báo điều thấy được; server phán đoán.",
+c2t:"Cách hoàn thành trong 15 giây",
+s1:"Giá trị mặc định suy ra từ kế hoạch lưu trú và loại phòng",
+s2:"Một lần bấm Lưu là xong nếu không đổi",
+s3:"Số chỉ dùng bộ tăng giảm — <b>không bao giờ hiện bàn phím</b>",
+s4:"Tối đa năm mục bắt buộc",
+s5:"Nút chọn từ 78px trở lên, giả định đeo găng",
+s6:"Thời gian nhập lưu vào <code>inputDurationMs</code>",
+c2h:"💡 Nhập 30 lần mỗi ngày. 60 giây mỗi phòng là thêm 30 phút và sẽ thành hình thức. Trung vị dưới 20 giây là tiêu chí.",
+c3t:"Luôn có tùy chọn bỏ qua",
+c3a:"Bỏ qua tồn tại vì <b>bắt buộc sẽ dẫn tới giá trị bừa</b>, tệ hơn là không ghi.",
+k1:"Không hỏi lý do bỏ qua",k2:"Việc bỏ qua được ghi vào <code>observationSkipped</code>",
+k3:"Nhiệm vụ không ghi bị loại khỏi đối chiếu P4",k4:"Cảnh báo khi tỉ lệ bỏ qua vượt 20%",
+c4t:"Cách suy ra giá trị mặc định",th_p:"Kế hoạch lưu trú",th_d:"Mặc định",
+p1:"Trả phòng, 2 khách",d1:"2 giường / rác bình thường / 2 mỗi loại khăn",
+p2:"Trả phòng, 1 khách",d2:"1 giường / rác bình thường / 1 mỗi loại khăn",
+p3:"Dự kiến trống",d3:"0 giường / không rác / 0 khăn",
+p4:"Không có dữ liệu",d4:"Suy ra từ số khách chuẩn của loại phòng",
+c4r:"❗ Xác nhận không sửa sẽ ghi <code>usedDefaults = true</code>. Trên 90% có thể là nhập hình thức và P4 giảm độ tin cậy 20.",
+c5t:"Từ không bao giờ dùng trong UI",th_no:"Không dùng",th_use:"Thay bằng",
+w1:"Điểm đáng ngờ",u1:"Điều bạn thấy",w2:"Bất thường",u2:"Khác thường lệ",
+w3:"Kiểm tra (nghĩa giám sát)",u3:"Ghi nhận",w4:"Nghĩa vụ báo cáo",u4:"Đề nghị ghi nhận",
+c5h:"💡 Chân trang nêu rõ mục đích dữ liệu, giảm cảm giác bị theo dõi."},
+id:{t:"06. Catatan Masuk (dirancang selesai 15 detik)",
+d:"Satu-satunya sumber data untuk mesin rekonsiliasi P4. Petugas tidak diminta menilai, hanya mencatat yang dilihat.",
+ttl:"Catatan Masuk",sub:"Catat hanya yang Anda lihat",
+df_t:"Nilai perkiraan dari data hunian sudah diisi. Ubah bila berbeda.",
+q1:"Tempat tidur dipakai",q2:"Jumlah sampah",q3:"Handuk terpakai",req:"wajib",dai:"",
+lv0:"Tidak ada",lv1:"Sedikit",lv2:"Normal",lv3:"Banyak",
+tw1:"Handuk mandi",tw2:"Handuk muka",tw3:"Keset",
+b_ok:"Simpan ini",b_more:"Tambah detail",b_skip:"Lewati kali ini",
+note:"Catatan ini untuk manajemen mutu kebersihan<br>dan perbaikan operasional",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Prinsip inti: jangan minta penilaian",
+c1a:"Layar ini <b>satu-satunya sumber input</b> mesin rekonsiliasi P4.",
+th_ng:"Pertanyaan dilarang",th_ok:"Pertanyaan diizinkan",
+ng1:"Apakah kamar ini dipakai?",ok1:"Berapa tempat tidur yang dipakai?",
+ng2:"Ada yang mencurigakan?",ok2:"Berapa banyak sampahnya?",
+ng3:"Menurut Anda berapa tamu?",ok3:"Berapa handuk terpakai?",
+c1r:"❗ Bedanya interpretasi versus observasi. Petugas hanya melaporkan yang terlihat; server yang menilai.",
+c2t:"Cara menyelesaikan dalam 15 detik",
+s1:"Default diperkirakan dari rencana hunian dan tipe kamar",
+s2:"Satu ketukan Simpan menyelesaikannya bila tak ada perubahan",
+s3:"Angka hanya dengan stepper — <b>papan ketik tak pernah muncul</b>",
+s4:"Maksimal lima kolom wajib",
+s5:"Tombol pilihan 78px atau lebih, mengasumsikan sarung tangan",
+s6:"Durasi input disimpan di <code>inputDurationMs</code>",
+c2h:"💡 Diisi 30 kali sehari. 60 detik per kamar berarti tambahan 30 menit dan akan menjadi formalitas. Median di bawah 20 detik adalah kriteria.",
+c3t:"Selalu sediakan opsi lewati",
+c3a:"Lewati ada karena <b>mewajibkan memicu nilai sembarangan</b>, lebih buruk daripada tidak mencatat.",
+k1:"Alasan melewati tidak ditanyakan",k2:"Pelewatan dicatat di <code>observationSkipped</code>",
+k3:"Tugas tanpa catatan dikecualikan dari rekonsiliasi P4",k4:"Peringatan bila tingkat lewati melebihi 20%",
+c4t:"Cara memperkirakan default",th_p:"Rencana hunian",th_d:"Default",
+p1:"Checkout, 2 tamu",d1:"2 tempat tidur / sampah normal / 2 tiap handuk",
+p2:"Checkout, 1 tamu",d2:"1 tempat tidur / sampah normal / 1 tiap handuk",
+p3:"Diperkirakan kosong",d3:"0 tempat tidur / tanpa sampah / 0 handuk",
+p4:"Tanpa data hunian",d4:"Diperkirakan dari kapasitas standar tipe kamar",
+c4r:"❗ Konfirmasi tanpa perubahan mencatat <code>usedDefaults = true</code>. Di atas 90% mungkin input formalitas dan P4 menurunkan keyakinan 20.",
+c5t:"Kata yang tak pernah dipakai di UI",th_no:"Tidak dipakai",th_use:"Diganti",
+w1:"Hal mencurigakan",u1:"Yang Anda perhatikan",w2:"Abnormal",u2:"Beda dari biasanya",
+w3:"Periksa (arti mengawasi)",u3:"Catat",w4:"Kewajiban lapor",u4:"Permintaan mencatat",
+c5h:"💡 Bagian bawah menyatakan tujuan data, mengurangi rasa diawasi."},
+my:{t:"၀၆. အခန်းဝင်မှတ်တမ်း（၁၅ စက္ကန့်ဖြင့် ပြီးသည့် ဒီဇိုင်း）",
+d:"P4 ၏ တစ်ခုတည်းသော ဒေတာအရင်းအမြစ်။ ဝန်ထမ်းကို ဆုံးဖြတ်ခိုင်းမည့်အစား မြင်သည်ကိုသာ မှတ်စေသည်။",
+ttl:"အခန်းဝင်မှတ်တမ်း",sub:"မြင်သည်ကိုသာ မှတ်ပါ",
+df_t:"ခန့်မှန်းတန်ဖိုးများ ကြိုတင်ထည့်ထားသည်။ မကိုက်ပါက ပြောင်းပါ။",
+q1:"အိပ်ရာအသုံးပြုမှု",q2:"အမှိုက်ပမာဏ",q3:"အသုံးပြုပြီးတဘက်",req:"မလိုမဖြစ်",dai:" လုံး",
+lv0:"မရှိ",lv1:"အနည်း",lv2:"ပုံမှန်",lv3:"အများ",
+tw1:"ရေချိုးတဘက်",tw2:"မျက်နှာသုတ်",tw3:"ရေချိုးခန်းဖျာ",
+b_ok:"ဤအတိုင်းမှတ်",b_more:"အသေးစိတ်ထည့်",b_skip:"ဤအခါမမှတ်",
+note:"ဤမှတ်တမ်းသည် သန့်ရှင်းမှုအရည်အသွေး<br>နှင့် လုပ်ငန်းတိုးတက်မှုအတွက်",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"ဒီဇိုင်း၏ အဓိက：ဆုံးဖြတ်ခိုင်းမည်မဟုတ်",
+c1a:"ဤမျက်နှာပြင်သည် P4 ၏ <b>တစ်ခုတည်းသော ထည့်သွင်းမှုအရင်းအမြစ်</b>ဖြစ်သည်။",
+th_ng:"ပိတ်ပင်သည့်မေးခွန်း",th_ok:"ခွင့်ပြုသည့်မေးခွန်း",
+ng1:"ဤအခန်းကို အသုံးပြုခဲ့ပါသလား။",ok1:"အိပ်ရာမည်မှု အသုံးပြုခဲ့သလဲ။",
+ng2:"သံသယဖြစ်စရာ ရှိပါသလား။",ok2:"အမှိုက်ပမာဏ မည်မှုလဲ။",
+ng3:"လူမည်မှု တည်းခဲ့သည်ထင်ပါသလဲ။",ok3:"အသုံးပြုပြီးတဘက် မည်မှုရှိသလဲ။",
+c1r:"❗ ကွာဟမှုသည် \"အနက်ဖွင့်မှု\" နှင့် \"လေ့လာမှု\" ဖြစ်သည်။ ဝန်ထမ်းသည် မြင်သည်ကိုသာ ဖြေသည်။",
+c2t:"၁၅ စက္ကန့်ဖြင့် ပြီးစေရန်",
+s1:"မူရင်းတန်ဖိုးကို အခန်းအမျိုးအစားမှ ခန့်မှန်း၍ ကြိုတင်ထည့်",
+s2:"ပြောင်းလဲမှုမရှိပါက တစ်ချက်နှိပ်ဖြင့် ပြီးဆုံး",
+s3:"နံပါတ်ကို ခလုတ်ဖြင့်သာ။ <b>ကီးဘုတ် မဖွင့်ပါ</b>",
+s4:"မလိုမဖြစ်အချက် ၅ ခုအထိသာ",
+s5:"ရွေးချယ်ခလုတ် ၇၈px အထက်။ လက်အိတ်ဝတ်ထားသည်ဟု သတ်မှတ်",
+s6:"ထည့်သွင်းချိန်ကို <code>inputDurationMs</code> တွင် မှတ်",
+c2h:"💡 တစ်ရက် ၃၀ အခန်း ထည့်ရသည်။ တစ်အခန်း ၆၀ စက္ကန့်ဆိုပါက တစ်ရက် ၃၀ မိနစ် ပိုဝန်ဖြစ်၍ ပုံစံသာ ဖြစ်လာမည်။",
+c3t:"မမှတ်ခြင်း အမြဲထားရန်",
+c3a:"\"ဤအခါမမှတ်\" ထားရသည့်အကြောင်း：<b>မလိုမဖြစ်လုပ်ပါက အလွတ်တန်ဖိုးထည့်မိမည်</b>။ ထိုသည် မမှတ်ခြင်းထက် ဆိုးသည်။",
+k1:"မမှတ်ရသည့်အကြောင်း မမေးပါ",k2:"မမှတ်ခြင်းကို <code>observationSkipped</code> တွင် မှတ်",
+k3:"မမှတ်သောအလုပ်ကို P4 မှ ဖယ်ထုတ်",k4:"မမှတ်နှုန်း ၂၀% ကျော်ပါက သတိပေး",
+c4t:"မူရင်းတန်ဖိုး ခန့်မှန်းနည်း",th_p:"တည်းခိုအစီအစဉ်",th_d:"မူရင်းတန်ဖိုး",
+p1:"ထွက်ခွာ・၂ ဦး",d1:"အိပ်ရာ ၂ / အမှိုက်ပုံမှန် / တဘက်တစ်မျိုး ၂",
+p2:"ထွက်ခွာ・၁ ဦး",d2:"အိပ်ရာ ၁ / အမှိုက်ပုံမှန် / တဘက်တစ်မျိုး ၁",
+p3:"အခန်းလွတ်",d3:"အိပ်ရာ ၀ / အမှိုက်မရှိ / တဘက် ၀",
+p4:"တည်းခိုမှတ်တမ်းမရှိ",d4:"အခန်းအမျိုးအစား၏ စံလူဦးရေမှ ခန့်မှန်း",
+c4r:"❗ မူရင်းအတိုင်း အတည်ပြုပါက <code>usedDefaults = true</code> မှတ်သည်။ ၉၀% ကျော်ပါက P4 တွင် ယုံကြည်မှု ၂၀ ချသည်။",
+c5t:"UI တွင် မသုံးသည့်စကားလုံး",th_no:"မသုံး",th_use:"အစား",
+w1:"သံသယဖြစ်စရာ",u1:"သတိထားမိသည်",w2:"ချွတ်ယွင်း",u2:"ပုံမှန်နှင့်မတူသည်",
+w3:"စစ်ဆေး（စောင့်ကြည့်သည့်အဓိပ္ပါယ်）",u3:"မှတ်တမ်း",w4:"တိုင်ကြားတာဝန်",u4:"မှတ်တမ်းတင်ပေးရန် တောင်းဆိုမှု",
+c5h:"💡 အောက်ပိုင်းတွင် ဒေတာအသုံးပြုမှုကို ဖော်ပြသည်။ စောင့်ကြည့်ခံရသည့်ခံစားမှု လျှော့ချသည်။"},
+ne:{t:"०६. प्रवेश रेकर्ड (१५ सेकेन्डमा सक्ने डिजाइन)",
+d:"P4 मिलान इन्जिनको एक मात्र डाटा स्रोत। कर्मचारीलाई निर्णय गर्न लगाइँदैन, देखेको मात्र लेख्न दिइन्छ।",
+ttl:"प्रवेश रेकर्ड",sub:"देखेको मात्र लेख्नुहोस्",
+df_t:"बास डाटाबाट अनुमानित मान भरिएको छ। फरक भए बदल्नुहोस्।",
+q1:"प्रयोग भएका ओछ्यान",q2:"फोहोरको मात्रा",q3:"प्रयोग भएका तौलिया",req:"अनिवार्य",dai:"",
+lv0:"छैन",lv1:"थोरै",lv2:"सामान्य",lv3:"धेरै",
+tw1:"नुहाउने तौलिया",tw2:"मुख तौलिया",tw3:"बाथ म्याट",
+b_ok:"यही सुरक्षित",b_more:"विवरण थप्ने",b_skip:"यसपालि नलेख्ने",
+note:"यो रेकर्ड सफाई गुणस्तर व्यवस्थापन<br>र कार्य सुधारका लागि",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"मुख्य सिद्धान्त: निर्णय नमाग्ने",
+c1a:"यो स्क्रिन P4 मिलान इन्जिनको <b>एक मात्र इनपुट स्रोत</b> हो।",
+th_ng:"निषेधित प्रश्न",th_ok:"अनुमति दिइएका प्रश्न",
+ng1:"यो कोठा प्रयोग भयो?",ok1:"कति ओछ्यान प्रयोग भएको थियो?",
+ng2:"शंकास्पद कुरा देख्यौ?",ok2:"फोहोर कति थियो?",
+ng3:"कति पाहुना बसेको जस्तो लाग्छ?",ok3:"प्रयोग भएका तौलिया कति थिए?",
+c1r:"❗ फरक व्याख्या र अवलोकनमा छ। कर्मचारीले देखेको मात्र भन्छन्; सर्भरले निर्णय गर्छ।",
+c2t:"१५ सेकेन्डमा सक्ने उपाय",
+s1:"बास योजना र कोठा प्रकारबाट पूर्वनिर्धारित मान अनुमान",
+s2:"परिवर्तन नभए एक थिचाइमा सम्पन्न",
+s3:"संख्या स्टेपरले मात्र — <b>किबोर्ड कदापि देखिँदैन</b>",
+s4:"अनिवार्य पाँच वस्तुसम्म",
+s5:"छनोट बटन ७८px वा बढी, पञ्जा मानेर",
+s6:"इनपुट समय <code>inputDurationMs</code> मा",
+c2h:"💡 दिनमा ३० पटक भरिन्छ। कोठाको ६० सेकेन्ड भए दिनको ३० मिनेट थपिन्छ र औपचारिकता बन्छ।",
+c3t:"सधैं छोड्ने विकल्प",
+c3a:"अनिवार्य बनाउँदा <b>लापरवाह मान हालिन्छ</b>, जो नलेख्नु भन्दा नराम्रो।",
+k1:"छोड्नुको कारण सोधिँदैन",k2:"छोडेको तथ्य <code>observationSkipped</code> मा",
+k3:"नलेखिएका काम P4 मिलानबाट बाहिर",k4:"छोड्ने दर २०% नाघे चेतावनी",
+c4t:"पूर्वनिर्धारित मान कसरी अनुमान",th_p:"बास योजना",th_d:"पूर्वनिर्धारित",
+p1:"चेकआउट, २ पाहुना",d1:"२ ओछ्यान / सामान्य फोहोर / प्रत्येक तौलिया २",
+p2:"चेकआउट, १ पाहुना",d2:"१ ओछ्यान / सामान्य फोहोर / प्रत्येक तौलिया १",
+p3:"खाली अपेक्षित",d3:"० ओछ्यान / फोहोर छैन / ० तौलिया",
+p4:"बास डाटा छैन",d4:"कोठा प्रकारको मानक क्षमताबाट अनुमान",
+c4r:"❗ नबदली पुष्टि गर्दा <code>usedDefaults = true</code> लेखिन्छ। ९०% माथि भए P4 ले विश्वास २० घटाउँछ।",
+c5t:"UI मा कदापि प्रयोग नगर्ने शब्द",th_no:"नगर्ने",th_use:"बदलामा",
+w1:"शंकास्पद बिन्दु",u1:"तपाईंले देखेको कुरा",w2:"असामान्य",u2:"सामान्यभन्दा फरक",
+w3:"जाँच (निगरानीको अर्थ)",u3:"रेकर्ड",w4:"रिपोर्ट दायित्व",u4:"रेकर्ड गर्ने अनुरोध",
+c5h:"💡 फुटरमा डाटाको उद्देश्य लेखिएको छ, निगरानीको भावना घटाउँछ।"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+let t=0,tid=null;const tm=document.getElementById('tm');
+function tick(){t++;tm.textContent='⏱ '+t+'秒';if(t>20)tm.style.background='rgba(197,106,40,.92)'}
+function start(){if(!tid)tid=setInterval(tick,1000)}
+document.querySelectorAll('.pk .o').forEach(o=>o.onclick=function(){
+start();this.parentNode.querySelectorAll('.o').forEach(x=>x.classList.remove('on'));this.classList.add('on')});
+document.querySelectorAll('.st .mb').forEach(b=>b.onclick=function(){
+start();const v=this.parentNode.querySelector('.vv');let n=parseInt(v.textContent);
+n=this.textContent==='＋'?n+1:Math.max(0,n-1);v.textContent=n;
+v.classList.toggle('zero',n===0)});
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const vac=this.dataset.s==='vac',g=document.querySelectorAll('.pk[data-g="bed"] .o'),
+tr=document.querySelectorAll('.pk[data-g="tr"] .o'),vv=document.querySelectorAll('.st .vv');
+g.forEach(x=>x.classList.remove('on'));tr.forEach(x=>x.classList.remove('on'));
+if(vac){g[0].classList.add('on');tr[0].classList.add('on');
+vv.forEach(v=>{v.textContent='0';v.classList.add('zero')});
+document.getElementById('df').innerHTML='ℹ 空室予定のため、すべて0を既定にしています。使用痕跡があれば変更してください。'}
+else{g[1].classList.add('on');tr[2].classList.add('on');
+['2','2','1'].forEach((n,i)=>{vv[i].textContent=n;vv[i].classList.remove('zero')});
+document.getElementById('df').innerHTML='ℹ 稼働記録から推定した値を入れています。違っていれば変更してください。'}});
+document.getElementById('bs').onclick=()=>{clearInterval(tid);
+alert('記録しました（'+t+'秒）\n\n→ 08 チェックリスト へ')};
+document.getElementById('bm').onclick=()=>alert('→ 07 詳細記録（アメニティ等）');
+document.getElementById('bk').onclick=()=>{clearInterval(tid);
+alert('記録せずに進みます\n\nobservationSkipped = true として記録\nP4の照合対象から除外されます')};
+</script></body></html>

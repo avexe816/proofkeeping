@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 15 — 言語と表示設定</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.q{font-size:14px;font-weight:700;margin:14px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:16px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;min-height:74px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:25px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tg2{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}
+.tg2 .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tg2 .sw{width:52px;height:30px;border-radius:16px;background:var(--dirtybg);
+position:relative;transition:.2s;flex-shrink:0}
+.tg2 .sw:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg2.on .sw{background:var(--ok)}.tg2.on .sw:after{left:25px}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid var(--line);background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.dn{border-color:var(--ok);background:var(--okbg)}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:34px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.ov{position:absolute;inset:0;background:rgba(10,16,13,.62);display:none;
+align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px);z-index:20}
+.ov.on{display:flex}
+.mo{background:var(--surf);border-radius:18px;width:100%;overflow:hidden;max-height:92%;
+display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.mo .mh{padding:14px;text-align:center;background:var(--accent);color:#1A1206}
+.mo .mh.r2{background:var(--danger);color:#fff}
+.mo .mh .i{font-size:29px;line-height:1;display:block;margin-bottom:6px}
+.mo .mh .t{font-size:14.5px;font-weight:800}
+.mo .mb{padding:16px;overflow-y:auto}
+.mo .mb::-webkit-scrollbar{width:3px}
+.rlist .ro{display:flex;align-items:center;gap:11px;padding:14px 13px;border-radius:11px;
+border:2px solid var(--line);background:var(--surf2);margin-bottom:8px;cursor:pointer;font-size:13px}
+.rlist .ro:active{transform:scale(.98)}
+.rlist .ro .e3{font-size:22px}
+.rlist .ro.on{border-color:var(--brand);background:var(--okbg)}
+.lgi{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:8px;cursor:pointer}
+.lgi.on{border-color:var(--brand);border-width:2px;background:var(--okbg)}
+.lgi .lf{display:flex;align-items:center;gap:12px}
+.lgi .fg{font-size:26px;line-height:1}
+.lgi .nm2 .n1{font-size:15px;font-weight:700}
+.lgi .nm2 .n2{font-size:10.5px;color:var(--muted)}
+.lgi .ckm{font-size:19px;color:var(--brand);opacity:0}
+.lgi.on .ckm{opacity:1}
+body.dark .lgi.on .ckm{color:var(--ok)}
+.srow{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:8px}
+.srow .lf2{display:flex;align-items:center;gap:11px;flex:1}
+.srow .ic2{font-size:20px}
+.srow .tt2 .a2{font-size:13px;font-weight:600}
+.srow .tt2 .b2{font-size:10.5px;color:var(--muted);margin-top:1px;line-height:1.4}
+.srow .rt{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.sw2{width:50px;height:29px;border-radius:15px;background:var(--dirtybg);position:relative;
+transition:.2s;flex-shrink:0;cursor:pointer}
+.sw2:after{content:"";position:absolute;top:3px;left:3px;width:23px;height:23px;border-radius:50%;
+background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sw2.on{background:var(--ok)}.sw2.on:after{left:24px}
+.tsz{display:flex;gap:7px;margin-top:9px}
+.tsz .z{flex:1;padding:12px 4px;border-radius:10px;border:2px solid var(--line);background:var(--surf2);
+text-align:center;cursor:pointer;font-weight:700;color:var(--ink2)}
+.tsz .z.on{border-color:var(--brand);background:var(--okbg);color:var(--brand)}
+body.dark .tsz .z.on{color:var(--ok)}
+.prev{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:10px}
+.prev .pt{font-size:10px;color:var(--muted);font-weight:700;margin-bottom:9px}
+.prev .pc{border:2px solid var(--line);border-radius:10px;padding:12px}
+.prev .pc .rn{font-size:26px;font-weight:800;line-height:1}
+.prev .pc .rt2{font-size:12px;color:var(--ink2);margin-top:3px}
+.prev .pc .rb{margin-top:9px;padding:11px;background:var(--brand);color:#fff;border-radius:8px;
+text-align:center;font-weight:800;font-size:14px}
+.acc{background:var(--infobg);border:1px solid var(--info);border-radius:11px;padding:12px;
+font-size:11px;color:var(--info);line-height:1.6;margin-top:11px}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">15 / 16 — 言語と表示設定</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">15. 言語と表示設定</h1>
+<p data-i="d">言語は初回起動時に国旗と自国語表記で選ばせる。日本語が読めない前提で、この画面だけは説明文なしで操作できる必要がある。文字サイズは3段階で、選ぶと下のプレビューがその場で変わる。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">⚙️ <span data-i="ttl">言語と表示</span></div>
+<div class="b" data-i="sub">Language / 语言 / Ngôn ngữ</div></div>
+<div class="bd">
+
+<div class="sec">🌐 <span data-i="s_lg">表示言語</span></div>
+<div class="lgi on" data-l2="ja"><div class="lf"><span class="fg">🇯🇵</span>
+<div class="nm2"><div class="n1">日本語</div><div class="n2">Japanese</div></div></div>
+<span class="ckm">✓</span></div>
+<div class="lgi" data-l2="en"><div class="lf"><span class="fg">🇬🇧</span>
+<div class="nm2"><div class="n1">English</div><div class="n2">英語</div></div></div>
+<span class="ckm">✓</span></div>
+<div class="lgi" data-l2="zh"><div class="lf"><span class="fg">🇨🇳</span>
+<div class="nm2"><div class="n1">简体中文</div><div class="n2">中国語（簡体）</div></div></div>
+<span class="ckm">✓</span></div>
+<div class="lgi" data-l2="vi"><div class="lf"><span class="fg">🇻🇳</span>
+<div class="nm2"><div class="n1">Tiếng Việt</div><div class="n2">ベトナム語</div></div></div>
+<span class="ckm">✓</span></div>
+<div class="lgi" data-l2="id"><div class="lf"><span class="fg">🇮🇩</span>
+<div class="nm2"><div class="n1">Bahasa Indonesia</div><div class="n2">インドネシア語</div></div></div>
+<span class="ckm">✓</span></div>
+<div class="lgi" data-l2="my"><div class="lf"><span class="fg">🇲🇲</span>
+<div class="nm2"><div class="n1">မြန်မာဘာသာ</div><div class="n2">ミャンマー語</div></div></div>
+<span class="ckm">✓</span></div>
+<div class="lgi" data-l2="ne"><div class="lf"><span class="fg">🇳🇵</span>
+<div class="nm2"><div class="n1">नेपाली</div><div class="n2">ネパール語</div></div></div>
+<span class="ckm">✓</span></div>
+
+<div class="sec">🔤 <span data-i="s_tz">文字の大きさ</span></div>
+<div class="tsz" id="tsz">
+<div class="z" style="font-size:13px" data-z="s" data-i="z1">小</div>
+<div class="z on" style="font-size:15px" data-z="m" data-i="z2">標準</div>
+<div class="z" style="font-size:18px" data-z="l" data-i="z3">大</div></div>
+
+<div class="prev"><div class="pt" data-i="pv">プレビュー</div>
+<div class="pc" id="pc"><div class="rn">302</div>
+<div class="rt2" data-i="pv_t">アウト清掃 · 3F · ツイン</div>
+<div class="rb" data-i="pv_b">▶ 開始する</div></div></div>
+
+<div class="sec">🎨 <span data-i="s_th">画面のテーマ</span></div>
+<div class="srow"><div class="lf2"><span class="ic2" id="thi">☀️</span>
+<div class="tt2"><div class="a2" id="tht" data-i="th_l">ライトモード</div>
+<div class="b2" data-i="th_d">明るい場所での作業に適しています</div></div></div>
+<div class="sw2" id="swt"></div></div>
+
+<div class="sec">♿ <span data-i="s_ac">操作のしやすさ</span></div>
+<div class="srow"><div class="lf2"><span class="ic2">🔊</span>
+<div class="tt2"><div class="a2" data-i="a1">操作音</div>
+<div class="b2" data-i="a1d">ボタンを押したときに音を鳴らす</div></div></div>
+<div class="sw2 on"></div></div>
+<div class="srow"><div class="lf2"><span class="ic2">📳</span>
+<div class="tt2"><div class="a2" data-i="a2">振動</div>
+<div class="b2" data-i="a2d">手袋着用時の操作確認に役立ちます</div></div></div>
+<div class="sw2 on"></div></div>
+<div class="srow"><div class="lf2"><span class="ic2">🔆</span>
+<div class="tt2"><div class="a2" data-i="a3">高コントラスト</div>
+<div class="b2" data-i="a3d">明るい屋外でも見やすくなります</div></div></div>
+<div class="sw2"></div></div>
+
+<div class="acc">♿ <span data-i="acc_t">文字サイズは端末の設定にも従います。端末側で大きくしている場合は、この設定と合わせて反映されます。</span></div>
+
+<button class="big" id="bs15" style="margin-top:12px">✓ <span data-i="b_save">保存する</span></button>
+</div>
+
+<div class="ft"><div><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div class="on"><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">言語選択の設計</span></h3>
+<p data-i="c1a">初回起動時に最初に出る画面。<b>日本語が読めない人が説明なしで操作できる</b>ことが唯一の要件。</p>
+<ul>
+<li data-i="w1">国旗＋自国語表記を大きく並べる</li>
+<li data-i="w2">補助として日本語名を小さく添える</li>
+<li data-i="w3">「言語を選択してください」という説明文に頼らない</li>
+<li data-i="w4">選んだ瞬間に画面全体が切り替わる（保存前でも）</li>
+<li data-i="w5">あとから設定画面で何度でも変更できる</li>
+</ul>
+<div class="rmk" data-i="c1r">❗ 国旗は言語と1対1ではありません（英語＝🇬🇧など）が、認識速度を優先しました。自国語表記が主で、国旗は視覚的な手がかりという位置づけです。</div></div>
+
+<div class="card"><h3>🌐 <span data-i="c2t">対応言語の選定</span></h3>
+<table><tr><th data-i="th_l2">言語</th><th data-i="th_wy2">選定理由</th></tr>
+<tr><td>日本語</td><td data-i="r1">管理者・日本人スタッフ</td></tr>
+<tr><td>English</td><td data-i="r2">共通語としての基盤</td></tr>
+<tr><td>简体中文</td><td data-i="r3">技能実習・特定技能で最多層</td></tr>
+<tr><td>Tiếng Việt</td><td data-i="r4">宿泊業の外国人材で最多</td></tr>
+<tr><td>Bahasa Indonesia</td><td data-i="r5">特定技能で増加中</td></tr>
+<tr><td>မြန်မာဘာသာ</td><td data-i="r6">近年急増。日本語習得前の層が多い</td></tr>
+<tr><td>नेपाली</td><td data-i="r7">都市部の宿泊・飲食で多い</td></tr></table>
+<div class="hint" data-i="c2h">💡 ミャンマー語とネパール語は日本語習得前の段階で就業する割合が高く、多言語対応の価値が最も大きい言語です。フォントはNoto Sansで統一しています。</div></div>
+
+<div class="card"><h3>🔤 <span data-i="c3t">文字サイズ3段階</span></h3>
+<table><tr><th data-i="th_z">段階</th><th data-i="th_bs">基準サイズ</th><th data-i="th_tg">対象</th></tr>
+<tr><td data-i="z1">小</td><td>14px</td><td data-i="t1">情報量を優先する人</td></tr>
+<tr><td data-i="z2">標準</td><td>16px</td><td data-i="t2">既定値</td></tr>
+<tr><td data-i="z3">大</td><td>19px</td><td data-i="t3">40代以上・老眼</td></tr></table>
+<div class="hint" data-i="c3h">💡 4段階以上にしなかったのは、選択肢が増えると選ぶこと自体が負担になるためです。「大」で不足する場合は端末の設定と併用します。</div></div>
+
+<div class="card"><h3>♿ <span data-i="c4t">現場に必要な配慮</span></h3>
+<ul>
+<li data-i="a_1"><b>振動</b>：手袋着用時はタップの感触が分かりにくい</li>
+<li data-i="a_2"><b>操作音</b>：入力できたかを音で確認できる</li>
+<li data-i="a_3"><b>高コントラスト</b>：窓際や屋外通路で画面が見えにくい</li>
+<li data-i="a_4"><b>ダークモード</b>：早朝・深夜のシフトで目が疲れにくい</li>
+<li data-i="a_5">最小タップ領域は48×48px。手袋を前提とする</li>
+</ul>
+<div class="hint" data-i="c4h">💡 これらは「あると良い機能」ではなく、清掃現場の物理条件から必要になる機能です。ゴム手袋をしたまま濡れた手で操作する状況を前提にしています。</div></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="f1">7言語に対応。国旗＋自国語表記で選択</li>
+<li data-i="f2">説明文に頼らず操作できる構成</li>
+<li data-i="f3">文字サイズは3段階。プレビューを同画面に置く</li>
+<li data-i="f4">端末の文字サイズ設定も反映する</li>
+<li data-i="f5">振動・操作音・高コントラストを個別に設定</li>
+<li data-i="f6">最小タップ領域48×48px</li>
+</ul></div>
+</div></div></div><script>const I18N={ja:{},
+en:{t:"15. Language and Display Settings",
+d:"Language is chosen at first launch with flags and native names. Assuming Japanese cannot be read, this one screen must be operable without any explanatory text. Text size has three steps and the preview below changes instantly.",
+ttl:"Language & Display",
+s_lg:"Display language",s_tz:"Text size",z1:"Small",z2:"Standard",z3:"Large",
+pv:"Preview",pv_t:"Checkout Clean · 3F · Twin",pv_b:"▶ Start",
+s_th:"Screen theme",th_l:"Light mode",th_d:"Suited to working in bright places",
+th_l2b:"Dark mode",th_d2b:"Easier on the eyes for early and late shifts",
+s_ac:"Ease of use",
+a1:"Sound",a1d:"Play a sound when a button is pressed",
+a2:"Vibration",a2d:"Helps confirm taps while wearing gloves",
+a3:"High contrast",a3d:"Easier to see in bright outdoor light",
+acc_t:"Text size also follows your device settings. If you have enlarged it on the device, both settings apply together.",
+b_save:"Save",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"Designing language selection",
+c1a:"The first screen at first launch. The only requirement is that <b>someone who cannot read Japanese can operate it without explanation</b>.",
+w1:"Flags and native names laid out large",
+w2:"The Japanese name added small as a secondary cue",
+w3:"No reliance on a sentence like \"please select a language\"",
+w4:"The whole screen switches the moment one is chosen (even before saving)",
+w5:"It can be changed again any time in settings",
+c1r:"❗ Flags do not map one-to-one to languages (English = 🇬🇧, etc.), but recognition speed was prioritised. The native name is primary; the flag is a visual cue.",
+c2t:"Choosing the supported languages",th_l2:"Language",th_wy2:"Reason",
+r1:"Managers and Japanese staff",r2:"A base as the common language",
+r3:"The largest group in trainee and specified-skill programmes",
+r4:"The largest foreign workforce in accommodation",
+r5:"Growing under specified-skill visas",
+r6:"Rising sharply; many work before learning Japanese",
+r7:"Common in urban accommodation and food service",
+c2h:"💡 Burmese and Nepali speakers often start work before learning Japanese, so multilingual support has the greatest value for them. Fonts are unified on Noto Sans.",
+c3t:"Three text sizes",th_z:"Step",th_bs:"Base size",th_tg:"For",
+t1:"Those who prefer more information",t2:"Default",t3:"Over 40, presbyopia",
+c3h:"💡 We avoided four or more steps because choosing becomes a burden as options grow. If Large is not enough, the device setting is used alongside it.",
+c4t:"Considerations the field needs",
+a_1:"<b>Vibration</b>: taps are hard to feel through gloves",
+a_2:"<b>Sound</b>: confirms audibly that input registered",
+a_3:"<b>High contrast</b>: screens are hard to see by windows or outdoor corridors",
+a_4:"<b>Dark mode</b>: less eye strain on early morning and late night shifts",
+a_5:"Minimum tap area is 48×48px, assuming gloves",
+c4h:"💡 These are not nice-to-haves but requirements arising from the physical conditions of cleaning work — operating with wet hands in rubber gloves.",
+c5t:"Decisions fixed on this screen",
+f1:"Seven languages, selected by flag and native name",
+f2:"Operable without relying on explanatory text",
+f3:"Three text sizes with the preview on the same screen",
+f4:"Device text size settings are also honoured",
+f5:"Vibration, sound and high contrast set individually",
+f6:"Minimum tap area of 48×48px"},
+zh:{t:"15. 语言与显示设定",
+d:"语言在初次启动时用国旗和母语标记选择。以读不懂日语为前提，唯有这一屏必须在没有说明文的情况下也能操作。文字大小 3 段，选择后下方预览当场变化。",
+ttl:"语言与显示",
+s_lg:"显示语言",s_tz:"文字大小",z1:"小",z2:"标准",z3:"大",
+pv:"预览",pv_t:"退房清扫 · 3F · 双床",pv_b:"▶ 开始",
+s_th:"画面主题",th_l:"浅色模式",th_d:"适合明亮场所的作业",
+th_l2b:"深色模式",th_d2b:"早班・夜班时眼睛不易疲劳",
+s_ac:"操作便利性",
+a1:"操作音",a1d:"按下按钮时发出声音",
+a2:"振动",a2d:"戴手套时有助于确认操作",
+a3:"高对比度",a3d:"明亮的户外也能看清",
+acc_t:"文字大小也遵循端末的设定。在端末侧调大的情况会与此设定一起反映。",
+b_save:"保存",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"语言选择的设计",
+c1a:"初次启动时最先出现的画面。<b>读不懂日语的人在没有说明的情况下也能操作</b>是唯一的要件。",
+w1:"把国旗＋母语标记放大并列",
+w2:"作为辅助小字附上日语名",
+w3:"不依赖「请选择语言」这样的说明文",
+w4:"选中的瞬间整个画面就切换（保存前也是）",
+w5:"之后可以在设定画面反复更改",
+c1r:"❗ 国旗与语言不是 1 对 1 的（英语＝🇬🇧 等），但优先了识别速度。母语标记为主，国旗定位为视觉线索。",
+c2t:"对应语言的选定",th_l2:"语言",th_wy2:"选定理由",
+r1:"管理者・日本人员工",r2:"作为共通语的基础",
+r3:"技能实习・特定技能中最多的一层",
+r4:"住宿业外国人才中最多",
+r5:"特定技能中正在增加",
+r6:"近年急增。日语习得前的人群多",
+r7:"都市区的住宿・餐饮中较多",
+c2h:"💡 缅甸语和尼泊尔语在日语习得前就业的比例高，是多语言对应价值最大的语言。字体统一用 Noto Sans。",
+c3t:"文字大小 3 段",th_z:"段阶",th_bs:"基准大小",th_tg:"对象",
+t1:"优先信息量的人",t2:"默认值",t3:"40 代以上・老花",
+c3h:"💡 没做成 4 段以上，是因为选项增加后「选择」本身就成了负担。「大」不够时与端末的设定并用。",
+c4t:"现场需要的考量",
+a_1:"<b>振动</b>：戴手套时不易感觉到点击",
+a_2:"<b>操作音</b>：能用声音确认是否输入成功",
+a_3:"<b>高对比度</b>：窗边或户外通路画面看不清",
+a_4:"<b>深色模式</b>：早班・深夜班时眼睛不易疲劳",
+a_5:"最小点击区域 48×48px。以戴手套为前提",
+c4h:"💡 这些不是「有了更好的功能」，而是从清扫现场的物理条件出发必要的功能。以戴橡胶手套、手是湿的状态下操作为前提。",
+c5t:"本画面的确定事项",
+f1:"对应 7 种语言。用国旗＋母语标记选择",
+f2:"不依赖说明文也能操作的构成",
+f3:"文字大小 3 段。预览放在同一画面",
+f4:"也反映端末的文字大小设定",
+f5:"振动・操作音・高对比度分别设定",
+f6:"最小点击区域 48×48px"},
+vi:{t:"15. Cài đặt ngôn ngữ và hiển thị",
+d:"Ngôn ngữ được chọn khi mở lần đầu bằng cờ và tên bản ngữ. Màn hình này phải dùng được mà không cần chữ giải thích.",
+ttl:"Ngôn ngữ & Hiển thị",
+s_lg:"Ngôn ngữ hiển thị",s_tz:"Cỡ chữ",z1:"Nhỏ",z2:"Chuẩn",z3:"Lớn",
+pv:"Xem trước",pv_t:"Dọn sau khách đi · 3F · 2 giường",pv_b:"▶ Bắt đầu",
+s_th:"Chủ đề màn hình",th_l:"Chế độ sáng",th_d:"Phù hợp làm việc nơi sáng",
+th_l2b:"Chế độ tối",th_d2b:"Dịu mắt hơn cho ca sớm và ca khuya",
+s_ac:"Dễ sử dụng",
+a1:"Âm thanh",a1d:"Phát âm khi bấm nút",
+a2:"Rung",a2d:"Giúp xác nhận khi đeo găng",
+a3:"Tương phản cao",a3d:"Dễ thấy hơn ngoài trời sáng",
+acc_t:"Cỡ chữ cũng theo cài đặt thiết bị. Nếu bạn đã phóng to trên thiết bị, cả hai cùng áp dụng.",
+b_save:"Lưu",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Thiết kế chọn ngôn ngữ",
+c1a:"Màn hình đầu tiên khi mở lần đầu. Yêu cầu duy nhất là <b>người không đọc được tiếng Nhật vẫn dùng được mà không cần giải thích</b>.",
+w1:"Cờ và tên bản ngữ trình bày lớn",w2:"Tên tiếng Nhật thêm nhỏ làm gợi ý phụ",
+w3:"Không dựa vào câu \"vui lòng chọn ngôn ngữ\"",w4:"Cả màn hình đổi ngay khi chọn",
+w5:"Có thể đổi lại bất cứ lúc nào trong cài đặt",
+c1r:"❗ Cờ không tương ứng một-một với ngôn ngữ, nhưng tốc độ nhận biết được ưu tiên. Tên bản ngữ là chính.",
+c2t:"Chọn các ngôn ngữ hỗ trợ",th_l2:"Ngôn ngữ",th_wy2:"Lý do",
+r1:"Quản lý và nhân viên Nhật",r2:"Nền tảng như ngôn ngữ chung",
+r3:"Nhóm lớn nhất trong chương trình thực tập và kỹ năng đặc định",
+r4:"Lực lượng nước ngoài lớn nhất trong ngành lưu trú",
+r5:"Đang tăng theo visa kỹ năng đặc định",
+r6:"Tăng mạnh gần đây; nhiều người làm trước khi học tiếng Nhật",
+r7:"Phổ biến trong lưu trú và ăn uống ở thành phố",
+c2h:"💡 Người nói tiếng Miến và Nepal thường làm việc trước khi học tiếng Nhật, nên hỗ trợ đa ngữ có giá trị lớn nhất.",
+c3t:"Ba cỡ chữ",th_z:"Bậc",th_bs:"Cỡ cơ sở",th_tg:"Dành cho",
+t1:"Người muốn nhiều thông tin",t2:"Mặc định",t3:"Trên 40, mắt lão",
+c3h:"💡 Không làm bốn bậc trở lên vì càng nhiều lựa chọn thì việc chọn càng thành gánh nặng.",
+c4t:"Những điều hiện trường cần",
+a_1:"<b>Rung</b>: khó cảm nhận cái bấm qua găng tay",
+a_2:"<b>Âm thanh</b>: xác nhận bằng tai rằng đã nhập",
+a_3:"<b>Tương phản cao</b>: khó thấy màn hình cạnh cửa sổ hay hành lang ngoài",
+a_4:"<b>Chế độ tối</b>: ít mỏi mắt trong ca sớm và ca khuya",
+a_5:"Vùng bấm tối thiểu 48×48px, giả định đeo găng",
+c4h:"💡 Đây không phải tính năng có thì tốt mà là yêu cầu từ điều kiện vật lý của công việc dọn dẹp.",
+c5t:"Quyết định đã chốt",
+f1:"Bảy ngôn ngữ, chọn bằng cờ và tên bản ngữ",f2:"Dùng được không cần chữ giải thích",
+f3:"Ba cỡ chữ với xem trước cùng màn hình",f4:"Tôn trọng cả cài đặt thiết bị",
+f5:"Rung, âm thanh, tương phản cài riêng",f6:"Vùng bấm tối thiểu 48×48px"},
+id:{t:"15. Setelan Bahasa dan Tampilan",
+d:"Bahasa dipilih saat pertama dibuka dengan bendera dan nama asli. Layar ini harus bisa dioperasikan tanpa teks penjelasan.",
+ttl:"Bahasa & Tampilan",
+s_lg:"Bahasa tampilan",s_tz:"Ukuran teks",z1:"Kecil",z2:"Standar",z3:"Besar",
+pv:"Pratinjau",pv_t:"Bersih Checkout · 3F · Twin",pv_b:"▶ Mulai",
+s_th:"Tema layar",th_l:"Mode terang",th_d:"Cocok untuk bekerja di tempat terang",
+th_l2b:"Mode gelap",th_d2b:"Lebih nyaman untuk sif pagi dan malam",
+s_ac:"Kemudahan penggunaan",
+a1:"Suara",a1d:"Bunyikan suara saat tombol ditekan",
+a2:"Getar",a2d:"Membantu memastikan ketukan saat memakai sarung tangan",
+a3:"Kontras tinggi",a3d:"Lebih mudah dilihat di luar ruangan yang terang",
+acc_t:"Ukuran teks juga mengikuti setelan perangkat. Bila sudah diperbesar di perangkat, keduanya berlaku bersama.",
+b_save:"Simpan",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Merancang pemilihan bahasa",
+c1a:"Layar pertama saat pertama dibuka. Satu-satunya syarat: <b>orang yang tak bisa membaca bahasa Jepang dapat mengoperasikannya tanpa penjelasan</b>.",
+w1:"Bendera dan nama asli ditata besar",w2:"Nama Jepang ditambahkan kecil sebagai petunjuk kedua",
+w3:"Tanpa bergantung pada kalimat \"silakan pilih bahasa\"",w4:"Seluruh layar berubah begitu dipilih",
+w5:"Bisa diubah kapan saja di setelan",
+c1r:"❗ Bendera tidak berpasangan satu-satu dengan bahasa, tapi kecepatan pengenalan diutamakan. Nama asli yang utama.",
+c2t:"Memilih bahasa yang didukung",th_l2:"Bahasa",th_wy2:"Alasan",
+r1:"Manajer dan staf Jepang",r2:"Dasar sebagai bahasa bersama",
+r3:"Kelompok terbesar dalam program pemagangan dan keterampilan tertentu",
+r4:"Tenaga asing terbesar di industri akomodasi",
+r5:"Bertambah lewat visa keterampilan tertentu",
+r6:"Naik pesat; banyak bekerja sebelum belajar bahasa Jepang",
+r7:"Umum di akomodasi dan kuliner kota",
+c2h:"💡 Penutur Burma dan Nepal sering mulai bekerja sebelum belajar bahasa Jepang, sehingga dukungan multibahasa paling bernilai.",
+c3t:"Tiga ukuran teks",th_z:"Tingkat",th_bs:"Ukuran dasar",th_tg:"Untuk",
+t1:"Yang mengutamakan banyak informasi",t2:"Default",t3:"Di atas 40, mata tua",
+c3h:"💡 Kami menghindari empat tingkat atau lebih karena memilih menjadi beban ketika opsi bertambah.",
+c4t:"Pertimbangan yang dibutuhkan lapangan",
+a_1:"<b>Getar</b>: ketukan sulit dirasakan lewat sarung tangan",
+a_2:"<b>Suara</b>: memastikan secara audio bahwa input terdaftar",
+a_3:"<b>Kontras tinggi</b>: layar sulit dilihat di dekat jendela atau koridor luar",
+a_4:"<b>Mode gelap</b>: mata tidak cepat lelah pada sif pagi dan malam",
+a_5:"Area ketuk minimum 48×48px, mengasumsikan sarung tangan",
+c4h:"💡 Ini bukan fitur pelengkap melainkan kebutuhan dari kondisi fisik pekerjaan kebersihan.",
+c5t:"Keputusan yang ditetapkan",
+f1:"Tujuh bahasa, dipilih lewat bendera dan nama asli",f2:"Bisa dioperasikan tanpa teks penjelasan",
+f3:"Tiga ukuran teks dengan pratinjau di layar yang sama",f4:"Setelan perangkat juga dihormati",
+f5:"Getar, suara, kontras diatur terpisah",f6:"Area ketuk minimum 48×48px"},
+my:{t:"၁၅. ဘာသာစကားနှင့် ပြသမှုဆက်တင်",
+d:"ဘာသာစကားကို ပထမဆုံးဖွင့်ချိန်တွင် အလံနှင့် မိခင်ဘာသာဖြင့် ရွေးစေသည်။ ဂျပန်စာ မဖတ်တတ်သည်ဟု သတ်မှတ်၍ ဤမျက်နှာပြင်တစ်ခုသာ ရှင်းလင်းချက်မပါဘဲ အသုံးပြုနိုင်ရမည်။",
+ttl:"ဘာသာစကားနှင့် ပြသမှု",
+s_lg:"ပြသမည့်ဘာသာစကား",s_tz:"စာလုံးအရွယ်",z1:"သေး",z2:"စံ",z3:"ကြီး",
+pv:"အကြိုကြည့်",pv_t:"ထွက်ခွာသန့်ရှင်းမှု · ၃F · အိပ်ရာ၂လုံး",pv_b:"▶ စတင်",
+s_th:"မျက်နှာပြင် အပြင်အဆင်",th_l:"အလင်းမုဒ်",th_d:"အလင်းရှိသည့်နေရာတွင် အလုပ်လုပ်ရန် သင့်သည်",
+th_l2b:"အမှောင်မုဒ်",th_d2b:"နံနက်စောစော・ညနေအလုပ်ချိန်တွင် မျက်စိ မပင်ပန်း",
+s_ac:"အသုံးပြုလွယ်မှု",
+a1:"အသံ",a1d:"ခလုတ်နှိပ်ချိန် အသံထွက်စေ",
+a2:"တုန်ခါမှု",a2d:"လက်အိတ်ဝတ်ချိန် နှိပ်မိမနှိပ်မိ အတည်ပြုရန် အထောက်အကူ",
+a3:"အရောင်ကွာဟမှုမြင့်",a3d:"အလင်းရောင်ပြင်းသည့် အပြင်တွင်လည်း မြင်လွယ်",
+acc_t:"စာလုံးအရွယ်သည် ဖုန်း၏ဆက်တင်ကိုလည်း လိုက်နာသည်။ ဖုန်းတွင် ကြီးထားပါက ဤဆက်တင်နှင့် ပေါင်း၍ ဖော်ပြမည်။",
+b_save:"သိမ်းဆည်း",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"ဘာသာစကားရွေးချယ်မှု ဒီဇိုင်း",
+c1a:"ပထမဆုံးဖွင့်ချိန် ပထမဆုံးပေါ်သည့် မျက်နှာပြင်။ <b>ဂျပန်စာမဖတ်တတ်သူသည် ရှင်းလင်းချက်မပါဘဲ အသုံးပြုနိုင်ခြင်း</b>သည် တစ်ခုတည်းသော လိုအပ်ချက်ဖြစ်သည်။",
+w1:"အလံ＋မိခင်ဘာသာဖော်ပြမှု ကြီးကြီးစီ",w2:"အထောက်အကူအဖြစ် ဂျပန်အမည် သေးသေးထည့်",
+w3:"\"ဘာသာစကား ရွေးပါ\" ဟူသော ရှင်းလင်းချက်ကို မမှီခို",w4:"ရွေးလိုက်သည့်ခဏ မျက်နှာပြင်တစ်ခုလုံး ပြောင်း",
+w5:"နောက်မှ ဆက်တင်တွင် အကြိမ်ကြိမ် ပြောင်းနိုင်",
+c1r:"❗ အလံသည် ဘာသာစကားနှင့် တစ်ခုချင်း မကိုက်ပါ（အင်္ဂလိပ်＝🇬🇧 စသည်）။ သို့သော် အသိအမြင်အမြန်နှုန်းကို ဦးစားပေးသည်။",
+c2t:"ပံ့ပိုးမည့်ဘာသာစကား ရွေးချယ်မှု",th_l2:"ဘာသာစကား",th_wy2:"အကြောင်းရင်း",
+r1:"စီမံခန့်ခွဲသူ・ဂျပန်ဝန်ထမ်း",r2:"အများပိုင်ဘာသာအဖြစ် အခြေခံ",
+r3:"အတည်ပြုကျွမ်းကျင်မှုစနစ်တွင် အများဆုံးအလွှာ",
+r4:"တည်းခိုလုပ်ငန်း၏ နိုင်ငံခြားလုပ်သားတွင် အများဆုံး",
+r5:"အတည်ပြုကျွမ်းကျင်မှုဖြင့် တိုးလာ",
+r6:"မကြာသေးမီ ရုတ်တရက်တိုး။ ဂျပန်စာမတတ်မီအလွှာ များ",
+r7:"မြို့ကြီးများ၏ တည်းခို・အစားအသောက်တွင် များ",
+c2h:"💡 မြန်မာစာနှင့် နီပေါစာသည် ဂျပန်စာမတတ်မီ အလုပ်ဝင်သည့်အချိုး မြင့်၍ ဘာသာစကားစုံပံ့ပိုးမှု၏ တန်ဖိုး အကြီးမားဆုံးဖြစ်သည်။",
+c3t:"စာလုံးအရွယ် ၃ ဆင့်",th_z:"ဆင့်",th_bs:"အခြေခံအရွယ်",th_tg:"ရည်ရွယ်သူ",
+t1:"အချက်အလက်ပမာဏ ဦးစားပေးသူ",t2:"မူရင်း",t3:"အသက် ၄၀ အထက်・မျက်စိအိုမင်း",
+c3h:"💡 ၄ ဆင့်အထက် မလုပ်ရသည့်အကြောင်း：ရွေးချယ်မှုများလာပါက ရွေးခြင်းကိုယ်တိုင် ဝန်ထုပ်ဖြစ်လာမည်။",
+c4t:"လုပ်ငန်းခွင်တွင် လိုအပ်သည့် စဉ်းစားမှုများ",
+a_1:"<b>တုန်ခါမှု</b>：လက်အိတ်ဝတ်ချိန် နှိပ်မှုအထိအတွေ့ မသိရ",
+a_2:"<b>အသံ</b>：ထည့်သွင်းမိမမိကို အသံဖြင့် အတည်ပြုနိုင်",
+a_3:"<b>အရောင်ကွာဟမှုမြင့်</b>：ပြတင်းဘေး၊ အပြင်လမ်းတွင် မျက်နှာပြင် မမြင်ရ",
+a_4:"<b>အမှောင်မုဒ်</b>：နံနက်စောစော・ညနေအလုပ်ချိန် မျက်စိ မပင်ပန်း",
+a_5:"အနည်းဆုံးနှိပ်နယ်ပယ် ၄၈×၄၈px။ လက်အိတ်ဝတ်ထားသည်ဟု သတ်မှတ်",
+c4h:"💡 ဤအရာများသည် \"ရှိလျှင်ကောင်းသည့်\" လုပ်ဆောင်ချက်မဟုတ်ဘဲ သန့်ရှင်းရေးလုပ်ငန်းခွင်၏ ရုပ်ပိုင်းအခြေအနေမှ လိုအပ်လာသည့် လုပ်ဆောင်ချက်များဖြစ်သည်။",
+c5t:"အတည်ပြုချက်",
+f1:"ဘာသာစကား ၇ မျိုး။ အလံ＋မိခင်ဘာသာဖြင့် ရွေး",f2:"ရှင်းလင်းချက်မမှီဘဲ အသုံးပြုနိုင်",
+f3:"စာလုံးအရွယ် ၃ ဆင့်။ အကြိုကြည့်မှု တူညီမျက်နှာပြင်",f4:"ဖုန်း၏စာလုံးအရွယ်ဆက်တင်ပါ ဖော်ပြ",
+f5:"တုန်ခါမှု・အသံ・အရောင်ကွာဟမှု သီးသန့်သတ်မှတ်",f6:"အနည်းဆုံးနှိပ်နယ်ပယ် ၄၈×၄၈px"},
+ne:{t:"१५. भाषा र प्रदर्शन सेटिङ",
+d:"भाषा पहिलो पटक खोल्दा झन्डा र मातृभाषाको नामले छानिन्छ। जापानी पढ्न नसक्ने मानी यो एक स्क्रिन व्याख्या बिना चलाउन सक्नुपर्छ।",
+ttl:"भाषा र प्रदर्शन",
+s_lg:"प्रदर्शन भाषा",s_tz:"अक्षर आकार",z1:"सानो",z2:"मानक",z3:"ठूलो",
+pv:"पूर्वावलोकन",pv_t:"चेकआउट सफाई · ३F · ट्विन",pv_b:"▶ सुरु",
+s_th:"स्क्रिन थिम",th_l:"उज्यालो मोड",th_d:"उज्यालो ठाउँमा काम गर्न उपयुक्त",
+th_l2b:"अँध्यारो मोड",th_d2b:"बिहान र रातको पालीमा आँखा कम थाक्ने",
+s_ac:"प्रयोग सहजता",
+a1:"आवाज",a1d:"बटन थिच्दा आवाज निकाल्ने",
+a2:"कम्पन",a2d:"पञ्जा लगाउँदा थिचाइ पुष्टि गर्न सहयोगी",
+a3:"उच्च कन्ट्रास्ट",a3d:"उज्यालो बाहिर पनि सजिलो देखिने",
+acc_t:"अक्षर आकार यन्त्रको सेटिङ पनि मान्छ। यन्त्रमा ठूलो बनाएको भए दुवै लागू हुन्छ।",
+b_save:"सुरक्षित",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"भाषा छनोटको डिजाइन",
+c1a:"पहिलो पटक खोल्दा देखिने पहिलो स्क्रिन। एउटै शर्त: <b>जापानी पढ्न नसक्ने व्यक्तिले व्याख्या बिना चलाउन सक्नु</b>।",
+w1:"झन्डा र मातृभाषाको नाम ठूलो राखिने",w2:"जापानी नाम सानो सहायक सङ्केतको रूपमा",
+w3:"\"कृपया भाषा छान्नुहोस्\" जस्तो वाक्यमा भर नपर्ने",w4:"छानेको क्षणमै पूरा स्क्रिन बदलिने",
+w5:"पछि सेटिङमा जुनसुकै बेला बदल्न सकिने",
+c1r:"❗ झन्डा भाषासँग एक-एक मिल्दैन, तर पहिचानको गति प्राथमिकता दिइयो। मातृभाषाको नाम मुख्य हो।",
+c2t:"समर्थित भाषाको छनोट",th_l2:"भाषा",th_wy2:"कारण",
+r1:"प्रबन्धक र जापानी कर्मचारी",r2:"साझा भाषाको आधार",
+r3:"प्रशिक्षार्थी र निर्दिष्ट सीप कार्यक्रममा सबैभन्दा ठूलो समूह",
+r4:"आवास उद्योगमा सबैभन्दा ठूलो विदेशी जनशक्ति",
+r5:"निर्दिष्ट सीप भिसामा बढ्दै",
+r6:"हालै तीव्र वृद्धि; जापानी सिक्नुअघि काम गर्ने धेरै",
+r7:"सहरी आवास र खानपानमा सामान्य",
+c2h:"💡 बर्मी र नेपाली बोल्नेहरू प्रायः जापानी सिक्नुअघि काम सुरु गर्छन्, त्यसैले बहुभाषिक समर्थनको मूल्य सबैभन्दा बढी छ।",
+c3t:"तीन अक्षर आकार",th_z:"तह",th_bs:"आधार आकार",th_tg:"कसका लागि",
+t1:"धेरै जानकारी चाहनेलाई",t2:"पूर्वनिर्धारित",t3:"४० माथि, चस्मा",
+c3h:"💡 चार वा बढी तह बनाइएन किनकि विकल्प बढ्दा छान्नु आफै बोझ बन्छ।",
+c4t:"क्षेत्रलाई चाहिने विचार",
+a_1:"<b>कम्पन</b>: पञ्जाबाट थिचाइ महसुस गर्न कठिन",
+a_2:"<b>आवाज</b>: इनपुट भयो कि आवाजले पुष्टि",
+a_3:"<b>उच्च कन्ट्रास्ट</b>: झ्यालछेउ वा बाहिरी बरन्डामा स्क्रिन देख्न कठिन",
+a_4:"<b>अँध्यारो मोड</b>: बिहान र रातको पालीमा आँखा कम थाक्ने",
+a_5:"न्यूनतम थिच्ने क्षेत्र ४८×४८px, पञ्जा मानेर",
+c4h:"💡 यी \"भए राम्रो\" सुविधा होइनन्, सफाई कामको भौतिक अवस्थाबाट आउने आवश्यकता हुन्।",
+c5t:"तय भएका कुरा",
+f1:"सात भाषा, झन्डा र मातृभाषाको नामले छनोट",f2:"व्याख्या बिना चलाउन सकिने",
+f3:"तीन अक्षर आकार, पूर्वावलोकन उही स्क्रिनमा",f4:"यन्त्रको सेटिङ पनि मान्ने",
+f5:"कम्पन, आवाज, कन्ट्रास्ट छुट्टै",f6:"न्यूनतम थिच्ने क्षेत्र ४८×४८px"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+document.querySelectorAll('.lgi').forEach(l=>l.onclick=function(){
+document.querySelectorAll('.lgi').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+setL(this.dataset.l2)});
+const SZ={s:[22,10.5,12],m:[26,12,14],l:[31,14,16.5]};
+document.querySelectorAll('#tsz .z').forEach(z=>z.onclick=function(){
+document.querySelectorAll('#tsz .z').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const s=SZ[this.dataset.z],pc=document.getElementById('pc');
+pc.querySelector('.rn').style.fontSize=s[0]+'px';
+pc.querySelector('.rt2').style.fontSize=s[1]+'px';
+pc.querySelector('.rb').style.fontSize=s[2]+'px';
+pc.querySelector('.rb').style.padding=(s[2]-3)+'px'});
+document.getElementById('swt').onclick=function(){this.classList.toggle('on');
+const dk=this.classList.contains('on');document.body.classList.toggle('dark',dk);
+document.getElementById('thi').textContent=dk?'🌙':'☀️';
+const l=document.querySelector('.gb[data-l].on').dataset.l,d=I18N[l]||{};
+document.getElementById('tht').textContent=dk?(d.th_l2b||'ダークモード'):(d.th_l||'ライトモード');
+document.getElementById('tht').nextElementSibling.textContent=
+dk?(d.th_d2b||'早朝・深夜のシフトで目が疲れにくい'):(d.th_d||'明るい場所での作業に適しています');
+document.getElementById('dm').textContent=dk?'☀️ ライト':'🌙 ダーク'};
+document.querySelectorAll('.srow .sw2').forEach(s=>{if(s.id)return;
+s.onclick=function(){this.classList.toggle('on')}});
+document.getElementById('bs15').onclick=()=>{
+const l=document.querySelector('.lgi.on .n1').textContent,
+z=document.querySelector('#tsz .z.on').textContent;
+alert('設定を保存しました\n\n言語：'+l+'\n文字サイズ：'+z+'\n\n次回起動時もこの設定が使われます')};
+</script></body></html>

@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ProofKeeping UI v3 — 施設切替・複数施設対応</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+  --bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+  --ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+  --ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+  --info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+  --dirty:#8A8F88;--dirtybg:#ECEAE1;
+}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+  --ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+  --infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+  --info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar",sans-serif;
+  background:#0B0F0D;color:var(--ink);line-height:1.6}
+
+.ctl{position:sticky;top:0;z-index:200;background:#080C0A;border-bottom:1px solid #1E2A25;
+  padding:12px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.logo{font-size:15px;font-weight:800;color:#E8EDE9}.logo em{color:var(--accent2);font-style:normal}
+.grp{display:flex;gap:5px;background:#111815;padding:4px;border-radius:8px}
+.gb{padding:7px 12px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+  font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--brand2);color:#fff}.gb.lang.on{background:var(--accent);color:#1A1206}
+.gl{font-size:10px;color:#5D6B64;align-self:center;letter-spacing:.5px}
+.dm{margin-left:auto;padding:7px 13px;border-radius:7px;border:1px solid #2A3A34;
+  background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:20px;max-width:1560px;margin:0 auto}
+.role{display:none}.role.on{display:block}
+.rh h2{font-size:19px;color:#E8EDE9;margin-bottom:3px}
+.rh p{font-size:12.5px;color:#7E8C86;margin-bottom:14px}
+.lbl{font-size:10.5px;color:#6F7D76;font-weight:700;letter-spacing:.5px;margin:0 0 7px 2px}
+.frame{border-radius:12px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.55);margin-bottom:22px}
+
+/* ==== app shell with TOP BAR ==== */
+.app{background:var(--bg);color:var(--ink);font-size:13px;min-height:540px}
+.tbar{background:var(--brand);padding:0 16px;display:flex;align-items:center;gap:14px;height:52px;
+  border-bottom:1px solid #0B2A22;position:relative;z-index:50}
+.tbar .bl{font-size:14px;font-weight:800;color:#fff}
+.tbar .bl em{color:var(--accent2);font-style:normal}
+/* 施設セレクタ */
+.psel{position:relative}
+.pbtn{display:flex;align-items:center;gap:9px;background:#0C2E26;border:1px solid #1D5044;
+  border-radius:8px;padding:7px 13px;cursor:pointer;color:#fff;font-size:12.5px;font-weight:700;
+  font-family:inherit;min-width:220px}
+.pbtn .ic{font-size:15px}
+.pbtn .cnt{font-size:10.5px;color:#8FAAA0;font-weight:400;margin-left:auto}
+.pbtn .ar{color:#8FAAA0;font-size:10px}
+.pdrop{display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surf);
+  border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.3);
+  overflow:hidden;z-index:100}
+.pdrop.on{display:block}
+.pdrop .sh{padding:9px 13px;font-size:10px;font-weight:800;color:var(--muted);
+  background:var(--surf2);letter-spacing:.5px;border-bottom:1px solid var(--line)}
+.pdrop .pi{display:flex;align-items:center;gap:11px;padding:11px 13px;cursor:pointer;
+  border-bottom:1px solid var(--line)}
+.pdrop .pi:hover{background:var(--surf2)}
+.pdrop .pi.on{background:var(--okbg)}
+.pdrop .pi .ck{width:16px;color:var(--ok);font-weight:800;flex-shrink:0}
+.pdrop .pi .nm{flex:1}
+.pdrop .pi .nm b{font-size:12.5px;display:block}
+.pdrop .pi .nm s{font-size:10.5px;color:var(--muted);text-decoration:none}
+.pdrop .pi .mini{display:flex;gap:4px;flex-shrink:0}
+.pdrop .pi .mini i{width:22px;height:20px;border-radius:4px;font-size:9.5px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;font-style:normal}
+.pdrop .allp{background:var(--brand);color:#fff}
+.pdrop .allp:hover{background:var(--brand2)}
+.pdrop .allp .nm b,.pdrop .allp .nm s{color:#fff}
+.pdrop .allp .nm s{color:#B9CFC2}
+.pdrop .sfoot{padding:10px 13px;font-size:11px;color:var(--muted);background:var(--surf2);cursor:pointer}
+.tbar .rt{margin-left:auto;display:flex;align-items:center;gap:12px}
+.tbar .bell{color:#B9CFC2;font-size:15px;position:relative;cursor:pointer}
+.tbar .bell b{position:absolute;top:-4px;right:-6px;background:var(--accent);color:#1A1206;
+  font-size:8.5px;padding:1px 4px;border-radius:8px}
+.tbar .usr{display:flex;align-items:center;gap:7px;color:#fff;font-size:12px;cursor:pointer}
+.tbar .usr .av{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#1A1206;
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+
+.body2{display:grid;grid-template-columns:190px 1fr}
+.sb{background:var(--brand2);padding:12px 0;min-height:488px}
+.nv a{display:flex;align-items:center;gap:9px;padding:10px 16px;font-size:12.5px;
+  color:#A9C2B8;text-decoration:none;border-left:3px solid transparent}
+.nv a .ic{width:17px;text-align:center;font-size:14px}
+.nv a.on{background:#0C2E26;border-left-color:var(--accent);color:#fff;font-weight:700}
+.mn{padding:18px 22px;overflow:hidden}
+.top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:15px;gap:12px;flex-wrap:wrap}
+.top h3{font-size:16px}.top .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+.btn{padding:8px 14px;border-radius:6px;border:none;background:var(--brand);color:#fff;
+  font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn.gh{background:transparent;border:1px solid var(--line);color:var(--ink2)}
+.btn.acc{background:var(--accent);color:#1A1206}
+.blocks{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:16px}
+.blk{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:15px;min-height:92px;
+  display:flex;flex-direction:column;justify-content:center;gap:3px}
+.blk .n{font-size:29px;font-weight:800;line-height:1;color:var(--brand)}
+body.dark .blk .n{color:var(--ok)}
+.blk .t{font-size:11.5px;color:var(--ink2);font-weight:600}
+.blk .d{font-size:10.5px;color:var(--muted)}
+.blk.w .n{color:var(--warn)}.blk.i .n{color:var(--info)}
+.blk.acc{background:var(--brand);border-color:var(--brand)}
+.blk.acc .n{color:#fff}.blk.acc .t,.blk.acc .d{color:#B9CFC2}
+.flr{display:flex;align-items:center;gap:10px;margin:15px 0 8px}
+.flr b{font-size:13px;color:var(--ink2)}.flr span{font-size:11px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:9px}
+.rm{aspect-ratio:1/.92;border-radius:9px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;cursor:pointer;border:1.5px solid;padding:6px;transition:.15s}
+.rm:hover{transform:translateY(-2px)}
+.rm .no{font-size:18px;font-weight:800;line-height:1}
+.rm .ic{font-size:15px}.rm .st{font-size:9.5px;font-weight:700;text-align:center;line-height:1.2}
+.rm.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.rm.run{background:var(--warnbg);border-color:var(--warn);color:var(--warn)}
+.rm.dty{background:var(--dirtybg);border-color:var(--dirty);color:var(--dirty)}
+.rm.ins{background:var(--infobg);border-color:var(--info);color:var(--info)}
+.rm.rwk{background:var(--dangerbg);border-color:var(--danger);color:var(--danger)}
+.rm.bk{background:var(--dirtybg);border-color:var(--dirty);color:var(--dirty);opacity:.6}
+.lgd{display:flex;gap:14px;flex-wrap:wrap;margin-top:13px;font-size:11px;color:var(--ink2)}
+.lgd i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:9px 11px;font-size:10.5px;font-weight:700;background:var(--surf2);
+  color:var(--ink2);border-bottom:1px solid var(--line)}
+td{padding:10px 11px;background:var(--surf);border-bottom:1px solid var(--line)}
+tr.clk td{cursor:pointer}tr.clk:hover td{background:var(--surf2)}
+.chip{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:700}
+.chip.ok{background:var(--okbg);color:var(--ok)}.chip.w{background:var(--warnbg);color:var(--warn)}
+.chip.i{background:var(--infobg);color:var(--info)}.chip.r{background:var(--dangerbg);color:var(--danger)}
+.chip.n{background:var(--dirtybg);color:var(--dirty)}
+.bar{height:6px;background:var(--dirtybg);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand)}
+body.dark .bar i{background:var(--ok)}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:15px;margin-top:13px}
+.card h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+  border-bottom:1px solid var(--line);font-size:12.5px}
+.row:last-child{border:0}.row b{font-variant-numeric:tabular-nums}
+.warnbox{background:var(--warnbg);border:1px solid var(--warn);border-radius:9px;padding:13px;margin-top:13px}
+.warnbox .h{font-size:12px;font-weight:800;color:var(--warn);margin-bottom:6px}
+.warnbox .l{font-size:11.5px;color:var(--ink2);padding:3px 0}
+.kan{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-top:11px}
+.kc{background:var(--surf2);border:1px solid var(--line);border-radius:9px;padding:11px}
+.kc h5{font-size:11px;color:var(--ink2);margin-bottom:9px;display:flex;justify-content:space-between;font-weight:700}
+.ki{background:var(--surf);border:1px solid var(--line);border-radius:7px;padding:9px 11px;
+  margin-bottom:6px;font-size:12px;cursor:grab;display:flex;justify-content:space-between;align-items:center}
+.ki b{font-size:14px}.ki span{font-size:10.5px;color:var(--muted)}
+.ki .pg{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:1px 5px;border-radius:4px;margin-left:5px}
+.staff{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px;margin-top:11px}
+.sc{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:12px}
+.sc .nm{font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.sc .fg{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--dirtybg);color:var(--dirty)}
+.sc .mt{font-size:10.5px;color:var(--muted);margin:4px 0 7px}
+.sc .cnt{font-size:19px;font-weight:800;color:var(--brand)}
+body.dark .sc .cnt{color:var(--ok)}
+.sect{font-size:11px;font-weight:800;color:var(--muted);margin:14px 0 7px;letter-spacing:.4px}
+.alertb{background:var(--dangerbg);border:1px solid var(--danger);border-radius:9px;padding:12px;margin-top:12px}
+.alertb .h{font-size:12px;font-weight:800;color:var(--danger);margin-bottom:6px}
+.alertb .l{font-size:11.5px;color:var(--ink2);padding:3px 0}
+
+/* phones */
+.phones{display:flex;gap:20px;flex-wrap:wrap}
+.ph{width:306px;border-radius:30px;padding:10px;background:var(--brand);
+  box-shadow:0 14px 46px rgba(0,0,0,.6);flex-shrink:0}
+.pscr{background:var(--bg);border-radius:22px;overflow:hidden;min-height:610px;
+  display:flex;flex-direction:column;color:var(--ink)}
+.pt{background:var(--brand);color:#fff;padding:12px 14px}
+.pt .a{font-size:13px;font-weight:700}.pt .b{font-size:10.5px;color:#B9CFC2;margin-top:2px}
+.pt .psw{display:flex;align-items:center;gap:6px;background:#0C2E26;border:1px solid #1D5044;
+  border-radius:7px;padding:6px 10px;margin-top:8px;font-size:11.5px;cursor:pointer}
+.pt .psw .ar{margin-left:auto;color:#8FAAA0;font-size:10px}
+.pbar{display:flex;gap:6px;padding:10px 12px 0}
+.pbar .p{flex:1;text-align:center;padding:7px 0;border-radius:7px;font-size:10.5px;font-weight:700;
+  background:var(--surf);border:1px solid var(--line);color:var(--ink2)}
+.pbar .p.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.pb{flex:1;padding:12px;overflow:auto}
+.pf{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.pf div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted)}
+.pf div .i{display:block;font-size:19px;margin-bottom:2px}
+.pf div.on{color:var(--brand);font-weight:700}
+body.dark .pf div.on{color:var(--ok)}
+/* 施設グループヘッダ（スマホ） */
+.pgh{display:flex;align-items:center;gap:8px;background:var(--brand);color:#fff;
+  border-radius:9px;padding:10px 12px;margin:4px 0 9px}
+.pgh .ic{font-size:15px}
+.pgh .nm{font-size:12.5px;font-weight:700;flex:1}
+.pgh .ct{font-size:11px;color:#B9CFC2}
+.pgh.next{background:var(--surf);color:var(--ink);border:1.5px dashed var(--line);margin-top:16px}
+.pgh.next .ct{color:var(--muted)}
+.tb{border-radius:13px;padding:14px;margin-bottom:10px;border:2px solid;background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.new{border-color:var(--line)}
+.tb.done{border-color:var(--ok);background:var(--okbg);opacity:.7}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px}
+.tb .no{font-size:32px;font-weight:800;line-height:1}
+.tb .tag{font-size:10px;font-weight:800;padding:4px 9px;border-radius:6px}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .meta{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:11px}
+.big{width:100%;padding:17px;border-radius:11px;border:none;font-size:16.5px;font-weight:800;
+  cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+  display:flex;align-items:center;justify-content:center;gap:8px}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}
+.big.gh{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:13px}
+.msel{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:13px;margin-bottom:10px;
+  display:flex;align-items:center;gap:12px;cursor:pointer}
+.msel.on{border-color:var(--brand);border-width:2px;background:var(--okbg)}
+.msel .ic{font-size:26px}
+.msel .nm{flex:1}
+.msel .nm b{font-size:14px;display:block}
+.msel .nm s{font-size:11px;color:var(--muted);text-decoration:none}
+.msel .ct{font-size:19px;font-weight:800;color:var(--brand)}
+body.dark .msel .ct{color:var(--ok)}
+@media(max-width:1100px){.body2{grid-template-columns:1fr}.sb{display:none}.blocks{grid-template-columns:repeat(2,1fr)}.kan{grid-template-columns:1fr}}
+.note{background:#111815;border:1px solid #1E2A25;border-radius:10px;padding:16px;
+  font-size:12.5px;color:#A8B5AE;margin-top:10px}
+.note b{color:var(--accent2)}
+.note h4{color:#E8EDE9;font-size:13px;margin:14px 0 7px}
+.note table{margin-top:10px;font-size:11.5px}
+.note th{background:#16211D;color:#8C9A93;border-color:#243029}
+.note td{background:#0E1613;color:#B4C0BA;border-color:#243029}
+.note code{background:#0A100D;padding:1px 5px;border-radius:3px;font-size:11px;color:var(--accent2)}
+</style>
+</head>
+<body>
+
+<div class="ctl">
+  <div class="logo">Proof<em>Keeping</em> v3</div>
+  <div class="grp"><span class="gl">ROLE</span>
+    <button class="gb on" data-r="hotel">🏨 ホテル/オーナー</button>
+    <button class="gb" data-r="vendor">🧹 清掃会社</button>
+    <button class="gb" data-r="staff">📱 清掃員</button>
+  </div>
+  <div class="grp"><span class="gl">LANG</span>
+    <button class="gb lang on" data-l="ja">日本語</button>
+    <button class="gb lang" data-l="en">EN</button>
+    <button class="gb lang" data-l="zh">简中</button>
+    <button class="gb lang" data-l="vi">VN</button>
+    <button class="gb lang" data-l="id">ID</button>
+    <button class="gb lang" data-l="my">MM</button>
+  </div>
+  <button class="dm" id="dm">🌙 ダーク</button>
+</div>
+
+<div class="page">
+
+<!-- ============= HOTEL / OWNER ============= -->
+<div class="role on" id="r-hotel">
+  <div class="rh"><h2 data-i="h_t">🏨 ホテル / オーナー</h2>
+  <p data-i="h_d">上部の施設セレクタで切替。オーナーは「全社サマリー」が既定。ドロップダウン内に各施設の状態を要約表示。</p></div>
+
+  <div class="lbl">PC — <span data-i="l_board">施設セレクタ ＋ 客室ボード</span>（<span data-i="l_click">セレクタをクリック</span> 👆）</div>
+  <div class="frame">
+    <div class="app">
+      <div class="tbar">
+        <div class="bl">Proof<em>Keeping</em></div>
+        <div class="psel">
+          <div class="pbtn" onclick="tg('d1')">
+            <span class="ic">🏨</span>
+            <span>サンプルホテル東京</span>
+            <span class="cnt">60<span data-i="rooms">室</span></span>
+            <span class="ar">▼</span>
+          </div>
+          <div class="pdrop" id="d1">
+            <div class="sh" data-i="dd_org">サンプル運営株式会社 · 3施設</div>
+            <div class="pi allp">
+              <span class="ck"></span>
+              <span class="nm"><b data-i="dd_all">📊 全社サマリー</b><s data-i="dd_all_s">3施設 120室を横断表示</s></span>
+            </div>
+            <div class="pi on">
+              <span class="ck">✓</span>
+              <span class="nm"><b>サンプルホテル東京</b><s>60室 · HTLA</s></span>
+              <span class="mini">
+                <i style="background:var(--okbg);color:var(--ok)">48</i>
+                <i style="background:var(--warnbg);color:var(--warn)">6</i>
+                <i style="background:var(--dirtybg);color:var(--dirty)">4</i>
+              </span>
+            </div>
+            <div class="pi">
+              <span class="ck"></span>
+              <span class="nm"><b>サンプルイン大阪</b><s>40室 · INOS</s></span>
+              <span class="mini">
+                <i style="background:var(--okbg);color:var(--ok)">31</i>
+                <i style="background:var(--warnbg);color:var(--warn)">5</i>
+                <i style="background:var(--dirtybg);color:var(--dirty)">4</i>
+              </span>
+            </div>
+            <div class="pi">
+              <span class="ck"></span>
+              <span class="nm"><b>サンプル旅館京都</b><s>20室 · RYKY</s></span>
+              <span class="mini">
+                <i style="background:var(--okbg);color:var(--ok)">12</i>
+                <i style="background:var(--warnbg);color:var(--warn)">3</i>
+                <i style="background:var(--dangerbg);color:var(--danger)">2</i>
+              </span>
+            </div>
+            <div class="sfoot">⚙️ <span data-i="dd_manage">施設を追加・編集する</span></div>
+          </div>
+        </div>
+        <div class="rt">
+          <div class="bell">🔔<b>2</b></div>
+          <div class="usr"><span class="av">田</span><span>田中 ▾</span></div>
+        </div>
+      </div>
+      <div class="body2">
+        <div class="sb"><div class="nv">
+          <a><span class="ic">📊</span><span data-i="n_dash">ダッシュボード</span></a>
+          <a class="on"><span class="ic">🏨</span><span data-i="n_board">客室ボード</span></a>
+          <a><span class="ic">✅</span><span data-i="n_res">清掃実績</span></a>
+          <a><span class="ic">🔍</span><span data-i="n_rec">稼働照合</span></a>
+          <a><span class="ic">📁</span><span data-i="n_ev">証跡</span></a>
+          <a><span class="ic">💰</span><span data-i="n_bill">請求・領収</span></a>
+          <a><span class="ic">🛏</span><span data-i="n_master">客室マスタ</span></a>
+          <a><span class="ic">⚙️</span><span data-i="n_set">設定</span></a>
+        </div></div>
+        <div class="mn">
+          <div class="top">
+            <div><h3>サンプルホテル東京</h3><div class="s">2026/08/10 14:23 · 60<span data-i="rooms">室</span></div></div>
+            <div style="display:flex;gap:8px"><button class="btn gh" data-i="b_report">日報</button><button class="btn" data-i="b_refresh">更新</button></div>
+          </div>
+          <div class="blocks">
+            <div class="blk"><div class="n">48</div><div class="t" data-i="k_ready">清掃済（販売可）</div><div class="d">80%</div></div>
+            <div class="blk w"><div class="n">6</div><div class="t" data-i="k_run">作業中</div><div class="d">18<span data-i="min">分</span></div></div>
+            <div class="blk i"><div class="n">3</div><div class="t" data-i="k_insp">検査待ち</div><div class="d">SLA 20<span data-i="min">分</span></div></div>
+            <div class="blk acc"><div class="n">2</div><div class="t" data-i="k_find">要確認項目</div><div class="d" data-i="k_find_d">確認をおすすめします</div></div>
+          </div>
+          <div class="flr"><b>3F</b><span>8<span data-i="rooms">室</span></span></div>
+          <div class="grid">
+            <div class="rm ok"><div class="no">301</div><div class="ic">✓</div><div class="st" data-i="s_ready">清掃済</div></div>
+            <div class="rm run"><div class="no">302</div><div class="ic">⟳</div><div class="st">18<span data-i="min">分</span></div></div>
+            <div class="rm dty"><div class="no">303</div><div class="ic">—</div><div class="st" data-i="s_dirty">未清掃</div></div>
+            <div class="rm ok"><div class="no">305</div><div class="ic">✓</div><div class="st" data-i="s_ready">清掃済</div></div>
+            <div class="rm ins"><div class="no">306</div><div class="ic">👁</div><div class="st" data-i="s_insp">検査待</div></div>
+            <div class="rm bk"><div class="no">307</div><div class="ic">🚫</div><div class="st">DND</div></div>
+            <div class="rm ok"><div class="no">308</div><div class="ic">✓</div><div class="st" data-i="s_ready">清掃済</div></div>
+            <div class="rm rwk"><div class="no">309</div><div class="ic">↺</div><div class="st" data-i="s_rework">再清掃</div></div>
+          </div>
+          <div class="flr"><b>4F</b><span>6<span data-i="rooms">室</span></span></div>
+          <div class="grid">
+            <div class="rm ok"><div class="no">401</div><div class="ic">✓</div><div class="st" data-i="s_ready">清掃済</div></div>
+            <div class="rm ok"><div class="no">402</div><div class="ic">✓</div><div class="st" data-i="s_ready">清掃済</div></div>
+            <div class="rm run"><div class="no">403</div><div class="ic">⟳</div><div class="st">7<span data-i="min">分</span></div></div>
+            <div class="rm dty"><div class="no">405</div><div class="ic">—</div><div class="st" data-i="s_dirty">未清掃</div></div>
+            <div class="rm ins"><div class="no">406</div><div class="ic">👁</div><div class="st" data-i="s_insp">検査待</div></div>
+            <div class="rm ok"><div class="no">407</div><div class="ic">✓</div><div class="st" data-i="s_ready">清掃済</div></div>
+          </div>
+          <div class="lgd">
+            <span><i style="background:var(--okbg);border:1px solid var(--ok)"></i><span data-i="s_ready">清掃済</span></span>
+            <span><i style="background:var(--warnbg);border:1px solid var(--warn)"></i><span data-i="k_run">作業中</span></span>
+            <span><i style="background:var(--dirtybg);border:1px solid var(--dirty)"></i><span data-i="s_dirty">未清掃</span></span>
+            <span><i style="background:var(--infobg);border:1px solid var(--info)"></i><span data-i="s_insp">検査待</span></span>
+            <span><i style="background:var(--dangerbg);border:1px solid var(--danger)"></i><span data-i="s_rework">再清掃</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lbl">PC — <span data-i="l_all">全社サマリー</span>（<span data-i="l_owner">オーナー既定画面</span>）</div>
+  <div class="frame">
+    <div class="app">
+      <div class="tbar">
+        <div class="bl">Proof<em>Keeping</em></div>
+        <div class="psel"><div class="pbtn" onclick="tg('d2')">
+          <span class="ic">📊</span><span data-i="dd_all2">全社サマリー</span>
+          <span class="cnt">3<span data-i="props">施設</span></span><span class="ar">▼</span></div>
+          <div class="pdrop" id="d2">
+            <div class="sh" data-i="dd_org">サンプル運営株式会社 · 3施設</div>
+            <div class="pi allp on"><span class="ck">✓</span>
+              <span class="nm"><b data-i="dd_all">📊 全社サマリー</b><s data-i="dd_all_s">3施設 120室を横断表示</s></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>サンプルホテル東京</b><s>60室</s></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>サンプルイン大阪</b><s>40室</s></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>サンプル旅館京都</b><s>20室</s></span></div>
+            <div class="sfoot">⚙️ <span data-i="dd_manage">施設を追加・編集する</span></div>
+          </div>
+        </div>
+        <div class="rt"><div class="bell">🔔<b>3</b></div><div class="usr"><span class="av">山</span><span>山田 ▾</span></div></div>
+      </div>
+      <div class="body2">
+        <div class="sb"><div class="nv">
+          <a class="on"><span class="ic">📊</span><span data-i="n_dash">ダッシュボード</span></a>
+          <a><span class="ic">🏨</span><span data-i="n_props">施設一覧</span></a>
+          <a><span class="ic">🔍</span><span data-i="n_rec">稼働照合</span></a>
+          <a><span class="ic">📁</span><span data-i="n_ev">証跡</span></a>
+          <a><span class="ic">💰</span><span data-i="n_cost">費用</span></a>
+          <a><span class="ic">📈</span><span data-i="n_rep">レポート</span></a>
+        </div></div>
+        <div class="mn">
+          <div class="top"><div><h3 data-i="o_h">全社サマリー — 2026年8月</h3>
+          <div class="s">3<span data-i="props">施設</span> · 120<span data-i="rooms">室</span> · 2,847<span data-i="cnt">件</span></div></div></div>
+          <div class="blocks">
+            <div class="blk"><div class="n">98.2%</div><div class="t" data-i="kp_done">清掃完了率</div></div>
+            <div class="blk"><div class="n">91.4%</div><div class="t" data-i="kp_pass">初回合格率</div></div>
+            <div class="blk w"><div class="n">8.6%</div><div class="t" data-i="kp_rwk">再清掃率</div></div>
+            <div class="blk acc"><div class="n">¥2,894</div><div class="t" data-i="kp_cost">1室あたり原価</div></div>
+          </div>
+          <table>
+            <tr><th data-i="th_prop">施設</th><th data-i="th_room">室数</th><th data-i="s_ready">清掃済</th>
+            <th data-i="k_run">作業中</th><th data-i="kp_done">完了率</th><th data-i="kp_cost">1室原価</th><th data-i="k_find">要確認</th><th></th></tr>
+            <tr class="clk"><td><b>サンプルホテル東京</b></td><td>60</td><td>48</td><td>6</td><td>99.1%</td><td>¥2,780</td>
+            <td><span class="chip n">0</span></td><td style="text-align:right;color:var(--muted)">→</td></tr>
+            <tr class="clk"><td><b>サンプルイン大阪</b></td><td>40</td><td>31</td><td>5</td><td>97.8%</td><td>¥2,950</td>
+            <td><span class="chip w">2</span></td><td style="text-align:right;color:var(--muted)">→</td></tr>
+            <tr class="clk"><td><b>サンプル旅館京都</b></td><td>20</td><td>12</td><td>3</td><td>96.9%</td><td>¥3,120</td>
+            <td><span class="chip n">0</span></td><td style="text-align:right;color:var(--muted)">→</td></tr>
+          </table>
+          <div class="card"><h4 data-i="o_act">対応が必要な項目</h4>
+            <div class="row"><span data-i="o_a1">差異レポート 未対応</span><b>2<span data-i="cnt">件</span></b></div>
+            <div class="row"><span data-i="o_a2">未解決の設備不具合</span><b>5<span data-i="cnt">件</span></b></div>
+            <div class="row"><span data-i="o_a3">保管期限が近い忘れ物</span><b>3<span data-i="cnt">件</span></b></div>
+            <div class="row"><span data-i="o_a4">未締めの請求期間</span><b>1<span data-i="cnt">件</span></b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lbl">PC — <span data-i="n_master">客室マスタ</span>（<span data-i="l_two">方式A 自主維護 / 方式B PMS連携</span>）</div>
+  <div class="frame">
+    <div class="app">
+      <div class="tbar">
+        <div class="bl">Proof<em>Keeping</em></div>
+        <div class="psel"><div class="pbtn" onclick="tg('d3')">
+          <span class="ic">🏨</span><span>サンプルホテル東京</span>
+          <span class="cnt">60<span data-i="rooms">室</span></span><span class="ar">▼</span></div>
+          <div class="pdrop" id="d3">
+            <div class="sh" data-i="dd_org">サンプル運営株式会社 · 3施設</div>
+            <div class="pi allp"><span class="ck"></span><span class="nm"><b data-i="dd_all">📊 全社サマリー</b></span></div>
+            <div class="pi on"><span class="ck">✓</span><span class="nm"><b>サンプルホテル東京</b><s>60室</s></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>サンプルイン大阪</b><s>40室</s></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>サンプル旅館京都</b><s>20室</s></span></div>
+          </div>
+        </div>
+        <div class="rt"><div class="usr"><span class="av">田</span><span>田中 ▾</span></div></div>
+      </div>
+      <div class="body2">
+        <div class="sb"><div class="nv">
+          <a><span class="ic">📊</span><span data-i="n_dash">ダッシュボード</span></a>
+          <a><span class="ic">🏨</span><span data-i="n_board">客室ボード</span></a>
+          <a class="on"><span class="ic">🛏</span><span data-i="n_master">客室マスタ</span></a>
+          <a><span class="ic">🔗</span><span data-i="n_int">外部連携</span></a>
+          <a><span class="ic">⚙️</span><span data-i="n_set">設定</span></a>
+        </div></div>
+        <div class="mn">
+          <div class="top"><div><h3 data-i="m_h">客室マスタ</h3><div class="s" data-i="m_s">60室 · 3タイプ · 5フロア</div></div>
+          <div style="display:flex;gap:8px"><button class="btn gh" data-i="m_csv">CSV取込</button><button class="btn" data-i="m_bulk">一括登録</button></div></div>
+
+          <div class="card" style="margin-top:0">
+            <h4>🅰 <span data-i="m_a">方式A — 自主維護（既定・P0から利用可）</span></h4>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0">
+              <div><div style="font-size:10.5px;color:var(--muted);margin-bottom:4px" data-i="m_type">客室タイプ</div>
+                <div style="background:var(--surf2);border:1px solid var(--line);border-radius:7px;padding:9px 11px;font-size:12.5px">シングル ▾</div></div>
+              <div><div style="font-size:10.5px;color:var(--muted);margin-bottom:4px" data-i="m_range">部屋番号（範囲）</div>
+                <div style="background:var(--surf2);border:1px solid var(--line);border-radius:7px;padding:9px 11px;font-size:12.5px">301 - 320</div></div>
+              <div><div style="font-size:10.5px;color:var(--muted);margin-bottom:4px" data-i="m_floor">フロア</div>
+                <div style="background:var(--surf2);border:1px solid var(--line);border-radius:7px;padding:9px 11px;font-size:12.5px">3F ▾</div></div>
+              <div style="display:flex;align-items:flex-end"><button class="btn" style="width:100%">＋ 20<span data-i="m_add">室を追加</span></button></div>
+            </div>
+            <div style="font-size:11.5px;color:var(--muted)" data-i="m_a_note">外部システムに依存せず、導入初日から利用できます。100室を3分以内で登録可能。</div>
+          </div>
+
+          <div class="card">
+            <h4>🅱 <span data-i="m_b">方式B — PMS連携（P6以降・オプション）</span></h4>
+            <div class="row"><span>○○PMS</span><span><span class="chip ok" data-i="m_conn">接続中</span> <span style="font-size:11px;color:var(--muted)">最終同期 08/10 01:02</span></span></div>
+            <div style="background:var(--infobg);border:1px solid var(--info);border-radius:8px;padding:12px;margin-top:11px">
+              <div style="font-size:11.5px;font-weight:700;color:var(--info);margin-bottom:7px">ℹ <span data-i="m_diff">PMSとの差分 2件</span></div>
+              <div style="font-size:11.5px;padding:3px 0">＋ 601, 602 <span style="color:var(--muted)" data-i="m_diff_add">が PMS に追加されています</span></div>
+              <div style="display:flex;gap:8px;margin-top:9px">
+                <button class="btn" style="padding:6px 12px" data-i="m_apply">差分を反映</button>
+                <button class="btn gh" style="padding:6px 12px" data-i="m_ignore">今回は無視</button>
+              </div>
+            </div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:11px" data-i="m_b_note">自動上書きはしません。差分を提示し、承認された分だけ反映します。清掃専用の部屋（休憩室・備品庫）はProofKeeping側でのみ管理できます。</div>
+          </div>
+
+          <table style="margin-top:13px">
+            <tr><th data-i="th_room2">部屋番号</th><th data-i="m_type">タイプ</th><th data-i="m_floor">フロア</th>
+            <th data-i="m_bed">ベッド</th><th data-i="m_cap">定員</th><th data-i="m_src">登録元</th><th data-i="m_status">状態</th></tr>
+            <tr><td><b>301</b></td><td>シングル</td><td>3F</td><td>1</td><td>1</td><td><span class="chip n" data-i="m_manual">手動</span></td><td><span class="chip ok" data-i="m_active">有効</span></td></tr>
+            <tr><td><b>302</b></td><td>ツイン</td><td>3F</td><td>2</td><td>2</td><td><span class="chip i">PMS</span></td><td><span class="chip ok" data-i="m_active">有効</span></td></tr>
+            <tr><td><b>307</b></td><td>ツイン</td><td>3F</td><td>2</td><td>2</td><td><span class="chip i">PMS</span></td><td><span class="chip w" data-i="m_maint">修理中</span></td></tr>
+            <tr><td><b>B01</b></td><td data-i="m_pantry">パントリー</td><td>B1</td><td>—</td><td>—</td><td><span class="chip n" data-i="m_manual">手動</span></td><td><span class="chip ok" data-i="m_active">有効</span></td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============= VENDOR ============= -->
+<div class="role" id="r-vendor">
+  <div class="rh"><h2 data-i="v_t">🧹 清掃会社</h2>
+  <p data-i="v_d">受託12施設を横断。全施設ビューと個別施設ビューを切替。スタッフ台帳・在留資格期限・リネン在庫も管理。</p></div>
+
+  <div class="lbl">PC — <span data-i="v_l1">全受託施設ビュー ＋ 配分カンバン</span></div>
+  <div class="frame">
+    <div class="app">
+      <div class="tbar">
+        <div class="bl">Proof<em>Keeping</em></div>
+        <div class="psel"><div class="pbtn" onclick="tg('d4')">
+          <span class="ic">🏢</span><span data-i="v_allp">全受託施設</span>
+          <span class="cnt">12<span data-i="props">施設</span></span><span class="ar">▼</span></div>
+          <div class="pdrop" id="d4">
+            <div class="sh" data-i="v_org">サンプル清掃株式会社 · 受託12施設</div>
+            <div class="pi allp on"><span class="ck">✓</span>
+              <span class="nm"><b data-i="v_allp2">🏢 全受託施設</b><s data-i="v_allp_s">12施設 318室を横断表示</s></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>サンプルホテル東京</b><s>60室 · 田中他3名</s></span>
+              <span class="mini"><i style="background:var(--okbg);color:var(--ok)">48</i><i style="background:var(--warnbg);color:var(--warn)">6</i></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>サンプルイン大阪</b><s>40室 · 佐藤他2名</s></span>
+              <span class="mini"><i style="background:var(--okbg);color:var(--ok)">31</i><i style="background:var(--warnbg);color:var(--warn)">5</i></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>ビジネスH横浜</b><s>52室 · Sari他3名</s></span>
+              <span class="mini"><i style="background:var(--okbg);color:var(--ok)">44</i><i style="background:var(--dangerbg);color:var(--danger)">3</i></span></div>
+            <div class="sfoot">… <span data-i="v_more">他9施設を表示</span></div>
+          </div>
+        </div>
+        <div class="rt"><div class="bell">🔔<b>5</b></div><div class="usr"><span class="av">鈴</span><span>鈴木 ▾</span></div></div>
+      </div>
+      <div class="body2">
+        <div class="sb"><div class="nv">
+          <a class="on"><span class="ic">📋</span><span data-i="v_n1">今日の業務</span></a>
+          <a><span class="ic">👥</span><span data-i="v_n2">スタッフ台帳</span></a>
+          <a><span class="ic">📅</span><span data-i="v_n3">シフト</span></a>
+          <a><span class="ic">🏨</span><span data-i="v_n4">施設別進捗</span></a>
+          <a><span class="ic">👁</span><span data-i="v_n5">検査・再清掃</span></a>
+          <a><span class="ic">🧺</span><span data-i="v_n6">リネン・備品</span></a>
+          <a><span class="ic">🧾</span><span data-i="v_n7">月次明細</span></a>
+          <a><span class="ic">💰</span><span data-i="v_n8">請求・入金</span></a>
+        </div></div>
+        <div class="mn">
+          <div class="top"><div><h3 data-i="v_n1">今日の業務</h3>
+          <div class="s">2026/08/10 · 12<span data-i="props">施設</span> · 318<span data-i="rooms">室</span> · 34<span data-i="ppl">名</span></div></div>
+          <button class="btn acc" data-i="v_auto">自動配分</button></div>
+          <div class="blocks">
+            <div class="blk"><div class="n">318</div><div class="t" data-i="v_k1">本日の総室数</div><div class="d">284 <span data-i="s_done">完了</span></div></div>
+            <div class="blk w"><div class="n">8</div><div class="t" data-i="v_k2">未割当</div><div class="d" data-i="v_k2d">配分が必要</div></div>
+            <div class="blk w"><div class="n">3</div><div class="t" data-i="v_k3">遅延</div><div class="d">SLA <span data-i="over">超過</span></div></div>
+            <div class="blk i"><div class="n">2</div><div class="t" data-i="s_rework">再清掃</div><div class="d">14:30 <span data-i="due">期限</span></div></div>
+          </div>
+          <div class="kan">
+            <div class="kc"><h5><span data-i="v_k2">未割当</span><span>8</span></h5>
+              <div class="ki"><span><b>601</b><span class="pg">東京</span></span><span>40<span data-i="min">分</span></span></div>
+              <div class="ki"><span><b>602</b><span class="pg">東京</span></span><span>40<span data-i="min">分</span></span></div>
+              <div class="ki"><span><b>205</b><span class="pg">大阪</span></span><span>30<span data-i="min">分</span></span></div>
+            </div>
+            <div class="kc"><h5><span data-i="k_run">作業中</span><span>26</span></h5>
+              <div class="ki"><span><b>305</b><span class="pg">東京</span></span><span>Nguyen 12<span data-i="min">分</span></span></div>
+              <div class="ki"><span><b>403</b><span class="pg">東京</span></span><span>田中 7<span data-i="min">分</span></span></div>
+              <div class="ki"><span><b>208</b><span class="pg">横浜</span></span><span>Sari 21<span data-i="min">分</span></span></div>
+            </div>
+            <div class="kc"><h5><span data-i="s_done">完了</span><span>284</span></h5>
+              <div class="ki"><span><b>301</b><span class="pg">東京</span></span><span data-i="v_inspok">検査済</span></div>
+              <div class="ki"><span><b>302</b><span class="pg">東京</span></span><span data-i="v_inspok">検査済</span></div>
+              <div class="ki"><span><b>112</b><span class="pg">大阪</span></span><span data-i="s_insp">検査待</span></div>
+            </div>
+          </div>
+          <div class="sect" data-i="v_staff">スタッフ稼働状況</div>
+          <div class="staff">
+            <div class="sc"><div class="nm">田中 <span class="fg">08</span></div><div class="mt">東京 · 3F</div><div class="cnt">8 / 12</div><div class="bar" style="margin-top:6px"><i style="width:67%"></i></div></div>
+            <div class="sc"><div class="nm">Nguyen <span class="fg">11</span></div><div class="mt">東京 · 4F</div><div class="cnt">6 / 10</div><div class="bar" style="margin-top:6px"><i style="width:60%"></i></div></div>
+            <div class="sc"><div class="nm">Sari <span class="fg">14</span></div><div class="mt">横浜 · 2F</div><div class="cnt">9 / 11</div><div class="bar" style="margin-top:6px"><i style="width:82%"></i></div></div>
+            <div class="sc"><div class="nm">Aung <span class="fg">17</span></div><div class="mt">大阪 · 3F</div><div class="cnt">7 / 9</div><div class="bar" style="margin-top:6px"><i style="width:78%"></i></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lbl">PC — <span data-i="v_n2">スタッフ台帳</span>（<span data-i="v_wf">Workforce モジュール</span>）</div>
+  <div class="frame">
+    <div class="app">
+      <div class="tbar">
+        <div class="bl">Proof<em>Keeping</em></div>
+        <div class="psel"><div class="pbtn" onclick="tg('d5')">
+          <span class="ic">🏢</span><span data-i="v_allp">全受託施設</span><span class="cnt">34<span data-i="ppl">名</span></span><span class="ar">▼</span></div>
+          <div class="pdrop" id="d5">
+            <div class="sh" data-i="v_org">サンプル清掃株式会社</div>
+            <div class="pi allp on"><span class="ck">✓</span><span class="nm"><b data-i="v_allp2">🏢 全受託施設</b><s>34名</s></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>サンプルホテル東京</b><s>4名</s></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>サンプルイン大阪</b><s>3名</s></span></div>
+          </div>
+        </div>
+        <div class="rt"><div class="usr"><span class="av">鈴</span><span>鈴木 ▾</span></div></div>
+      </div>
+      <div class="body2">
+        <div class="sb"><div class="nv">
+          <a><span class="ic">📋</span><span data-i="v_n1">今日の業務</span></a>
+          <a class="on"><span class="ic">👥</span><span data-i="v_n2">スタッフ台帳</span></a>
+          <a><span class="ic">📅</span><span data-i="v_n3">シフト</span></a>
+          <a><span class="ic">🧺</span><span data-i="v_n6">リネン・備品</span></a>
+          <a><span class="ic">💰</span><span data-i="v_n8">請求・入金</span></a>
+        </div></div>
+        <div class="mn">
+          <div class="top"><div><h3 data-i="v_n2">スタッフ台帳</h3><div class="s">34<span data-i="ppl">名</span> · <span data-i="v_active">在籍</span>32 / <span data-i="v_leave">休職</span>2</div></div>
+          <button class="btn" data-i="v_addstaff">＋ スタッフ登録</button></div>
+
+          <div class="alertb">
+            <div class="h">⚠ <span data-i="v_visa">在留資格の期限が近いスタッフ 2名</span></div>
+            <div class="l">Nguyen (11) · <span data-i="v_visa_t">特定技能1号</span> · 2026/11/30 <span data-i="v_visa_left">まで（残り112日）</span></div>
+            <div class="l">Aung (17) · <span data-i="v_visa_t">特定技能1号</span> · 2027/02/15 <span data-i="v_visa_left2">まで（残り189日）</span></div>
+          </div>
+
+          <table style="margin-top:13px">
+            <tr><th data-i="v_no">番号</th><th data-i="v_name">氏名</th><th data-i="v_emp">雇用形態</th>
+            <th data-i="v_lang">対応言語</th><th data-i="v_skill">対応作業</th><th data-i="v_rate">単価</th>
+            <th data-i="v_visa2">在留資格</th><th data-i="v_props2">担当施設</th></tr>
+            <tr class="clk"><td><b>08</b></td><td>田中 花子</td><td><span class="chip n" data-i="v_part">パート</span></td>
+            <td>🇯🇵</td><td data-i="v_sk_all">全作業</td><td>¥1,250/h</td><td>—</td><td>東京</td></tr>
+            <tr class="clk"><td><b>11</b></td><td>Nguyen Thi Mai</td><td><span class="chip ok" data-i="v_full">正社員</span></td>
+            <td>🇻🇳 🇯🇵</td><td data-i="v_sk_out">アウト・滞在</td><td>¥1,320/h</td>
+            <td><span class="chip w">2026/11/30</span></td><td>東京</td></tr>
+            <tr class="clk"><td><b>14</b></td><td>Sari Dewi</td><td><span class="chip ok" data-i="v_full">正社員</span></td>
+            <td>🇮🇩 🇯🇵 🇬🇧</td><td data-i="v_sk_all">全作業</td><td>¥1,380/h</td>
+            <td><span class="chip ok">2028/04/10</span></td><td data-i="v_multi">横浜・大阪</td></tr>
+            <tr class="clk"><td><b>17</b></td><td>Aung Myat</td><td><span class="chip n" data-i="v_part">パート</span></td>
+            <td>🇲🇲 🇯🇵</td><td data-i="v_sk_out">アウト・滞在</td><td>¥1,200/h</td>
+            <td><span class="chip w">2027/02/15</span></td><td>大阪</td></tr>
+          </table>
+
+          <div class="card"><h4 data-i="v_shift">週間シフト（8/10 - 8/16）</h4>
+            <table><tr><th></th><th data-i="d_mon">月</th><th data-i="d_tue">火</th><th data-i="d_wed">水</th>
+            <th data-i="d_thu">木</th><th data-i="d_fri">金</th><th data-i="d_sat">土</th><th data-i="d_sun">日</th></tr>
+            <tr><td><b>田中 (08)</b></td><td>東京</td><td>東京</td><td data-i="d_off">休</td><td>東京</td><td>東京</td><td>東京</td><td data-i="d_off">休</td></tr>
+            <tr><td><b>Nguyen (11)</b></td><td>東京</td><td>横浜</td><td>横浜</td><td data-i="d_off">休</td><td>東京</td><td>東京</td><td>東京</td></tr>
+            <tr><td><b>Sari (14)</b></td><td>横浜</td><td>横浜</td><td>大阪</td><td>大阪</td><td data-i="d_off">休</td><td>横浜</td><td>横浜</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lbl">PC — <span data-i="v_n6">リネン・備品在庫</span>（<span data-i="v_inv">Inventory モジュール</span>）</div>
+  <div class="frame">
+    <div class="app">
+      <div class="tbar">
+        <div class="bl">Proof<em>Keeping</em></div>
+        <div class="psel"><div class="pbtn" onclick="tg('d6')">
+          <span class="ic">🏨</span><span>サンプルホテル東京</span><span class="cnt">60<span data-i="rooms">室</span></span><span class="ar">▼</span></div>
+          <div class="pdrop" id="d6">
+            <div class="sh" data-i="v_org">サンプル清掃株式会社 · 受託12施設</div>
+            <div class="pi allp"><span class="ck"></span><span class="nm"><b data-i="v_allp2">🏢 全受託施設</b></span></div>
+            <div class="pi on"><span class="ck">✓</span><span class="nm"><b>サンプルホテル東京</b><s>60室</s></span></div>
+            <div class="pi"><span class="ck"></span><span class="nm"><b>サンプルイン大阪</b><s>40室</s></span></div>
+          </div>
+        </div>
+        <div class="rt"><div class="usr"><span class="av">鈴</span><span>鈴木 ▾</span></div></div>
+      </div>
+      <div class="body2">
+        <div class="sb"><div class="nv">
+          <a><span class="ic">📋</span><span data-i="v_n1">今日の業務</span></a>
+          <a><span class="ic">👥</span><span data-i="v_n2">スタッフ台帳</span></a>
+          <a class="on"><span class="ic">🧺</span><span data-i="v_n6">リネン・備品</span></a>
+          <a><span class="ic">💰</span><span data-i="v_n8">請求・入金</span></a>
+        </div></div>
+        <div class="mn">
+          <div class="top"><div><h3 data-i="v_linen">リネン在庫 — サンプルホテル東京</h3>
+          <div class="s" data-i="v_linen_s">4セット運用（使用中・洗濯中・予備・緊急予備）</div></div>
+          <div style="display:flex;gap:8px"><button class="btn gh" data-i="v_stock">棚卸を記録</button><button class="btn" data-i="v_order">発注する</button></div></div>
+
+          <div class="alertb">
+            <div class="h">⚠ <span data-i="v_low">発注点を下回っている品目 2件</span></div>
+            <div class="l" data-i="v_low1">バスタオル · 予備 18枚（発注点 30枚）</div>
+            <div class="l" data-i="v_low2">歯ブラシ · 在庫 42本（発注点 60本）</div>
+          </div>
+
+          <table style="margin-top:13px">
+            <tr><th data-i="v_item">品目</th><th data-i="v_total">総保有</th><th data-i="v_inuse">使用中</th>
+            <th data-i="v_wash">洗濯中</th><th data-i="v_spare">予備</th><th data-i="v_emer">緊急予備</th>
+            <th data-i="v_point">発注点</th><th data-i="v_state">状態</th></tr>
+            <tr><td data-i="li_sheet">シーツ</td><td>240</td><td>96</td><td>72</td><td>48</td><td>24</td><td>40</td><td><span class="chip ok" data-i="v_ok">適正</span></td></tr>
+            <tr><td data-i="li_duvet">デュベカバー</td><td>240</td><td>96</td><td>78</td><td>42</td><td>24</td><td>40</td><td><span class="chip ok" data-i="v_ok">適正</span></td></tr>
+            <tr><td data-i="li_pillow">枕カバー</td><td>480</td><td>192</td><td>144</td><td>96</td><td>48</td><td>80</td><td><span class="chip ok" data-i="v_ok">適正</span></td></tr>
+            <tr><td data-i="li_bath">バスタオル</td><td>300</td><td>120</td><td>114</td><td><b style="color:var(--warn)">18</b></td><td>48</td><td>30</td><td><span class="chip w" data-i="v_need">発注</span></td></tr>
+            <tr><td data-i="li_mat">バスマット</td><td>180</td><td>60</td><td>54</td><td>42</td><td>24</td><td>30</td><td><span class="chip ok" data-i="v_ok">適正</span></td></tr>
+          </table>
+
+          <div class="card"><h4 data-i="v_amen">消耗品・アメニティ</h4>
+            <table><tr><th data-i="v_item">品目</th><th data-i="v_loc">定位置</th><th data-i="v_stockn">在庫</th>
+            <th data-i="v_proper">適正数</th><th data-i="v_point">発注点</th><th data-i="v_daily">日次消費</th><th data-i="v_state">状態</th></tr>
+            <tr><td data-i="am_tb">歯ブラシ</td><td>3Fパントリー</td><td><b style="color:var(--warn)">42</b></td><td>200</td><td>60</td><td>38</td><td><span class="chip w" data-i="v_need">発注</span></td></tr>
+            <tr><td data-i="am_sh">シャンプー類</td><td>3Fパントリー</td><td>186</td><td>240</td><td>80</td><td>41</td><td><span class="chip ok" data-i="v_ok">適正</span></td></tr>
+            <tr><td data-i="am_sl">スリッパ</td><td data-i="v_central">中央倉庫</td><td>320</td><td>400</td><td>120</td><td>44</td><td><span class="chip ok" data-i="v_ok">適正</span></td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============= STAFF ============= -->
+<div class="role" id="r-staff">
+  <div class="rh"><h2 data-i="s_t">📱 清掃員（複数施設対応）</h2>
+  <p data-i="s_d">1日で2〜3施設を回るケースに対応。「切替」させず、施設ごとにグループ化して1画面に表示。</p></div>
+
+  <div class="phones">
+    <div>
+      <div class="lbl">1. <span data-i="sp_1">施設グループ表示（推奨）</span></div>
+      <div class="ph"><div class="pscr">
+        <div class="pt"><div class="a" data-i="sp_today">本日のタスク 19件</div>
+          <div class="b">8/10(月) · Nguyen (11)</div>
+          <div class="psw"><span>🏢</span><span data-i="sp_2props">2施設を担当</span><span class="ar">▼</span></div></div>
+        <div class="pbar"><div class="p on"><span data-i="all">すべて</span> 19</div>
+          <div class="p"><span data-i="s_todo">未着手</span> 6</div><div class="p"><span data-i="s_done">完了</span> 12</div></div>
+        <div class="pb">
+          <div class="pgh"><span class="ic">🏨</span><span class="nm">サンプルホテル東京</span><span class="ct">12<span data-i="cnt">件</span></span></div>
+          <div class="tb run">
+            <div class="r1"><div class="no">305</div><div class="tag" style="background:var(--warn);color:#fff">⟳ 12<span data-i="min">分</span></div></div>
+            <div class="ty"><span data-i="ty_stay">滞在清掃</span> · 3F</div>
+            <button class="big w"><span data-i="sp_resume">続きから</span> →</button>
+          </div>
+          <div class="tb new">
+            <div class="r1"><div class="no">302</div><div class="tag" style="background:var(--dirtybg);color:var(--dirty)"><span data-i="s_todo">未着手</span></div></div>
+            <div class="ty"><span data-i="ty_out">アウト清掃</span> · 3F · 40<span data-i="min">分</span></div>
+            <button class="big">▶ <span data-i="sp_start">開始する</span></button>
+          </div>
+          <div class="pgh next"><span class="ic">🚃</span><span class="nm" data-i="sp_move">移動 · 約25分</span><span class="ct">14:30 →</span></div>
+          <div class="pgh"><span class="ic">🏨</span><span class="nm">ビジネスH横浜</span><span class="ct">7<span data-i="cnt">件</span></span></div>
+          <div class="tb new">
+            <div class="r1"><div class="no">208</div><div class="tag" style="background:var(--dirtybg);color:var(--dirty)"><span data-i="s_todo">未着手</span></div></div>
+            <div class="ty"><span data-i="ty_out">アウト清掃</span> · 2F · 35<span data-i="min">分</span></div>
+            <button class="big">▶ <span data-i="sp_start">開始する</span></button>
+          </div>
+          <div class="tb new">
+            <div class="r1"><div class="no">209</div><div class="tag" style="background:var(--dirtybg);color:var(--dirty)"><span data-i="s_todo">未着手</span></div></div>
+            <div class="ty"><span data-i="ty_out">アウト清掃</span> · 2F · 35<span data-i="min">分</span></div>
+            <button class="big">▶ <span data-i="sp_start">開始する</span></button>
+          </div>
+        </div>
+        <div class="pf"><div class="on"><span class="i">📋</span><span data-i="tab_task">タスク</span></div>
+          <div><span class="i">👁</span><span data-i="tab_insp">検査</span></div>
+          <div><span class="i">📊</span><span data-i="tab_me">実績</span></div>
+          <div><span class="i">⚙️</span><span data-i="tab_set">設定</span></div></div>
+      </div></div>
+    </div>
+
+    <div>
+      <div class="lbl">2. <span data-i="sp_2">施設選択（担当が多い場合）</span></div>
+      <div class="ph"><div class="pscr">
+        <div class="pt"><div class="a" data-i="sp_pick">どの施設から始めますか？</div>
+          <div class="b">8/10(月) · Sari (14) · 3<span data-i="props">施設</span></div></div>
+        <div class="pb">
+          <div class="msel on"><span class="ic">🏨</span>
+            <span class="nm"><b>ビジネスH横浜</b><s>2F · <span data-i="sp_now">現在ここ</span></s></span>
+            <span class="ct">11</span></div>
+          <div class="msel"><span class="ic">🏨</span>
+            <span class="nm"><b>サンプルイン大阪</b><s>3F · 15:00 <span data-i="sp_from">から</span></s></span>
+            <span class="ct">7</span></div>
+          <div class="msel"><span class="ic">🏨</span>
+            <span class="nm"><b>サンプル旅館京都</b><s data-i="sp_tomorrow">明日 8/11</s></span>
+            <span class="ct">5</span></div>
+          <div style="font-size:11.5px;color:var(--muted);text-align:center;margin-top:16px" data-i="sp_note">施設を選ぶと、その施設のタスクだけ表示されます</div>
+          <button class="big" style="margin-top:14px">▶ <span data-i="sp_gostart">選んだ施設で開始</span></button>
+        </div>
+        <div class="pf"><div class="on"><span class="i">📋</span><span data-i="tab_task">タスク</span></div>
+          <div><span class="i">👁</span><span data-i="tab_insp">検査</span></div>
+          <div><span class="i">📊</span><span data-i="tab_me">実績</span></div>
+          <div><span class="i">⚙️</span><span data-i="tab_set">設定</span></div></div>
+      </div></div>
+    </div>
+
+    <div>
+      <div class="lbl">3. <span data-i="sp_3">実績（施設別内訳）</span></div>
+      <div class="ph"><div class="pscr">
+        <div class="pt"><div class="a" data-i="sp_myres">自分の実績</div><div class="b">Nguyen (11) · 2026年8月</div></div>
+        <div class="pb">
+          <div class="card" style="margin-top:0"><h4 data-i="sp_today2">本日</h4>
+            <div class="row"><span data-i="s_done">完了</span><b>12<span data-i="cnt">件</span></b></div>
+            <div class="row"><span data-i="sp_time">作業時間</span><b>5<span data-i="h">時間</span>20<span data-i="min">分</span></b></div>
+            <div class="row"><span data-i="sp_avg">平均</span><b>26<span data-i="min">分</span>/<span data-i="room">室</span></b></div>
+          </div>
+          <div class="card"><h4 data-i="sp_bypro">施設別（今月）</h4>
+            <div class="row"><span>🏨 サンプルホテル東京</span><b>218<span data-i="cnt">件</span></b></div>
+            <div class="row"><span>🏨 ビジネスH横浜</span><b>96<span data-i="cnt">件</span></b></div>
+            <div class="row"><span data-i="total">合計</span><b>314<span data-i="cnt">件</span></b></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.7"
+            data-i="sp_noeval">この記録は業務改善のためのものです。<br>個人の評価には使用されません。</div>
+        </div>
+        <div class="pf"><div><span class="i">📋</span><span data-i="tab_task">タスク</span></div>
+          <div><span class="i">👁</span><span data-i="tab_insp">検査</span></div>
+          <div class="on"><span class="i">📊</span><span data-i="tab_me">実績</span></div>
+          <div><span class="i">⚙️</span><span data-i="tab_set">設定</span></div></div>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <h4>1️⃣ 施設切替の設計</h4>
+  <b>PC</b> — 上部バー左に施設セレクタを常設。ドロップダウン内に各施設の <code>清掃済/作業中/未清掃</code> をミニバッジで表示し、どこへ行くべきか一目で判断できるようにした。オーナー・ORG_ADMIN・AUDITOR には「全社サマリー」を最上部に置き、これを既定画面とする。<code>PROPERTY_MANAGER</code> 以下は割当施設のみ表示され、全社項目は出ない。<br><br>
+  <b>スマホ</b> — 清掃員に「切替」という概念を持たせない。1日で複数施設を回る場合は<b>施設ごとにグループ化した単一リスト</b>を表示し、施設間に移動時間ブロックを挟む。担当が4施設以上の場合のみ、起動時に施設選択画面を出す。
+
+  <h4>2️⃣ 客室マスタ — 2方式</h4>
+  <table>
+    <tr><th></th><th>🅰 自主維護</th><th>🅱 PMS連携</th></tr>
+    <tr><td>実装時期</td><td><b>P0（1か月目）</b></td><td>P6（10か月目）</td></tr>
+    <tr><td>外部依存</td><td>なし</td><td>PMS の API が必要</td></tr>
+    <tr><td>登録方法</td><td>範囲一括登録 / CSV</td><td>PMS から取得 → 差分承認</td></tr>
+    <tr><td>自動上書き</td><td>—</td><td><b>しない</b>（差分提示のみ）</td></tr>
+    <tr><td>清掃専用の部屋</td><td>自由に追加可</td><td>ProofKeeping 側で追加</td></tr>
+    <tr><td>料金</td><td>標準機能</td><td>¥2,000〜5,000/施設・月</td></tr>
+    <tr><td>推奨</td><td><b>全顧客の既定</b></td><td>大型・部屋数変動が多い顧客</td></tr>
+  </table>
+  <div style="margin-top:9px">
+  10〜80室の中小施設は API を持たない PMS を使っていることが多い。「PMS を繋がないと使えない」設計にすると導入自体が止まるため、<b>方式Aを主戦場、方式Bをオプション</b>とする。
+  </div>
+
+  <h4>3️⃣ 清掃会社向け機能 — 追加モジュール提案</h4>
+  <table>
+    <tr><th>モジュール</th><th>内容</th><th>時期</th><th>価格（税別）</th></tr>
+    <tr><td><b>Workforce</b></td><td>スタッフ台帳・雇用形態・単価・対応言語・対応作業・研修履歴・<b>在留資格の期限アラート</b>・週間シフト・出勤</td><td>GA後3か月</td><td>¥4,980/組織＋¥300/人</td></tr>
+    <tr><td><b>Inventory</b></td><td>リネン4セット管理（使用中/洗濯中/予備/緊急予備）・消耗品の定位置と発注点・棚卸・発注</td><td>GA後6か月</td><td>¥3,980/組織＋¥500/施設</td></tr>
+  </table>
+  <div style="margin-top:9px">
+  在留資格の期限管理は実務上のリスクが大きいため、90/60/30日前にアラートを出す。ただしこの2モジュールは<b>購入の決定理由ではない</b>（決め手は照合と請求書）ので、コア機能を固めてから追加し、単価引き上げの材料にする。
+  </div>
+</div>
+
+</div>
+
+<script>
+const I18N={ja:{},
+en:{h_t:"🏨 Hotel / Owner",h_d:"Switch via the property selector on top. Owners default to Company Summary. Each property shows a status digest inside the dropdown.",
+l_board:"Property Selector + Room Board",l_click:"click the selector",l_all:"Company Summary",l_owner:"Owner default view",l_two:"Method A self-managed / Method B PMS sync",
+n_dash:"Dashboard",n_board:"Room Board",n_res:"Cleaning Results",n_rec:"Reconciliation",n_ev:"Evidence",n_bill:"Billing",n_master:"Room Master",n_set:"Settings",n_props:"Properties",n_cost:"Cost",n_rep:"Reports",n_int:"Integrations",
+dd_org:"Sample Operations Inc. · 3 properties",dd_all:"📊 Company Summary",dd_all_s:"Across 3 properties, 120 rooms",dd_all2:"Company Summary",dd_manage:"Add or edit properties",
+rooms:" rooms",props:" props",cnt:"",min:"m",ppl:"",h:"h",room:"room",total:"Total",
+b_report:"Daily Report",b_refresh:"Refresh",
+k_ready:"Ready (Sellable)",k_run:"In Progress",k_insp:"Awaiting Inspection",k_find:"Items to Check",k_find_d:"Review recommended",
+s_ready:"Ready",s_dirty:"Dirty",s_insp:"Inspect",s_rework:"Rework",s_todo:"Not Started",s_done:"Done",
+o_h:"Company Summary — Aug 2026",kp_done:"Completion",kp_pass:"First-pass",kp_rwk:"Rework Rate",kp_cost:"Cost / Room",
+th_prop:"Property",th_room:"Rooms",th_room2:"Room No.",o_act:"Action Required",
+o_a1:"Unhandled findings",o_a2:"Open maintenance issues",o_a3:"Lost items nearing deadline",o_a4:"Unclosed billing periods",
+m_h:"Room Master",m_s:"60 rooms · 3 types · 5 floors",m_csv:"Import CSV",m_bulk:"Bulk Register",
+m_a:"Method A — Self-managed (default, from P0)",m_type:"Room Type",m_range:"Room Numbers (range)",m_floor:"Floor",m_add:" rooms",
+m_a_note:"No external dependency. Usable from day one. 100 rooms in under 3 minutes.",
+m_b:"Method B — PMS Sync (P6+, optional)",m_conn:"Connected",m_diff:"2 differences from PMS",m_diff_add:"exist in PMS",
+m_apply:"Apply Differences",m_ignore:"Ignore for now",
+m_b_note:"Never overwrites automatically. Differences are shown and only approved ones are applied. Cleaning-only rooms (pantry, storage) can be managed in ProofKeeping alone.",
+m_bed:"Beds",m_cap:"Capacity",m_src:"Source",m_status:"Status",m_manual:"Manual",m_active:"Active",m_maint:"Maintenance",m_pantry:"Pantry",
+v_t:"🧹 Cleaning Company",v_d:"Across 12 contracted properties. Toggle between all-property and single-property views. Also manages staff records, visa expiry and linen stock.",
+v_l1:"All Properties View + Dispatch Kanban",v_allp:"All Properties",v_allp2:"🏢 All Properties",v_allp_s:"Across 12 properties, 318 rooms",
+v_org:"Sample Cleaning Inc. · 12 contracted",v_more:"Show 9 more properties",
+v_n1:"Today's Work",v_n2:"Staff Records",v_n3:"Shifts",v_n4:"Property Progress",v_n5:"Inspection / Rework",v_n6:"Linen & Supplies",v_n7:"Monthly Statement",v_n8:"Billing",
+v_auto:"Auto Assign",v_k1:"Total Rooms Today",v_k2:"Unassigned",v_k2d:"Needs assignment",v_k3:"Delayed",over:"exceeded",due:"due",
+v_staff:"Staff Status",v_inspok:"Inspected",all:"All",
+v_wf:"Workforce module",v_active:"Active",v_leave:"On leave",v_addstaff:"+ Add Staff",
+v_visa:"2 staff with residency status expiring soon",v_visa_t:"Specified Skilled Worker (i)",v_visa_left:"(112 days left)",v_visa_left2:"(189 days left)",
+v_no:"No.",v_name:"Name",v_emp:"Employment",v_lang:"Languages",v_skill:"Skills",v_rate:"Rate",v_visa2:"Residency",v_props2:"Properties",
+v_part:"Part-time",v_full:"Full-time",v_sk_all:"All tasks",v_sk_out:"Checkout & Stayover",v_multi:"Yokohama, Osaka",
+v_shift:"Weekly Shift (Aug 10-16)",d_mon:"Mon",d_tue:"Tue",d_wed:"Wed",d_thu:"Thu",d_fri:"Fri",d_sat:"Sat",d_sun:"Sun",d_off:"Off",
+v_inv:"Inventory module",v_linen:"Linen Stock — Sample Hotel Tokyo",v_linen_s:"4-set operation (in-use / washing / spare / emergency)",
+v_stock:"Record Count",v_order:"Place Order",v_low:"2 items below reorder point",
+v_low1:"Bath Towel · spare 18 (reorder at 30)",v_low2:"Toothbrush · stock 42 (reorder at 60)",
+v_item:"Item",v_total:"Total",v_inuse:"In Use",v_wash:"Washing",v_spare:"Spare",v_emer:"Emergency",v_point:"Reorder Pt",v_state:"Status",v_ok:"OK",v_need:"Order",
+li_sheet:"Sheets",li_duvet:"Duvet Cover",li_pillow:"Pillow Case",li_bath:"Bath Towel",li_mat:"Bath Mat",
+v_amen:"Consumables & Amenities",v_loc:"Location",v_stockn:"Stock",v_proper:"Target",v_daily:"Daily Use",v_central:"Central Store",
+am_tb:"Toothbrush",am_sh:"Shampoo etc.",am_sl:"Slippers",
+s_t:"📱 Cleaner (multi-property)",s_d:"Handles staff covering 2-3 properties a day. No 'switching' — grouped by property in one list.",
+sp_1:"Property-grouped list (recommended)",sp_2:"Property picker (many assignments)",sp_3:"Stats (per property)",
+sp_today:"Today's Tasks — 19",sp_2props:"Covering 2 properties",sp_resume:"Resume",sp_start:"Start",sp_move:"Travel · approx 25 min",
+ty_out:"Checkout Clean",ty_stay:"Stayover Clean",
+sp_pick:"Which property first?",sp_now:"You are here",sp_from:"from",sp_tomorrow:"Tomorrow Aug 11",
+sp_note:"Selecting a property shows only its tasks",sp_gostart:"Start with selected",
+sp_myres:"My Stats",sp_today2:"Today",sp_time:"Work Time",sp_avg:"Average",sp_bypro:"By Property (this month)",
+sp_noeval:"These records support operational improvement.<br>They are not used for personal evaluation.",
+tab_task:"Tasks",tab_insp:"Inspect",tab_me:"Stats",tab_set:"Settings"},
+zh:{h_t:"🏨 酒店 / 业主",h_d:"通过顶部设施选择器切换。业主默认进入「全社汇总」。下拉里显示各设施状态摘要。",
+l_board:"设施选择器 ＋ 客房板",l_click:"点击选择器",l_all:"全社汇总",l_owner:"业主默认画面",l_two:"方式A 自主维护 / 方式B PMS对接",
+n_dash:"仪表盘",n_board:"客房板",n_res:"清扫实绩",n_rec:"稼働对账",n_ev:"证迹",n_bill:"请求・领收",n_master:"客房主档",n_set:"设置",n_props:"设施一览",n_cost:"费用",n_rep:"报表",n_int:"外部对接",
+dd_org:"样本运营株式会社 · 3设施",dd_all:"📊 全社汇总",dd_all_s:"横跨3设施 120间客房",dd_all2:"全社汇总",dd_manage:"添加・编辑设施",
+rooms:"间",props:"设施",cnt:"件",min:"分",ppl:"名",h:"小时",room:"间",total:"合计",
+b_report:"日报",b_refresh:"刷新",
+k_ready:"已清扫（可售）",k_run:"作业中",k_insp:"待检查",k_find:"待确认项目",k_find_d:"建议确认",
+s_ready:"已清扫",s_dirty:"未清扫",s_insp:"待检查",s_rework:"返工",s_todo:"未开始",s_done:"完成",
+o_h:"全社汇总 — 2026年8月",kp_done:"完成率",kp_pass:"首次合格率",kp_rwk:"返工率",kp_cost:"每间成本",
+th_prop:"设施",th_room:"间数",th_room2:"房号",o_act:"需要处理的项目",
+o_a1:"未处理的差异报告",o_a2:"未解决的设备故障",o_a3:"临近保管期限的遗失物",o_a4:"未结算的请求期间",
+m_h:"客房主档",m_s:"60间 · 3类型 · 5楼层",m_csv:"CSV导入",m_bulk:"批量登记",
+m_a:"方式A — 自主维护（默认・P0起可用）",m_type:"客房类型",m_range:"房号（范围）",m_floor:"楼层",m_add:"间",
+m_a_note:"不依赖任何外部系统，导入首日即可使用。100间可在3分钟内登记完成。",
+m_b:"方式B — PMS对接（P6起・可选）",m_conn:"已连接",m_diff:"与PMS的差异 2件",m_diff_add:"在PMS中新增",
+m_apply:"应用差异",m_ignore:"本次忽略",
+m_b_note:"绝不自动覆盖。仅提示差异，经批准后才应用。清扫专用房间（备品室・仓库）可只在ProofKeeping中管理。",
+m_bed:"床数",m_cap:"定员",m_src:"登记来源",m_status:"状态",m_manual:"手动",m_active:"有效",m_maint:"维修中",m_pantry:"备品室",
+v_t:"🧹 清扫公司",v_d:"横跨受托12设施。可在全设施视图与单设施视图间切换。同时管理员工台账、在留资格期限与布草库存。",
+v_l1:"全受托设施视图 ＋ 派工看板",v_allp:"全受托设施",v_allp2:"🏢 全受托设施",v_allp_s:"横跨12设施 318间客房",
+v_org:"样本清扫株式会社 · 受托12设施",v_more:"显示其他9设施",
+v_n1:"今日业务",v_n2:"员工台账",v_n3:"排班",v_n4:"设施进度",v_n5:"检查・返工",v_n6:"布草・备品",v_n7:"月度明细",v_n8:"请求・入金",
+v_auto:"自动分配",v_k1:"今日总间数",v_k2:"未分配",v_k2d:"需要分配",v_k3:"延迟",over:"超过",due:"期限",
+v_staff:"员工工作状况",v_inspok:"已检查",all:"全部",
+v_wf:"Workforce 模块",v_active:"在籍",v_leave:"休职",v_addstaff:"＋ 登记员工",
+v_visa:"在留资格即将到期的员工 2名",v_visa_t:"特定技能1号",v_visa_left:"为止（剩112天）",v_visa_left2:"为止（剩189天）",
+v_no:"编号",v_name:"姓名",v_emp:"雇用形态",v_lang:"对应语言",v_skill:"可做作业",v_rate:"单价",v_visa2:"在留资格",v_props2:"担当设施",
+v_part:"兼职",v_full:"正式员工",v_sk_all:"全部作业",v_sk_out:"退房・住中",v_multi:"横滨・大阪",
+v_shift:"周排班（8/10 - 8/16）",d_mon:"周一",d_tue:"周二",d_wed:"周三",d_thu:"周四",d_fri:"周五",d_sat:"周六",d_sun:"周日",d_off:"休",
+v_inv:"Inventory 模块",v_linen:"布草库存 — 样本酒店东京",v_linen_s:"4套运用（使用中・洗涤中・备用・紧急备用）",
+v_stock:"记录盘点",v_order:"发起订购",v_low:"低于订购点的品目 2件",
+v_low1:"浴巾 · 备用18枚（订购点30枚）",v_low2:"牙刷 · 库存42支（订购点60支）",
+v_item:"品目",v_total:"总保有",v_inuse:"使用中",v_wash:"洗涤中",v_spare:"备用",v_emer:"紧急备用",v_point:"订购点",v_state:"状态",v_ok:"适正",v_need:"需订购",
+li_sheet:"床单",li_duvet:"被套",li_pillow:"枕套",li_bath:"浴巾",li_mat:"地垫",
+v_amen:"消耗品・洗漱用品",v_loc:"定位置",v_stockn:"库存",v_proper:"适正数",v_daily:"日消耗",v_central:"中央仓库",
+am_tb:"牙刷",am_sh:"洗发用品",am_sl:"拖鞋",
+s_t:"📱 清扫员（多设施对应）",s_d:"支持一天跑2〜3家设施。不让员工「切换」，而是按设施分组显示在同一画面。",
+sp_1:"设施分组显示（推荐）",sp_2:"设施选择（担当较多时）",sp_3:"实绩（按设施细分）",
+sp_today:"今日任务 19件",sp_2props:"担当2家设施",sp_resume:"继续",sp_start:"开始",sp_move:"移动 · 约25分",
+ty_out:"退房清扫",ty_stay:"住中清扫",
+sp_pick:"从哪家设施开始？",sp_now:"当前在此",sp_from:"起",sp_tomorrow:"明天 8/11",
+sp_note:"选择设施后只显示该设施的任务",sp_gostart:"以所选设施开始",
+sp_myres:"我的实绩",sp_today2:"今日",sp_time:"作业时间",sp_avg:"平均",sp_bypro:"按设施（本月）",
+sp_noeval:"此记录用于业务改善。<br>不用于个人评价。",
+tab_task:"任务",tab_insp:"检查",tab_me:"实绩",tab_set:"设置"},
+vi:{h_t:"🏨 Khách sạn / Chủ sở hữu",h_d:"Chuyển đổi bằng bộ chọn cơ sở phía trên.",
+n_board:"Bảng phòng",n_master:"Danh mục phòng",rooms:" phòng",props:" cơ sở",cnt:"",min:"phút",
+s_ready:"Đã dọn",s_dirty:"Chưa dọn",s_insp:"Chờ KT",s_rework:"Dọn lại",s_todo:"Chưa bắt đầu",s_done:"Xong",
+k_ready:"Sẵn sàng",k_run:"Đang làm",k_insp:"Chờ kiểm tra",k_find:"Cần xác nhận",
+v_t:"🧹 Công ty vệ sinh",v_n1:"Việc hôm nay",v_n2:"Hồ sơ nhân viên",v_n3:"Lịch làm",v_n6:"Khăn & Vật tư",v_n8:"Hóa đơn",
+v_visa:"2 nhân viên sắp hết hạn lưu trú",v_no:"Số",v_name:"Tên",v_emp:"Hình thức",v_lang:"Ngôn ngữ",v_rate:"Đơn giá",v_visa2:"Lưu trú",
+s_t:"📱 Nhân viên dọn (nhiều cơ sở)",s_d:"Hỗ trợ đi 2-3 cơ sở trong ngày. Nhóm theo cơ sở trong một danh sách.",
+sp_today:"Nhiệm vụ hôm nay — 19",sp_2props:"Phụ trách 2 cơ sở",sp_resume:"Tiếp tục",sp_start:"Bắt đầu",sp_move:"Di chuyển · khoảng 25 phút",
+ty_out:"Dọn sau khách đi",ty_stay:"Dọn khi khách ở",sp_pick:"Bắt đầu từ cơ sở nào?",sp_now:"Bạn đang ở đây",
+sp_myres:"Thành tích của tôi",sp_today2:"Hôm nay",sp_time:"Thời gian làm",sp_avg:"Trung bình",sp_bypro:"Theo cơ sở (tháng này)",
+sp_noeval:"Ghi nhận này để cải thiện công việc.<br>Không dùng để đánh giá cá nhân.",
+tab_task:"Việc",tab_insp:"Kiểm tra",tab_me:"Thành tích",tab_set:"Cài đặt",all:"Tất cả",total:"Tổng"},
+id:{h_t:"🏨 Hotel / Pemilik",h_d:"Beralih lewat pemilih properti di atas.",
+n_board:"Papan Kamar",n_master:"Master Kamar",rooms:" kamar",props:" properti",cnt:"",min:"mnt",
+s_ready:"Siap",s_dirty:"Belum",s_insp:"Inspeksi",s_rework:"Ulang",s_todo:"Belum Mulai",s_done:"Selesai",
+k_ready:"Siap Dijual",k_run:"Dikerjakan",k_insp:"Menunggu Inspeksi",k_find:"Perlu Diperiksa",
+v_t:"🧹 Perusahaan Kebersihan",v_n1:"Kerja Hari Ini",v_n2:"Data Staf",v_n3:"Jadwal",v_n6:"Linen & Bahan",v_n8:"Tagihan",
+v_visa:"2 staf izin tinggalnya segera berakhir",v_no:"No.",v_name:"Nama",v_emp:"Status Kerja",v_lang:"Bahasa",v_rate:"Tarif",v_visa2:"Izin Tinggal",
+s_t:"📱 Petugas (multi properti)",s_d:"Mendukung 2-3 properti sehari. Dikelompokkan per properti dalam satu daftar.",
+sp_today:"Tugas Hari Ini — 19",sp_2props:"Menangani 2 properti",sp_resume:"Lanjutkan",sp_start:"Mulai",sp_move:"Perjalanan · sekitar 25 mnt",
+ty_out:"Bersih Checkout",ty_stay:"Bersih Menginap",sp_pick:"Mulai dari properti mana?",sp_now:"Anda di sini",
+sp_myres:"Statistik Saya",sp_today2:"Hari Ini",sp_time:"Waktu Kerja",sp_avg:"Rata-rata",sp_bypro:"Per Properti (bulan ini)",
+sp_noeval:"Catatan ini untuk perbaikan operasional.<br>Tidak dipakai untuk penilaian pribadi.",
+tab_task:"Tugas",tab_insp:"Inspeksi",tab_me:"Statistik",tab_set:"Setelan",all:"Semua",total:"Total"},
+my:{h_t:"🏨 ဟိုတယ် / ပိုင်ရှင်",h_d:"အပေါ်ရှိ အဆောက်အအုံရွေးချယ်မှုမှ ပြောင်းပါ။",
+n_board:"အခန်းဘုတ်",n_master:"အခန်းစာရင်း",rooms:" အခန်း",props:" အဆောက်အအုံ",cnt:"ခု",min:"မိနစ်",
+s_ready:"ပြီး",s_dirty:"မလုပ်သေး",s_insp:"စစ်ရန်",s_rework:"ပြန်လုပ်",s_todo:"မစသေး",s_done:"ပြီး",
+k_ready:"သန့်ရှင်းပြီး",k_run:"လုပ်နေသည်",k_insp:"စစ်ဆေးရန်",k_find:"စစ်ဆေးရန်အချက်",
+v_t:"🧹 သန့်ရှင်းရေးကုမ္ပဏီ",v_n1:"ဒီနေ့အလုပ်",v_n2:"ဝန်ထမ်းစာရင်း",v_n3:"အလုပ်ချိန်",v_n6:"အခင်းနှင့်ပစ္စည်း",v_n8:"ဘေလ်",
+v_visa:"နေထိုင်ခွင့်သက်တမ်းနီးသည့်ဝန်ထမ်း ၂ဦး",v_no:"နံပါတ်",v_name:"အမည်",v_emp:"အလုပ်အကိုင်",v_lang:"ဘာသာစကား",v_rate:"နှုန်း",v_visa2:"နေထိုင်ခွင့်",
+s_t:"📱 သန့်ရှင်းရေးဝန်ထမ်း（အဆောက်အအုံအများ）",s_d:"တစ်ရက်တွင် ၂-၃ အဆောက်အအုံ လှည့်နိုင်သည်။",
+sp_today:"ဒီနေ့အလုပ် ၁၉ ခု",sp_2props:"အဆောက်အအုံ ၂ခု တာဝန်",sp_resume:"ဆက်လုပ်",sp_start:"စတင်",sp_move:"ရွေ့လျား · ၂၅ မိနစ်ခန့်",
+ty_out:"ထွက်ခွာသန့်ရှင်းမှု",ty_stay:"တည်းခိုသန့်ရှင်းမှု",sp_pick:"မည်သည့်အဆောက်အအုံမှ စမည်နည်း။",sp_now:"ဤနေရာတွင်",
+sp_myres:"ကျွန်ုပ်၏မှတ်တမ်း",sp_today2:"ဒီနေ့",sp_time:"အလုပ်ချိန်",sp_avg:"ပျမ်းမျှ",sp_bypro:"အဆောက်အအုံအလိုက်（ဤလ）",
+sp_noeval:"ဤမှတ်တမ်းသည် လုပ်ငန်းတိုးတက်မှုအတွက်ဖြစ်သည်။<br>တစ်ဦးချင်းအဆင့်သတ်မှတ်ရန် မဟုတ်ပါ။",
+tab_task:"အလုပ်",tab_insp:"စစ်ဆေး",tab_me:"မှတ်တမ်း",tab_set:"ဆက်တင်",all:"အားလုံး",total:"စုစုပေါင်း"}};
+const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+  const k=e.dataset.i,d=I18N[l];
+  e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k];});
+  document.documentElement.lang=l;}
+document.querySelectorAll('.gb[data-r]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.gb[data-r]').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.role').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');document.getElementById('r-'+b.dataset.r).classList.add('on');});
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');setL(b.dataset.l);});
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+  this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク';};
+function tg(id){const d=document.getElementById(id);const was=d.classList.contains('on');
+  document.querySelectorAll('.pdrop').forEach(x=>x.classList.remove('on'));
+  if(!was)d.classList.add('on');}
+document.addEventListener('click',e=>{if(!e.target.closest('.psel'))
+  document.querySelectorAll('.pdrop').forEach(x=>x.classList.remove('on'));});
+document.querySelectorAll('.pdrop .pi').forEach(p=>p.onclick=function(e){e.stopPropagation();
+  this.parentNode.querySelectorAll('.pi').forEach(x=>{x.classList.remove('on');
+    const c=x.querySelector('.ck');if(c)c.textContent='';});
+  this.classList.add('on');const c=this.querySelector('.ck');if(c)c.textContent='✓';});
+document.querySelectorAll('.msel').forEach(m=>m.onclick=function(){
+  document.querySelectorAll('.msel').forEach(x=>x.classList.remove('on'));this.classList.add('on');});
+</script>
+</body>
+</html>

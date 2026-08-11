@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 08 — チェックリスト</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.q{font-size:14px;font-weight:700;margin:14px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:16px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;min-height:74px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:25px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tg2{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}
+.tg2 .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tg2 .sw{width:52px;height:30px;border-radius:16px;background:var(--dirtybg);
+position:relative;transition:.2s;flex-shrink:0}
+.tg2 .sw:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg2.on .sw{background:var(--ok)}.tg2.on .sw:after{left:25px}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.tri{display:flex;gap:5px;flex-shrink:0}
+.tri .b{width:40px;height:40px;border-radius:9px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:17px;font-weight:800;color:var(--ink2);cursor:pointer;font-family:inherit}
+.tri .b.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.tri .b.ng{background:var(--danger);border-color:var(--danger);color:#fff}
+.tri .b.na{font-size:14px}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid var(--line);background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.dn{border-color:var(--ok);background:var(--okbg);opacity:.75}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:34px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">08 / 16 — チェックリスト</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">STATE</span>
+<button class="gb st on" data-s="mid">途中</button>
+<button class="gb st" data-s="all">全完了</button>
+<button class="gb st" data-s="ng">不備あり</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">08. チェックリスト</h1>
+<p data-i="d">3値入力（○／×／該当なし）で、「できなかった」を正直に記録できるようにする。必須項目は写真が紐づく。カテゴリ別に折りたたみ、上部に残り必須件数を常時表示する。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="bk">←</span> 302 · <span data-i="ttl">チェックリスト</span></div>
+<div class="b"><span id="hp">12 / 16</span> · <span data-i="hreq">必須残り</span> <b id="hr">4</b></div></div>
+<div class="bd">
+
+<div class="al w" id="ab"><b data-i="ab_t">必須項目が4件残っています</b>
+<span data-i="ab_d">写真マークの項目は撮影も必要です</span></div>
+
+<div class="sec">🛏 <span data-i="cat1">ベッド・リネン</span><span class="cn">4 / 4</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l1">シーツを交換した</span>
+<span class="cm ok">📷 ✓</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l2">枕カバーを交換した</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l3">掛け布団カバーを交換した</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l4">ベッド下を確認した</span></div>
+
+<div class="sec">🚿 <span data-i="cat2">浴室・洗面</span><span class="cn">5 / 5</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l5">浴槽を清掃した</span><span class="cm ok">📷 ✓</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l6">鏡を拭いた</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l7">排水口を確認した</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l8">トイレを清掃した</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l9">アメニティを補充した</span></div>
+
+<div class="sec">🧹 <span data-i="cat3">客室内</span><span class="cn" id="c3">3 / 7</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l10">床を掃除機がけした</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l11">ゴミを回収した</span></div>
+<div class="ck on"><span class="bx">✓</span><span class="tx" data-i="l12">テーブルを拭いた</span></div>
+<div class="ck" data-req="1"><span class="bx"></span><span class="tx" data-i="l13">窓・サッシを拭いた</span>
+<span class="cm" data-i="req">必須</span></div>
+<div class="ck" data-req="1"><span class="bx"></span><span class="tx" data-i="l14">エアコンフィルタを確認した</span>
+<span class="cm" data-i="req">必須</span></div>
+<div class="ck" data-req="1"><span class="bx"></span><span class="tx" data-i="l15">備品の数を確認した</span>
+<span class="cm">📷 <span data-i="req">必須</span></span></div>
+<div class="ck" data-req="1"><span class="bx"></span><span class="tx" data-i="l16">最終確認をした</span>
+<span class="cm">📷 <span data-i="req">必須</span></span></div>
+
+<div class="al i" style="margin-top:16px">💡 <span data-i="tip3">項目を長押しすると「該当なし」を選べます</span></div>
+
+<button class="big" id="bd2" style="margin-top:4px">← <span data-i="b_back">タスクに戻る</span></button>
+</div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">3値入力にする理由</span></h3>
+<p data-i="c1a">○×の2値だと「できなかった」項目を×にせず、無理に○を付ける動機が生まれる。<b>正直に記録できる選択肢</b>を必ず用意する。</p>
+<table><tr><th data-i="th_v">値</th><th data-i="th_m">意味</th><th data-i="th_h">扱い</th></tr>
+<tr><td class="fx">○</td><td data-i="vm1">実施した</td><td data-i="vh1">完了として計上</td></tr>
+<tr><td class="nx">×</td><td data-i="vm2">できなかった</td><td data-i="vh2">理由の選択が必要。管理者に通知</td></tr>
+<tr><td>—</td><td data-i="vm3">該当なし</td><td data-i="vh3">分母から除外。完了扱い</td></tr></table>
+<div class="rmk" data-i="c1r">❗ ×を付けた項目は責められません。「浴槽の排水が詰まっていて清掃できなかった」は設備の問題であり、清掃員の問題ではない。×は改善のための情報です。</div></div>
+
+<div class="card"><h3>📷 <span data-i="c2t">写真の紐づけ</span></h3>
+<p data-i="c2a">項目単位で <code>photoRequired</code> を設定する。写真が必要な項目は 📷 マークを表示し、撮影しないと○にできない。</p>
+<ul>
+<li data-i="p1">シーツ交換：交換後のベッド全景</li>
+<li data-i="p2">浴槽清掃：清掃後の浴槽内部</li>
+<li data-i="p3">備品確認：備品棚の全景</li>
+<li data-i="p4">最終確認：入口から見た客室全景</li>
+</ul>
+<div class="hint" data-i="c2h">💡 写真必須は4項目までに絞っています。20室を回る間に80枚を撮ることになり、通信量と保存容量が現実的な上限に近づくためです。</div></div>
+
+<div class="card"><h3>📐 <span data-i="c3t">項目数の上限</span></h3>
+<table><tr><th data-i="th_k">区分</th><th data-i="th_n">上限</th></tr>
+<tr><td data-i="k1">1タスクの総項目数</td><td>30</td></tr>
+<tr><td data-i="k2">うち必須項目</td><td>15</td></tr>
+<tr><td data-i="k3">うち写真必須</td><td>5</td></tr>
+<tr><td data-i="k4">カテゴリ数</td><td>6</td></tr></table>
+<div class="hint" data-i="c3h">💡 上限を超えるテンプレートは管理画面で保存できません。項目を増やしすぎると、全部○を付けて終わらせる行動を誘発します。</div></div>
+
+<div class="card"><h3>🔢 <span data-i="c4t">進捗の数え方</span></h3>
+<p data-i="c4a">分母は<b>「該当なし」を除いた項目数</b>。分子は○の数。×は分子に入らない。</p>
+<ul>
+<li data-i="n1">全16項目のうち2項目が「該当なし」→ 分母は14</li>
+<li data-i="n2">完了ボタンの有効化は<b>必須項目のみ</b>で判定</li>
+<li data-i="n3">任意項目が未完了でも完了できる</li>
+<li data-i="n4">×がある場合は完了時に理由の確認画面を出す</li>
+</ul></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="f1">3値入力（○／×／該当なし）</li>
+<li data-i="f2">×は理由選択が必要。責める表現は使わない</li>
+<li data-i="f3">写真必須項目は 📷 マークで明示</li>
+<li data-i="f4">上部に必須残り件数を常時表示</li>
+<li data-i="f5">項目数の上限をシステムで強制</li>
+<li data-i="f6">長押しで「該当なし」を選択</li>
+</ul></div>
+</div></div></div><script>const I18N={ja:{},
+en:{t:"08. Checklist",
+d:"Three-value input (done / couldn't / not applicable) lets staff record honestly when something could not be done. Required items link to photos. Categories are grouped and the remaining required count stays visible at the top.",
+ttl:"Checklist",hreq:"required left",
+ab_t:"4 required items remaining",ab_d:"Items with a camera mark also need a photo",
+cat1:"Bed & Linen",cat2:"Bath & Basin",cat3:"Guest Room",req:"required",
+l1:"Changed the sheets",l2:"Changed pillowcases",l3:"Changed the duvet cover",l4:"Checked under the bed",
+l5:"Cleaned the bathtub",l6:"Wiped the mirror",l7:"Checked the drain",
+l8:"Cleaned the toilet",l9:"Restocked amenities",
+l10:"Vacuumed the floor",l11:"Collected the trash",l12:"Wiped the table",
+l13:"Wiped windows and frames",l14:"Checked the aircon filter",
+l15:"Counted the fixtures",l16:"Did the final check",
+tip3:"Press and hold an item to choose \"not applicable\"",
+b_back:"Back to task",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"Why three values",
+c1a:"With only done/not-done, staff are pushed to mark done rather than admit something was impossible. An <b>honest option must always exist</b>.",
+th_v:"Value",th_m:"Meaning",th_h:"Handling",
+vm1:"Completed",vh1:"Counted as done",
+vm2:"Couldn't do it",vh2:"Requires a reason. Manager is notified",
+vm3:"Not applicable",vh3:"Excluded from the denominator; treated as done",
+c1r:"❗ Marking an item as couldn't-do is never blamed. \"The bathtub drain was blocked so it couldn't be cleaned\" is an equipment problem, not the cleaner's. It is information for improvement.",
+c2t:"Linking photos",
+c2a:"<code>photoRequired</code> is set per item. Items needing a photo show a camera mark and cannot be marked done without one.",
+p1:"Sheet change: full view of the made bed",
+p2:"Bathtub cleaning: inside of the cleaned tub",
+p3:"Fixture check: full view of the fixture shelf",
+p4:"Final check: whole room seen from the door",
+c2h:"💡 Photo-required items are limited to four. Across 20 rooms that is 80 photos, which approaches a realistic limit for data and storage.",
+c3t:"Caps on item counts",th_k:"Category",th_n:"Cap",
+k1:"Total items per task",k2:"Of which required",k3:"Of which photo-required",k4:"Number of categories",
+c3h:"💡 Templates exceeding the caps cannot be saved in the admin. Too many items invites ticking everything to get it over with.",
+c4t:"How progress is counted",
+c4a:"The denominator is <b>items excluding not-applicable</b>. The numerator is the count of done. Couldn't-do items are not in the numerator.",
+n1:"If 2 of 16 items are not applicable, the denominator is 14",
+n2:"The Complete button checks <b>required items only</b>",
+n3:"Optional items may remain unfinished",
+n4:"When couldn't-do items exist, a reason review appears at completion",
+c5t:"Decisions fixed on this screen",
+f1:"Three-value input (done / couldn't / not applicable)",
+f2:"Couldn't-do needs a reason; no blaming wording",
+f3:"Photo-required items marked with a camera",
+f4:"Remaining required count always visible at the top",
+f5:"Item caps enforced by the system",
+f6:"Press and hold to choose not applicable"},
+zh:{t:"08. 检查表",
+d:"3 值输入（○／×／不适用），让「做不到」也能诚实记录。必需项目绑定照片。按类别分组，顶部常时显示必需剩余件数。",
+ttl:"检查表",hreq:"必需剩余",
+ab_t:"还有 4 项必需未完成",ab_d:"带相机标记的项目还需要拍照",
+cat1:"床・布草",cat2:"浴室・洗面",cat3:"客房内",req:"必需",
+l1:"更换了床单",l2:"更换了枕套",l3:"更换了被套",l4:"确认了床下",
+l5:"清扫了浴缸",l6:"擦了镜子",l7:"确认了排水口",
+l8:"清扫了马桶",l9:"补充了洗漱用品",
+l10:"用吸尘器清了地面",l11:"回收了垃圾",l12:"擦了桌子",
+l13:"擦了窗户・窗框",l14:"确认了空调滤网",
+l15:"确认了备品数量",l16:"做了最终确认",
+tip3:"长按项目可以选择「不适用」",
+b_back:"返回任务",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"采用 3 值输入的理由",
+c1a:"只有○×两值时，会产生把「做不到」的项目硬打○而不打×的动机。必须准备<b>能诚实记录的选项</b>。",
+th_v:"值",th_m:"含义",th_h:"处理",
+vm1:"已实施",vh1:"计入完成",
+vm2:"做不到",vh2:"需要选择理由。通知管理者",
+vm3:"不适用",vh3:"从分母中排除。视为完成",
+c1r:"❗ 打×的项目不会被责备。「浴缸排水堵塞无法清扫」是设备问题，不是清扫员的问题。×是用于改善的信息。",
+c2t:"照片的绑定",
+c2a:"按项目单位设定 <code>photoRequired</code>。需要照片的项目显示 📷 标记，不拍照就无法打○。",
+p1:"更换床单：整理后的床全景",
+p2:"浴缸清扫：清扫后的浴缸内部",
+p3:"备品确认：备品架全景",
+p4:"最终确认：从门口看到的客房全景",
+c2h:"💡 照片必需项目限制在 4 项以内。跑 20 间房就要拍 80 张，通信量和存储容量会接近现实上限。",
+c3t:"项目数的上限",th_k:"区分",th_n:"上限",
+k1:"1 个任务的总项目数",k2:"其中必需项目",k3:"其中照片必需",k4:"类别数",
+c3h:"💡 超过上限的模板在管理画面无法保存。项目增加过多会诱发全部打○草草收工的行为。",
+c4t:"进度的计算方式",
+c4a:"分母是<b>排除「不适用」后的项目数</b>。分子是○的数量。×不计入分子。",
+n1:"全 16 项中有 2 项「不适用」→ 分母为 14",
+n2:"完成按钮的启用<b>只按必需项目</b>判定",
+n3:"任意项目未完成也能完成",
+n4:"有×时在完成时弹出理由确认画面",
+c5t:"本画面的确定事项",
+f1:"3 值输入（○／×／不适用）",
+f2:"×需要选择理由。不用责备的表达",
+f3:"照片必需项目用 📷 标记明示",
+f4:"顶部常时显示必需剩余件数",
+f5:"项目数上限由系统强制",
+f6:"长按选择「不适用」"},
+vi:{t:"08. Danh sách kiểm tra",
+d:"Nhập ba giá trị (xong / không làm được / không áp dụng) để ghi trung thực. Mục bắt buộc gắn với ảnh.",
+ttl:"Danh sách kiểm tra",hreq:"bắt buộc còn",
+ab_t:"Còn 4 mục bắt buộc",ab_d:"Mục có dấu camera cần cả ảnh",
+cat1:"Giường & Khăn",cat2:"Phòng tắm",cat3:"Trong phòng",req:"bắt buộc",
+l1:"Đã đổi ga giường",l2:"Đã đổi vỏ gối",l3:"Đã đổi vỏ chăn",l4:"Đã kiểm tra gầm giường",
+l5:"Đã vệ sinh bồn tắm",l6:"Đã lau gương",l7:"Đã kiểm tra cống",
+l8:"Đã vệ sinh toilet",l9:"Đã bổ sung đồ dùng",
+l10:"Đã hút bụi sàn",l11:"Đã thu rác",l12:"Đã lau bàn",
+l13:"Đã lau cửa sổ và khung",l14:"Đã kiểm tra lọc điều hòa",
+l15:"Đã đếm vật dụng",l16:"Đã kiểm tra lần cuối",
+tip3:"Nhấn giữ để chọn \"không áp dụng\"",b_back:"Về nhiệm vụ",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Vì sao ba giá trị",
+c1a:"Chỉ có xong/chưa xong sẽ đẩy nhân viên đánh xong thay vì thừa nhận không làm được. <b>Luôn phải có lựa chọn trung thực</b>.",
+th_v:"Giá trị",th_m:"Ý nghĩa",th_h:"Xử lý",
+vm1:"Đã làm",vh1:"Tính là xong",
+vm2:"Không làm được",vh2:"Cần lý do. Quản lý được thông báo",
+vm3:"Không áp dụng",vh3:"Loại khỏi mẫu số; coi như xong",
+c1r:"❗ Đánh không làm được không bị quy lỗi. \"Cống bồn tắm tắc nên không vệ sinh được\" là vấn đề thiết bị.",
+c2t:"Gắn ảnh",
+c2a:"<code>photoRequired</code> đặt theo từng mục. Mục cần ảnh hiện dấu camera và không thể đánh xong nếu chưa có ảnh.",
+p1:"Đổi ga: toàn cảnh giường đã dọn",p2:"Bồn tắm: bên trong bồn đã vệ sinh",
+p3:"Vật dụng: toàn cảnh kệ",p4:"Kiểm tra cuối: toàn phòng nhìn từ cửa",
+c2h:"💡 Chỉ giới hạn bốn mục cần ảnh. Với 20 phòng là 80 ảnh, gần giới hạn thực tế.",
+c3t:"Giới hạn số mục",th_k:"Phân loại",th_n:"Giới hạn",
+k1:"Tổng mục mỗi nhiệm vụ",k2:"Trong đó bắt buộc",k3:"Trong đó cần ảnh",k4:"Số nhóm",
+c3h:"💡 Mẫu vượt giới hạn không lưu được. Quá nhiều mục dẫn tới đánh hết cho xong.",
+c4t:"Cách tính tiến độ",
+c4a:"Mẫu số là <b>số mục trừ không áp dụng</b>. Tử số là số mục xong.",
+n1:"Nếu 2 trong 16 mục không áp dụng, mẫu số là 14",
+n2:"Nút Hoàn thành chỉ xét <b>mục bắt buộc</b>",
+n3:"Mục tùy chọn có thể chưa xong",
+n4:"Khi có mục không làm được, hiện màn hình xem lại lý do",
+c5t:"Quyết định đã chốt",
+f1:"Nhập ba giá trị",f2:"Không làm được cần lý do",f3:"Mục cần ảnh có dấu camera",
+f4:"Số bắt buộc còn lại luôn hiện ở đầu",f5:"Giới hạn do hệ thống áp",f6:"Nhấn giữ chọn không áp dụng"},
+id:{t:"08. Daftar Periksa",
+d:"Input tiga nilai (selesai / tak bisa / tak berlaku) agar bisa dicatat dengan jujur. Item wajib terhubung ke foto.",
+ttl:"Daftar Periksa",hreq:"wajib tersisa",
+ab_t:"4 item wajib tersisa",ab_d:"Item bertanda kamera juga perlu foto",
+cat1:"Tempat Tidur & Linen",cat2:"Kamar Mandi",cat3:"Dalam Kamar",req:"wajib",
+l1:"Mengganti sprei",l2:"Mengganti sarung bantal",l3:"Mengganti sarung selimut",l4:"Memeriksa bawah tempat tidur",
+l5:"Membersihkan bak mandi",l6:"Mengelap cermin",l7:"Memeriksa saluran air",
+l8:"Membersihkan toilet",l9:"Mengisi ulang perlengkapan",
+l10:"Menyedot debu lantai",l11:"Mengumpulkan sampah",l12:"Mengelap meja",
+l13:"Mengelap jendela dan kusen",l14:"Memeriksa filter AC",
+l15:"Menghitung perlengkapan",l16:"Melakukan pemeriksaan akhir",
+tip3:"Tekan dan tahan untuk memilih \"tak berlaku\"",b_back:"Kembali ke tugas",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Mengapa tiga nilai",
+c1a:"Dengan hanya selesai/belum, petugas terdorong menandai selesai daripada mengakui tak bisa. <b>Opsi jujur harus selalu ada</b>.",
+th_v:"Nilai",th_m:"Arti",th_h:"Penanganan",
+vm1:"Dikerjakan",vh1:"Dihitung selesai",
+vm2:"Tak bisa dikerjakan",vh2:"Perlu alasan. Manajer diberi tahu",
+vm3:"Tak berlaku",vh3:"Dikeluarkan dari penyebut; dianggap selesai",
+c1r:"❗ Menandai tak bisa tidak disalahkan. \"Saluran bak tersumbat sehingga tak bisa dibersihkan\" adalah masalah peralatan.",
+c2t:"Menautkan foto",
+c2a:"<code>photoRequired</code> disetel per item. Item yang perlu foto menampilkan tanda kamera.",
+p1:"Ganti sprei: tampilan penuh tempat tidur",p2:"Bak mandi: bagian dalam yang sudah bersih",
+p3:"Perlengkapan: tampilan penuh rak",p4:"Pemeriksaan akhir: seluruh kamar dari pintu",
+c2h:"💡 Item berfoto dibatasi empat. Untuk 20 kamar itu 80 foto, mendekati batas wajar.",
+c3t:"Batas jumlah item",th_k:"Kategori",th_n:"Batas",
+k1:"Total item per tugas",k2:"Yang wajib",k3:"Yang perlu foto",k4:"Jumlah kategori",
+c3h:"💡 Templat melebihi batas tak bisa disimpan. Terlalu banyak item memicu mencentang semua.",
+c4t:"Cara menghitung progres",
+c4a:"Penyebut adalah <b>item tanpa yang tak berlaku</b>. Pembilang jumlah yang selesai.",
+n1:"Jika 2 dari 16 tak berlaku, penyebutnya 14",
+n2:"Tombol Selesai hanya memeriksa <b>item wajib</b>",
+n3:"Item opsional boleh belum selesai",
+n4:"Bila ada item tak bisa, muncul tinjauan alasan saat selesai",
+c5t:"Keputusan yang ditetapkan",
+f1:"Input tiga nilai",f2:"Tak bisa perlu alasan",f3:"Item berfoto ditandai kamera",
+f4:"Sisa wajib selalu terlihat di atas",f5:"Batas dipaksakan sistem",f6:"Tekan tahan untuk tak berlaku"},
+my:{t:"၀၈. စစ်ဆေးစာရင်း",
+d:"တန်ဖိုး ၃ မျိုး（ပြီး／မလုပ်နိုင်／မသက်ဆိုင်）ဖြင့် ရိုးသားစွာ မှတ်နိုင်သည်။ မလိုမဖြစ်အချက်များ ဓာတ်ပုံနှင့် ချိတ်ဆက်သည်။",
+ttl:"စစ်ဆေးစာရင်း",hreq:"မလိုမဖြစ်ကျန်",
+ab_t:"မလိုမဖြစ် ၄ ခု ကျန်သည်",ab_d:"ကင်မရာအမှတ်ပါသည်များ ဓာတ်ပုံလိုသည်",
+cat1:"အိပ်ရာ・အခင်း",cat2:"ရေချိုးခန်း",cat3:"အခန်းတွင်း",req:"မလိုမဖြစ်",
+l1:"အိပ်ရာခင်း လဲပြီး",l2:"ခေါင်းအုံးအိတ် လဲပြီး",l3:"စောင်အိတ် လဲပြီး",l4:"အိပ်ရာအောက် စစ်ပြီး",
+l5:"ရေချိုးကန် သန့်ရှင်းပြီး",l6:"မှန် သုတ်ပြီး",l7:"ရေဆင်း စစ်ပြီး",
+l8:"အိမ်သာ သန့်ရှင်းပြီး",l9:"အသုံးအဆောင် ဖြည့်ပြီး",
+l10:"ကြမ်းပြင် ဖုန်စုပ်ပြီး",l11:"အမှိုက် စုပြီး",l12:"စားပွဲ သုတ်ပြီး",
+l13:"ပြတင်းပေါက် သုတ်ပြီး",l14:"အဲယားကွန်ဇကာ စစ်ပြီး",
+l15:"ပစ္စည်းအရေအတွက် စစ်ပြီး",l16:"နောက်ဆုံးစစ်ဆေးမှု ပြီး",
+tip3:"အချက်ကို ဖိထားပါက \"မသက်ဆိုင်\" ရွေးနိုင်သည်",b_back:"အလုပ်သို့ပြန်",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"တန်ဖိုး ၃ မျိုး အသုံးပြုရသည့်အကြောင်း",
+c1a:"ပြီး／မပြီး ၂ မျိုးသာဆိုပါက \"မလုပ်နိုင်\" သည်ကို အတင်း ပြီးဟု အမှတ်ပြုမိမည်။ <b>ရိုးသားစွာမှတ်နိုင်သည့် ရွေးချယ်မှု</b> အမြဲထားရမည်။",
+th_v:"တန်ဖိုး",th_m:"အဓိပ္ပါယ်",th_h:"ကိုင်တွယ်မှု",
+vm1:"လုပ်ပြီး",vh1:"ပြီးဆုံးအဖြစ် တွက်",
+vm2:"မလုပ်နိုင်",vh2:"အကြောင်းရင်းရွေးရမည်။ စီမံခန့်ခွဲသူကို အသိပေး",
+vm3:"မသက်ဆိုင်",vh3:"အခြေခံမှ ဖယ်ထုတ်။ ပြီးဆုံးအဖြစ် သတ်မှတ်",
+c1r:"❗ မလုပ်နိုင်ဟု အမှတ်ပြုသည်ကို အပြစ်မတင်ပါ။ \"ရေချိုးကန်ရေဆင်း ပိတ်နေသဖြင့် မသန့်ရှင်းနိုင်\" သည် ပစ္စည်းပြဿနာဖြစ်သည်။",
+c2t:"ဓာတ်ပုံ ချိတ်ဆက်မှု",
+c2a:"အချက်တစ်ခုချင်း <code>photoRequired</code> သတ်မှတ်သည်။ ဓာတ်ပုံလိုသည်များ ကင်မရာအမှတ် ပြသည်။",
+p1:"အိပ်ရာခင်းလဲ：ခင်းပြီးအိပ်ရာ တစ်ခုလုံး",p2:"ရေချိုးကန်：သန့်ရှင်းပြီးအတွင်း",
+p3:"ပစ္စည်းစစ်：ပစ္စည်းစင် တစ်ခုလုံး",p4:"နောက်ဆုံးစစ်：တံခါးမှမြင်သည့် အခန်းတစ်ခုလုံး",
+c2h:"💡 ဓာတ်ပုံလိုအချက်ကို ၄ ခုအထိသာ ကန့်သတ်သည်။ အခန်း ၂၀ တွင် ဓာတ်ပုံ ၈၀ ဖြစ်၍ လက်တွေ့ကန့်သတ်ချက်နီးလာသည်။",
+c3t:"အချက်အရေအတွက် ကန့်သတ်ချက်",th_k:"အမျိုးအစား",th_n:"ကန့်သတ်",
+k1:"အလုပ်တစ်ခု၏ အချက်စုစုပေါင်း",k2:"ထဲမှ မလိုမဖြစ်",k3:"ထဲမှ ဓာတ်ပုံလို",k4:"အုပ်စုအရေအတွက်",
+c3h:"💡 ကန့်သတ်ချက်ကျော်သည့် နမူနာကို သိမ်းဆည်းမရပါ။ အချက်များလွန်းပါက အားလုံးအမှတ်ပြု၍ ပြီးစေသည့် အပြုအမူ ဖြစ်စေသည်။",
+c4t:"တိုးတက်မှု ရေတွက်နည်း",
+c4a:"အခြေခံသည် <b>\"မသက်ဆိုင်\" ဖယ်ထုတ်ပြီး အချက်အရေအတွက်</b>။ အထက်သည် ပြီးသည့်အရေအတွက်။",
+n1:"အချက် ၁၆ ခုမှ ၂ ခု မသက်ဆိုင်ပါက အခြေခံ ၁၄",
+n2:"ပြီးဆုံးခလုတ်ကို <b>မလိုမဖြစ်အချက်များသာ</b> စစ်သည်",
+n3:"မလိုအပ်အချက် မပြီးလည်း ပြီးဆုံးနိုင်",
+n4:"မလုပ်နိုင်သည် ရှိပါက ပြီးဆုံးချိန်တွင် အကြောင်းရင်းစစ်မျက်နှာပြင် ပြသည်",
+c5t:"အတည်ပြုချက်",
+f1:"တန်ဖိုး ၃ မျိုး",f2:"မလုပ်နိုင်ပါက အကြောင်းရင်းလို",f3:"ဓာတ်ပုံလိုအချက် ကင်မရာအမှတ်",
+f4:"မလိုမဖြစ်ကျန် အထက်တွင် အမြဲပြ",f5:"ကန့်သတ်ချက်ကို စနစ်မှ အတင်းလုပ်",f6:"ဖိထား၍ မသက်ဆိုင် ရွေး"},
+ne:{t:"०८. जाँच सूची",
+d:"तीन मान (भयो / भएन / लागू नहुने) ले इमान्दारीपूर्वक लेख्न दिन्छ। अनिवार्य वस्तु तस्बिरसँग जोडिन्छ।",
+ttl:"जाँच सूची",hreq:"अनिवार्य बाँकी",
+ab_t:"४ अनिवार्य बाँकी",ab_d:"क्यामेरा चिह्न भएका वस्तुलाई तस्बिर पनि चाहिन्छ",
+cat1:"ओछ्यान र लिनेन",cat2:"बाथरूम",cat3:"कोठाभित्र",req:"अनिवार्य",
+l1:"तनना फेरेँ",l2:"तकिया कभर फेरेँ",l3:"सिरक कभर फेरेँ",l4:"ओछ्यानमुनि जाँचेँ",
+l5:"बाथटब सफा गरेँ",l6:"ऐना पुछेँ",l7:"ढल जाँचेँ",
+l8:"शौचालय सफा गरेँ",l9:"सामग्री भरेँ",
+l10:"भुइँ भ्याकुम गरेँ",l11:"फोहोर उठाएँ",l12:"टेबल पुछेँ",
+l13:"झ्याल र फ्रेम पुछेँ",l14:"एसी फिल्टर जाँचेँ",
+l15:"सामान गन्ती गरेँ",l16:"अन्तिम जाँच गरेँ",
+tip3:"वस्तु थिचिराख्दा \"लागू नहुने\" छान्न सकिन्छ",b_back:"काममा फर्कने",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"तीन मान किन",
+c1a:"भयो/भएन दुई मान मात्र भए \"गर्न सकिएन\" लाई भयो लेख्ने प्रेरणा हुन्छ। <b>इमान्दार विकल्प सधैं हुनुपर्छ</b>।",
+th_v:"मान",th_m:"अर्थ",th_h:"व्यवहार",
+vm1:"गरियो",vh1:"सम्पन्न गनिन्छ",
+vm2:"गर्न सकिएन",vh2:"कारण चाहिन्छ। प्रबन्धकलाई सूचना",
+vm3:"लागू नहुने",vh3:"भाजकबाट हटाइन्छ; सम्पन्न मानिन्छ",
+c1r:"❗ गर्न सकिएन लेख्दा दोष दिइँदैन। \"बाथटबको ढल बन्द भएकोले सफा गर्न सकिएन\" उपकरणको समस्या हो।",
+c2t:"तस्बिर जोड्ने",
+c2a:"<code>photoRequired</code> प्रति वस्तु सेट हुन्छ। तस्बिर चाहिने वस्तुमा क्यामेरा चिह्न देखिन्छ।",
+p1:"तनना फेर्ने: मिलाएको ओछ्यानको पूरा दृश्य",p2:"बाथटब: सफा गरेको भित्री भाग",
+p3:"सामान जाँच: र्‍याकको पूरा दृश्य",p4:"अन्तिम जाँच: ढोकाबाट देखिने पूरा कोठा",
+c2h:"💡 तस्बिर चाहिने वस्तु चारमा सीमित। २० कोठामा ८० तस्बिर हुन्छ, व्यावहारिक सीमा नजिक।",
+c3t:"वस्तु संख्याको सीमा",th_k:"वर्ग",th_n:"सीमा",
+k1:"प्रति कामको कुल वस्तु",k2:"त्यसमा अनिवार्य",k3:"त्यसमा तस्बिर चाहिने",k4:"वर्ग संख्या",
+c3h:"💡 सीमा नाघेको टेम्प्लेट सुरक्षित हुँदैन। धेरै वस्तुले सबै टिक गरी सक्ने व्यवहार बढाउँछ।",
+c4t:"प्रगति गणना",
+c4a:"भाजक <b>लागू नहुने हटाएको वस्तु संख्या</b>। अंश सम्पन्न संख्या।",
+n1:"१६ मा २ लागू नहुने भए भाजक १४",
+n2:"सम्पन्न बटन <b>अनिवार्य मात्र</b> जाँच्छ",
+n3:"स्वैच्छिक अपूर्ण भए पनि सम्पन्न हुन्छ",
+n4:"गर्न सकिएन भएमा सम्पन्न गर्दा कारण समीक्षा देखिन्छ",
+c5t:"तय भएका कुरा",
+f1:"तीन मान इनपुट",f2:"गर्न सकिएनमा कारण चाहिन्छ",f3:"तस्बिर चाहिनेमा क्यामेरा चिह्न",
+f4:"अनिवार्य बाँकी सधैं माथि",f5:"सीमा प्रणालीले लागू",f6:"थिचिराख्दा लागू नहुने"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+function upd(){const all=document.querySelectorAll('.ck');let d=0,tot=0,rq=0;
+all.forEach(c=>{if(c.dataset.na)return;tot++;if(c.classList.contains('on'))d++;
+if(c.dataset.req&&!c.classList.contains('on')&&!c.classList.contains('fl'))rq++});
+document.getElementById('hp').textContent=d+' / '+tot;
+document.getElementById('hr').textContent=rq;
+const ab=document.getElementById('ab');
+if(rq===0){ab.className='al g';ab.innerHTML='<b>必須項目はすべて完了しています</b><span>タスクに戻って完了できます</span>'}
+else{ab.className='al w';ab.innerHTML='<b>必須項目が'+rq+'件残っています</b><span>写真マークの項目は撮影も必要です</span>'}
+const c3=document.querySelectorAll('.sec')[2];let d3=0,t3=0;
+document.querySelectorAll('.ck').forEach((c,i)=>{if(i>=9){if(c.dataset.na)return;t3++;
+if(c.classList.contains('on'))d3++}});
+document.getElementById('c3').textContent=d3+' / '+t3}
+let pt=null;
+document.querySelectorAll('.ck').forEach(c=>{
+c.onmousedown=c.ontouchstart=()=>{pt=setTimeout(()=>{pt=null;
+if(c.dataset.na){delete c.dataset.na;c.style.opacity='';c.querySelector('.bx').textContent=''}
+else{c.dataset.na='1';c.classList.remove('on','fl');c.style.opacity='.45';
+c.querySelector('.bx').textContent='—'}upd()},550)};
+c.onmouseup=c.ontouchend=c.onmouseleave=()=>{if(pt){clearTimeout(pt);pt=null;
+if(c.dataset.na)return;
+if(c.classList.contains('on')){c.classList.remove('on');c.classList.add('fl');
+c.querySelector('.bx').textContent='×'}
+else if(c.classList.contains('fl')){c.classList.remove('fl');c.querySelector('.bx').textContent=''}
+else{c.classList.add('on');c.querySelector('.bx').textContent='✓'}upd()}}});
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const s=this.dataset.s,cks=document.querySelectorAll('.ck');
+cks.forEach((c,i)=>{delete c.dataset.na;c.style.opacity='';c.classList.remove('fl');
+if(s==='all'){c.classList.add('on');c.querySelector('.bx').textContent='✓'}
+else if(s==='ng'){if(i===4){c.classList.remove('on');c.classList.add('fl');
+c.querySelector('.bx').textContent='×'}else{c.classList.add('on');c.querySelector('.bx').textContent='✓'}}
+else{if(i<12){c.classList.add('on');c.querySelector('.bx').textContent='✓'}
+else{c.classList.remove('on');c.querySelector('.bx').textContent=''}}});upd()});
+document.getElementById('bd2').onclick=()=>alert('→ 05 タスク詳細 に戻ります');
+upd();
+</script></body></html>

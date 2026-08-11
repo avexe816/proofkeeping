@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 03 — 施設選択 v2</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1180px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:322px;border-radius:34px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:25px;overflow:hidden;height:700px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:14px}
+.top .a{font-size:15px;font-weight:700}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:4px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.sect{font-size:10.5px;font-weight:800;color:var(--muted);margin:14px 0 8px;letter-spacing:.5px}
+.sect:first-child{margin-top:2px}
+.msl{background:var(--surf);border:1.5px solid var(--line);border-radius:13px;padding:14px;
+margin-bottom:10px;cursor:pointer;transition:.13s;position:relative}
+.msl:active{transform:scale(.99)}
+.msl.on{border-color:var(--brand);border-width:2.5px;background:var(--okbg)}
+.msl.tmr{opacity:.62;cursor:default}
+.msl .r1{display:flex;align-items:center;gap:11px}
+.msl .ic{font-size:27px;flex-shrink:0}
+.msl .nm{flex:1;min-width:0}
+.msl .nm b{font-size:15px;display:block;line-height:1.3}
+.msl .nm s{font-size:11px;color:var(--muted);text-decoration:none;display:block;margin-top:2px}
+.msl .ct{font-size:24px;font-weight:800;color:var(--brand);flex-shrink:0;line-height:1}
+body.dark .msl .ct{color:var(--ok)}
+.msl .ct em{font-size:10px;font-weight:600;font-style:normal;display:block;
+color:var(--muted);text-align:center;margin-top:1px}
+.msl .bd2{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);flex-wrap:wrap}
+.msl.on .bd2{border-color:rgba(46,125,91,.3)}
+.msl .bg{font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:5px}
+.msl .bg.t{background:var(--dirtybg);color:var(--dirty)}
+.msl .bg.w{background:var(--dangerbg);color:var(--danger)}
+.msl .bg.d{background:var(--okbg);color:var(--ok)}
+.msl .now{position:absolute;top:-8px;right:12px;background:var(--brand);color:#fff;
+font-size:9.5px;font-weight:800;padding:3px 9px;border-radius:20px}
+.msl.tmr .now{background:var(--dirty)}
+.al{border-radius:11px;padding:13px;margin:12px 0;font-size:11.5px;line-height:1.65}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.dis{opacity:.35;cursor:not-allowed}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.sum{background:var(--surf2);border:1px solid var(--line);border-radius:11px;
+padding:13px;margin-bottom:12px;display:flex;justify-content:space-around;text-align:center}
+.sum div .v{font-size:22px;font-weight:800;line-height:1.1}
+.sum div .k{font-size:10px;color:var(--muted);margin-top:3px}
+.panel{flex:1;min-width:340px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.chk{background:#0d2622;border:1px solid #17453b;border-radius:11px;padding:16px}
+.chk h3{color:#5BC192;font-size:13.5px;margin-bottom:11px}
+.chk .q{font-size:12.5px;color:#C8D6CE;padding:9px 0;border-bottom:1px solid #17453b;line-height:1.65}
+.chk .q:last-child{border:0}
+.chk .q b{color:#7fd9b0;display:block;font-size:11px;margin-bottom:2px}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.rm{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">03 / 16 — 施設選択 v2</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">STATE</span>
+<button class="gb st on" data-s="4">4施設</button>
+<button class="gb st" data-s="6">6施設</button>
+<button class="gb st" data-s="none">未選択</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">03. 施設選択（担当4施設以上のとき）</h1>
+<p data-i="d">担当施設が4以上のとき、起動時に1回だけ挟む画面。選択後は当日中は再表示しない。3施設以下では表示されず02へ直行する。サマリーは3項目（施設・総室数・再清掃）。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">🏢 <span data-i="ttl">どの施設から始めますか？</span></div>
+<div class="b">8/10(月) 09:02 · Sari (14) · <span id="pc">4</span><span data-i="shi">施設を担当</span></div></div>
+<div class="bd" id="bd">
+
+<div class="sum"><div><div class="v" id="s1">4</div><div class="k" data-i="k_p">施設</div></div>
+<div><div class="v" id="s2">31</div><div class="k" data-i="k_r">総室数</div></div>
+<div><div class="v" id="s3" style="color:var(--danger)">2</div><div class="k" data-i="k_w">再清掃</div></div></div>
+
+<div class="sect" data-i="s_today">📍 本日の担当</div>
+
+<div class="msl on"><div class="now" data-i="now">現在ここ</div>
+<div class="r1"><span class="ic">🏨</span>
+<span class="nm"><b>ビジネスH横浜</b><s>2F・3F · 09:00 - 13:00</s></span>
+<span class="ct">11<em data-i="ken2">件</em></span></div>
+<div class="bd2"><span class="bg t"><span data-i="bt">未着手</span> 8</span>
+<span class="bg w"><span data-i="bw">再清掃</span> 1</span>
+<span class="bg d"><span data-i="bd_">完了</span> 2</span></div></div>
+
+<div class="msl"><div class="r1"><span class="ic">🏨</span>
+<span class="nm"><b>サンプルイン大阪</b><s>3F · 13:30 - 16:00 <span data-i="after">から</span></s></span>
+<span class="ct">7<em data-i="ken2">件</em></span></div>
+<div class="bd2"><span class="bg t"><span data-i="bt">未着手</span> 7</span></div></div>
+
+<div class="msl"><div class="r1"><span class="ic">🏨</span>
+<span class="nm"><b>サンプルホテル東京</b><s>5F · 16:30 - 18:00 <span data-i="after">から</span></s></span>
+<span class="ct">8<em data-i="ken2">件</em></span></div>
+<div class="bd2"><span class="bg t"><span data-i="bt">未着手</span> 7</span>
+<span class="bg w"><span data-i="bw">再清掃</span> 1</span></div></div>
+
+<div class="msl x6" style="display:none"><div class="r1"><span class="ic">🏨</span>
+<span class="nm"><b>ゲストハウス浅草</b><s>1F · 18:30 - 19:30 <span data-i="after">から</span></s></span>
+<span class="ct">3<em data-i="ken2">件</em></span></div>
+<div class="bd2"><span class="bg t"><span data-i="bt">未着手</span> 3</span></div></div>
+
+<div class="msl x6" style="display:none"><div class="r1"><span class="ic">🏨</span>
+<span class="nm"><b>カプセル新宿</b><s>B1 · <span data-i="flex">時間指定なし</span></s></span>
+<span class="ct">2<em data-i="ken2">件</em></span></div>
+<div class="bd2"><span class="bg t"><span data-i="bt">未着手</span> 2</span></div></div>
+
+<div class="sect" data-i="s_tmr">🗓 翌日以降（表示のみ）</div>
+
+<div class="msl tmr"><div class="now" data-i="tmr_l">明日</div>
+<div class="r1"><span class="ic">🏨</span>
+<span class="nm"><b>サンプル旅館京都</b><s>8/11(火) 09:00 -</s></span>
+<span class="ct">5<em data-i="ken2">件</em></span></div></div>
+
+<div class="al i">ℹ <span data-i="note">施設を選ぶと、その施設のタスクだけが表示されます。上部の「🏢 N施設を担当」からいつでも切り替えられます。</span></div>
+
+<button class="big" id="go">▶ <span data-i="b_go">ビジネスH横浜で開始</span></button>
+<button class="big o" style="margin-top:9px" data-i="b_all">すべての施設をまとめて表示</button>
+</div>
+<div class="ft"><div class="on"><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>✅ <span data-i="u_t">今回の変更（Q4採用）</span></h3>
+<p data-i="u_a"><b>「想定時間」を削除。</b>サマリーを4項目から3項目にした。</p>
+<div class="rm" data-i="u_b">❌ 削除理由：清掃員を守る指標として設計したが、時間の合計を画面に出すと「時間内に終わらせろ」という圧力として読まれる余地がある。配分の妥当性は清掃会社側の管理画面で見るべき情報であり、現場のホーム画面に置くべきではない。</div>
+<div class="hint" data-i="u_c">💡 過大配分の検知は清掃会社の配分画面（P1-14）で行います。1人あたりの合計標準時間が上限（既定420分）を超えたら警告する仕様です。現場ではなく管理側で気づく設計に統一しました。</div></div>
+
+<div class="card"><h3>🎯 <span data-i="c1t">この画面の設計意図</span></h3>
+<p data-i="c1a"><b>4施設以上のときだけ表示する。</b>3施設までは02のグループ表示で1画面に収まる。4以上になるとスクロールが長くなり、今どこにいるのか分からなくなるため、最初に1回だけ絞り込む。</p>
+<p data-i="c1b"><b>「現在ここ」を明示する。</b>時間帯から現在いるべき施設を推定し、既定で選択済みにする。清掃員は基本的にそのまま「開始」を押すだけで済む。</p>
+<p data-i="c1c"><b>翌日以降は薄く表示し、選択できない。</b>存在は見せるが押せない。明日の予定が見えると見通しが立つが、誤って明日のタスクを開始する事故は防ぐ。</p></div>
+
+<div class="card"><h3>📊 <span data-i="c4t">サマリーの3項目</span></h3>
+<table><tr><th data-i="th_it">項目</th><th data-i="th_m">意味</th></tr>
+<tr><td data-i="i1">施設</td><td data-i="m1">本日の担当施設数</td></tr>
+<tr><td data-i="i2">総室数</td><td data-i="m2">全施設の合計タスク数</td></tr>
+<tr><td data-i="i3">再清掃</td><td data-i="m3">全施設の再清掃件数（赤字）</td></tr></table>
+<div class="hint" data-i="c4h">💡 再清掃だけを赤字にしています。期限があり、READY遅延に直結するためです。他の数字は色をつけません。</div></div>
+
+<div class="card"><h3>🕐 <span data-i="c3t">「現在ここ」の推定ロジック</span></h3>
+<p data-i="c3a">シフト（<code>dailyRoute</code>）の <code>plannedStartAt</code> / <code>plannedEndAt</code> と現在時刻を比較し、時間帯に該当する施設を既定選択にする。</p>
+<ul>
+<li data-i="cl1">現在時刻が時間帯内 → その施設を選択</li>
+<li data-i="cl2">どの時間帯にも該当しない → 次に始まる施設を選択</li>
+<li data-i="cl3">シフト未登録 → 最も未着手が多い施設を選択</li>
+<li data-i="cl4">GPSは使わない。位置情報を扱わない方針を維持</li>
+</ul></div>
+
+<div class="card"><h3>📐 <span data-i="c2t">表示ルール</span></h3>
+<table><tr><th data-i="th_c">条件</th><th data-i="th_b">挙動</th></tr>
+<tr><td data-i="rr1">担当1〜3施設</td><td data-i="rb1">この画面を出さず02へ直行</td></tr>
+<tr><td data-i="rr2">担当4施設以上</td><td data-i="rb2">起動時に1回表示</td></tr>
+<tr><td data-i="rr3">当日すでに選択済み</td><td data-i="rb3">再表示しない</td></tr>
+<tr><td data-i="rr4">翌日以降のタスク</td><td data-i="rb4">薄く表示・選択不可</td></tr>
+<tr><td data-i="rr5">閾値</td><td data-i="rb5">組織設定で2〜10に変更可</td></tr></table></div>
+
+<div class="chk"><h3>✅ <span data-i="c5t">確認結果</span></h3>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q1t">Q1. 閾値の既定値は4施設 — 確定</span></b>
+<span data-i="q1">3施設まではグループ表示で足りると判断。2〜10で設定可能。</span></div>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q2t">Q2. 「すべてまとめて表示」を残す — 確定</span></b>
+<span data-i="q2">施設を絞りたくない人のための逃げ道として維持。</span></div>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q3t">Q3. 翌日1日分のみ表示 — 確定</span></b>
+<span data-i="q3">3日先まで見せると情報量が増えるため、翌日のみとする。</span></div>
+<div class="q"><b><span class="nx">❌</span> <span data-i="q4t">Q4. 「想定時間」— 不採用</span></b>
+<span data-i="q4">時間の圧力になり得るため削除。過大配分の検知は清掃会社の配分画面で行う。</span></div>
+<div class="q"><b><span class="fx">✅</span> <span data-i="q5t">Q5. 施設の並び順は時間順 — 確定</span></b>
+<span data-i="q5">シフトの開始時刻順。動線に沿った並びが現場の把握に最も近い。</span></div>
+</div></div></div></div>
+<script>const I18N={ja:{},
+en:{t:"03. Property Picker (4+ properties)",
+d:"Appears once at launch when a cleaner covers four or more properties. Not shown again the same day. With three or fewer it is skipped and screen 02 opens directly. The summary now has three figures.",
+ttl:"Which property first?",shi:" properties",ken2:"",
+k_p:"Properties",k_r:"Rooms",k_w:"Rework",
+s_today:"📍 Today's assignments",now:"You are here",after:"from",flex:"no fixed time",
+bt:"To do",bw:"Rework",bd_:"Done",
+s_tmr:"🗓 Tomorrow onward (view only)",tmr_l:"Tomorrow",
+note:"Selecting a property shows only its tasks. You can switch anytime from \"🏢 N properties\" in the header.",
+b_go:"Start at Business H Yokohama",b_all:"Show all properties together",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+u_t:"Change in this revision (Q4 adopted)",
+u_a:"<b>\"Est. time\" removed.</b> The summary goes from four figures to three.",
+u_b:"❌ Why: it was designed to protect the cleaner, but putting a total time on screen leaves room to read it as pressure to finish within that time. Whether an allocation is reasonable belongs on the cleaning company's admin screen, not on the field home screen.",
+u_c:"💡 Over-allocation is caught on the cleaning company's assignment screen (P1-14), which warns when one person's total target minutes exceed the cap (420 min by default). Detection lives on the management side, not in the field.",
+c1t:"Design intent",
+c1a:"<b>Shown only with four or more properties.</b> Up to three fit on one screen in the grouped view. Beyond that the list scrolls so far that staff lose track of where they are.",
+c1b:"<b>\"You are here\" is explicit.</b> The current property is inferred from the time of day and pre-selected. In most cases the cleaner just taps Start.",
+c1c:"<b>Future dates are faded and unselectable.</b> Visible for planning, impossible to start by mistake.",
+c4t:"The three summary figures",th_it:"Item",th_m:"Meaning",
+i1:"Properties",m1:"Number of properties today",
+i2:"Rooms",m2:"Total tasks across all properties",
+i3:"Rework",m3:"Rework count across all properties (red)",
+c4h:"💡 Only rework is coloured red. It has a deadline and directly delays READY. The other figures stay neutral.",
+c3t:"How \"You are here\" is inferred",
+c3a:"Compares the current time with <code>plannedStartAt</code> / <code>plannedEndAt</code> from the shift (<code>dailyRoute</code>) and pre-selects the matching property.",
+cl1:"Current time inside a window → select that property",
+cl2:"No window matches → select the next one starting",
+cl3:"No shift registered → select the property with the most outstanding tasks",
+cl4:"GPS is never used. The no-location-data policy is maintained",
+c2t:"Display rules",th_c:"Condition",th_b:"Behaviour",
+rr1:"1-3 properties",rb1:"Skip this screen, go straight to 02",
+rr2:"4+ properties",rb2:"Show once at launch",
+rr3:"Already chosen today",rb3:"Do not show again",
+rr4:"Future-dated tasks",rb4:"Faded, unselectable",
+rr5:"Threshold",rb5:"Configurable 2-10 per organisation",
+c5t:"Confirmed decisions",
+q1t:"Q1. Default threshold of 4 — confirmed",q1:"Up to three works fine in the grouped view. Configurable 2-10.",
+q2t:"Q2. Keep \"Show all together\" — confirmed",q2:"Retained as an escape hatch for staff who do not want to filter.",
+q3t:"Q3. Tomorrow only — confirmed",q3:"Three days ahead adds too much density.",
+q4t:"Q4. \"Est. time\" — not adopted",q4:"Removed because it can read as time pressure. Over-allocation is detected on the assignment screen.",
+q5t:"Q5. Sort by time — confirmed",q5:"By shift start time, closest to how the field understands the day."},
+zh:{t:"03. 设施选择（担当 4 家以上时）",
+d:"担当 4 家以上时在启动时插入一次。选择后当天不再显示。3 家以下不显示，直接进入 02。汇总改为 3 项。",
+ttl:"从哪家设施开始？",shi:"家设施",ken2:"件",
+k_p:"设施",k_r:"总房数",k_w:"返工",
+s_today:"📍 本日担当",now:"当前在此",after:"起",flex:"无时间指定",
+bt:"未开始",bw:"返工",bd_:"完成",
+s_tmr:"🗓 次日以后（仅显示）",tmr_l:"明天",
+note:"选择设施后只显示该设施的任务。可随时从顶部「🏢 N 家设施」切换。",
+b_go:"以横滨商务酒店开始",b_all:"全部设施一起显示",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+u_t:"本次变更（采纳 Q4）",
+u_a:"<b>删除「预计时间」。</b>汇总从 4 项改为 3 项。",
+u_b:"❌ 删除理由：原本作为保护清扫员的指标设计，但把时间合计显示在画面上，有被读成「必须在时间内做完」的压力的余地。配分是否妥当应该是清扫公司管理画面上的信息，不该放在现场的主画面。",
+u_c:"💡 过量配分的检测在清扫公司的配分画面（P1-14）进行。规格是当每人的合计标准时间超过上限（默认 420 分）时发出警告。统一为在管理侧而非现场察觉的设计。",
+c1t:"本画面的设计意图",
+c1a:"<b>仅在 4 家以上时显示。</b>3 家以内在 02 的分组显示中一屏可容纳。超过后列表滚动过长，会让人搞不清现在在哪里。",
+c1b:"<b>明示「当前在此」。</b>从时间段推定现在应该在哪家设施，并默认选中。清扫员基本上直接按「开始」就行。",
+c1c:"<b>次日以后淡色显示且不能选。</b>可用于把握全貌，但无法误开始。",
+c4t:"汇总的 3 个项目",th_it:"项目",th_m:"含义",
+i1:"设施",m1:"本日担当的设施数",
+i2:"总房数",m2:"全设施的合计任务数",
+i3:"返工",m3:"全设施的返工件数（红字）",
+c4h:"💡 只有返工用红字。因为它有期限，且直接影响 READY。其他数字不上色。",
+c3t:"「当前在此」的推定逻辑",
+c3a:"比较当前时刻与排班（<code>dailyRoute</code>）的 <code>plannedStartAt</code> / <code>plannedEndAt</code>，把符合时间段的设施设为默认选中。",
+cl1:"当前时刻在时间段内 → 选中该设施",
+cl2:"不符合任何时间段 → 选中下一个开始的设施",
+cl3:"未登录排班 → 选中未开始任务最多的设施",
+cl4:"不使用 GPS。维持不处理位置信息的方针",
+c2t:"显示规则",th_c:"条件",th_b:"行为",
+rr1:"担当 1〜3 家",rb1:"不显示本画面，直接进 02",
+rr2:"担当 4 家以上",rb2:"启动时显示 1 次",
+rr3:"当天已选择",rb3:"不再显示",
+rr4:"次日以后的任务",rb4:"淡色显示・不可选",
+rr5:"阈值",rb5:"组织设定可改为 2〜10",
+c5t:"确认结果",
+q1t:"Q1. 阈值默认 4 家 — 已确定",q1:"3 家以内用分组显示就够。可在 2〜10 设定。",
+q2t:"Q2. 保留「全部一起显示」— 已确定",q2:"作为不想筛选的人的退路保留。",
+q3t:"Q3. 仅显示次日 1 天 — 已确定",q3:"显示 3 天信息量过大。",
+q4t:"Q4. 「预计时间」— 不采用",q4:"因可能成为时间压力而删除。过量配分的检测在配分画面进行。",
+q5t:"Q5. 设施排序用时间顺 — 已确定",q5:"按排班开始时刻，最接近现场对一天的把握方式。"},
+vi:{t:"03. Chọn cơ sở (từ 4 cơ sở)",d:"Hiện một lần khi mở nếu phụ trách bốn cơ sở trở lên. Tổng hợp còn ba số.",
+ttl:"Bắt đầu từ cơ sở nào?",shi:" cơ sở",ken2:"",k_p:"Cơ sở",k_r:"Số phòng",k_w:"Dọn lại",
+s_today:"📍 Phụ trách hôm nay",now:"Bạn đang ở đây",after:"từ",flex:"không cố định giờ",
+bt:"Chưa làm",bw:"Dọn lại",bd_:"Xong",
+s_tmr:"🗓 Từ mai (chỉ xem)",tmr_l:"Mai",
+note:"Chọn cơ sở sẽ chỉ hiện nhiệm vụ của cơ sở đó.",
+b_go:"Bắt đầu tại Business H Yokohama",b_all:"Hiện tất cả cơ sở",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+u_t:"Thay đổi lần này (áp dụng Q4)",u_a:"<b>Bỏ \"Thời gian dự kiến\".</b> Tổng hợp còn ba số.",
+u_b:"❌ Lý do: tổng thời gian trên màn hình có thể bị hiểu là áp lực phải làm xong trong thời gian đó.",
+u_c:"💡 Phân bổ quá tải được phát hiện ở màn hình phân công của công ty vệ sinh (P1-14).",
+c1t:"Ý đồ thiết kế",
+c1a:"<b>Chỉ hiện khi có bốn cơ sở trở lên.</b>",
+c1b:"<b>\"Bạn đang ở đây\" rõ ràng.</b> Suy ra từ giờ và chọn sẵn.",
+c1c:"<b>Ngày mai bị làm mờ.</b> Thấy được nhưng không bắt đầu nhầm.",
+c4t:"Ba số liệu tổng hợp",th_it:"Mục",th_m:"Ý nghĩa",
+i1:"Cơ sở",m1:"Số cơ sở hôm nay",i2:"Số phòng",m2:"Tổng nhiệm vụ",
+i3:"Dọn lại",m3:"Số lần dọn lại (đỏ)",
+c4h:"💡 Chỉ dọn lại tô đỏ vì có hạn và ảnh hưởng READY.",
+c3t:"Cách suy ra \"Bạn đang ở đây\"",
+c3a:"So sánh giờ hiện tại với <code>plannedStartAt</code> trong lịch làm.",
+cl1:"Giờ nằm trong khung → chọn cơ sở đó",cl2:"Không khớp → chọn cơ sở kế tiếp",
+cl3:"Chưa có lịch → chọn cơ sở nhiều việc nhất",cl4:"Không dùng GPS",
+c2t:"Quy tắc hiển thị",th_c:"Điều kiện",th_b:"Hành vi",
+rr1:"1-3 cơ sở",rb1:"Bỏ qua, vào 02",rr2:"Từ 4 cơ sở",rb2:"Hiện một lần",
+rr3:"Đã chọn hôm nay",rb3:"Không hiện lại",rr4:"Nhiệm vụ ngày sau",rb4:"Mờ, không chọn",
+rr5:"Ngưỡng",rb5:"Đặt 2-10",
+c5t:"Kết quả xác nhận",
+q1t:"Q1. Ngưỡng 4 — xác nhận",q1:"Đặt được 2-10.",
+q2t:"Q2. Giữ \"Hiện tất cả\" — xác nhận",q2:"Lối thoát không lọc.",
+q3t:"Q3. Chỉ ngày mai — xác nhận",q3:"Ba ngày quá nhiều.",
+q4t:"Q4. \"Thời gian dự kiến\" — không áp dụng",q4:"Bỏ vì có thể thành áp lực.",
+q5t:"Q5. Sắp theo giờ — xác nhận",q5:"Theo giờ bắt đầu lịch."},
+id:{t:"03. Pemilih Properti (4+)",d:"Muncul sekali saat membuka bila menangani empat properti atau lebih. Ringkasan kini tiga angka.",
+ttl:"Mulai dari properti mana?",shi:" properti",ken2:"",k_p:"Properti",k_r:"Kamar",k_w:"Ulang",
+s_today:"📍 Tugas hari ini",now:"Anda di sini",after:"dari",flex:"tanpa jam tetap",
+bt:"Belum",bw:"Ulang",bd_:"Selesai",
+s_tmr:"🗓 Besok dan seterusnya (lihat saja)",tmr_l:"Besok",
+note:"Memilih properti hanya menampilkan tugasnya.",
+b_go:"Mulai di Business H Yokohama",b_all:"Tampilkan semua properti",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+u_t:"Perubahan kali ini (Q4 diadopsi)",u_a:"<b>\"Estimasi\" dihapus.</b> Ringkasan dari empat menjadi tiga angka.",
+u_b:"❌ Alasan: total waktu di layar bisa dibaca sebagai tekanan untuk selesai dalam waktu itu.",
+u_c:"💡 Beban berlebih dideteksi di layar pembagian perusahaan kebersihan (P1-14).",
+c1t:"Maksud desain",
+c1a:"<b>Hanya muncul dengan empat properti atau lebih.</b>",
+c1b:"<b>\"Anda di sini\" jelas.</b> Disimpulkan dari waktu dan dipilih otomatis.",
+c1c:"<b>Hari mendatang pudar.</b> Terlihat tapi tak bisa dimulai keliru.",
+c4t:"Tiga angka ringkasan",th_it:"Item",th_m:"Arti",
+i1:"Properti",m1:"Jumlah properti hari ini",i2:"Kamar",m2:"Total tugas",
+i3:"Ulang",m3:"Jumlah bersih ulang (merah)",
+c4h:"💡 Hanya ulang yang merah karena ada tenggat dan menunda READY.",
+c3t:"Cara menyimpulkan \"Anda di sini\"",
+c3a:"Membandingkan waktu sekarang dengan <code>plannedStartAt</code> dari jadwal.",
+cl1:"Waktu di dalam rentang → pilih itu",cl2:"Tidak cocok → yang mulai berikutnya",
+cl3:"Jadwal belum ada → tugas terbanyak",cl4:"GPS tidak dipakai",
+c2t:"Aturan tampilan",th_c:"Kondisi",th_b:"Perilaku",
+rr1:"1-3 properti",rb1:"Lewati, ke 02",rr2:"4+ properti",rb2:"Tampil sekali",
+rr3:"Sudah dipilih hari ini",rb3:"Tidak tampil lagi",rr4:"Tugas mendatang",rb4:"Pudar, tak dipilih",
+rr5:"Ambang",rb5:"Atur 2-10",
+c5t:"Hasil konfirmasi",
+q1t:"Q1. Ambang 4 — dikonfirmasi",q1:"Dapat diatur 2-10.",
+q2t:"Q2. Simpan \"Tampilkan semua\" — dikonfirmasi",q2:"Jalan keluar tanpa filter.",
+q3t:"Q3. Hanya besok — dikonfirmasi",q3:"Tiga hari terlalu padat.",
+q4t:"Q4. \"Estimasi\" — tidak diadopsi",q4:"Dihapus karena bisa jadi tekanan.",
+q5t:"Q5. Urut waktu — dikonfirmasi",q5:"Menurut jam mulai jadwal."},
+my:{t:"၀၃. အဆောက်အအုံရွေးချယ်မှု（၄ ခုအထက်）",d:"၄ ခုအထက်ဆိုပါက စတင်ချိန်တွင် တစ်ကြိမ်ပြသည်။ အနှစ်ချုပ် ၃ ခု။",
+ttl:"မည်သည့်အဆောက်အအုံမှ စမည်နည်း။",shi:" အဆောက်အအုံ",ken2:"ခု",
+k_p:"အဆောက်အအုံ",k_r:"အခန်းအရေအတွက်",k_w:"ပြန်လုပ်",
+s_today:"📍 ဒီနေ့တာဝန်",now:"ဤနေရာတွင်",after:"မှ",flex:"အချိန်မသတ်မှတ်",
+bt:"မစသေး",bw:"ပြန်လုပ်",bd_:"ပြီး",
+s_tmr:"🗓 မနက်ဖန်မှစ（ကြည့်ရုံသာ）",tmr_l:"မနက်ဖန်",
+note:"အဆောက်အအုံရွေးပါက ထိုအလုပ်များသာ ပေါ်မည်။",
+b_go:"Business H Yokohama တွင် စတင်",b_all:"အားလုံးပြ",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+u_t:"ဤအကြိမ်ပြောင်းလဲမှု（Q4 လက်ခံ）",u_a:"<b>\"ခန့်မှန်းအချိန်\" ဖျက်လိုက်သည်။</b> အနှစ်ချုပ် ၄ မှ ၃ သို့။",
+u_b:"❌ အကြောင်းရင်း：အချိန်ပေါင်းကို မျက်နှာပြင်တွင် ပြပါက \"အချိန်အတွင်း ပြီးရမည်\" ဟူသော ဖိအားအဖြစ် ဖတ်နိုင်သည်။",
+u_c:"💡 အလုပ်ပိုလွန်မှုကို သန့်ရှင်းရေးကုမ္ပဏီ၏ ခွဲခြားမှုမျက်နှာပြင်（P1-14）တွင် စစ်သည်။",
+c1t:"ဒီဇိုင်းရည်ရွယ်ချက်",
+c1a:"<b>၄ ခုအထက်တွင်သာ ပြသည်။</b>",
+c1b:"<b>\"ဤနေရာတွင်\" ရှင်းလင်းစွာ ပြသည်။</b>",
+c1c:"<b>နောက်ရက် မှိန်ပြသည်။</b> မှားစတင်မိမည့်အခြေအနေ တားဆီးသည်။",
+c4t:"အနှစ်ချုပ် ၃ ခု",th_it:"အချက်",th_m:"အဓိပ္ပါယ်",
+i1:"အဆောက်အအုံ",m1:"ဒီနေ့တာဝန်ယူသည့်အရေအတွက်",i2:"အခန်းအရေအတွက်",m2:"အလုပ်ပေါင်း",
+i3:"ပြန်လုပ်",m3:"ပြန်လုပ်အရေအတွက်（အနီ）",
+c4h:"💡 ပြန်လုပ်ကိုသာ အနီပြသည်။ သတ်မှတ်ချိန်ရှိ၍ READY နှောင့်နှေးသည်။",
+c3t:"\"ဤနေရာတွင်\" ခန့်မှန်းနည်း",
+c3a:"လက်ရှိအချိန်နှင့် ဇယား၏ <code>plannedStartAt</code> ကို နှိုင်းယှဉ်သည်။",
+cl1:"အချိန်အတွင်း → ထိုအဆောက်အအုံ",cl2:"မကိုက်ပါက → နောက်စမည့်",
+cl3:"ဇယားမရှိ → အလုပ်အများဆုံး",cl4:"GPS မသုံးပါ",
+c2t:"ပြသမှု စည်းမျဉ်း",th_c:"အခြေအနေ",th_b:"အပြုအမူ",
+rr1:"၁-၃ ခု",rb1:"မပြဘဲ ၀၂ သို့",rr2:"၄ ခုအထက်",rb2:"တစ်ကြိမ်ပြ",
+rr3:"ဒီနေ့ရွေးပြီး",rb3:"ထပ်မပြ",rr4:"နောက်ရက်အလုပ်",rb4:"မှိန်ပြ・ရွေးမရ",
+rr5:"ကန့်သတ်ချက်",rb5:"၂-၁၀ သတ်မှတ်",
+c5t:"အတည်ပြုရလဒ်",
+q1t:"မေး၁. ကန့်သတ်ချက် ၄ — အတည်",q1:"၂-၁၀ သတ်မှတ်နိုင်။",
+q2t:"မေး၂. \"အားလုံးပြ\" ထား — အတည်",q2:"စစ်ထုတ်မလိုသူများအတွက်။",
+q3t:"မေး၃. မနက်ဖန်သာ — အတည်",q3:"၃ ရက်ဆို အလွန်များ။",
+q4t:"မေး၄. \"ခန့်မှန်းအချိန်\" — မလုပ်ပါ",q4:"ဖိအားဖြစ်နိုင်၍ ဖျက်သည်။",
+q5t:"မေး၅. အချိန်အလိုက်စီ — အတည်",q5:"ဇယားစချိန်အလိုက်။"},
+ne:{t:"०३. सुविधा छनोट (४+ सुविधा)",d:"चार वा बढी सुविधा भएमा सुरुमा एक पटक देखिन्छ। सारांश अब तीन अंक।",
+ttl:"कुन सुविधाबाट सुरु गर्ने?",shi:" सुविधा",ken2:"",k_p:"सुविधा",k_r:"कोठा",k_w:"पुनः सफाई",
+s_today:"📍 आजको जिम्मेवारी",now:"तपाईं यहाँ",after:"देखि",flex:"समय तोकिएको छैन",
+bt:"बाँकी",bw:"पुनः सफाई",bd_:"सम्पन्न",
+s_tmr:"🗓 भोलिदेखि (हेर्न मात्र)",tmr_l:"भोलि",
+note:"सुविधा छान्दा त्यसको काम मात्र देखिन्छ।",
+b_go:"Business H Yokohama मा सुरु",b_all:"सबै सुविधा देखाउने",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+u_t:"यस पटकको परिवर्तन (Q4 स्वीकृत)",u_a:"<b>\"अनुमानित समय\" हटाइयो।</b> सारांश चारबाट तीन अंकमा।",
+u_b:"❌ कारण: कुल समय स्क्रिनमा देखाउँदा \"त्यही समयभित्र सक्नुपर्छ\" भन्ने दबाबका रूपमा पढिन सक्छ।",
+u_c:"💡 अत्यधिक कार्यभार सफाई कम्पनीको बाँडफाँट स्क्रिन (P1-14) मा पत्ता लाग्छ।",
+c1t:"डिजाइनको उद्देश्य",
+c1a:"<b>चार वा बढी सुविधामा मात्र देखिन्छ।</b>",
+c1b:"<b>\"तपाईं यहाँ\" स्पष्ट।</b> समयबाट अनुमान गरी छानिन्छ।",
+c1c:"<b>भोलिका काम धमिलो।</b> देखिन्छ तर गल्तीले सुरु हुँदैन।",
+c4t:"तीन सारांश अंक",th_it:"वस्तु",th_m:"अर्थ",
+i1:"सुविधा",m1:"आजका सुविधा संख्या",i2:"कोठा",m2:"कुल काम",
+i3:"पुनः सफाई",m3:"पुनः सफाई संख्या (रातो)",
+c4h:"💡 पुनः सफाई मात्र रातो। समयसीमा छ र READY ढिलाइ गराउँछ।",
+c3t:"\"तपाईं यहाँ\" कसरी अनुमान गर्ने",
+c3a:"हालको समयलाई पालीको <code>plannedStartAt</code> सँग तुलना गर्छ।",
+cl1:"समय दायराभित्र → त्यही",cl2:"नमिल्दा → अर्को सुरु हुने",
+cl3:"पाली नभएमा → बढी काम बाँकी",cl4:"GPS प्रयोग हुँदैन",
+c2t:"देखाउने नियम",th_c:"अवस्था",th_b:"व्यवहार",
+rr1:"१-३ सुविधा",rb1:"नदेखाई ०२ मा",rr2:"४+ सुविधा",rb2:"एक पटक",
+rr3:"आज छानिसकेको",rb3:"पुनः नदेखाउने",rr4:"भोलिका काम",rb4:"धमिलो・छान्न नमिल्ने",
+rr5:"थ्रेसहोल्ड",rb5:"२-१० सेट",
+c5t:"पुष्टि भएका निर्णय",
+q1t:"प्रश्न१. थ्रेसहोल्ड ४ — पुष्टि",q1:"२-१० सेट गर्न सकिन्छ।",
+q2t:"प्रश्न२. \"सबै देखाउने\" राख्ने — पुष्टि",q2:"फिल्टर बिनाको बाटो।",
+q3t:"प्रश्न३. भोलि मात्र — पुष्टि",q3:"तीन दिन धेरै हुन्छ।",
+q4t:"प्रश्न४. \"अनुमानित समय\" — प्रयोग नगर्ने",q4:"दबाब बन्न सक्ने हुनाले हटाइयो।",
+q5t:"प्रश्न५. समय क्रम — पुष्टि",q5:"पाली सुरु समयअनुसार।"}};
+const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+const go=document.getElementById('go');
+function bind(){document.querySelectorAll('.msl:not(.tmr)').forEach(m=>m.onclick=function(){
+document.querySelectorAll('.msl:not(.tmr)').forEach(x=>x.classList.remove('on'));
+this.classList.add('on');
+go.querySelector('span').textContent=this.querySelector('.nm b').textContent+'で開始'})}
+bind();
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const s=this.dataset.s,x6=document.querySelectorAll('.x6');
+if(s==='6'){x6.forEach(e=>e.style.display='');
+pc.textContent='6';s1.textContent='6';s2.textContent='36'}
+else{x6.forEach(e=>e.style.display='none');
+pc.textContent='4';s1.textContent='4';s2.textContent='31'}
+if(s==='none'){document.querySelectorAll('.msl').forEach(x=>x.classList.remove('on'));
+go.classList.add('dis');go.querySelector('span').textContent='施設を選んでください'}
+else{go.classList.remove('dis');
+const f=document.querySelector('.msl:not(.tmr)');f.classList.add('on');
+go.querySelector('span').textContent=f.querySelector('.nm b').textContent+'で開始'}});
+go.onclick=function(){if(this.classList.contains('dis'))return;
+const n=document.querySelector('.msl.on .nm b');
+alert('→ 02 本日のタスク\n\n'+(n?n.textContent:'')+' のタスクのみ表示')};
+document.querySelectorAll('.big.o').forEach(b=>b.onclick=()=>alert('→ 02 本日のタスク\n\n全施設をグループ表示'));
+</script></body></html>

@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ProofKeeping Prototype 1/4 — 清掃員・検査員</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px}
+.gb{padding:6px 11px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:20px;max-width:1500px;margin:0 auto}
+.hd h1{font-size:19px;color:#E8EDE9;margin-bottom:4px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:18px}
+.flow{display:flex;gap:18px;flex-wrap:wrap}
+.item{width:auto}
+.lbl{font-size:11px;color:#8b95a0;font-weight:700;margin:0 0 7px 2px;display:flex;align-items:center;gap:7px}
+.lbl .n{background:var(--accent);color:#1A1206;width:20px;height:20px;border-radius:50%;
+display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800}
+.ph{width:312px;border-radius:32px;padding:10px;background:var(--brand);
+box-shadow:0 14px 46px rgba(0,0,0,.6);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;min-height:640px;
+display:flex;flex-direction:column;color:var(--ink)}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:7px}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:2px}
+.top .back{opacity:.8;font-size:15px}
+.psw{display:flex;align-items:center;gap:7px;background:#0C2E26;border:1px solid #1D5044;
+border-radius:8px;padding:7px 11px;margin-top:9px;font-size:11.5px;cursor:pointer}
+.psw .ar{margin-left:auto;color:#8FAAA0;font-size:10px}
+.lang{display:flex;gap:5px;padding:10px 12px;background:var(--surf2);
+border-bottom:1px solid var(--line);overflow-x:auto}
+.lang .l{padding:7px 12px;border-radius:18px;font-size:11.5px;font-weight:700;white-space:nowrap;
+border:1.5px solid var(--line);background:var(--surf);color:var(--ink2);cursor:pointer}
+.lang .l.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.tabs{display:flex;gap:6px;padding:10px 12px 0}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.gh{display:flex;align-items:center;gap:9px;background:var(--brand);color:#fff;
+border-radius:10px;padding:11px 12px;margin:2px 0 10px}
+.gh .ic{font-size:16px}.gh .nm{font-size:12.5px;font-weight:700;flex:1}
+.gh .ct{font-size:11.5px;color:#B9CFC2}
+.gh.mv{background:var(--surf);color:var(--ink);border:1.5px dashed var(--line);margin-top:15px}
+.gh.mv .ct{color:var(--muted)}
+.gh.dn{background:var(--okbg);color:var(--ok);border:1px solid var(--ok)}
+.gh.dn .ct{color:var(--ok)}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid;background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.new{border-color:var(--line)}
+.tb.dn{border-color:var(--ok);background:var(--okbg);opacity:.72}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:35px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:12px}
+.tb .mt{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .warn{background:rgba(156,59,50,.12);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:15px}
+.big.dis{opacity:.4}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.msl{background:var(--surf);border:1.5px solid var(--line);border-radius:12px;padding:14px;
+margin-bottom:10px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.msl.on{border-color:var(--brand);border-width:2.5px;background:var(--okbg)}
+.msl .ic{font-size:27px}.msl .nm{flex:1}
+.msl .nm b{font-size:14.5px;display:block}
+.msl .nm s{font-size:11px;color:var(--muted);text-decoration:none}
+.msl .ct{font-size:20px;font-weight:800;color:var(--brand)}
+body.dark .msl .ct{color:var(--ok)}
+.q{font-size:13.5px;font-weight:700;margin:6px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 6px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:14px}
+.pk.c3{grid-template-columns:repeat(3,1fr)}.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk.c2{grid-template-columns:repeat(2,1fr)}
+.pk .o{padding:16px 5px;border-radius:11px;border:2px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer}
+.pk .o .i{font-size:25px;display:block;margin-bottom:5px;line-height:1}
+.pk .o .x{font-size:10.5px;font-weight:700;color:var(--ink2)}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:9px}
+.st .lb{font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px}
+.st .ct{display:flex;align-items:center;gap:12px}
+.st .mb{width:44px;height:44px;border-radius:10px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:22px;font-weight:800;color:var(--ink2);cursor:pointer;font-family:inherit}
+.st .vv{font-size:22px;font-weight:800;min-width:34px;text-align:center;font-variant-numeric:tabular-nums}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cnt{font-weight:700}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.tri{display:flex;gap:5px;flex-shrink:0}
+.tri .b{width:40px;height:40px;border-radius:9px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:17px;font-weight:800;color:var(--ink2);cursor:pointer;font-family:inherit}
+.tri .b.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.tri .b.ng{background:var(--danger);border-color:var(--danger);color:#fff}
+.tri .b.na{font-size:14px}
+.ph2{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.ph2 .p{aspect-ratio:1;border-radius:10px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line)}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin-bottom:12px;font-size:12px;line-height:1.6}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.ofl{background:var(--warn);color:#fff;padding:8px 12px;font-size:11.5px;font-weight:700;
+display:flex;align-items:center;justify-content:space-between}
+.ofl button{background:rgba(255,255,255,.25);border:none;color:#fff;padding:4px 10px;
+border-radius:5px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.tmr{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:13px;
+margin-bottom:12px;display:flex;justify-content:space-around;text-align:center}
+.tmr div .v{font-size:21px;font-weight:800;line-height:1.2}
+.tmr div .k{font-size:10px;color:var(--muted);margin-top:3px}
+.tmr .ov .v{color:var(--warn)}
+.pcs{display:flex;gap:9px;margin-bottom:12px}
+.pcs .b{flex:1;padding:14px 8px;border-radius:11px;border:2px solid var(--line);
+background:var(--surf);text-align:center;cursor:pointer}
+.pcs .b .i{font-size:26px;display:block;margin-bottom:5px}
+.pcs .b .x{font-size:11.5px;font-weight:700}
+.pcs .b.on{border-color:var(--brand);background:var(--okbg)}
+.note{background:#111815;border:1px solid #1E2A25;border-radius:10px;padding:16px;
+font-size:12.5px;color:#A8B5AE;margin-top:20px;line-height:1.75}
+.note b{color:var(--accent2)}
+.note h4{color:#E8EDE9;font-size:13px;margin:15px 0 7px}
+.note code{background:#0A100D;padding:1px 5px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.note table{width:100%;border-collapse:collapse;margin-top:10px;font-size:11.5px}
+.note th{background:#16211D;color:#8C9A93;padding:8px;border:1px solid #243029;text-align:left}
+.note td{background:#0E1613;color:#B4C0BA;padding:8px;border:1px solid #243029}
+</style></head><body>
+<div class="ctl">
+<div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">PROTOTYPE 1 / 4</div>
+<div class="grp"><span class="gl">LANG</span>
+<button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">📱 清掃員・検査員 — スマホ全画面</h1>
+<p data-i="d">15画面。すべてのボタン・チェック・ステッパーが実際に動きます。6言語切替対応。</p></div>
+<div class="flow">
+
+<!-- 01 LOGIN -->
+<div class="item"><div class="lbl"><span class="n">1</span><span data-i="s1">ログイン</span></div>
+<div class="ph"><div class="sc">
+<div class="lang">
+<div class="l on">日本語</div><div class="l">English</div><div class="l">Tiếng Việt</div>
+<div class="l">Indonesia</div><div class="l">မြန်မာ</div><div class="l">简体中文</div></div>
+<div class="bd" style="display:flex;flex-direction:column;justify-content:center;gap:13px">
+<div style="text-align:center;margin-bottom:6px">
+<div style="font-size:21px;font-weight:800">Proof<span style="color:var(--accent)">Keeping</span></div>
+<div style="font-size:11.5px;color:var(--muted);margin-top:5px" data-i="l_sub">施設コードとPINを入力してください</div></div>
+<div><div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:6px" data-i="l_code">施設コード</div>
+<div style="background:var(--surf);border:2px solid var(--line);border-radius:11px;padding:16px;
+font-size:22px;font-weight:800;letter-spacing:4px;text-align:center">HTLA</div></div>
+<div><div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:6px" data-i="l_no">スタッフ番号</div>
+<div style="background:var(--surf);border:2px solid var(--line);border-radius:11px;padding:16px;
+font-size:22px;font-weight:800;letter-spacing:4px;text-align:center">11</div></div>
+<div><div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:6px">PIN</div>
+<div style="background:var(--surf);border:2px solid var(--line);border-radius:11px;padding:16px;
+font-size:26px;letter-spacing:12px;text-align:center">••••</div></div>
+<button class="big" style="margin-top:5px"><span data-i="s1">ログイン</span> →</button>
+<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:4px" data-i="l_help">PINを忘れた場合は責任者にお伝えください</div>
+</div></div></div></div>
+
+<!-- 02 TODAY -->
+<div class="item"><div class="lbl"><span class="n">2</span><span data-i="s2">本日のタスク（複数施設）</span></div>
+<div class="ph"><div class="sc">
+<div class="ofl"><span>⚠ <span data-i="ofl">オフライン ・ 未送信 2件</span></span><button data-i="snd">送信</button></div>
+<div class="top"><div class="a">📋 <span data-i="s2b">本日のタスク 19件</span></div>
+<div class="b">8/10(月) · Nguyen (11)</div>
+<div class="psw"><span>🏢</span><span data-i="p2">2施設を担当</span><span class="ar">▼</span></div></div>
+<div class="tabs"><div class="t on"><span data-i="f_all">すべて</span> 19</div>
+<div class="t"><span data-i="f_todo">未着手</span> 6</div><div class="t"><span data-i="f_done">完了</span> 12</div></div>
+<div class="bd">
+<div class="gh"><span class="ic">🏨</span><span class="nm">サンプルホテル東京</span><span class="ct">12<span data-i="ken">件</span></span></div>
+<div class="tb rwk"><div class="r1"><div class="no">401</div>
+<div class="tg" style="background:var(--danger);color:#fff">↺ <span data-i="st_rwk">再清掃</span></div></div>
+<div class="warn">🚿 <span data-i="rwk_msg">浴室の鏡に水滴跡があります</span></div>
+<div class="mt">⏰ 14:30 <span data-i="due">期限</span> · <span data-i="left_m">残り18分</span></div>
+<button class="big r">↺ <span data-i="do_rwk">対応する</span></button></div>
+<div class="tb run"><div class="r1"><div class="no">305</div>
+<div class="tg" style="background:var(--warn);color:#fff">⟳ 12<span data-i="min">分</span></div></div>
+<div class="ty"><span data-i="ty_stay">滞在清掃</span> · 3F · <span data-i="rt_dbl">ダブル</span></div>
+<div class="mt">✅ 8/12 &nbsp; 📷 1</div>
+<button class="big w"><span data-i="resume">続きから</span> →</button></div>
+<div class="tb new"><div class="r1"><div class="no">302</div>
+<div class="tg" style="background:var(--dirtybg);color:var(--dirty)"><span data-i="f_todo">未着手</span></div></div>
+<div class="ty"><span data-i="ty_out">アウト清掃</span> · 3F · <span data-i="rt_twn">ツイン</span> · 2<span data-i="nin">名</span></div>
+<div class="mt">⏱ 40<span data-i="min">分</span> &nbsp; ✅ 0/16</div>
+<button class="big">▶ <span data-i="start">開始する</span></button></div>
+<div class="gh mv"><span class="ic">🚃</span><span class="nm" data-i="move">移動 · 約25分</span><span class="ct">14:30 →</span></div>
+<div class="gh"><span class="ic">🏨</span><span class="nm">ビジネスH横浜</span><span class="ct">7<span data-i="ken">件</span></span></div>
+<div class="tb new"><div class="r1"><div class="no">208</div>
+<div class="tg" style="background:var(--dirtybg);color:var(--dirty)"><span data-i="f_todo">未着手</span></div></div>
+<div class="ty"><span data-i="ty_out">アウト清掃</span> · 2F · 35<span data-i="min">分</span></div>
+<button class="big">▶ <span data-i="start">開始する</span></button></div>
+</div>
+<div class="ft"><div class="on"><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div></div>
+
+<!-- 03 PROPERTY PICK -->
+<div class="item"><div class="lbl"><span class="n">3</span><span data-i="s3">施設選択（4施設以上）</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">🏢 <span data-i="s3b">どの施設から始めますか？</span></div>
+<div class="b">8/10(月) · Sari (14) · 3<span data-i="shi">施設</span></div></div>
+<div class="bd">
+<div class="msl on"><span class="ic">🏨</span>
+<span class="nm"><b>ビジネスH横浜</b><s>2F · <span data-i="p_now">現在ここ</span></s></span><span class="ct">11</span></div>
+<div class="msl"><span class="ic">🏨</span>
+<span class="nm"><b>サンプルイン大阪</b><s>3F · 15:00 <span data-i="p_from">から</span></s></span><span class="ct">7</span></div>
+<div class="msl"><span class="ic">🏨</span>
+<span class="nm"><b>サンプル旅館京都</b><s data-i="p_tmr">明日 8/11</s></span><span class="ct">5</span></div>
+<div class="al i" style="margin-top:14px">ℹ <span data-i="p_note">施設を選ぶと、その施設のタスクだけが表示されます。上部の「3施設を担当」からいつでも切り替えられます。</span></div>
+<button class="big" style="margin-top:12px">▶ <span data-i="p_go">選んだ施設で開始</span></button>
+</div>
+<div class="ft"><div class="on"><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div></div>
+
+<!-- 04 SWITCH CONFIRM -->
+<div class="item"><div class="lbl"><span class="n">4</span><span data-i="s4">施設変更の確認</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">📋 <span data-i="s2b">本日のタスク 19件</span></div><div class="b">Nguyen (11)</div></div>
+<div class="bd" style="display:flex;flex-direction:column;justify-content:center">
+<div class="cd" style="text-align:center;padding:24px 18px">
+<div style="font-size:34px;margin-bottom:12px">🚃</div>
+<div style="font-size:15px;font-weight:800;margin-bottom:16px" data-i="sw_t">施設が変わります</div>
+<div style="font-size:12.5px;color:var(--muted)">サンプルホテル東京</div>
+<div style="font-size:20px;margin:6px 0;color:var(--accent)">↓</div>
+<div style="font-size:15px;font-weight:800">ビジネスH横浜</div>
+<div style="font-size:26px;font-weight:800;margin-top:8px">208<span style="font-size:14px" data-i="goshitsu">号室</span></div>
+<div style="font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.6" data-i="sw_n">この施設で作業を開始します。<br>間違いがないかご確認ください。</div>
+<div class="two" style="margin-top:18px">
+<button class="big o" style="font-size:13px" data-i="cancel">キャンセル</button>
+<button class="big" style="font-size:14px" data-i="start">開始する</button></div>
+</div></div></div></div></div>
+
+<!-- 05 TASK DETAIL -->
+<div class="item"><div class="lbl"><span class="n">5</span><span data-i="s5">タスク詳細</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="back">←</span> 302<span data-i="goshitsu">号室</span></div>
+<div class="b">🏨 サンプルホテル東京 · 3F</div></div>
+<div class="bd">
+<div class="tmr"><div><div class="v">40<span style="font-size:12px" data-i="min">分</span></div><div class="k" data-i="std">目安</div></div>
+<div class="ov"><div class="v">23<span style="font-size:12px" data-i="min">分</span></div><div class="k" data-i="elapsed">経過</div></div>
+<div><div class="v">12<span style="font-size:12px">/16</span></div><div class="k" data-i="checked">チェック</div></div></div>
+<div class="ty" style="font-size:12.5px;color:var(--ink2);margin-bottom:12px">
+<span data-i="ty_out">アウト清掃</span> · <span data-i="rt_twn">ツイン</span> · 2<span data-i="nin">名</span></div>
+<button class="big" style="margin-bottom:11px">📝 <span data-i="go_ck">チェックリスト</span> <span style="opacity:.7">12/16</span></button>
+<div class="sec"><span>📷 <span data-i="photo">写真</span></span><span class="cnt">3 / 20</span></div>
+<div class="ph2"><div class="p has">📷</div><div class="p has">📷</div><div class="p has">📷</div>
+<div class="p add">＋</div><div class="p"></div><div class="p"></div></div>
+<div class="sec"><span>📝 <span data-i="memo">メモ</span></span></div>
+<div style="background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:12px;
+font-size:12px;color:var(--muted);margin-bottom:12px" data-i="memo_ph">気づいたことがあれば入力（任意）</div>
+<div class="two"><button class="big o" style="font-size:13px">⏸ <span data-i="pause">中断</span></button>
+<button class="big o" style="font-size:13px">🚫 <span data-i="cannot">入室不可</span></button></div>
+<button class="big dis" style="margin-top:10px">✓ <span data-i="complete">完了する</span>（4<span data-i="nokori">件残り</span>）</button>
+</div></div></div></div>
+
+<!-- 06 OBSERVATION -->
+<div class="item"><div class="lbl"><span class="n">6</span><span data-i="s6">入室時の記録（15秒）</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">302 · <span data-i="s6b">入室時の記録</span></div>
+<div class="b" data-i="s6c">見たものだけを記録してください</div></div>
+<div class="bd">
+<div class="q">🛏 <span data-i="q_bed">ベッドの使用</span></div>
+<div class="pk c3"><div class="o"><span class="i">🛏</span><span class="x">0 <span data-i="dai">台</span></span></div>
+<div class="o on"><span class="i">🛏</span><span class="x">1 <span data-i="dai">台</span></span></div>
+<div class="o"><span class="i">🛏🛏</span><span class="x">2 <span data-i="dai">台</span></span></div></div>
+<div class="q">🗑 <span data-i="q_trash">ゴミの量</span></div>
+<div class="pk c4"><div class="o"><span class="i">⬜</span><span class="x" data-i="lv0">なし</span></div>
+<div class="o"><span class="i">🗑</span><span class="x" data-i="lv1">少</span></div>
+<div class="o on"><span class="i">🗑</span><span class="x" data-i="lv2">通常</span></div>
+<div class="o"><span class="i">🗑</span><span class="x" data-i="lv3">多</span></div></div>
+<div class="q">🧺 <span data-i="q_tw">使用済みタオル</span></div>
+<div class="st"><div class="lb">🛁 <span data-i="tw_b">バスタオル</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb">🧴 <span data-i="tw_f">フェイス</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb">🦶 <span data-i="tw_m">バスマット</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">1</span><button class="mb">＋</button></div></div>
+<button class="big" style="margin-top:8px">✓ <span data-i="o_save">この内容で記録</span></button>
+<button class="big o" style="margin-top:9px" data-i="o_more">詳しく入力する（アメニティ等）</button>
+<button class="big o" style="margin-top:9px;border-style:dashed" data-i="o_skip">今回は記録しない</button>
+</div></div></div></div>
+
+<!-- 07 OBSERVATION DETAIL -->
+<div class="item"><div class="lbl"><span class="n">7</span><span data-i="s7">詳細記録（任意）</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="back">←</span> 302 · <span data-i="s7b">詳しく記録</span></div>
+<div class="b" data-i="s7c">任意です。分からない項目は空欄で構いません</div></div>
+<div class="bd">
+<div class="q">🧴 <span data-i="q_am">アメニティの使用</span></div>
+<div class="st"><div class="lb">🪥 <span data-i="am_tb">歯ブラシ</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb">🧴 <span data-i="am_sh">シャンプー類</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">1</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb">🥿 <span data-i="am_sl">スリッパ</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb">💧 <span data-i="am_w">ミネラル水</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">0</span><button class="mb">＋</button></div></div>
+<div class="q" style="margin-top:16px">🍵 <span data-i="q_ot">その他</span></div>
+<div class="st"><div class="lb">🥃 <span data-i="ot_g">グラス使用</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb">🛌 <span data-i="ot_f">追加布団</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">0</span><button class="mb">＋</button></div></div>
+<button class="big" style="margin-top:12px">✓ <span data-i="o_save">この内容で記録</span></button>
+</div></div></div></div>
+
+<!-- 08 CHECKLIST -->
+<div class="item"><div class="lbl"><span class="n">8</span><span data-i="s8">チェックリスト</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="back">←</span> 302 · <span data-i="s8b">チェックリスト</span></div>
+<div class="b">12 / 16 · ⏱ 23<span data-i="min">分</span></div></div>
+<div class="bd">
+<div class="sec"><span>🛏 <span data-i="sc_bed">ベッドまわり</span></span><span class="cnt" style="color:var(--ok)">3/3</span></div>
+<div class="ck on"><div class="bx">✓</div><div class="tx" data-i="c1">シーツを交換した</div></div>
+<div class="ck on"><div class="bx">✓</div><div class="tx" data-i="c2">枕カバーを交換した</div></div>
+<div class="ck on"><div class="bx">✓</div><div class="tx" data-i="c3">ベッドメイキング完了</div><div class="cm ok">📷1</div></div>
+<div class="sec"><span>🚿 <span data-i="sc_bath">浴室</span></span><span class="cnt" style="color:var(--warn)">3/4</span></div>
+<div class="ck on"><div class="bx">✓</div><div class="tx" data-i="c4">浴槽を洗浄した</div></div>
+<div class="ck on"><div class="bx">✓</div><div class="tx" data-i="c5">洗面台・鏡を清掃した</div></div>
+<div class="ck on"><div class="bx">✓</div><div class="tx" data-i="c6">トイレを洗浄・消毒した</div></div>
+<div class="ck"><div class="bx"></div><div class="tx" data-i="c7">水滴を拭き上げた</div><div class="cm">📷<span data-i="hissu">必須</span></div></div>
+<div class="sec"><span>🧴 <span data-i="sc_am">アメニティ</span></span><span class="cnt" style="color:var(--warn)">2/3</span></div>
+<div class="ck on"><div class="bx">✓</div><div class="tx" data-i="c8">タオル類を補充した</div></div>
+<div class="ck"><div class="bx"></div><div class="tx" data-i="c9">アメニティを補充した</div></div>
+<div class="sec"><span>✅ <span data-i="sc_fin">最終確認</span></span><span class="cnt" style="color:var(--danger)">0/3</span></div>
+<div class="ck"><div class="bx"></div><div class="tx" data-i="c10">忘れ物がないか確認した</div></div>
+<div class="ck"><div class="bx"></div><div class="tx" data-i="c11">空調・照明を設定した</div></div>
+<div class="ck"><div class="bx"></div><div class="tx" data-i="c12">客室全体を撮影した</div><div class="cm">📷<span data-i="hissu">必須</span></div></div>
+<button class="big o" style="margin-top:13px">📷 <span data-i="take">写真を撮る</span></button>
+</div></div></div></div>
+
+<!-- 09 PHOTO -->
+<div class="item"><div class="lbl"><span class="n">9</span><span data-i="s9">写真の撮影・確認</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="back">←</span> 302 · <span data-i="photo">写真</span></div>
+<div class="b">3 / 20 · <span data-i="s9b">水滴の拭き上げ</span></div></div>
+<div class="bd">
+<div style="aspect-ratio:4/3;border-radius:12px;background:var(--surf2);border:1px solid var(--line);
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;margin-bottom:12px">
+<div style="font-size:44px">🚿</div>
+<div style="font-size:11.5px;color:var(--muted)" data-i="s9c">浴室 · 拭き上げ後</div></div>
+<div class="ph2" style="grid-template-columns:repeat(4,1fr)">
+<div class="p has" style="font-size:18px">📷</div><div class="p has" style="font-size:18px">📷</div>
+<div class="p has" style="font-size:18px">📷</div><div class="p add" style="font-size:20px">＋</div></div>
+<div class="al g">✓ <span data-i="s9d">GPS情報は保存されません。撮影時刻のみ記録します。</span></div>
+<div class="al w">⚠ <span data-i="s9e">お客様の私物・書類・PC画面が写らないようご注意ください。人が写った場合は撮り直してください。</span></div>
+<button class="big">📷 <span data-i="take_more">もう1枚撮る</span></button>
+<button class="big g" style="margin-top:9px">✓ <span data-i="ph_ok">この写真で確定</span></button>
+</div></div></div></div>
+
+<!-- 10 LINEN -->
+<div class="item"><div class="lbl"><span class="n">10</span><span data-i="s10">リネン枚数</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="back">←</span> 302 · <span data-i="s10b">リネン</span></div>
+<div class="b" data-i="s10c">回収した枚数を入力してください</div></div>
+<div class="bd">
+<div class="q">🧺 <span data-i="q_col">回収した枚数</span></div>
+<div class="st"><div class="lb"><span data-i="li_s">シーツ</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb"><span data-i="li_d">デュベカバー</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb"><span data-i="li_p">枕カバー</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">4</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb"><span data-i="li_b">バスタオル</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="st"><div class="lb"><span data-i="li_m">バスマット</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">1</span><button class="mb">＋</button></div></div>
+<div class="q" style="margin-top:15px">⚠ <span data-i="q_dmg">破損・汚損があれば</span></div>
+<div class="two"><button class="big o" style="font-size:13px">🕳 <span data-i="dmg">破損を報告</span></button>
+<button class="big o" style="font-size:13px">🩸 <span data-i="stn">汚損を報告</span></button></div>
+<div class="al i" style="margin-top:11px">ℹ <span data-i="s10d">破損・汚損の報告には写真1枚が必要です</span></div>
+<button class="big" style="margin-top:11px">✓ <span data-i="o_save">この内容で記録</span></button>
+</div></div></div></div>
+
+<!-- 11 COMPLETE -->
+<div class="item"><div class="lbl"><span class="n">11</span><span data-i="s11">完了確認</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">302 · <span data-i="s11b">完了確認</span></div>
+<div class="b">🏨 サンプルホテル東京 · 3F</div></div>
+<div class="bd">
+<div class="al r"><b>⚠ <span data-i="s11c">まだ完了できません</span></b>
+<span data-i="s11d">必須項目が4件残っています</span></div>
+<div class="cd"><h4 data-i="s11e">残っている項目</h4>
+<div class="rw"><span>🚿 <span data-i="c7">水滴を拭き上げた</span></span><span class="cm" style="font-size:10px;padding:3px 7px;border-radius:5px;background:var(--dangerbg);color:var(--danger)">📷</span></div>
+<div class="rw"><span>🧴 <span data-i="c9">アメニティを補充した</span></span><span style="color:var(--danger)">□</span></div>
+<div class="rw"><span>✅ <span data-i="c10">忘れ物がないか確認した</span></span><span style="color:var(--danger)">□</span></div>
+<div class="rw"><span>📷 <span data-i="c12">客室全体を撮影した</span></span><span class="cm" style="font-size:10px;padding:3px 7px;border-radius:5px;background:var(--dangerbg);color:var(--danger)">📷</span></div></div>
+<div class="tmr"><div><div class="v">12<span style="font-size:12px">/16</span></div><div class="k" data-i="checked">チェック</div></div>
+<div><div class="v">3</div><div class="k" data-i="photo">写真</div></div>
+<div class="ov"><div class="v">23<span style="font-size:12px" data-i="min">分</span></div><div class="k" data-i="elapsed">経過</div></div></div>
+<button class="big" style="margin-top:4px">📝 <span data-i="s11f">チェックリストへ戻る</span></button>
+<button class="big dis" style="margin-top:9px">✓ <span data-i="complete">完了する</span></button>
+<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:11px;line-height:1.6" data-i="s11g">
+完了すると検査担当に通知されます。<br>検査に合格すると客室が「販売可」になります。</div>
+</div></div></div></div>
+
+<!-- 12 REWORK -->
+<div class="item"><div class="lbl"><span class="n">12</span><span data-i="s12">再清掃の対応</span></div>
+<div class="ph"><div class="sc">
+<div class="top" style="background:var(--danger)"><div class="a"><span class="back">←</span> 401 · <span data-i="s12b">再清掃 1回目</span></div>
+<div class="b" style="color:#f5d5d0">⏰ 14:30 <span data-i="due">期限</span> · <span data-i="left_m">残り18分</span></div></div>
+<div class="bd">
+<div class="al r"><b>🚿 <span data-i="sc_bath">浴室</span> > <span data-i="ck_mr">鏡</span></b>
+<span data-i="rwk_msg">浴室の鏡に水滴跡があります</span></div>
+<div class="cd"><h4>📷 <span data-i="s12c">検査担当の写真</span></h4>
+<div style="aspect-ratio:4/3;border-radius:10px;background:var(--surf2);border:1px solid var(--line);
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px">
+<div style="font-size:38px">🪞</div>
+<div style="font-size:11px;color:var(--muted)" data-i="s12d">鏡の右下 · 水滴跡</div></div>
+<div class="rw" style="margin-top:10px"><span data-i="s12e">検査担当</span><b>佐藤 (03)</b></div>
+<div class="rw"><span data-i="s12f">指摘時刻</span><b>14:12</b></div></div>
+<div class="al i">ℹ <span data-i="s12g">指摘された項目のみ対応してください。他のチェック項目はそのまま残ります。</span></div>
+<button class="big r" style="margin-top:4px">▶ <span data-i="s12h">再清掃を開始</span></button>
+<div class="sec" style="margin-top:16px"><span data-i="s12i">対応後</span></div>
+<button class="big o">📷 <span data-i="take">写真を撮る</span></button>
+<button class="big dis" style="margin-top:9px">✓ <span data-i="s12j">再清掃を完了</span></button>
+</div></div></div></div>
+
+<!-- 13 REPORT PICK -->
+<div class="item"><div class="lbl"><span class="n">13</span><span data-i="s13">報告（2択入口）</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">📢 <span data-i="s13b">何を報告しますか？</span></div>
+<div class="b">302<span data-i="goshitsu">号室</span> · Nguyen (11)</div></div>
+<div class="bd">
+<div class="pcs"><div class="b on"><span class="i">🎒</span><span class="x" data-i="rp_lost">忘れ物</span></div>
+<div class="b"><span class="i">🔧</span><span class="x" data-i="rp_iss">設備の不具合</span></div></div>
+<div class="q">📦 <span data-i="rp_cat">種類</span></div>
+<div class="pk c3"><div class="o on"><span class="i">💰</span><span class="x" data-i="cat_v">貴重品</span></div>
+<div class="o"><span class="i">📱</span><span class="x" data-i="cat_e">電子機器</span></div>
+<div class="o"><span class="i">👕</span><span class="x" data-i="cat_c">衣類</span></div>
+<div class="o"><span class="i">🎒</span><span class="x" data-i="cat_b">バッグ</span></div>
+<div class="o"><span class="i">💊</span><span class="x" data-i="cat_m">薬</span></div>
+<div class="o"><span class="i">❓</span><span class="x" data-i="cat_o">その他</span></div></div>
+<div class="q">📍 <span data-i="rp_loc">見つけた場所</span></div>
+<div class="pk c3"><div class="o"><span class="i">🛏</span><span class="x" data-i="loc_b">ベッド</span></div>
+<div class="o on"><span class="i">🚿</span><span class="x" data-i="loc_ba">浴室</span></div>
+<div class="o"><span class="i">🗄</span><span class="x" data-i="loc_d">引出し</span></div></div>
+<div class="al r">⚠ <span data-i="rp_note">貴重品は責任者に直接お渡しください。金額は入力しないでください。</span></div>
+<button class="big" style="margin-top:11px">📷 <span data-i="rp_photo">写真を撮って報告</span></button>
+</div>
+<div class="ft"><div class="on"><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div></div>
+
+<!-- 14 INSPECT LIST -->
+<div class="item"><div class="lbl"><span class="n">14</span><span data-i="s14">検査員：検査待ち</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">👁 <span data-i="s14b">検査待ち 8件</span></div>
+<div class="b">佐藤 (03) · 🏨 サンプルホテル東京</div></div>
+<div class="tabs"><div class="t on"><span data-i="f_all">すべて</span> 8</div>
+<div class="t">🔴 <span data-i="urgent">緊急</span> 1</div><div class="t">↺ <span data-i="st_rwk">再清掃</span> 2</div></div>
+<div class="bd">
+<div class="tb rwk"><div class="r1"><div class="no">302</div>
+<div class="tg" style="background:var(--danger);color:#fff">🔴 18<span data-i="min">分</span></div></div>
+<div class="warn">⏰ <span data-i="until_ci">チェックインまで</span> 18<span data-i="min">分</span></div>
+<div class="mt">👤 田中 (08) &nbsp; ✅ 14:02 &nbsp; 📷 3</div>
+<button class="big r">👁 <span data-i="do_insp">検査する</span></button></div>
+<div class="tb run"><div class="r1"><div class="no">305</div>
+<div class="tg" style="background:var(--warn);color:#fff">🟠 SLA</div></div>
+<div class="ty"><span data-i="waiting">待ち時間</span> 24<span data-i="min">分</span>（<span data-i="target">目安</span> 20<span data-i="min">分</span>）</div>
+<div class="mt">👤 Nguyen (11) &nbsp; ✅ 13:48 &nbsp; 📷 2</div>
+<button class="big w">👁 <span data-i="do_insp">検査する</span></button></div>
+<div class="tb new"><div class="r1"><div class="no">401</div>
+<div class="tg" style="background:var(--dirtybg);color:var(--dirty)">↺ 2<span data-i="kaime">回目</span></div></div>
+<div class="ty"><span data-i="waiting">待ち時間</span> 6<span data-i="min">分</span> · <span data-i="s14c">再清掃後の検査</span></div>
+<div class="mt">👤 田中 (08) &nbsp; ✅ 14:19 &nbsp; 📷 5</div>
+<button class="big">👁 <span data-i="do_insp">検査する</span></button></div>
+<div class="tb new"><div class="r1"><div class="no">208</div>
+<div class="tg" style="background:var(--dirtybg);color:var(--dirty)">6<span data-i="min">分</span></div></div>
+<div class="mt">👤 Sari (14) &nbsp; ✅ 14:06 &nbsp; 📷 4</div>
+<button class="big">👁 <span data-i="do_insp">検査する</span></button></div>
+</div>
+<div class="ft"><div><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div class="on"><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div></div>
+
+<!-- 15 INSPECT DO -->
+<div class="item"><div class="lbl"><span class="n">15</span><span data-i="s15">検査員：検査実施</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="back">←</span> 302 · <span data-i="s15b">検査</span> Round 1</div>
+<div class="b">👤 田中 (08) · ✅ 14:02 · 📷 3</div></div>
+<div class="bd">
+<div class="al w">⏰ <span data-i="until_ci">チェックインまで</span> 18<span data-i="min">分</span></div>
+<div class="sec"><span>🛏 <span data-i="sc_bed">ベッドまわり</span></span></div>
+<div class="ck"><div class="tx" data-i="c1">シーツを交換した</div>
+<div class="tri"><button class="b ok">○</button><button class="b">✕</button><button class="b na">—</button></div></div>
+<div class="ck"><div class="tx" data-i="c3">ベッドメイキング完了</div>
+<div class="tri"><button class="b ok">○</button><button class="b">✕</button><button class="b na">—</button></div></div>
+<div class="sec"><span>🚿 <span data-i="sc_bath">浴室</span></span></div>
+<div class="ck"><div class="tx" data-i="c4">浴槽を洗浄した</div>
+<div class="tri"><button class="b ok">○</button><button class="b">✕</button><button class="b na">—</button></div></div>
+<div class="ck fl"><div class="tx"><b data-i="ck_mr">鏡</b></div>
+<div class="tri"><button class="b">○</button><button class="b ng">✕</button><button class="b na">—</button></div></div>
+<div class="cd" style="border-color:var(--danger)">
+<h4 style="color:var(--danger)">✕ <span data-i="in_reason">不合格の理由</span></h4>
+<div class="pk c2" style="margin-bottom:10px">
+<div class="o on" style="padding:11px 5px"><span class="x" data-i="df_w">水滴跡</span></div>
+<div class="o" style="padding:11px 5px"><span class="x" data-i="df_d">ホコリ</span></div>
+<div class="o" style="padding:11px 5px"><span class="x" data-i="df_h">髪の毛</span></div>
+<div class="o" style="padding:11px 5px"><span class="x" data-i="df_s">シミ</span></div></div>
+<div style="background:var(--surf2);border:1px solid var(--line);border-radius:9px;padding:11px;
+font-size:12px;margin-bottom:10px" data-i="in_cmt">鏡の右下に水滴跡があります</div>
+<button class="big o" style="font-size:13px;padding:12px">📷 <span data-i="take">写真を撮る</span>（1）</button>
+<div class="ck on" style="margin-top:10px;margin-bottom:0"><div class="bx">✓</div>
+<div class="tx" data-i="in_need">再清掃が必要</div></div></div>
+<div class="al i">ℹ <span data-i="in_note">1項目でも不合格があると、検査全体が不合格になります</span></div>
+<button class="big r" style="margin-top:4px">↺ <span data-i="in_back">差戻す</span></button>
+<button class="big o" style="margin-top:9px" data-i="in_pass">検査に合格させる</button>
+</div></div></div></div>
+
+<!-- 16 MY STATS -->
+<div class="item"><div class="lbl"><span class="n">16</span><span data-i="s16">自分の実績</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">📊 <span data-i="s16b">自分の実績</span></div>
+<div class="b">Nguyen (11) · 2026年8月</div></div>
+<div class="bd">
+<div class="cd" style="margin-top:0"><h4 data-i="today">本日</h4>
+<div class="rw"><span data-i="f_done">完了</span><b>12<span data-i="ken">件</span></b></div>
+<div class="rw"><span data-i="work_t">作業時間</span><b>5<span data-i="ji">時間</span>20<span data-i="min">分</span></b></div>
+<div class="rw"><span data-i="avg">平均</span><b>26<span data-i="min">分</span>/<span data-i="shitsu">室</span></b></div>
+<div class="rw"><span data-i="photo">写真</span><b>34<span data-i="mai">枚</span></b></div></div>
+<div class="cd"><h4 data-i="s16c">施設別（今月）</h4>
+<div class="rw"><span>🏨 サンプルホテル東京</span><b>218<span data-i="ken">件</span></b></div>
+<div class="rw"><span>🏨 ビジネスH横浜</span><b>96<span data-i="ken">件</span></b></div>
+<div class="rw"><span><b data-i="total">合計</b></span><b>314<span data-i="ken">件</span></b></div></div>
+<div class="cd"><h4 data-i="s16d">今月の品質</h4>
+<div class="rw"><span data-i="s16e">初回検査で合格</span><b style="color:var(--ok)">96.2%</b></div>
+<div class="rw"><span data-i="s16f">再清掃</span><b>12<span data-i="ken">件</span></b></div></div>
+<div class="al g" style="margin-top:4px">📄 <span data-i="s16g">この記録は業務改善のためのものです。個人の評価には使用されません。他のスタッフとの比較は表示していません。</span></div>
+</div>
+<div class="ft"><div><span class="i">📋</span><span data-i="tb1">タスク</span></div>
+<div><span class="i">👁</span><span data-i="tb2">検査</span></div>
+<div class="on"><span class="i">📊</span><span data-i="tb3">実績</span></div>
+<div><span class="i">⚙️</span><span data-i="tb4">設定</span></div></div>
+</div></div></div>
+</div>
+
+<div class="note">
+<h4>🔧 同業・日本市場を踏まえた最適化（この1/4で反映済み）</h4>
+<b>1. 入室記録を完全アイコン化</b> — Jtas・WorClean 等はテキストフォーム中心。ベッド使用を 🛏/🛏/🛏🛏、ゴミ量を 4段階アイコンにし、<code>キーボードを一切出さない</code>。ベトナム・インドネシア・ミャンマー籍スタッフでも日本語が読めなくても操作できる。<br><br>
+<b>2. 写真必須をチェックリスト上で明示</b> — 同業は「必須項目」と「写真必須」を区別しない実装が多く、完了ボタンを押した時点で初めて不足が判明する。本設計は項目右に <code>📷必須</code> を常時表示し、完了確認画面（11）で残項目を写真マーク付きで一覧化した。<br><br>
+<b>3. 再清掃を最上部＋期限カウントダウン</b> — 日本のホテルは 15:00 チェックインが多く、再清掃の見落としが直接 READY 遅延になる。単に並び順を上げるだけでなく、<code>残り18分</code> の表示と赤枠で最優先を視覚化。<br><br>
+<b>4. 施設変更時のみ確認ダイアログ</b> — 清掃会社は1日2〜3施設を回る。同一施設内は1タップ開始を維持しつつ、施設が変わる瞬間だけ確認を挟む（画面4）。誤って別施設のタスクを開始する事故を防ぐ。<br><br>
+<b>5. 貴重品は金額を入力させない</b> — 遺失物法対応上、現金額の自己申告はトラブル源。カテゴリを「貴重品」にして責任者へ直接引き渡す運用に固定した（画面13）。<br><br>
+<b>6. 実績画面に他人比較を置かない</b> — 同業の一部は室数ランキングを出すが、速度競争は品質低下を招く。施設別内訳と品質指標のみ表示し、注記を固定した（画面16）。<br><br>
+<b>7. GPS非保存を画面上で明言</b> — 従業員の位置情報を扱わない方針を、撮影画面に明示（画面9）。導入時のスタッフ説明コストを下げる。
+
+<h4>📋 確認していただきたいポイント</h4>
+<table>
+<tr><th>#</th><th>確認事項</th><th>現在の設計</th></tr>
+<tr><td>1</td><td>入室記録の項目数</td><td>ベッド・ゴミ・タオル3種の計5項目（詳細は任意）</td></tr>
+<tr><td>2</td><td>チェックリストの項目数</td><td>アウト清掃16項目・4セクション</td></tr>
+<tr><td>3</td><td>写真必須の項目</td><td>ベッドメイク・浴室拭き上げ・客室全体の3つ</td></tr>
+<tr><td>4</td><td>リネン記録のタイミング</td><td>チェックリスト完了後（退室前）</td></tr>
+<tr><td>5</td><td>検査の3択表記</td><td>○（合格）✕（不合格）—（対象外）</td></tr>
+<tr><td>6</td><td>不合格理由の選択肢</td><td>水滴跡・ホコリ・髪の毛・シミ＋自由記述</td></tr>
+<tr><td>7</td><td>再清掃の期限</td><td>検査時刻＋既定18分（施設設定で変更可）</td></tr>
+<tr><td>8</td><td>遺失物カテゴリ</td><td>貴重品・電子機器・衣類・バッグ・薬・その他</td></tr>
+</table>
+
+<h4>📅 次回（2/4）の内容</h4>
+ホテル・オーナー向け PC 全画面（約12画面）<br>
+客室ボード・全社サマリー・清掃実績・稼働照合の差異一覧と詳細・証跡タイムライン・客室マスタ・日報
+</div>
+</div>
+<script>
+const I18N={ja:{},
+en:{t:"📱 Cleaner & Inspector — All Mobile Screens",d:"15 screens. Every button, checkbox and stepper actually works. 6 languages.",
+s1:"Log In",l_sub:"Enter property code and PIN",l_code:"Property Code",l_no:"Staff No.",l_help:"Forgot your PIN? Ask your supervisor.",
+s2:"Today's Tasks (multi-property)",s2b:"Today's Tasks — 19",p2:"Covering 2 properties",
+ofl:"Offline · 2 unsent",snd:"Send",f_all:"All",f_todo:"To Do",f_done:"Done",ken:"",min:"m",nin:"",shi:" props",
+st_rwk:"Rework",rwk_msg:"Water spots on the bathroom mirror",due:"due",left_m:"18 min left",do_rwk:"Fix Now",
+ty_stay:"Stayover Clean",ty_out:"Checkout Clean",rt_dbl:"Double",rt_twn:"Twin",resume:"Resume",start:"Start",
+move:"Travel · approx 25 min",tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+s3:"Property Picker (4+)",s3b:"Which property first?",p_now:"You are here",p_from:"from",p_tmr:"Tomorrow Aug 11",
+p_note:"Selecting a property shows only its tasks. You can switch anytime from the header.",p_go:"Start with selected",
+s4:"Property Change Confirm",sw_t:"You are changing property",goshitsu:"",
+sw_n:"Work will start at this property.<br>Please confirm this is correct.",cancel:"Cancel",
+s5:"Task Detail",std:"Target",elapsed:"Elapsed",checked:"Checked",go_ck:"Checklist",photo:"Photos",
+memo:"Memo",memo_ph:"Note anything you noticed (optional)",pause:"Pause",cannot:"Can't Enter",
+complete:"Complete",nokori:" left",
+s6:"Entry Record (15s)",s6b:"Entry Record",s6c:"Record only what you saw",
+q_bed:"Beds Used",dai:"",q_trash:"Amount of Trash",lv0:"None",lv1:"Low",lv2:"Normal",lv3:"High",
+q_tw:"Used Towels",tw_b:"Bath Towel",tw_f:"Face Towel",tw_m:"Bath Mat",
+o_save:"Save This",o_more:"Add details (amenities etc.)",o_skip:"Skip this time",
+s7:"Detail Record (optional)",s7b:"Add Details",s7c:"Optional. Leave blank if unsure.",
+q_am:"Amenities Used",am_tb:"Toothbrush",am_sh:"Shampoo etc.",am_sl:"Slippers",am_w:"Bottled Water",
+q_ot:"Other",ot_g:"Glasses Used",ot_f:"Extra Futon",
+s8:"Checklist",s8b:"Checklist",sc_bed:"Bed Area",sc_bath:"Bathroom",sc_am:"Amenities",sc_fin:"Final Check",
+c1:"Changed the sheets",c2:"Changed pillow cases",c3:"Finished bed making",c4:"Cleaned the bathtub",
+c5:"Cleaned sink & mirror",c6:"Cleaned & sanitized toilet",c7:"Wiped off water drops",
+c8:"Restocked towels",c9:"Restocked amenities",c10:"Checked for lost items",
+c11:"Set A/C and lighting",c12:"Photographed the whole room",hissu:"req",take:"Take Photo",
+s9:"Photo Capture",s9b:"Wiping off water drops",s9c:"Bathroom · after wiping",
+s9d:"GPS data is not saved. Only the capture time is recorded.",
+s9e:"Please avoid capturing guest belongings, documents or PC screens. Retake if a person appears.",
+take_more:"Take another",ph_ok:"Confirm this photo",
+s10:"Linen Count",s10b:"Linen",s10c:"Enter the quantity you collected",q_col:"Quantity collected",
+li_s:"Sheets",li_d:"Duvet Cover",li_p:"Pillow Case",li_b:"Bath Towel",li_m:"Bath Mat",
+q_dmg:"If damaged or stained",dmg:"Report Damage",stn:"Report Stain",
+s10d:"Damage or stain reports require 1 photo",
+s11:"Completion Check",s11b:"Completion Check",s11c:"Cannot complete yet",
+s11d:"4 required items remaining",s11e:"Remaining items",s11f:"Back to Checklist",
+s11g:"Once completed, the inspector is notified.<br>The room becomes sellable after passing inspection.",
+s12:"Rework",s12b:"Rework — Round 1",ck_mr:"Mirror",s12c:"Inspector's photo",s12d:"Lower right of mirror · water spots",
+s12e:"Inspector",s12f:"Reported at",s12g:"Only fix the flagged item. Other checklist results remain.",
+s12h:"Start Rework",s12i:"After fixing",s12j:"Complete Rework",
+s13:"Report (2 choices)",s13b:"What do you want to report?",rp_lost:"Lost Item",rp_iss:"Equipment Issue",
+rp_cat:"Category",cat_v:"Valuables",cat_e:"Electronics",cat_c:"Clothing",cat_b:"Bag",cat_m:"Medicine",cat_o:"Other",
+rp_loc:"Where found",loc_b:"Bed",loc_ba:"Bathroom",loc_d:"Drawer",
+rp_note:"Hand valuables directly to your supervisor. Do not enter any amount.",rp_photo:"Take photo & report",
+s14:"Inspector: Awaiting",s14b:"Awaiting Inspection — 8",urgent:"Urgent",until_ci:"Until check-in",
+waiting:"Wait time",target:"target",do_insp:"Inspect",kaime:"nd",s14c:"Post-rework inspection",
+s15:"Inspector: Inspecting",s15b:"Inspection",in_reason:"Reason for failure",
+df_w:"Water spot",df_d:"Dust",df_h:"Hair",df_s:"Stain",in_cmt:"Water spots on the lower right of the mirror",
+in_need:"Rework required",in_note:"If any single item fails, the whole inspection fails",
+in_back:"Send Back",in_pass:"Pass Inspection",
+s16:"My Stats",s16b:"My Stats",today:"Today",work_t:"Work Time",avg:"Average",ji:"h",shitsu:"room",mai:"",
+s16c:"By Property (this month)",total:"Total",s16d:"Quality this month",
+s16e:"Passed first inspection",s16f:"Rework",
+s16g:"These records support operational improvement. They are not used for personal evaluation. No comparison with other staff is shown."},
+zh:{t:"📱 清扫员・检查员 — 手机全画面",d:"15个画面。所有按钮、勾选框、步进器都可实际点击。支持6语言切换。",
+s1:"登录",l_sub:"请输入设施代码与PIN",l_code:"设施代码",l_no:"员工编号",l_help:"忘记PIN请联系负责人",
+s2:"今日任务（多设施）",s2b:"今日任务 19件",p2:"担当2家设施",
+ofl:"离线 ・ 未发送2件",snd:"发送",f_all:"全部",f_todo:"未开始",f_done:"完成",ken:"件",min:"分",nin:"名",shi:"设施",
+st_rwk:"返工",rwk_msg:"浴室镜子上有水渍",due:"期限",left_m:"剩余18分",do_rwk:"立即处理",
+ty_stay:"住中清扫",ty_out:"退房清扫",rt_dbl:"大床",rt_twn:"双床",resume:"继续",start:"开始",
+move:"移动 · 约25分",tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+s3:"设施选择（4家以上）",s3b:"从哪家设施开始？",p_now:"当前在此",p_from:"起",p_tmr:"明天 8/11",
+p_note:"选择设施后只显示该设施的任务。可随时从顶部切换。",p_go:"以所选设施开始",
+s4:"设施变更确认",sw_t:"设施将发生变更",goshitsu:"号房",
+sw_n:"将在此设施开始作业。<br>请确认无误。",cancel:"取消",
+s5:"任务详情",std:"目标",elapsed:"经过",checked:"勾选",go_ck:"检查表",photo:"照片",
+memo:"备注",memo_ph:"如有发现请输入（任意）",pause:"暂停",cannot:"无法进入",
+complete:"完成",nokori:"项未完成",
+s6:"入室记录（15秒）",s6b:"入室记录",s6c:"只记录看到的情况",
+q_bed:"床的使用",dai:"张",q_trash:"垃圾量",lv0:"无",lv1:"少",lv2:"正常",lv3:"多",
+q_tw:"用过的毛巾",tw_b:"浴巾",tw_f:"面巾",tw_m:"地垫",
+o_save:"按此记录",o_more:"输入详情（洗漱用品等）",o_skip:"本次不记录",
+s7:"详细记录（任意）",s7b:"详细记录",s7c:"任意项。不确定可留空。",
+q_am:"洗漱用品使用",am_tb:"牙刷",am_sh:"洗发用品",am_sl:"拖鞋",am_w:"矿泉水",
+q_ot:"其他",ot_g:"玻璃杯使用",ot_f:"追加被褥",
+s8:"检查表",s8b:"检查表",sc_bed:"床铺区域",sc_bath:"浴室",sc_am:"洗漱用品",sc_fin:"最终确认",
+c1:"更换了床单",c2:"更换了枕套",c3:"完成了铺床",c4:"清洗了浴缸",
+c5:"清洁了洗手台与镜子",c6:"清洗并消毒了马桶",c7:"擦干了水渍",
+c8:"补充了毛巾",c9:"补充了洗漱用品",c10:"确认无遗失物",
+c11:"设置了空调与照明",c12:"拍摄了客房全景",hissu:"必需",take:"拍照",
+s9:"照片拍摄",s9b:"擦干水渍",s9c:"浴室 · 擦干后",
+s9d:"不保存GPS信息，仅记录拍摄时刻。",
+s9e:"请避免拍到客人私物、文件或电脑屏幕。若拍到人物请重拍。",
+take_more:"再拍一张",ph_ok:"确定此照片",
+s10:"布草枚数",s10b:"布草",s10c:"请输入回收的枚数",q_col:"回收枚数",
+li_s:"床单",li_d:"被套",li_p:"枕套",li_b:"浴巾",li_m:"地垫",
+q_dmg:"如有破损或污损",dmg:"报告破损",stn:"报告污损",
+s10d:"破损・污损报告需要1张照片",
+s11:"完成确认",s11b:"完成确认",s11c:"尚不能完成",
+s11d:"还有4项必需项目未完成",s11e:"未完成的项目",s11f:"返回检查表",
+s11g:"完成后将通知检查负责人。<br>检查合格后客房变为可售。",
+s12:"返工对应",s12b:"返工 第1次",ck_mr:"镜子",s12c:"检查负责人的照片",s12d:"镜子右下 · 水渍",
+s12e:"检查负责人",s12f:"指摘时刻",s12g:"只需处理被指摘的项目。其他勾选结果保持不变。",
+s12h:"开始返工",s12i:"处理后",s12j:"完成返工",
+s13:"报告（2择入口）",s13b:"要报告什么？",rp_lost:"遗失物",rp_iss:"设备故障",
+rp_cat:"种类",cat_v:"贵重品",cat_e:"电子设备",cat_c:"衣物",cat_b:"包",cat_m:"药品",cat_o:"其他",
+rp_loc:"发现地点",loc_b:"床",loc_ba:"浴室",loc_d:"抽屉",
+rp_note:"贵重品请直接交给负责人。请勿输入金额。",rp_photo:"拍照并报告",
+s14:"检查员：待检查",s14b:"待检查 8件",urgent:"紧急",until_ci:"距入住",
+waiting:"等待时间",target:"目标",do_insp:"检查",kaime:"次",s14c:"返工后的检查",
+s15:"检查员：检查实施",s15b:"检查",in_reason:"不合格的原因",
+df_w:"水渍",df_d:"灰尘",df_h:"头发",df_s:"污渍",in_cmt:"镜子右下有水渍",
+in_need:"需要返工",in_note:"只要有1项不合格，整体检查即为不合格",
+in_back:"退回",in_pass:"检查合格",
+s16:"我的实绩",s16b:"我的实绩",today:"本日",work_t:"作业时间",avg:"平均",ji:"小时",shitsu:"间",mai:"张",
+s16c:"按设施（本月）",total:"合计",s16d:"本月质量",
+s16e:"首次检查合格",s16f:"返工",
+s16g:"此记录用于业务改善，不用于个人评价。不显示与其他员工的比较。"},
+vi:{t:"📱 Nhân viên dọn & Kiểm tra — Toàn bộ màn hình",d:"15 màn hình. Mọi nút và ô chọn đều hoạt động thật. 6 ngôn ngữ.",
+s1:"Đăng nhập",l_sub:"Nhập mã cơ sở và PIN",l_code:"Mã cơ sở",l_no:"Số nhân viên",l_help:"Quên PIN? Hãy hỏi người phụ trách.",
+s2:"Nhiệm vụ hôm nay",s2b:"Nhiệm vụ hôm nay — 19",p2:"Phụ trách 2 cơ sở",
+ofl:"Ngoại tuyến · 2 chưa gửi",snd:"Gửi",f_all:"Tất cả",f_todo:"Chưa làm",f_done:"Xong",ken:"",min:"phút",nin:"người",shi:" cơ sở",
+st_rwk:"Dọn lại",rwk_msg:"Có vết nước trên gương phòng tắm",due:"hạn",left_m:"còn 18 phút",do_rwk:"Xử lý ngay",
+ty_stay:"Dọn khi khách ở",ty_out:"Dọn sau khách đi",rt_dbl:"Giường đôi",rt_twn:"2 giường",resume:"Tiếp tục",start:"Bắt đầu",
+move:"Di chuyển · khoảng 25 phút",tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+s3:"Chọn cơ sở (4+)",s3b:"Bắt đầu từ cơ sở nào?",p_now:"Bạn đang ở đây",p_from:"từ",p_tmr:"Mai 11/8",
+p_note:"Chọn cơ sở sẽ chỉ hiện nhiệm vụ của cơ sở đó.",p_go:"Bắt đầu với cơ sở đã chọn",
+s4:"Xác nhận đổi cơ sở",sw_t:"Bạn đang đổi cơ sở",goshitsu:"",
+sw_n:"Công việc sẽ bắt đầu tại cơ sở này.<br>Vui lòng xác nhận.",cancel:"Hủy",
+s5:"Chi tiết nhiệm vụ",std:"Mục tiêu",elapsed:"Đã qua",checked:"Đã chọn",go_ck:"Danh sách",photo:"Ảnh",
+memo:"Ghi chú",memo_ph:"Ghi điều bạn thấy (tùy chọn)",pause:"Tạm dừng",cannot:"Không vào được",
+complete:"Hoàn thành",nokori:" còn lại",
+s6:"Ghi nhận khi vào (15s)",s6b:"Ghi nhận khi vào",s6c:"Chỉ ghi những gì bạn thấy",
+q_bed:"Giường đã dùng",dai:"",q_trash:"Lượng rác",lv0:"Không",lv1:"Ít",lv2:"Bình thường",lv3:"Nhiều",
+q_tw:"Khăn đã dùng",tw_b:"Khăn tắm",tw_f:"Khăn mặt",tw_m:"Thảm tắm",
+o_save:"Lưu như vậy",o_more:"Thêm chi tiết",o_skip:"Lần này không ghi",
+s7:"Ghi chi tiết (tùy chọn)",s7b:"Thêm chi tiết",s7c:"Tùy chọn. Để trống nếu không rõ.",
+q_am:"Đồ dùng đã sử dụng",am_tb:"Bàn chải",am_sh:"Dầu gội",am_sl:"Dép",am_w:"Nước suối",
+q_ot:"Khác",ot_g:"Ly đã dùng",ot_f:"Đệm thêm",
+s8:"Danh sách kiểm tra",s8b:"Danh sách kiểm tra",sc_bed:"Khu giường",sc_bath:"Phòng tắm",sc_am:"Đồ dùng",sc_fin:"Kiểm tra cuối",
+c1:"Đã thay ga giường",c2:"Đã thay vỏ gối",c3:"Đã làm giường xong",c4:"Đã rửa bồn tắm",
+c5:"Đã lau bồn rửa và gương",c6:"Đã rửa và khử trùng toilet",c7:"Đã lau khô nước",
+c8:"Đã bổ sung khăn",c9:"Đã bổ sung đồ dùng",c10:"Đã kiểm tra đồ thất lạc",
+c11:"Đã đặt điều hòa và đèn",c12:"Đã chụp toàn phòng",hissu:"bắt buộc",take:"Chụp ảnh",
+s9:"Chụp ảnh",s9b:"Lau khô nước",s9c:"Phòng tắm · sau khi lau",
+s9d:"Không lưu GPS. Chỉ ghi thời gian chụp.",
+s9e:"Tránh chụp đồ của khách, giấy tờ hoặc màn hình. Chụp lại nếu có người.",
+take_more:"Chụp thêm",ph_ok:"Xác nhận ảnh này",
+s10:"Số lượng khăn",s10b:"Khăn",s10c:"Nhập số lượng bạn đã thu",q_col:"Số lượng thu",
+li_s:"Ga giường",li_d:"Vỏ chăn",li_p:"Vỏ gối",li_b:"Khăn tắm",li_m:"Thảm tắm",
+q_dmg:"Nếu hỏng hoặc bẩn",dmg:"Báo hỏng",stn:"Báo bẩn",
+s10d:"Báo hỏng hoặc bẩn cần 1 ảnh",
+s11:"Kiểm tra hoàn thành",s11b:"Kiểm tra hoàn thành",s11c:"Chưa thể hoàn thành",
+s11d:"Còn 4 mục bắt buộc",s11e:"Mục còn lại",s11f:"Về danh sách",
+s11g:"Sau khi hoàn thành, người kiểm tra sẽ được thông báo.",
+s12:"Dọn lại",s12b:"Dọn lại — Lần 1",ck_mr:"Gương",s12c:"Ảnh của người kiểm tra",s12d:"Góc dưới phải gương · vết nước",
+s12e:"Người kiểm tra",s12f:"Thời gian báo",s12g:"Chỉ sửa mục bị báo. Các mục khác giữ nguyên.",
+s12h:"Bắt đầu dọn lại",s12i:"Sau khi sửa",s12j:"Hoàn thành dọn lại",
+s13:"Báo cáo",s13b:"Bạn muốn báo gì?",rp_lost:"Đồ thất lạc",rp_iss:"Sự cố thiết bị",
+rp_cat:"Loại",cat_v:"Đồ giá trị",cat_e:"Điện tử",cat_c:"Quần áo",cat_b:"Túi",cat_m:"Thuốc",cat_o:"Khác",
+rp_loc:"Nơi tìm thấy",loc_b:"Giường",loc_ba:"Phòng tắm",loc_d:"Ngăn kéo",
+rp_note:"Giao đồ giá trị trực tiếp cho người phụ trách. Không nhập số tiền.",rp_photo:"Chụp ảnh và báo",
+s14:"Kiểm tra: Chờ",s14b:"Chờ kiểm tra — 8",urgent:"Gấp",until_ci:"Đến giờ nhận phòng",
+waiting:"Thời gian chờ",target:"mục tiêu",do_insp:"Kiểm tra",kaime:" lần",s14c:"Kiểm tra sau dọn lại",
+s15:"Kiểm tra: Thực hiện",s15b:"Kiểm tra",in_reason:"Lý do không đạt",
+df_w:"Vết nước",df_d:"Bụi",df_h:"Tóc",df_s:"Vết bẩn",in_cmt:"Có vết nước ở góc dưới phải gương",
+in_need:"Cần dọn lại",in_note:"Chỉ 1 mục không đạt thì cả lần kiểm tra không đạt",
+in_back:"Trả lại",in_pass:"Đạt kiểm tra",
+s16:"Thành tích của tôi",s16b:"Thành tích của tôi",today:"Hôm nay",work_t:"Thời gian làm",avg:"Trung bình",ji:"giờ",shitsu:"phòng",mai:"",
+s16c:"Theo cơ sở (tháng này)",total:"Tổng",s16d:"Chất lượng tháng này",
+s16e:"Đạt lần đầu",s16f:"Dọn lại",
+s16g:"Ghi nhận này để cải thiện công việc, không dùng để đánh giá cá nhân."},
+id:{t:"📱 Petugas & Inspektur — Semua Layar",d:"15 layar. Semua tombol dan kotak centang berfungsi. 6 bahasa.",
+s1:"Masuk",l_sub:"Masukkan kode properti dan PIN",l_code:"Kode Properti",l_no:"No. Staf",l_help:"Lupa PIN? Tanya atasan Anda.",
+s2:"Tugas Hari Ini",s2b:"Tugas Hari Ini — 19",p2:"Menangani 2 properti",
+ofl:"Offline · 2 belum terkirim",snd:"Kirim",f_all:"Semua",f_todo:"Belum",f_done:"Selesai",ken:"",min:"mnt",nin:"org",shi:" properti",
+st_rwk:"Bersih Ulang",rwk_msg:"Ada bekas air di cermin kamar mandi",due:"batas",left_m:"sisa 18 mnt",do_rwk:"Perbaiki",
+ty_stay:"Bersih Menginap",ty_out:"Bersih Checkout",rt_dbl:"Double",rt_twn:"Twin",resume:"Lanjutkan",start:"Mulai",
+move:"Perjalanan · sekitar 25 mnt",tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+s3:"Pilih Properti (4+)",s3b:"Mulai dari properti mana?",p_now:"Anda di sini",p_from:"dari",p_tmr:"Besok 11 Agt",
+p_note:"Memilih properti hanya menampilkan tugasnya.",p_go:"Mulai dengan pilihan",
+s4:"Konfirmasi Ganti Properti",sw_t:"Anda mengganti properti",goshitsu:"",
+sw_n:"Pekerjaan akan dimulai di properti ini.<br>Mohon konfirmasi.",cancel:"Batal",
+s5:"Detail Tugas",std:"Target",elapsed:"Berlalu",checked:"Dicentang",go_ck:"Daftar Periksa",photo:"Foto",
+memo:"Catatan",memo_ph:"Catat yang Anda lihat (opsional)",pause:"Jeda",cannot:"Tidak Bisa Masuk",
+complete:"Selesaikan",nokori:" tersisa",
+s6:"Catatan Masuk (15s)",s6b:"Catatan Masuk",s6c:"Catat hanya yang Anda lihat",
+q_bed:"Tempat Tidur Dipakai",dai:"",q_trash:"Jumlah Sampah",lv0:"Tidak Ada",lv1:"Sedikit",lv2:"Normal",lv3:"Banyak",
+q_tw:"Handuk Terpakai",tw_b:"Handuk Mandi",tw_f:"Handuk Muka",tw_m:"Keset",
+o_save:"Simpan Ini",o_more:"Tambah detail",o_skip:"Lewati kali ini",
+s7:"Catatan Detail (opsional)",s7b:"Tambah Detail",s7c:"Opsional. Kosongkan bila ragu.",
+q_am:"Perlengkapan Dipakai",am_tb:"Sikat Gigi",am_sh:"Sampo dll.",am_sl:"Sandal",am_w:"Air Mineral",
+q_ot:"Lainnya",ot_g:"Gelas Dipakai",ot_f:"Kasur Tambahan",
+s8:"Daftar Periksa",s8b:"Daftar Periksa",sc_bed:"Area Tempat Tidur",sc_bath:"Kamar Mandi",sc_am:"Perlengkapan",sc_fin:"Periksa Akhir",
+c1:"Sudah ganti sprei",c2:"Sudah ganti sarung bantal",c3:"Sudah rapikan tempat tidur",c4:"Sudah bersihkan bak mandi",
+c5:"Sudah bersihkan wastafel & cermin",c6:"Sudah bersihkan & disinfeksi toilet",c7:"Sudah keringkan bekas air",
+c8:"Sudah isi ulang handuk",c9:"Sudah isi ulang perlengkapan",c10:"Sudah cek barang tertinggal",
+c11:"Sudah atur AC dan lampu",c12:"Sudah foto seluruh kamar",hissu:"wajib",take:"Ambil Foto",
+s9:"Ambil Foto",s9b:"Mengeringkan bekas air",s9c:"Kamar mandi · setelah dikeringkan",
+s9d:"Data GPS tidak disimpan. Hanya waktu pengambilan.",
+s9e:"Hindari memfoto barang tamu, dokumen atau layar PC. Ambil ulang jika ada orang.",
+take_more:"Ambil lagi",ph_ok:"Konfirmasi foto ini",
+s10:"Jumlah Linen",s10b:"Linen",s10c:"Masukkan jumlah yang Anda kumpulkan",q_col:"Jumlah dikumpulkan",
+li_s:"Sprei",li_d:"Sarung Duvet",li_p:"Sarung Bantal",li_b:"Handuk Mandi",li_m:"Keset",
+q_dmg:"Jika rusak atau kotor",dmg:"Lapor Rusak",stn:"Lapor Kotor",
+s10d:"Laporan rusak atau kotor perlu 1 foto",
+s11:"Cek Penyelesaian",s11b:"Cek Penyelesaian",s11c:"Belum bisa diselesaikan",
+s11d:"4 item wajib tersisa",s11e:"Item tersisa",s11f:"Balik ke Daftar",
+s11g:"Setelah selesai, inspektur akan diberi tahu.",
+s12:"Bersih Ulang",s12b:"Bersih Ulang — Ke-1",ck_mr:"Cermin",s12c:"Foto inspektur",s12d:"Kanan bawah cermin · bekas air",
+s12e:"Inspektur",s12f:"Dilaporkan",s12g:"Perbaiki hanya item yang ditandai.",
+s12h:"Mulai Bersih Ulang",s12i:"Setelah perbaikan",s12j:"Selesaikan Bersih Ulang",
+s13:"Lapor",s13b:"Apa yang ingin dilaporkan?",rp_lost:"Barang Tertinggal",rp_iss:"Masalah Fasilitas",
+rp_cat:"Kategori",cat_v:"Barang Berharga",cat_e:"Elektronik",cat_c:"Pakaian",cat_b:"Tas",cat_m:"Obat",cat_o:"Lainnya",
+rp_loc:"Ditemukan di",loc_b:"Tempat Tidur",loc_ba:"Kamar Mandi",loc_d:"Lemari",
+rp_note:"Serahkan barang berharga langsung ke atasan. Jangan masukkan jumlah uang.",rp_photo:"Foto & lapor",
+s14:"Inspektur: Menunggu",s14b:"Menunggu Inspeksi — 8",urgent:"Mendesak",until_ci:"Sampai check-in",
+waiting:"Waktu tunggu",target:"target",do_insp:"Inspeksi",kaime:" kali",s14c:"Inspeksi setelah ulang",
+s15:"Inspektur: Inspeksi",s15b:"Inspeksi",in_reason:"Alasan tidak lulus",
+df_w:"Bekas air",df_d:"Debu",df_h:"Rambut",df_s:"Noda",in_cmt:"Ada bekas air di kanan bawah cermin",
+in_need:"Perlu bersih ulang",in_note:"Jika 1 item gagal, seluruh inspeksi gagal",
+in_back:"Kembalikan",in_pass:"Lulus Inspeksi",
+s16:"Statistik Saya",s16b:"Statistik Saya",today:"Hari Ini",work_t:"Waktu Kerja",avg:"Rata-rata",ji:"jam",shitsu:"kamar",mai:"",
+s16c:"Per Properti (bulan ini)",total:"Total",s16d:"Kualitas bulan ini",
+s16e:"Lulus inspeksi pertama",s16f:"Bersih ulang",
+s16g:"Catatan ini untuk perbaikan operasional, bukan penilaian pribadi."},
+my:{t:"📱 သန့်ရှင်းရေး & စစ်ဆေးသူ — ဖုန်းမျက်နှာပြင်အားလုံး",d:"မျက်နှာပြင် ၁၅ ခု။ ခလုတ်များအားလုံး အလုပ်လုပ်သည်။",
+s1:"ဝင်ရောက်",l_sub:"အဆောက်အအုံကုဒ်နှင့် PIN ထည့်ပါ",l_code:"အဆောက်အအုံကုဒ်",l_no:"ဝန်ထမ်းနံပါတ်",l_help:"PIN မေ့ပါက တာဝန်ခံကို ပြောပါ။",
+s2:"ဒီနေ့အလုပ်များ",s2b:"ဒီနေ့အလုပ် ၁၉ ခု",p2:"အဆောက်အအုံ ၂ ခု တာဝန်",
+ofl:"အော့ဖ်လိုင် · မပို့ရသေး ၂ ခု",snd:"ပို့",f_all:"အားလုံး",f_todo:"မစသေး",f_done:"ပြီး",ken:"ခု",min:"မိနစ်",nin:"ဦး",shi:" အဆောက်အအုံ",
+st_rwk:"ပြန်လုပ်",rwk_msg:"ရေချိုးခန်းမှန်တွင် ရေစက်ရာရှိသည်",due:"သတ်မှတ်ချိန်",left_m:"၁၈ မိနစ်ကျန်",do_rwk:"ပြင်ရန်",
+ty_stay:"တည်းခိုသန့်ရှင်းမှု",ty_out:"ထွက်ခွာသန့်ရှင်းမှု",rt_dbl:"အိပ်ရာကြီး",rt_twn:"အိပ်ရာ၂လုံး",resume:"ဆက်လုပ်",start:"စတင်",
+move:"ရွေ့လျား · ၂၅ မိနစ်ခန့်",tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+s3:"အဆောက်အအုံရွေးချယ်",s3b:"မည်သည့်အဆောက်အအုံမှ စမည်နည်း။",p_now:"ဤနေရာတွင်",p_from:"မှ",p_tmr:"မနက်ဖန် ၈/၁၁",
+p_note:"အဆောက်အအုံရွေးပါက ထိုအဆောက်အအုံ၏အလုပ်များသာ ပေါ်မည်။",p_go:"ရွေးထားသည်နှင့် စတင်",
+s4:"အဆောက်အအုံပြောင်းခြင်း အတည်ပြုပါ",sw_t:"အဆောက်အအုံ ပြောင်းမည်",goshitsu:"",
+sw_n:"ဤအဆောက်အအုံတွင် အလုပ်စမည်။<br>အတည်ပြုပါ။",cancel:"ပယ်ဖျက်",
+s5:"အလုပ်အသေးစိတ်",std:"ပန်းတိုင်",elapsed:"ကုန်ဆုံး",checked:"အမှတ်",go_ck:"စစ်ဆေးစာရင်း",photo:"ဓာတ်ပုံ",
+memo:"မှတ်ချက်",memo_ph:"သတိထားမိသည်ကို ရေးပါ（မလိုအပ်）",pause:"ခေတ္တရပ်",cannot:"အခန်းမဝင်ရ",
+complete:"ပြီးဆုံး",nokori:" ကျန်",
+s6:"အခန်းဝင်မှတ်တမ်း（၁၅ စက္ကန့်）",s6b:"အခန်းဝင်မှတ်တမ်း",s6c:"မြင်သည်ကိုသာ မှတ်ပါ",
+q_bed:"အိပ်ရာအသုံးပြုမှု",dai:" လုံး",q_trash:"အမှိုက်ပမာဏ",lv0:"မရှိ",lv1:"အနည်း",lv2:"ပုံမှန်",lv3:"အများ",
+q_tw:"အသုံးပြုပြီးတဘက်",tw_b:"ရေချိုးတဘက်",tw_f:"မျက်နှာသုတ်",tw_m:"ရေချိုးခန်းဖျာ",
+o_save:"ဤအတိုင်းမှတ်",o_more:"အသေးစိတ်ထည့်",o_skip:"ဤအခါမမှတ်",
+s7:"အသေးစိတ်မှတ်တမ်း",s7b:"အသေးစိတ်",s7c:"မလိုအပ်ပါ။ မသိပါက ကွက်လပ်ထားပါ။",
+q_am:"အသုံးအဆောင်အသုံးပြုမှု",am_tb:"သွားတိုက်တံ",am_sh:"ဆံပင်လျှော်ရည်",am_sl:"ဖိနပ်",am_w:"သောက်ရေ",
+q_ot:"အခြား",ot_g:"ဖန်ခွက်",ot_f:"အပိုစောင်",
+s8:"စစ်ဆေးစာရင်း",s8b:"စစ်ဆေးစာရင်း",sc_bed:"အိပ်ရာနေရာ",sc_bath:"ရေချိုးခန်း",sc_am:"အသုံးအဆောင်",sc_fin:"နောက်ဆုံးစစ်ဆေးမှု",
+c1:"အခင်းလဲပြီး",c2:"ခေါင်းအုံးစွပ်လဲပြီး",c3:"အိပ်ရာခင်းပြီး",c4:"ရေချိုးကန်ဆေးပြီး",
+c5:"မျက်နှာသစ်ကန်နှင့်မှန်သန့်ပြီး",c6:"အိမ်သာဆေးကြောပြီး",c7:"ရေစက်သုတ်ပြီး",
+c8:"တဘက်ထည့်ပြီး",c9:"အသုံးအဆောင်ထည့်ပြီး",c10:"ပျောက်ဆုံးပစ္စည်းစစ်ပြီး",
+c11:"အဲယားနှင့်မီးထည့်ပြီး",c12:"အခန်းတစ်ခုလုံးရိုက်ပြီး",hissu:"မလိုမဖြစ်",take:"ဓာတ်ပုံရိုက်",
+s9:"ဓာတ်ပုံရိုက်",s9b:"ရေစက်သုတ်ခြင်း",s9c:"ရေချိုးခန်း · သုတ်ပြီးနောက်",
+s9d:"GPS မသိမ်းပါ။ ရိုက်ချိန်သာ မှတ်သည်။",
+s9e:"ဧည့်သည်ပစ္စည်း၊ စာရွက်စာတမ်း၊ ကွန်ပျူတာမျက်နှာပြင် မပါစေရန် သတိပြုပါ။",
+take_more:"နောက်တစ်ပုံ",ph_ok:"ဤဓာတ်ပုံအတည်ပြု",
+s10:"အခင်းအရေအတွက်",s10b:"အခင်း",s10c:"စုသိမ်းသည့်အရေအတွက် ထည့်ပါ",q_col:"စုသိမ်းအရေအတွက်",
+li_s:"အခင်း",li_d:"စောင်စွပ်",li_p:"ခေါင်းအုံးစွပ်",li_b:"ရေချိုးတဘက်",li_m:"ရေချိုးခန်းဖျာ",
+q_dmg:"ပျက်စီး၊ စွန်းထင်းပါက",dmg:"ပျက်စီးမှုတိုင်",stn:"စွန်းထင်းမှုတိုင်",
+s10d:"ပျက်စီး၊ စွန်းထင်းမှုတိုင်ရန် ဓာတ်ပုံ ၁ ပုံ လိုသည်",
+s11:"ပြီးဆုံးမှုစစ်ဆေးခြင်း",s11b:"ပြီးဆုံးမှုစစ်ဆေးခြင်း",s11c:"မပြီးဆုံးနိုင်သေး",
+s11d:"မလိုမဖြစ်အချက် ၄ ခု ကျန်",s11e:"ကျန်သည့်အချက်",s11f:"စစ်ဆေးစာရင်းသို့",
+s11g:"ပြီးဆုံးပါက စစ်ဆေးသူကို အသိပေးမည်။",
+s12:"ပြန်လုပ်ခြင်း",s12b:"ပြန်လုပ် ၁ ကြိမ်",ck_mr:"မှန်",s12c:"စစ်ဆေးသူ၏ဓာတ်ပုံ",s12d:"မှန်၏အောက်ယာ · ရေစက်ရာ",
+s12e:"စစ်ဆေးသူ",s12f:"တိုင်ချိန်",s12g:"တိုင်ထားသည့်အချက်သာ ပြင်ပါ။",
+s12h:"ပြန်လုပ်စတင်",s12i:"ပြင်ပြီးနောက်",s12j:"ပြန်လုပ်ပြီးဆုံး",
+s13:"တိုင်ကြားခြင်း",s13b:"မည်သည်ကို တိုင်မည်နည်း။",rp_lost:"ပျောက်ဆုံးပစ္စည်း",rp_iss:"ပစ္စည်းချွတ်ယွင်းမှု",
+rp_cat:"အမျိုးအစား",cat_v:"အဖိုးတန်",cat_e:"အီလက်ထရွန်နစ်",cat_c:"အဝတ်အထည်",cat_b:"အိတ်",cat_m:"ဆေး",cat_o:"အခြား",
+rp_loc:"တွေ့ရာနေရာ",loc_b:"အိပ်ရာ",loc_ba:"ရေချိုးခန်း",loc_d:"အံဆွဲ",
+rp_note:"အဖိုးတန်ပစ္စည်းကို တာဝန်ခံအား တိုက်ရိုက်အပ်ပါ။ ပမာဏ မထည့်ပါ။",rp_photo:"ဓာတ်ပုံရိုက်၍တိုင်",
+s14:"စစ်ဆေးသူ：စောင့်",s14b:"စစ်ဆေးရန်စောင့် ၈ ခု",urgent:"အရေးပေါ်",until_ci:"အခန်းဝင်ချိန်အထိ",
+waiting:"စောင့်ချိန်",target:"ပန်းတိုင်",do_insp:"စစ်ဆေး",kaime:" ကြိမ်",s14c:"ပြန်လုပ်ပြီးစစ်ဆေးမှု",
+s15:"စစ်ဆေးသူ：စစ်ဆေးမှု",s15b:"စစ်ဆေးမှု",in_reason:"မအောင်မြင်ရသည့်အကြောင်း",
+df_w:"ရေစက်ရာ",df_d:"ဖုန်",df_h:"ဆံပင်",df_s:"အစွန်းအထင်း",in_cmt:"မှန်၏အောက်ယာတွင် ရေစက်ရာရှိသည်",
+in_need:"ပြန်လုပ်ရန်လိုသည်",in_note:"အချက်တစ်ခုမအောင်ပါက စစ်ဆေးမှုတစ်ခုလုံး မအောင်ပါ",
+in_back:"ပြန်ပို့",in_pass:"စစ်ဆေးအောင်",
+s16:"ကျွန်ုပ်၏မှတ်တမ်း",s16b:"ကျွန်ုပ်၏မှတ်တမ်း",today:"ဒီနေ့",work_t:"အလုပ်ချိန်",avg:"ပျမ်းမျှ",ji:"နာရီ",shitsu:"အခန်း",mai:"ပုံ",
+s16c:"အဆောက်အအုံအလိုက်（ဤလ）",total:"စုစုပေါင်း",s16d:"ဤလအရည်အသွေး",
+s16e:"ပထမအကြိမ်အောင်",s16f:"ပြန်လုပ်",
+s16g:"ဤမှတ်တမ်းသည် လုပ်ငန်းတိုးတက်မှုအတွက်ဖြစ်သည်။ တစ်ဦးချင်းအဆင့်သတ်မှတ်ရန် မဟုတ်ပါ။"}};
+const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k];});
+document.documentElement.lang=l;}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>{
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.remove('on'));
+b.classList.add('on');setL(b.dataset.l);});
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク';};
+document.querySelectorAll('.lang .l').forEach(l=>l.onclick=function(){
+this.parentNode.querySelectorAll('.l').forEach(x=>x.classList.remove('on'));this.classList.add('on');});
+document.querySelectorAll('.pk .o').forEach(o=>o.onclick=function(){
+this.parentNode.querySelectorAll('.o').forEach(x=>x.classList.remove('on'));this.classList.add('on');});
+document.querySelectorAll('.pcs .b').forEach(o=>o.onclick=function(){
+this.parentNode.querySelectorAll('.b').forEach(x=>x.classList.remove('on'));this.classList.add('on');});
+document.querySelectorAll('.ck').forEach(c=>{
+if(c.querySelector('.bx'))c.onclick=function(){this.classList.toggle('on');
+const b=this.querySelector('.bx');if(b)b.textContent=this.classList.contains('on')?'✓':'';};});
+document.querySelectorAll('.tri .b').forEach(b=>b.onclick=function(e){e.stopPropagation();
+const p=this.parentNode;p.querySelectorAll('.b').forEach(x=>{x.classList.remove('ok');x.classList.remove('ng')});
+const t=this.textContent;if(t==='○')this.classList.add('ok');else if(t==='✕')this.classList.add('ng');});
+document.querySelectorAll('.st .mb').forEach(b=>b.onclick=function(){
+const v=this.parentNode.querySelector('.vv');let n=parseInt(v.textContent);
+n=this.textContent==='＋'?n+1:Math.max(0,n-1);v.textContent=n;});
+document.querySelectorAll('.msl').forEach(m=>m.onclick=function(){
+document.querySelectorAll('.msl').forEach(x=>x.classList.remove('on'));this.classList.add('on');});
+document.querySelectorAll('.tabs .t').forEach(t=>t.onclick=function(){
+this.parentNode.querySelectorAll('.t').forEach(x=>x.classList.remove('on'));this.classList.add('on');});
+</script></body></html>

@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK-OWNER C（v3改修） — 検査・資材・レポート</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--brandTop:#0E3229;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--surf3:#F1EFE7;--line:#DDD9CB;--line2:#EAE7DC;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DFEDE6;--warn:#C56A28;--warnbg:#F9E7D8;
+--info:#3A5C8F;--infobg:#E5EBF5;--danger:#9C3B32;--dangerbg:#F7E2DF;
+--dirty:#8A8F88;--dirtybg:#EDEBE3;--sh:0 1px 3px rgba(20,30,25,.06);
+--shPop:0 12px 40px rgba(10,20,15,.28)}
+.dark{--bg:#0D1512;--surf:#141F1B;--surf2:#18251F;--surf3:#1E2B25;--line:#283730;--line2:#22302A;
+--ink:#E7ECE8;--ink2:#B2BEB8;--muted:#7C8A84;--okbg:#14372A;--warnbg:#3B2515;
+--infobg:#18253C;--dangerbg:#381C19;--dirtybg:#212A25;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#98A19A;--sh:0 1px 3px rgba(0,0,0,.3)}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;
+background:#0A0E0C;color:#E7ECE8;line-height:1.6;font-size:14px}
+.dc{position:sticky;top:0;z-index:400;background:#070B09;border-bottom:1px solid #1B2621;
+padding:10px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.dc .lg{font-size:13.5px;font-weight:800}.dc .lg em{color:var(--accent2);font-style:normal}
+.dc .bt{font-size:10.5px;color:#00A8A8;background:#0C231F;padding:3px 9px;border-radius:5px;font-weight:700}
+.dc .gl{font-size:10px;color:#5B6862;align-self:center}
+.dc .dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #283730;
+background:#101714;color:#9AA7A0;font-size:11.5px;cursor:pointer;font-family:inherit}
+.wrap{padding:22px 20px 40px;max-width:1600px;margin:0 auto}
+.pg{margin-bottom:34px}
+.pg .hd h1{font-size:19px;margin-bottom:5px}
+.pg .hd p{font-size:12.5px;color:#7C8A84;margin-bottom:16px;line-height:1.75;max-width:1080px}
+.bf{border-radius:12px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.5);
+border:1px solid #202D27;background:var(--surf)}
+.bb{background:#111917;padding:9px 14px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #202D27}
+.bb .dt{display:flex;gap:6px}
+.bb .dt i{width:10px;height:10px;border-radius:50%;display:block}
+.bb .dt i:nth-child(1){background:#E0645A}.bb .dt i:nth-child(2){background:#E3B34C}
+.bb .dt i:nth-child(3){background:#57B77F}
+.bb .url{flex:1;background:#0B120F;border-radius:6px;padding:5px 12px;font-size:11px;color:#7C8A84;
+font-family:ui-monospace,monospace}
+.shell{display:flex;flex-direction:column;background:var(--bg);color:var(--ink);min-height:700px}
+.top3{height:58px;flex-shrink:0;background:var(--brandTop);color:#fff;display:flex;
+align-items:center;padding:0 16px 0 0;position:relative;z-index:120}
+.top3 .brand{width:214px;flex-shrink:0;padding-left:18px;font-size:15.5px;font-weight:800}
+.top3 .brand em{color:var(--accent2);font-style:normal}
+.top3 .brand span{display:block;font-size:8.5px;color:#9FBFAF;font-weight:700;letter-spacing:.06em}
+.psel{position:relative;flex-shrink:0}
+.psel .btn3{display:flex;align-items:center;gap:10px;padding:8px 13px;border-radius:9px;
+background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);cursor:pointer;
+color:#fff;font-family:inherit;font-size:13.5px;font-weight:700}
+.psel .btn3:hover{background:rgba(255,255,255,.15)}
+.psel.open .btn3{background:rgba(255,255,255,.17)}
+.psel .btn3 .rc4{font-size:11px;font-weight:600;color:#A9C6B7;background:rgba(0,0,0,.2);
+padding:2px 7px;border-radius:5px}
+.psel .btn3 .cv{font-size:10px;opacity:.7}
+.pdd{position:absolute;top:calc(100% + 7px);left:0;width:404px;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;box-shadow:var(--shPop);overflow:hidden;
+display:none;color:var(--ink)}
+.psel.open .pdd{display:block}
+.pdd .ph4{padding:11px 15px;background:var(--surf3);border-bottom:1px solid var(--line);
+font-size:10.5px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between}
+.pdd .pi{display:flex;align-items:center;gap:11px;padding:12px 15px;cursor:pointer;
+border-bottom:1px solid var(--line2)}
+.pdd .pi:last-child{border-bottom:0}
+.pdd .pi:hover{background:var(--surf2)}
+.pdd .pi.on{background:var(--okbg)}
+.pdd .pi .ck4{width:15px;flex-shrink:0;color:var(--ok);font-weight:800;font-size:13px;opacity:0}
+.pdd .pi.on .ck4{opacity:1}
+.pdd .pi .e6{font-size:17px}
+.pdd .pi .nb{flex:1;min-width:0}
+.pdd .pi .nb .n5{font-size:13px;font-weight:700}
+.pdd .pi .nb .d4{font-size:10.5px;color:var(--muted);margin-top:1px}
+.pdd .pi .st5{display:flex;gap:4px}
+.pdd .pi .st5 b{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:5px;min-width:26px;text-align:center}
+.pdd .pi .st5 b.d5{background:var(--okbg);color:var(--ok)}
+.pdd .pi .st5 b.r5{background:var(--warnbg);color:var(--warn)}
+.pdd .pi .st5 b.f5{background:var(--dangerbg);color:var(--danger)}
+.pdd .pall{border-bottom:2px solid var(--line)}
+.top3 .rt3{margin-left:auto;display:flex;align-items:center;gap:6px}
+.top3 .bell{position:relative;width:36px;height:36px;border-radius:9px;display:flex;
+align-items:center;justify-content:center;font-size:17px;cursor:pointer}
+.top3 .bell:hover{background:rgba(255,255,255,.11)}
+.top3 .bell .bd3{position:absolute;top:3px;right:3px;background:var(--accent);color:#241806;
+font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:8px;
+display:flex;align-items:center;justify-content:center;padding:0 4px}
+.usr{position:relative}
+.usr .ub{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;border-radius:9px;
+cursor:pointer;color:#fff;font-family:inherit;background:transparent;border:0}
+.usr .ub:hover{background:rgba(255,255,255,.11)}
+.usr.open .ub{background:rgba(255,255,255,.15)}
+.usr .av{width:29px;height:29px;border-radius:50%;background:var(--accent);color:#241806;
+display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.usr .un{font-size:12.5px;font-weight:700}
+.usr .cv2{font-size:9px;opacity:.7}
+.udd{position:absolute;top:calc(100% + 7px);right:0;width:258px;background:var(--surf);
+border:1px solid var(--line);border-radius:11px;box-shadow:var(--shPop);overflow:hidden;
+display:none;color:var(--ink)}
+.usr.open .udd{display:block}
+.udd .uh{padding:13px 15px;border-bottom:1px solid var(--line2);background:var(--surf3)}
+.udd .uh .n6{font-size:13px;font-weight:800}
+.udd .uh .m4{font-size:10.5px;color:var(--muted);margin-top:2px}
+.udd .uh .rl2{font-size:9.5px;font-weight:800;background:var(--infobg);color:var(--info);
+padding:2px 7px;border-radius:5px;display:inline-block;margin-top:6px}
+.udd a{display:flex;align-items:center;gap:9px;padding:10px 15px;font-size:12.5px;
+color:var(--ink2);text-decoration:none;cursor:pointer;border-bottom:1px solid var(--line2)}
+.udd a:last-child{border-bottom:0}
+.udd a:hover{background:var(--surf2)}
+.udd a .rv{margin-left:auto;font-size:11px;color:var(--muted);font-weight:600}
+.udd a.dgr{color:var(--danger)}
+.lgm{position:absolute;top:0;right:calc(100% + 6px);width:186px;background:var(--surf);
+border:1px solid var(--line);border-radius:10px;box-shadow:var(--shPop);display:none;overflow:hidden}
+.udd a.lgw{position:relative}
+.udd a.lgw.op .lgm{display:block}
+.lgm div{padding:9px 13px;font-size:12px;border-bottom:1px solid var(--line2);
+display:flex;align-items:center;gap:8px}
+.lgm div:last-child{border-bottom:0}
+.lgm div:hover{background:var(--surf2)}
+.lgm div.on{background:var(--okbg);color:var(--ok);font-weight:700}
+.bd4{display:flex;flex:1;min-height:0}
+.sb3{width:214px;flex-shrink:0;background:var(--brand);color:#fff;display:flex;flex-direction:column}
+.sb3 nav{padding:10px 0;flex:1;overflow-y:auto}
+.sb3 nav::-webkit-scrollbar{width:0}
+.sb3 .sc3{font-size:9px;color:#7DA391;font-weight:700;padding:12px 15px 5px;letter-spacing:.06em}
+.sb3 a{display:flex;align-items:center;gap:9px;padding:9px 15px;font-size:12.5px;
+color:#C6D9CE;text-decoration:none;cursor:pointer;border-left:3px solid transparent}
+.sb3 a:hover{background:rgba(255,255,255,.05)}
+.sb3 a.on{background:rgba(255,255,255,.1);color:#fff;font-weight:700;border-left-color:var(--accent)}
+.sb3 a .e7{font-size:15px;width:18px;text-align:center}
+.sb3 a .bg4{margin-left:auto;background:var(--accent);color:#241806;font-size:9.5px;font-weight:800;
+padding:1px 6px;border-radius:9px}
+.sb3 .sf{padding:12px 15px;border-top:1px solid rgba(255,255,255,.11);font-size:10px;color:#8FB3A2;line-height:1.6}
+.mn3{flex:1;min-width:0;display:flex;flex-direction:column}
+.pgh{background:var(--surf);border-bottom:1px solid var(--line);padding:13px 22px;
+display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pgh h2{font-size:16.5px;font-weight:800}
+.pgh .sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+.pgh .rt4{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ct3{padding:20px 22px 28px;overflow-y:auto;flex:1}
+.btn{padding:8px 14px;border-radius:7px;border:1px solid var(--line);background:var(--surf);
+color:var(--ink2);font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;
+display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surf3)}
+.btn.p{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn.sm{padding:5px 10px;font-size:11px}
+.sel{padding:8px 11px;border-radius:7px;border:1px solid var(--line);background:var(--surf);
+color:var(--ink);font-size:12px;font-family:inherit;cursor:pointer}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:11px;box-shadow:var(--sh)}
+.card>h3{font-size:13px;font-weight:800;padding:14px 16px;border-bottom:1px solid var(--line2);
+display:flex;align-items:center;gap:8px}
+.card>h3 .rt2{margin-left:auto;font-size:11px;font-weight:600;color:var(--muted)}
+.card .bdy{padding:16px}.card .bdy.np{padding:0}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}.g5{grid-template-columns:repeat(5,1fr)}
+.g21{grid-template-columns:2fr 1fr}.g12{grid-template-columns:1fr 2fr}
+.g31{grid-template-columns:3fr 1fr}.g13{grid-template-columns:1fr 3fr}
+.kpi{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px 15px;box-shadow:var(--sh)}
+.kpi .k{font-size:10.5px;color:var(--muted);font-weight:700}
+.kpi .v{font-size:27px;font-weight:800;line-height:1.15;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:12.5px;font-weight:700;color:var(--muted)}
+.kpi .d{font-size:10.5px;color:var(--muted);margin-top:3px}
+.kpi.ok{border-left:3px solid var(--ok)}.kpi.wn{border-left:3px solid var(--warn)}
+.kpi.dg{border-left:3px solid var(--danger)}.kpi.if{border-left:3px solid var(--info)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{background:var(--surf3);color:var(--ink2);font-size:11px;font-weight:700;
+padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--line2)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surf2)}
+tfoot td{padding:10px 12px;background:var(--surf3);font-weight:800;border-top:1px solid var(--line)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{font-size:10px;font-weight:800;padding:3px 8px;border-radius:5px;display:inline-block;white-space:nowrap}
+.tag.ok{background:var(--okbg);color:var(--ok)}.tag.wn{background:var(--warnbg);color:var(--warn)}
+.tag.dg{background:var(--dangerbg);color:var(--danger)}.tag.if{background:var(--infobg);color:var(--info)}
+.tag.gy{background:var(--dirtybg);color:var(--dirty)}
+.al{border-radius:9px;padding:12px 14px;font-size:12px;line-height:1.65;display:flex;gap:9px}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al.d{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al b{display:block;margin-bottom:2px}
+.bar{height:8px;background:var(--dirtybg);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:4px}
+.dark .bar i{background:var(--ok)}
+.bar.w i{background:var(--warn)}.bar.d i{background:var(--danger)}.bar.f i{background:var(--info)}
+.hb{display:flex;align-items:flex-end;gap:6px;height:118px}
+.hb .c{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.hb .c i{width:76%;background:var(--brand);border-radius:3px 3px 0 0;min-height:2px}
+.dark .hb .c i{background:var(--ok)}
+.hb .c.hl i{background:var(--accent)}
+.hb .c .l{font-size:9.5px;color:var(--muted);margin-top:5px}
+.hb .c .n{font-size:10px;font-weight:700;margin-bottom:3px}
+.px{font-size:11px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;margin-top:9px}
+.px b{color:var(--ink);font-weight:700}
+.lgd{display:flex;gap:13px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);align-items:center}
+.lgd i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:4px;vertical-align:-1px}
+.tl2{position:relative;padding-left:20px}
+.tl2:before{content:"";position:absolute;left:5px;top:5px;bottom:5px;width:2px;background:var(--line)}
+.tl2 .ev{position:relative;padding-bottom:13px}
+.tl2 .ev:last-child{padding-bottom:0}
+.tl2 .ev:before{content:"";position:absolute;left:-19px;top:5px;width:10px;height:10px;border-radius:50%;
+background:var(--line);border:2px solid var(--surf)}
+.tl2 .ev.ok:before{background:var(--ok)}.tl2 .ev.wn:before{background:var(--warn)}
+.tl2 .ev.dg:before{background:var(--danger)}.tl2 .ev.if:before{background:var(--info)}
+.tl2 .ev .t{font-size:10px;color:var(--muted);font-weight:700}
+.tl2 .ev .b{font-size:12.5px;font-weight:600;margin-top:1px}
+.tl2 .ev .s{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.55}
+.ph3{background:var(--surf3);border:1px solid var(--line);border-radius:8px;aspect-ratio:4/3;
+display:flex;flex-direction:column;align-items:center;justify-content:center;
+font-size:19px;color:var(--muted);cursor:pointer}
+.ph3 span{font-size:9px;margin-top:3px}
+.ph3:hover{border-color:var(--accent)}
+.rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:6px}
+.rm{aspect-ratio:1;border-radius:7px;border:1.5px solid var(--line);background:var(--surf2);
+display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;
+font-size:12.5px;font-weight:800;position:relative}
+.rm .s2{font-size:8px;font-weight:600;margin-top:1px;opacity:.85}
+.rm.dn{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.rm.run{background:var(--warnbg);border-color:var(--warn);color:var(--warn)}
+.rm.td{background:var(--dirtybg);border-color:var(--line);color:var(--dirty)}
+.rm.rw{background:var(--dangerbg);border-color:var(--danger);color:var(--danger)}
+.rm.hd2{background:var(--infobg);border-color:var(--info);color:var(--info)}
+.rm .dot{position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--danger)}
+.fl{font-size:10.5px;color:var(--muted);font-weight:700;margin:14px 0 7px}
+.fl:first-child{margin-top:0}
+.mini{font-size:11px;color:var(--muted);line-height:1.6}
+.sw3{width:42px;height:24px;border-radius:12px;background:var(--dirtybg);position:relative;cursor:pointer}
+.sw3:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.sw3.on{background:var(--ok)}.sw3.on:after{left:21px}
+.sw3.lk{opacity:.4;cursor:not-allowed}
+.rowsw{display:flex;align-items:center;justify-content:space-between;gap:14px;
+padding:12px 0;border-bottom:1px solid var(--line2)}
+.rowsw:last-child{border-bottom:0}
+.rowsw .tx2 .a{font-size:12.5px;font-weight:600}
+.rowsw .tx2 .b{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.5}
+.conf{background:var(--surf3);border-radius:7px;padding:3px;display:flex;gap:2px}
+.conf .o{padding:5px 11px;border-radius:5px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer}
+.conf .o.on{background:var(--surf);color:var(--ink);box-shadow:var(--sh)}
+.fld{margin-bottom:14px}
+.fld .lb{font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:5px}
+.fld .hp{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.55}
+.inp{width:100%;padding:9px 11px;border-radius:7px;border:1px solid var(--line);
+background:var(--surf2);color:var(--ink);font-size:12.5px;font-family:inherit}
+.lock{display:inline-flex;align-items:center;gap:4px;background:var(--dirtybg);color:var(--dirty);
+padding:2px 7px;border-radius:5px;font-size:9.5px;font-weight:700}
+.anon{display:inline-flex;align-items:center;gap:5px;background:var(--dirtybg);color:var(--dirty);
+padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:700}
+.cf{display:inline-flex;align-items:center;gap:7px}
+.cf .mtr{width:50px;height:6px;background:var(--dirtybg);border-radius:3px;overflow:hidden}
+.cf .mtr i{display:block;height:100%;border-radius:3px}
+.cf .nn{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;min-width:24px}
+.rl{display:flex;flex-direction:column;gap:2px}
+.rl .rc{font-size:10px;color:var(--muted);font-weight:700}
+.rl .rn2{font-size:12px}
+.sig{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;
+background:var(--surf2);display:flex;gap:12px;align-items:flex-start}
+.sig .sn{width:24px;height:24px;border-radius:7px;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.sig .sb3b{flex:1}
+.sig .sb3b .st4{font-size:12.5px;font-weight:700}
+.sig .sb3b .sd2{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.6}
+.sig .sp{text-align:right;flex-shrink:0}
+.sig .sp .spv{font-size:14px;font-weight:800;color:var(--accent)}
+.sig .sp .spl{font-size:9px;color:var(--muted)}
+.cmp{display:grid;grid-template-columns:1fr auto 1fr;border:1px solid var(--line);
+border-radius:10px;overflow:hidden}
+.cmp .hd3{padding:9px 14px;background:var(--surf3);font-size:11px;font-weight:800;
+color:var(--ink2);text-align:center}
+.cmp .rw2{padding:9px 14px;border-top:1px solid var(--line2);font-size:12.5px;
+display:flex;align-items:center;min-height:39px}
+.cmp .rw2.k2{background:var(--surf3);font-size:11px;font-weight:700;color:var(--ink2);
+justify-content:flex-end;text-align:right}
+.cmp .mid{border-left:1px solid var(--line);border-right:1px solid var(--line);
+display:flex;flex-direction:column}
+.cmp .df{color:var(--danger);font-weight:800}
+.stp{display:flex;margin-bottom:14px}
+.stp .s5{flex:1;padding:10px 12px;background:var(--surf2);border:1px solid var(--line);font-size:11.5px}
+.stp .s5:not(:last-child){border-right:0}
+.stp .s5:first-child{border-radius:9px 0 0 9px}
+.stp .s5:last-child{border-radius:0 9px 9px 0}
+.stp .s5 .n3{font-size:9.5px;font-weight:800;color:var(--muted)}
+.stp .s5 .t5{font-size:12px;font-weight:700;margin-top:2px}
+.stp .s5.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.stp .s5.on .n3{color:#9FBFAF}
+.stp .s5.dn2{background:var(--okbg);border-color:var(--ok)}
+.stp .s5.dn2 .t5{color:var(--ok)}
+.rp{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:22px 26px;
+max-width:800px;margin:0 auto}
+.rp .rh{border-bottom:2px solid var(--brand);padding-bottom:13px;margin-bottom:18px;
+display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.rp .rh .t6{font-size:18px;font-weight:800}
+.rp .rh .s7{font-size:11px;color:var(--muted);margin-top:3px}
+.rp .rh .lg2{font-size:11.5px;font-weight:800;color:var(--brand);text-align:right}
+.dark .rp .rh .lg2{color:var(--ok)}
+.rp .rh .lg2 em{color:var(--accent);font-style:normal}
+.rp .rh .lg2 span{display:block;font-size:8.5px;color:var(--muted);font-weight:600}
+.rp h4{font-size:12.5px;font-weight:800;margin:20px 0 9px;padding-left:9px;
+border-left:3px solid var(--accent)}
+.rp h4:first-of-type{margin-top:0}
+.rp p{font-size:11.5px;line-height:1.85;color:var(--ink2);margin-bottom:8px}
+.sm2{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:6px}
+.sm2 .b4{border:1px solid var(--line);border-radius:8px;padding:11px;text-align:center}
+.sm2 .b4 .v6{font-size:20px;font-weight:800;line-height:1.15}
+.sm2 .b4 .k6{font-size:9px;color:var(--muted);margin-top:3px}
+.sm2 .b4 .d3{font-size:9px;margin-top:3px;color:var(--ok)}
+.rp .ft3{margin-top:20px;padding-top:13px;border-top:1px solid var(--line);
+font-size:9.5px;color:var(--muted);line-height:1.7}
+.notes{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:13px}
+.nc{background:#101714;border:1px solid #1D2822;border-radius:11px;padding:15px}
+.nc h3{font-size:12.5px;color:#E7ECE8;margin-bottom:9px}
+.nc p{font-size:11.5px;color:#A2B0A9;line-height:1.75;margin-bottom:7px}
+.nc p:last-child{margin-bottom:0}
+.nc b{color:var(--accent2)}
+.nc code{background:#080D0B;padding:1px 6px;border-radius:3px;font-size:10.5px;color:var(--accent2)}
+.nc ul{list-style:none;margin-top:6px}
+.nc li{font-size:11px;color:#A2B0A9;padding:4px 0 4px 17px;position:relative;line-height:1.6}
+.nc li:before{content:"\u25b8";position:absolute;left:1px;color:var(--accent)}
+.nc table{margin-top:7px;font-size:10.5px}
+.nc thead th{background:#16211D;color:#8A968F;border-bottom:1px solid #22302A;padding:6px 8px}
+.nc tbody td{color:#A2B0A9;border-bottom:1px solid #1A2520;padding:6px 8px;background:transparent}
+.rmk2{background:#2A1917;border-left:3px solid var(--danger);padding:9px 12px;font-size:11px;
+color:#DFB4AD;margin-top:9px;line-height:1.65}
+.hnt{background:#080D0B;border-left:3px solid var(--accent);padding:9px 12px;font-size:11px;
+color:#96A39C;margin-top:9px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}</style></head><body>
+<div class="dc"><div class="lg">Proof<em>Keeping</em> v3</div>
+<div class="bt">第2批 C（v3改修） — オーナー · 検査・資材・レポート（07〜09）</div>
+<span class="gl">施設セレクタ＝topbar左 / 通知・ユーザー＝topbar右 / 言語＝ユーザーメニュー内</span>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="wrap">
+<div class="pg">
+<div class="hd"><h1>07. 検査・再清掃</h1><p>v3改修：タブで分けていた検査結果と依頼フォームを1画面に統合。フロー図はアラート内の1行に圧縮しました。</p></div>
+<div class="bf"><div class="bb"><div class="dt"><i></i><i></i><i></i></div>
+<div class="url">https://owner.proofkeeping.jp/inspection</div></div>
+<div class="shell">
+<div class="top3"><div class="brand">Proof<em>Keeping</em><span>OWNER CONSOLE</span></div><div class="psel">
+<button class="btn3"><span>🏨</span><span class="pn2">サンプルホテル東京</span>
+<span class="rc4">60室</span><span class="cv">▼</span></button>
+<div class="pdd">
+<div class="ph4"><span>サンプル運営株式会社 · 3施設</span><span>完了 / 作業中 / 要対応</span></div>
+<div class="pi pall" data-n="全社サマリー" data-r="3施設 120室">
+<span class="ck4">✓</span><span class="e6">📊</span>
+<div class="nb"><div class="n5">全社サマリー</div><div class="d4">3施設 120室を横断表示</div></div>
+<div class="st5"><b class="d5">98</b><b class="r5">14</b><b class="f5">8</b></div></div>
+<div class="pi on" data-n="サンプルホテル東京" data-r="60室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル東京</div><div class="d4">東京都新宿区 · 60室</div></div>
+<div class="st5"><b class="d5">48</b><b class="r5">6</b><b class="f5">4</b></div></div>
+<div class="pi" data-n="サンプルホテル横浜" data-r="36室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル横浜</div><div class="d4">横浜市西区 · 36室</div></div>
+<div class="st5"><b class="d5">31</b><b class="r5">4</b><b class="f5">1</b></div></div>
+<div class="pi" data-n="サンプル旅館 箱根" data-r="24室">
+<span class="ck4">✓</span><span class="e6">♨️</span>
+<div class="nb"><div class="n5">サンプル旅館 箱根</div><div class="d4">神奈川県箱根町 · 24室</div></div>
+<div class="st5"><b class="d5">19</b><b class="r5">4</b><b class="f5">3</b></div></div>
+</div></div>
+<div class="rt3"><div class="bell">🔔<span class="bd3">4</span></div><div class="usr">
+<button class="ub"><span class="av">田</span><span class="un">田中</span><span class="cv2">▼</span></button>
+<div class="udd">
+<div class="uh"><div class="n6">田中 一郎 様</div><div class="m4">tanaka@sample-hotel.co.jp</div>
+<span class="rl2">オーナー · 自施設のみ</span></div>
+<a>👤 アカウント設定</a>
+<a>🔔 通知の設定</a>
+<a class="lgw">🌐 言語<span class="rv">日本語 ›</span>
+<div class="lgm">
+<div class="on"><span>🇯🇵</span>日本語</div><div><span>🇬🇧</span>English</div>
+<div><span>🇨🇳</span>简体中文</div><div><span>🇻🇳</span>Tiếng Việt</div>
+<div><span>🇮🇩</span>Bahasa Indonesia</div><div><span>🇲🇲</span>မြန်မာဘာသာ</div>
+<div><span>🇳🇵</span>नेपाली</div>
+</div></a>
+<a>❓ ヘルプ</a>
+<a class="dgr">↩ ログアウト</a>
+</div></div></div></div>
+<div class="bd4"><div class="sb3"><nav><div class="sc3">日次運用</div><a data-p="02"><span class="e7">📊</span>ダッシュボード</a><a data-p="03"><span class="e7">🏨</span>客室ボード</a><a data-p="04"><span class="e7">⚠️</span>稼働の差異<span class="bg4">4</span></a><div class="sc3">記録の確認</div><a data-p="05"><span class="e7">🔍</span>差異の詳細</a><a data-p="06"><span class="e7">📋</span>清掃記録</a><a class="on" data-p="07"><span class="e7">↻</span>検査・再清掃</a><div class="sc3">資材と分析</div><a data-p="08"><span class="e7">🧺</span>リネン消費</a><a data-p="09"><span class="e7">📈</span>月次レポート</a><a data-p="10"><span class="e7">💴</span>契約と請求</a><div class="sc3">設定</div><a data-p="11"><span class="e7">⚙️</span>施設設定</a><a data-p="12"><span class="e7">🔐</span>権限と監査</a></nav><div class="sf">閲覧権限：自施設のみ<br><span style="opacity:.75">清掃員の氏名は非表示</span></div></div>
+<div class="mn3"><div class="pgh"><div><h2>検査・再清掃</h2>
+<div class="sub">サンプルホテル東京 · 直近30日</div></div>
+<div class="rt4"><select class="sel"><option>直近30日</option><option>直近7日</option></select>
+<button class="btn">📄 CSV出力</button><button class="btn p">＋ 再清掃を依頼する</button></div></div><div class="ct3">
+<div class="grid g4" style="margin-bottom:14px">
+<div class="kpi"><div class="k">👁 抜き取り検査</div><div class="v">124<small> 室</small></div>
+<div class="d">対象1,204室の10.3%</div></div>
+<div class="kpi ok"><div class="k">✓ 合格</div><div class="v">117<small> 室</small></div>
+<div class="d">合格率 94.4%</div></div>
+<div class="kpi wn"><div class="k">↻ 再清掃</div><div class="v">7<small> 室</small></div>
+<div class="d">検査対象の5.6%</div></div>
+<div class="kpi if"><div class="k">🕒 平均対応時間</div><div class="v">42<small> 分</small></div>
+<div class="d">指示から完了まで</div></div>
+</div>
+
+<div class="al i" style="margin-bottom:14px">ℹ
+<div><b>オーナーからの再清掃依頼の流れ</b>
+ご依頼は運営管理者に届き、内容を確認したうえで清掃タスクが作成されます。オーナー様から清掃スタッフへ直接指示が届く経路は設けておりません。
+<span class="mini" style="color:inherit;opacity:.85">　①オーナー様が依頼 → ②運営管理者が確認 → ③清掃タスクを作成 → ④対応完了のご連絡</span></div></div>
+
+<div class="grid g21" style="margin-bottom:14px">
+<div class="card"><h3>👁 検査結果の一覧<span class="rt2">新しい順</span></h3><div class="bdy np">
+<table><thead><tr><th style="width:62px">客室</th><th style="width:84px">検査日</th>
+<th style="width:88px">結果</th><th>指摘箇所</th><th style="width:104px">対応</th>
+<th style="width:88px">対応時刻</th><th style="width:64px"></th></tr></thead>
+<tbody>
+<tr><td><b>409</b></td><td class="mini">8/10（月）</td><td><span class="tag dg">再清掃</span></td>
+<td><span class="tag dg" style="margin-right:4px">浴室</span><span class="tag dg">床</span></td>
+<td><span class="tag wn">対応中</span></td><td class="mini">—</td>
+<td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>311</b></td><td class="mini">8/10（月）</td><td><span class="tag dg">再清掃</span></td>
+<td><span class="tag dg">水回り</span></td>
+<td><span class="tag ok">完了</span></td><td class="mini">02:14</td>
+<td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>412</b></td><td class="mini">8/10（月）</td><td><span class="tag ok">合格</span></td>
+<td class="mini">—</td><td class="mini">—</td><td class="mini">—</td>
+<td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>308</b></td><td class="mini">8/10（月）</td><td><span class="tag ok">合格</span></td>
+<td class="mini">—</td><td class="mini">—</td><td class="mini">—</td>
+<td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>205</b></td><td class="mini">8/9（日）</td><td><span class="tag dg">再清掃</span></td>
+<td><span class="tag dg">備品の不足</span></td>
+<td><span class="tag ok">完了</span></td><td class="mini">16:32</td>
+<td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>305</b></td><td class="mini">8/9（日）</td><td><span class="tag ok">合格</span></td>
+<td class="mini">—</td><td class="mini">—</td><td class="mini">—</td>
+<td><button class="btn sm">詳細</button></td></tr>
+<tr><td><b>108</b></td><td class="mini">8/8（金）</td><td><span class="tag dg">再清掃</span></td>
+<td><span class="tag dg">浴室</span></td>
+<td><span class="tag ok">完了</span></td><td class="mini">11:48</td>
+<td><button class="btn sm">詳細</button></td></tr>
+</tbody></table></div></div>
+
+<div class="card"><h3>📈 再清掃率の推移</h3><div class="bdy">
+<div class="hb" style="height:104px">
+<div class="c"><span class="n">8.1</span><i style="height:81%"></i><span class="l">3月</span></div>
+<div class="c"><span class="n">7.4</span><i style="height:74%"></i><span class="l">4月</span></div>
+<div class="c"><span class="n">6.8</span><i style="height:68%"></i><span class="l">5月</span></div>
+<div class="c"><span class="n">6.2</span><i style="height:62%"></i><span class="l">6月</span></div>
+<div class="c"><span class="n">5.9</span><i style="height:59%"></i><span class="l">7月</span></div>
+<div class="c hl"><span class="n">5.6</span><i style="height:56%"></i><span class="l">8月</span></div>
+</div>
+<div class="px" style="flex-direction:column;gap:4px"><span>6か月平均 <b>6.67%</b></span>
+<span>検査は抜き取り（既定10%）</span></div>
+<div class="mini" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line2)">
+再清掃率が0%になることを目標にしていません。検査者が指摘を控えるようになり、検査そのものが機能しなくなるためです。</div>
+</div></div>
+</div>
+
+<div class="grid g2">
+<div class="card"><h3>↻ 再清掃の内訳<span class="rt2">直近30日 · 7件</span></h3><div class="bdy np">
+<table><thead><tr><th>指摘箇所</th><th class="num" style="width:70px">件数</th>
+<th style="width:130px">構成比</th><th>考えられる要因</th></tr></thead>
+<tbody>
+<tr><td>浴室</td><td class="num">3</td>
+<td><div class="bar d"><i style="width:43%"></i></div></td>
+<td class="mini">水垢・排水口の残留</td></tr>
+<tr><td>床</td><td class="num">2</td>
+<td><div class="bar d"><i style="width:29%"></i></div></td>
+<td class="mini">髪の毛・家具の下</td></tr>
+<tr><td>備品の不足</td><td class="num">1</td>
+<td><div class="bar d"><i style="width:14%"></i></div></td>
+<td class="mini">アメニティの補充漏れ</td></tr>
+<tr><td>水回り</td><td class="num">1</td>
+<td><div class="bar d"><i style="width:14%"></i></div></td>
+<td class="mini">洗面台の水滴</td></tr>
+<tr><td>ベッド</td><td class="num">0</td>
+<td><div class="bar"><i style="width:0%"></i></div></td><td class="mini">—</td></tr>
+</tbody></table>
+<div style="padding:13px 15px"><div class="mini">
+再清掃率は個人別には集計していません。箇所別の傾向は、清掃手順や使用する洗剤の見直しに活用できます。</div></div>
+</div></div>
+
+<div class="card"><h3>＋ 再清掃を依頼する</h3><div class="bdy">
+<div class="grid g2" style="gap:10px">
+<div class="fld" style="margin-bottom:9px"><div class="lb">客室 <span style="color:var(--danger)">必須</span></div>
+<select class="sel" style="width:100%"><option>選択してください</option>
+<option>409（8/10 清掃済み）</option><option>412（8/10 清掃済み）</option></select></div>
+<div class="fld" style="margin-bottom:9px"><div class="lb">希望する対応時期</div>
+<div class="conf"><span class="o on">できるだけ早く</span><span class="o">本日中</span>
+<span class="o">次回清掃時</span></div></div>
+</div>
+<div class="fld"><div class="lb">箇所 <span style="color:var(--danger)">必須</span>
+<span class="mini" style="font-weight:400">複数選択できます</span></div>
+<div class="conf" style="flex-wrap:wrap"><span class="o">浴室</span><span class="o">ベッド</span>
+<span class="o">床</span><span class="o">水回り</span><span class="o">備品の不足</span><span class="o">その他</span></div></div>
+<div class="fld"><div class="lb">補足（任意）</div>
+<input class="inp" placeholder="例：浴槽の縁に水垢が残っていました">
+<div class="hp">写真を添付いただくと対応が早くなります。この内容は運営管理者と清掃スタッフに共有されます。</div></div>
+<div style="display:flex;gap:9px;justify-content:flex-end">
+<button class="btn">📷 写真を追加</button><button class="btn p">依頼を送信する</button></div>
+</div></div>
+</div></div></div></div></div></div>
+<div class="notes">
+<div class="nc"><h3>📐 v3改修点</h3>
+<p>改修前は「検査結果」と「再清掃の依頼」をタブで分けていましたが、<b>1画面に統合</b>しました。フロー図もアラート内の1行に圧縮しています。</p>
+<p>依頼フォームは右下のカードに収め、検査結果を見ながら依頼できる構成にしました。タブ切り替えが不要になります。</p>
+<div class="hnt">💡 依頼フォームの箇所選択は複数選択できます。クリックして選ぶと色が変わります。</div></div>
+
+<div class="nc"><h3>🎯 依頼は運営管理者を経由する（変更なし）</h3>
+<p>オーナーの依頼は運営管理者を経由し、そこで内容を確認してから清掃タスクになります。</p>
+<div class="rmk2">❗ 直接届く仕組みにすると、清掃員は発注元からの指示と雇用主からの指示を同時に受けることになり、優先順位を自分で判断させられます。それは現場に無理を強いる構造です。</div></div>
+
+<div class="nc"><h3>🔍 箇所別の内訳に要因を併記</h3>
+<table><tr><th>箇所</th><th>要因</th></tr>
+<tr><td>浴室 3件</td><td>水垢・排水口の残留</td></tr>
+<tr><td>床 2件</td><td>髪の毛・家具の下</td></tr>
+<tr><td>備品の不足 1件</td><td>アメニティの補充漏れ</td></tr></table>
+<p>要因を清掃員の注意不足ではなく<b>手順・道具・基準の問題</b>として書きます。同じ箇所が繰り返し出る場合、個人の問題ではなく仕組みの問題である可能性が高いためです。</p></div>
+
+<div class="nc"><h3>✅ 確定事項</h3>
+<ul>
+<li>検査結果と依頼フォームを1画面に統合する</li>
+<li>オーナーの依頼は運営管理者を経由する</li>
+<li>再清掃率0%を目標として提示しない</li>
+<li>清掃員別の再清掃率は集計しない</li>
+<li>箇所別の内訳に「考えられる要因」を併記する</li>
+<li>元の清掃記録は削除せず保持する</li>
+</ul></div></div></div>
+<div class="pg">
+<div class="hd"><h1>08. リネン消費</h1><p>v3改修：横幅が広くなり日別推移を10日分すべて表示できるようになりました。内容は変更していません。</p></div>
+<div class="bf"><div class="bb"><div class="dt"><i></i><i></i><i></i></div>
+<div class="url">https://owner.proofkeeping.jp/linen</div></div>
+<div class="shell">
+<div class="top3"><div class="brand">Proof<em>Keeping</em><span>OWNER CONSOLE</span></div><div class="psel">
+<button class="btn3"><span>🏨</span><span class="pn2">サンプルホテル東京</span>
+<span class="rc4">60室</span><span class="cv">▼</span></button>
+<div class="pdd">
+<div class="ph4"><span>サンプル運営株式会社 · 3施設</span><span>完了 / 作業中 / 要対応</span></div>
+<div class="pi pall" data-n="全社サマリー" data-r="3施設 120室">
+<span class="ck4">✓</span><span class="e6">📊</span>
+<div class="nb"><div class="n5">全社サマリー</div><div class="d4">3施設 120室を横断表示</div></div>
+<div class="st5"><b class="d5">98</b><b class="r5">14</b><b class="f5">8</b></div></div>
+<div class="pi on" data-n="サンプルホテル東京" data-r="60室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル東京</div><div class="d4">東京都新宿区 · 60室</div></div>
+<div class="st5"><b class="d5">48</b><b class="r5">6</b><b class="f5">4</b></div></div>
+<div class="pi" data-n="サンプルホテル横浜" data-r="36室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル横浜</div><div class="d4">横浜市西区 · 36室</div></div>
+<div class="st5"><b class="d5">31</b><b class="r5">4</b><b class="f5">1</b></div></div>
+<div class="pi" data-n="サンプル旅館 箱根" data-r="24室">
+<span class="ck4">✓</span><span class="e6">♨️</span>
+<div class="nb"><div class="n5">サンプル旅館 箱根</div><div class="d4">神奈川県箱根町 · 24室</div></div>
+<div class="st5"><b class="d5">19</b><b class="r5">4</b><b class="f5">3</b></div></div>
+</div></div>
+<div class="rt3"><div class="bell">🔔<span class="bd3">4</span></div><div class="usr">
+<button class="ub"><span class="av">田</span><span class="un">田中</span><span class="cv2">▼</span></button>
+<div class="udd">
+<div class="uh"><div class="n6">田中 一郎 様</div><div class="m4">tanaka@sample-hotel.co.jp</div>
+<span class="rl2">オーナー · 自施設のみ</span></div>
+<a>👤 アカウント設定</a>
+<a>🔔 通知の設定</a>
+<a class="lgw">🌐 言語<span class="rv">日本語 ›</span>
+<div class="lgm">
+<div class="on"><span>🇯🇵</span>日本語</div><div><span>🇬🇧</span>English</div>
+<div><span>🇨🇳</span>简体中文</div><div><span>🇻🇳</span>Tiếng Việt</div>
+<div><span>🇮🇩</span>Bahasa Indonesia</div><div><span>🇲🇲</span>မြန်မာဘာသာ</div>
+<div><span>🇳🇵</span>नेपाली</div>
+</div></a>
+<a>❓ ヘルプ</a>
+<a class="dgr">↩ ログアウト</a>
+</div></div></div></div>
+<div class="bd4"><div class="sb3"><nav><div class="sc3">日次運用</div><a data-p="02"><span class="e7">📊</span>ダッシュボード</a><a data-p="03"><span class="e7">🏨</span>客室ボード</a><a data-p="04"><span class="e7">⚠️</span>稼働の差異<span class="bg4">4</span></a><div class="sc3">記録の確認</div><a data-p="05"><span class="e7">🔍</span>差異の詳細</a><a data-p="06"><span class="e7">📋</span>清掃記録</a><a data-p="07"><span class="e7">↻</span>検査・再清掃</a><div class="sc3">資材と分析</div><a class="on" data-p="08"><span class="e7">🧺</span>リネン消費</a><a data-p="09"><span class="e7">📈</span>月次レポート</a><a data-p="10"><span class="e7">💴</span>契約と請求</a><div class="sc3">設定</div><a data-p="11"><span class="e7">⚙️</span>施設設定</a><a data-p="12"><span class="e7">🔐</span>権限と監査</a></nav><div class="sf">閲覧権限：自施設のみ<br><span style="opacity:.75">清掃員の氏名は非表示</span></div></div>
+<div class="mn3"><div class="pgh"><div><h2>リネン消費</h2>
+<div class="sub">サンプルホテル東京 · 2026年8月（1日〜10日）</div></div>
+<div class="rt4"><select class="sel"><option>2026年8月</option><option>2026年7月</option></select>
+<button class="btn">📄 CSV出力</button></div></div><div class="ct3">
+<div class="grid g3" style="margin-bottom:14px">
+<div class="kpi"><div class="k">🧺 回収の合計</div><div class="v">1,842<small> 枚</small></div>
+<div class="d">10日間 · 1日平均 184枚</div></div>
+<div class="kpi"><div class="k">📦 補充の合計</div><div class="v">1,889<small> 枚</small></div>
+<div class="d">1日平均 189枚</div></div>
+<div class="kpi wn"><div class="k">↔ 差分</div><div class="v">+47<small> 枚</small></div>
+<div class="d">在庫が47枚減っています</div></div>
+</div>
+
+<div class="al i" style="margin-bottom:14px">ℹ
+<div><b>差分の意味</b>
+「補充 − 回収」の値です。プラスの場合、その分だけ在庫が減っています。持ち帰り・汚損による廃棄・前日の補充不足などが要因です。差分そのものは問題ではなく、発注量を決めるための記録としてご利用ください。</div></div>
+
+<div class="card" style="margin-bottom:14px"><h3>🧺 品目別の消費<span class="rt2">2026年8月1日〜10日</span></h3>
+<div class="bdy np">
+<table><thead><tr><th>品目</th><th class="num" style="width:90px">回収</th>
+<th class="num" style="width:90px">補充</th><th class="num" style="width:82px">差分</th>
+<th style="width:150px">差分の割合</th><th class="num" style="width:104px">1室あたり</th></tr></thead>
+<tbody>
+<tr><td><b>シーツ</b></td><td class="num">412</td><td class="num">423</td>
+<td class="num" style="color:var(--warn);font-weight:700">+11</td>
+<td><div class="bar w"><i style="width:27%"></i></div></td><td class="num">1.46 枚</td></tr>
+<tr><td><b>バスタオル</b></td><td class="num">578</td><td class="num">596</td>
+<td class="num" style="color:var(--warn);font-weight:700">+18</td>
+<td><div class="bar w"><i style="width:44%"></i></div></td><td class="num">2.06 枚</td></tr>
+<tr><td><b>フェイスタオル</b></td><td class="num">564</td><td class="num">576</td>
+<td class="num" style="color:var(--warn);font-weight:700">+12</td>
+<td><div class="bar w"><i style="width:29%"></i></div></td><td class="num">1.99 枚</td></tr>
+<tr><td><b>バスマット</b></td><td class="num">282</td><td class="num">288</td>
+<td class="num" style="color:var(--warn);font-weight:700">+6</td>
+<td><div class="bar w"><i style="width:15%"></i></div></td><td class="num">1.00 枚</td></tr>
+<tr><td><b>館内着</b></td><td class="num">6</td><td class="num">6</td><td class="num">0</td>
+<td><div class="bar"><i style="width:0%"></i></div></td><td class="num">0.02 枚</td></tr>
+</tbody>
+<tfoot><tr><td>合計</td><td class="num">1,842</td><td class="num">1,889</td>
+<td class="num" style="color:var(--warn)">+47</td><td></td><td class="num">6.53 枚</td></tr></tfoot>
+</table></div></div>
+
+<div class="grid g21">
+<div class="card"><h3>📅 日別の推移<span class="rt2">全品目の合計</span></h3><div class="bdy">
+<div class="hb">
+<div class="c"><span class="n">168</span><i style="height:74%"></i><span class="l">8/1</span></div>
+<div class="c"><span class="n">192</span><i style="height:85%"></i><span class="l">8/2</span></div>
+<div class="c"><span class="n">175</span><i style="height:77%"></i><span class="l">8/3</span></div>
+<div class="c"><span class="n">181</span><i style="height:80%"></i><span class="l">8/4</span></div>
+<div class="c"><span class="n">164</span><i style="height:72%"></i><span class="l">8/5</span></div>
+<div class="c"><span class="n">198</span><i style="height:87%"></i><span class="l">8/6</span></div>
+<div class="c"><span class="n">186</span><i style="height:82%"></i><span class="l">8/7</span></div>
+<div class="c hl"><span class="n">226</span><i style="height:100%"></i><span class="l">8/8</span></div>
+<div class="c"><span class="n">208</span><i style="height:92%"></i><span class="l">8/9</span></div>
+<div class="c"><span class="n">191</span><i style="height:84%"></i><span class="l">8/10</span></div>
+</div>
+<div class="px"><span>1日平均 <b>189枚</b></span><span>最多 <b>8/8 · 226枚</b>（土曜・満室）</span></div>
+<div class="mini" style="margin-top:11px;padding-top:11px;border-top:1px solid var(--line2)">
+週末に消費が増えるのは稼働率が高いためです。清掃件数と併せてご確認ください。</div>
+</div></div>
+
+<div class="card"><h3>📦 発注の目安</h3><div class="bdy">
+<div class="fl" style="margin-top:0">今月のペースでの推計</div>
+<table><tbody>
+<tr><td class="mini">1日平均の差分</td><td class="num"><b>4.7 枚</b></td></tr>
+<tr><td class="mini">月間の推計差分</td><td class="num"><b>146 枚</b></td></tr>
+<tr><td class="mini">前月の実績</td><td class="num">138 枚</td></tr>
+<tr><td class="mini">前月比</td><td class="num" style="color:var(--warn)">+5.8%</td></tr>
+</tbody></table>
+<div class="al w" style="margin-top:13px;font-size:11px">⚠️
+<div><b>バスタオルの差分が最多です</b>
+月間で約56枚の減少ペースです。設置枚数の見直しか、発注量の調整をご検討ください。</div></div>
+<div class="mini" style="margin-top:11px;padding-top:10px;border-top:1px solid var(--line2)">
+この推計は記録された差分の単純な延長です。季節変動や在庫の実棚は反映されていません。</div>
+</div></div>
+</div></div></div></div></div></div>
+<div class="notes">
+<div class="nc"><h3>📐 v3改修点</h3>
+<p>レイアウト以外の内容は変更していません。横幅が広くなったため、日別推移を10日分すべて表示できるようになりました。</p></div>
+
+<div class="nc"><h3>🎯 差分の定義を最初に書く（変更なし）</h3>
+<p>「差分」は見る人によって<b>回収−補充</b>とも<b>補充−回収</b>とも読めます。上部に定義を明記し、符号の意味を推測させません。</p>
+<div class="hnt">💡 差分の色はオレンジですが「注意」ではなく「ゼロではない」の意味です。「差分そのものは問題ではありません」と明記しています。</div></div>
+
+<div class="nc"><h3>📦 推計に注記を付ける</h3>
+<ul>
+<li>差分の単純な延長であることを明記する</li>
+<li>季節変動や実棚在庫は反映されていない</li>
+<li>指摘する品目は最も差分の大きい1つだけ</li>
+<li>「発注してください」ではなく「ご検討ください」</li>
+</ul>
+<div class="rmk2">❗ 実棚在庫を持っているのは施設側であり、このツールは記録された消費実績しか知りません。判断材料を提供する範囲にとどめます。</div></div>
+
+<div class="nc"><h3>✅ 確定事項</h3>
+<ul>
+<li>差分の定義（補充−回収）を画面上に明記する</li>
+<li>「差分そのものは問題ではありません」を添える</li>
+<li>清掃員別・階別の集計は表示しない</li>
+<li>発注の目安は推計であることを注記する</li>
+<li>断定せず「ご検討ください」と書く</li>
+</ul></div></div></div>
+<div class="pg">
+<div class="hd"><h1>09. 月次レポート</h1><p>レポート本体は変更なし。PDFとして外部に渡る文書のためレイアウトを固定します。施設の切替はtopbarのセレクタから行います。</p></div>
+<div class="bf"><div class="bb"><div class="dt"><i></i><i></i><i></i></div>
+<div class="url">https://owner.proofkeeping.jp/reports/202607</div></div>
+<div class="shell">
+<div class="top3"><div class="brand">Proof<em>Keeping</em><span>OWNER CONSOLE</span></div><div class="psel">
+<button class="btn3"><span>🏨</span><span class="pn2">サンプルホテル東京</span>
+<span class="rc4">60室</span><span class="cv">▼</span></button>
+<div class="pdd">
+<div class="ph4"><span>サンプル運営株式会社 · 3施設</span><span>完了 / 作業中 / 要対応</span></div>
+<div class="pi pall" data-n="全社サマリー" data-r="3施設 120室">
+<span class="ck4">✓</span><span class="e6">📊</span>
+<div class="nb"><div class="n5">全社サマリー</div><div class="d4">3施設 120室を横断表示</div></div>
+<div class="st5"><b class="d5">98</b><b class="r5">14</b><b class="f5">8</b></div></div>
+<div class="pi on" data-n="サンプルホテル東京" data-r="60室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル東京</div><div class="d4">東京都新宿区 · 60室</div></div>
+<div class="st5"><b class="d5">48</b><b class="r5">6</b><b class="f5">4</b></div></div>
+<div class="pi" data-n="サンプルホテル横浜" data-r="36室">
+<span class="ck4">✓</span><span class="e6">🏨</span>
+<div class="nb"><div class="n5">サンプルホテル横浜</div><div class="d4">横浜市西区 · 36室</div></div>
+<div class="st5"><b class="d5">31</b><b class="r5">4</b><b class="f5">1</b></div></div>
+<div class="pi" data-n="サンプル旅館 箱根" data-r="24室">
+<span class="ck4">✓</span><span class="e6">♨️</span>
+<div class="nb"><div class="n5">サンプル旅館 箱根</div><div class="d4">神奈川県箱根町 · 24室</div></div>
+<div class="st5"><b class="d5">19</b><b class="r5">4</b><b class="f5">3</b></div></div>
+</div></div>
+<div class="rt3"><div class="bell">🔔<span class="bd3">4</span></div><div class="usr">
+<button class="ub"><span class="av">田</span><span class="un">田中</span><span class="cv2">▼</span></button>
+<div class="udd">
+<div class="uh"><div class="n6">田中 一郎 様</div><div class="m4">tanaka@sample-hotel.co.jp</div>
+<span class="rl2">オーナー · 自施設のみ</span></div>
+<a>👤 アカウント設定</a>
+<a>🔔 通知の設定</a>
+<a class="lgw">🌐 言語<span class="rv">日本語 ›</span>
+<div class="lgm">
+<div class="on"><span>🇯🇵</span>日本語</div><div><span>🇬🇧</span>English</div>
+<div><span>🇨🇳</span>简体中文</div><div><span>🇻🇳</span>Tiếng Việt</div>
+<div><span>🇮🇩</span>Bahasa Indonesia</div><div><span>🇲🇲</span>မြန်မာဘာသာ</div>
+<div><span>🇳🇵</span>नेपाली</div>
+</div></a>
+<a>❓ ヘルプ</a>
+<a class="dgr">↩ ログアウト</a>
+</div></div></div></div>
+<div class="bd4"><div class="sb3"><nav><div class="sc3">日次運用</div><a data-p="02"><span class="e7">📊</span>ダッシュボード</a><a data-p="03"><span class="e7">🏨</span>客室ボード</a><a data-p="04"><span class="e7">⚠️</span>稼働の差異<span class="bg4">4</span></a><div class="sc3">記録の確認</div><a data-p="05"><span class="e7">🔍</span>差異の詳細</a><a data-p="06"><span class="e7">📋</span>清掃記録</a><a data-p="07"><span class="e7">↻</span>検査・再清掃</a><div class="sc3">資材と分析</div><a data-p="08"><span class="e7">🧺</span>リネン消費</a><a class="on" data-p="09"><span class="e7">📈</span>月次レポート</a><a data-p="10"><span class="e7">💴</span>契約と請求</a><div class="sc3">設定</div><a data-p="11"><span class="e7">⚙️</span>施設設定</a><a data-p="12"><span class="e7">🔐</span>権限と監査</a></nav><div class="sf">閲覧権限：自施設のみ<br><span style="opacity:.75">清掃員の氏名は非表示</span></div></div>
+<div class="mn3"><div class="pgh"><div><h2>月次レポート</h2>
+<div class="sub">2026年7月分 · 確定済み</div></div>
+<div class="rt4"><select class="sel"><option>2026年7月分</option><option>2026年6月分</option></select>
+<button class="btn">🖨 印刷</button><button class="btn p">📄 PDFで保存</button></div></div><div class="ct3">
+<div class="al i" style="margin-bottom:14px;max-width:800px;margin-left:auto;margin-right:auto">ℹ
+<div><b>このレポートについて</b>
+毎月5日に前月分が自動で確定し、PDFとしてダウンロードできます。記載する数値は記録に基づく実績のみで、評価や推測は含みません。</div></div>
+
+<div class="rp">
+<div class="rh">
+<div><div class="t6">2026年7月 月次レポート</div>
+<div class="s7">サンプルホテル東京 · 全60室 · 発行日 2026年8月5日</div></div>
+<div class="lg2">Proof<em>Keeping</em><span>OWNER REPORT</span></div>
+</div>
+
+<h4>1. 今月の概要</h4>
+<div class="sm2">
+<div class="b4"><div class="v6">1,286</div><div class="k6">清掃件数</div>
+<div class="d3">前月比 +4.2%</div></div>
+<div class="b4"><div class="v6">97.8</div><div class="k6">記録の完備率 %</div>
+<div class="d3">前月比 +0.6pt</div></div>
+<div class="b4"><div class="v6">1.5</div><div class="k6">差異率 %</div>
+<div class="d3">前月比 −0.1pt</div></div>
+<div class="b4"><div class="v6">5.9</div><div class="k6">再清掃率 %</div>
+<div class="d3">前月比 −0.3pt</div></div>
+</div>
+<p class="mini">※ 差異率・再清掃率は0%を目標とする指標ではありません。記録の入力ミスや設備要因も含まれます。</p>
+
+<h4>2. 清掃の実施状況</h4>
+<table style="margin-bottom:9px">
+<thead><tr><th>作業種別</th><th class="num">件数</th><th class="num">実作業の中央値</th>
+<th class="num">目安時間</th></tr></thead>
+<tbody>
+<tr><td>アウト清掃</td><td class="num">1,024</td><td class="num">39分</td><td class="num">40分</td></tr>
+<tr><td>ステイ清掃</td><td class="num">218</td><td class="num">23分</td><td class="num">25分</td></tr>
+<tr><td>点検</td><td class="num">44</td><td class="num">11分</td><td class="num">15分</td></tr>
+</tbody>
+<tfoot><tr><td>合計</td><td class="num">1,286</td><td class="num">—</td><td class="num">—</td></tr></tfoot>
+</table>
+<p>清掃件数は前月比4.2%の増加でした。実作業時間の中央値はいずれの種別も目安時間の範囲内です。</p>
+
+<h4>3. 稼働の差異</h4>
+<table style="margin-bottom:9px">
+<thead><tr><th>ルール</th><th class="num">件数</th><th>重要度</th><th>確認結果</th></tr></thead>
+<tbody>
+<tr><td>R001 稼働記録なしの使用痕跡</td><td class="num">3</td><td><span class="tag dg">HIGH</span></td>
+<td class="mini">2件：記録の不備 / 1件：確認中</td></tr>
+<tr><td>R003 宿泊人数の相違</td><td class="num">6</td><td><span class="tag wn">MEDIUM</span></td>
+<td class="mini">4件：記録の不備 / 2件：運用上の使用</td></tr>
+<tr><td>R005 チェックアウト後の再使用</td><td class="num">2</td><td><span class="tag wn">MEDIUM</span></td>
+<td class="mini">2件：運用上の使用</td></tr>
+<tr><td>R008 アメニティ消費の異常</td><td class="num">8</td><td><span class="tag if">LOW</span></td>
+<td class="mini">個別対応は不要</td></tr>
+</tbody></table>
+<p>差異19件のうち、確認済み18件でした。確認結果の内訳は「記録の不備」が6件、「運用上の使用」が4件で、フロント記録との照合により原因が特定できています。</p>
+
+<h4>4. 検査と再清掃</h4>
+<table style="margin-bottom:9px">
+<thead><tr><th>項目</th><th class="num">実績</th><th>備考</th></tr></thead>
+<tbody>
+<tr><td>抜き取り検査</td><td class="num">132室</td><td class="mini">対象の10.3%</td></tr>
+<tr><td>合格</td><td class="num">124室</td><td class="mini">合格率 93.9%</td></tr>
+<tr><td>再清掃</td><td class="num">8室</td><td class="mini">浴室4 / 床2 / 備品1 / 水回り1</td></tr>
+<tr><td>平均対応時間</td><td class="num">46分</td><td class="mini">指示から完了まで</td></tr>
+</tbody></table>
+<p>指摘の最多箇所は浴室（4件）でした。前月も浴室が最多であり、清掃手順または使用する洗剤の見直しを運営管理者と共有しています。</p>
+
+<h4>5. リネンの消費</h4>
+<table style="margin-bottom:9px">
+<thead><tr><th>品目</th><th class="num">回収</th><th class="num">補充</th><th class="num">差分</th></tr></thead>
+<tbody>
+<tr><td>シーツ</td><td class="num">1,284</td><td class="num">1,318</td><td class="num">+34</td></tr>
+<tr><td>バスタオル</td><td class="num">1,798</td><td class="num">1,854</td><td class="num">+56</td></tr>
+<tr><td>フェイスタオル</td><td class="num">1,752</td><td class="num">1,789</td><td class="num">+37</td></tr>
+<tr><td>バスマット</td><td class="num">876</td><td class="num">887</td><td class="num">+11</td></tr>
+</tbody>
+<tfoot><tr><td>合計</td><td class="num">5,710</td><td class="num">5,848</td><td class="num">+138</td></tr></tfoot>
+</table>
+<p>差分の合計は138枚でした。バスタオルの差分が最多（56枚）であり、設置枚数の見直しをご検討いただけます。</p>
+
+<div class="ft3">
+本レポートは ProofKeeping に記録されたデータから自動生成されています。<br>
+記載の数値は記録に基づく実績であり、清掃スタッフ個人の評価を目的としたものではありません。<br>
+差異に関する記載は確認の優先度を示すものであり、宿泊約款違反を判定したものではありません。<br>
+発行 2026年8月5日 · 対象期間 2026年7月1日〜7月31日 · 文書ID RPT-202607-TKY-001
+</div>
+</div></div></div></div></div></div>
+<div class="notes">
+<div class="nc"><h3>📐 v3改修点</h3>
+<p>レポート本体は変更していません。<b>PDFとして外部に渡る文書</b>であり、レイアウトを固定する必要があるためです。</p>
+<p>topbar の施設セレクタで施設を切り替えると、その施設のレポートに切り替わります。改修前はサイドバー内での切り替えでした。</p></div>
+
+<div class="nc"><h3>📄 フッターに3つの但し書き（変更なし）</h3>
+<ul>
+<li>自動生成であること</li>
+<li><b>清掃スタッフ個人の評価を目的としたものではない</b></li>
+<li><b>差異は宿泊約款違反を判定したものではない</b></li>
+</ul>
+<div class="rmk2">❗ 画面上の注記は読み飛ばされてもその場で補足できますが、PDFは文脈から切り離されて流通します。文書単体で誤読されない状態にしておく必要があります。</div></div>
+
+<div class="nc"><h3>✍️ 説明文に評価語を使わない</h3>
+<table><tr><th class="nx">使わない</th><th class="fx">使う</th></tr>
+<tr><td>品質が改善しました</td><td>前月比0.3pt減少しました</td></tr>
+<tr><td>問題が発生しています</td><td>浴室が最多でした</td></tr>
+<tr><td>対策が必要です</td><td>見直しをご検討いただけます</td></tr></table>
+<div class="hnt">💡 3節では「フロント記録との照合により原因が特定できています」と書いています。差異が出ても大半は自社側の記録不備だった、という事実を毎月記録に残すことに意味があります。</div></div>
+
+<div class="nc"><h3>✅ 確定事項</h3>
+<ul>
+<li>PDFの見た目そのままを画面に出す</li>
+<li>毎月5日に前月分を自動確定する</li>
+<li>フッターに但し書き3行と文書IDを必ず入れる</li>
+<li>5節構成を固定し、毎月同じ形式にする</li>
+<li>説明文に評価語・断定語を使わない</li>
+<li>清掃員個人に関する数値は一切載せない</li>
+</ul></div></div></div>
+</div>
+<script>document.getElementById('dm').onclick=function(){
+document.querySelectorAll('.shell').forEach(s=>s.classList.toggle('dark'));
+this.textContent=document.querySelector('.shell').classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+document.querySelectorAll('.psel').forEach(p=>{
+p.querySelector('.btn3').onclick=e=>{e.stopPropagation();
+document.querySelectorAll('.usr').forEach(u=>u.classList.remove('open'));
+const o=p.classList.contains('open');
+document.querySelectorAll('.psel').forEach(x=>x.classList.remove('open'));
+if(!o)p.classList.add('open')};
+p.querySelectorAll('.pi').forEach(i=>i.onclick=function(){
+p.querySelectorAll('.pi').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+p.querySelector('.pn2').textContent=this.dataset.n;
+p.querySelector('.rc4').textContent=this.dataset.r;p.classList.remove('open')})});
+document.querySelectorAll('.usr').forEach(u=>{
+u.querySelector('.ub').onclick=e=>{e.stopPropagation();
+document.querySelectorAll('.psel').forEach(x=>x.classList.remove('open'));
+const o=u.classList.contains('open');
+document.querySelectorAll('.usr').forEach(x=>x.classList.remove('open'));
+if(!o)u.classList.add('open')};
+const lw=u.querySelector('.lgw');
+if(lw){lw.onclick=e=>{e.stopPropagation();lw.classList.toggle('op')};
+lw.querySelectorAll('.lgm div').forEach(d=>d.onclick=e=>{e.stopPropagation();
+lw.querySelectorAll('.lgm div').forEach(x=>x.classList.remove('on'));d.classList.add('on');
+lw.querySelector('.rv').textContent=d.textContent.trim()+' ›';
+lw.classList.remove('op');u.classList.remove('open');
+alert('表示言語を変更しました：'+d.textContent.trim()+'\n\nこの設定はご自身のアカウントにのみ適用されます')})}
+u.querySelectorAll('a:not(.lgw)').forEach(a=>a.onclick=e=>{e.stopPropagation();
+alert(a.textContent.trim()+' を開きます');u.classList.remove('open')})});
+document.addEventListener('click',()=>{
+document.querySelectorAll('.psel,.usr').forEach(x=>x.classList.remove('open'));
+document.querySelectorAll('.lgw').forEach(x=>x.classList.remove('op'))});
+document.querySelectorAll('.sb3 a').forEach(a=>a.onclick=function(){
+if(this.classList.contains('on'))return;alert('画面 '+this.dataset.p+' へ遷移します')});
+document.querySelectorAll('.bell').forEach(b=>b.onclick=()=>alert('通知（4件）\n\n・412号室 稼働の差異 HIGH\n・208号室 稼働の差異 MEDIUM\n・409号室 再清掃の指示\n・311号室 再清掃の指示\n\n重要度LOWは通知に含まれません'));
+document.querySelectorAll('.sw3').forEach(s=>s.onclick=function(){
+if(this.classList.contains('lk')){alert('この項目は運営管理者のみ変更できます');return}
+this.classList.toggle('on')});
+document.querySelectorAll('.conf').forEach(c=>c.querySelectorAll('.o').forEach(o=>o.onclick=function(){
+c.querySelectorAll('.o').forEach(x=>x.classList.remove('on'));this.classList.add('on')}));
+document.querySelectorAll('.rm').forEach(r=>r.onclick=()=>alert('客室の記録を表示します\n\n担当者の氏名は表示されません'));</script></body></html>

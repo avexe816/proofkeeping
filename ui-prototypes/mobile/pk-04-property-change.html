@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 04 — 施設変更の確認</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.phs{display:flex;gap:18px;flex-wrap:wrap}
+.ph{width:308px;border-radius:32px;padding:10px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:640px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.plbl{font-size:10.5px;color:#8b95a0;font-weight:700;margin:0 0 7px 2px;
+display:flex;align-items:center;gap:7px}
+.plbl .n{background:var(--accent);color:#1A1206;width:19px;height:19px;border-radius:50%;
+display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800}
+.plbl .n.g{background:var(--ok);color:#fff}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:13.5px;font-weight:700}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:2px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.gh{display:flex;align-items:center;gap:9px;background:var(--brand);color:#fff;
+border-radius:10px;padding:10px 12px;margin:2px 0 9px}
+.gh .ic{font-size:15px}.gh .nm{font-size:12px;font-weight:700;flex:1}
+.gh .ct{font-size:11px;color:#B9CFC2}
+.gh.mv{background:var(--surf);color:var(--ink);border:1.5px dashed var(--line);margin-top:13px}
+.gh.mv .ct{color:var(--muted)}
+.tb{border-radius:13px;padding:14px;margin-bottom:10px;border:2px solid var(--line);background:var(--surf)}
+.tb.hl{border-color:var(--accent);box-shadow:0 0 0 3px rgba(184,137,59,.16)}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px}
+.tb .no{font-size:32px;font-weight:800;line-height:1}
+.tb .tg{font-size:9.5px;font-weight:800;padding:4px 9px;border-radius:6px;
+background:var(--dirtybg);color:var(--dirty)}
+.tb .ty{font-size:11.5px;color:var(--ink2);margin-bottom:10px}
+.tb .mt{font-size:10.5px;color:var(--muted);margin-bottom:11px}
+.big{width:100%;padding:17px;border-radius:12px;border:none;font-size:16px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:8px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:13px}
+/* ===== modal ===== */
+.ov{position:absolute;inset:0;background:rgba(10,16,13,.62);display:none;
+align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px)}
+.ov.on{display:flex}
+.mo{background:var(--surf);border-radius:18px;width:100%;overflow:hidden;
+box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.mo .mh{background:var(--accent);color:#1A1206;padding:14px;text-align:center}
+.mo .mh .i{font-size:30px;line-height:1;display:block;margin-bottom:6px}
+.mo .mh .t{font-size:14.5px;font-weight:800}
+.mo .mb{padding:18px 16px}
+.fl{text-align:center}
+.fl .p1{font-size:12px;color:var(--muted)}
+.fl .ar{font-size:22px;color:var(--accent);margin:5px 0;line-height:1}
+.fl .p2{font-size:15.5px;font-weight:800;line-height:1.35}
+.fl .rm2{font-size:30px;font-weight:800;margin-top:9px;line-height:1}
+.fl .ty2{font-size:11.5px;color:var(--ink2);margin-top:3px}
+.dv{height:1px;background:var(--line);margin:15px 0}
+.kv{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0}
+.kv span{color:var(--muted)}.kv b{font-weight:700}
+.warn{background:var(--warnbg);border:1px solid var(--warn);border-radius:9px;
+padding:10px 12px;font-size:11px;color:var(--warn);line-height:1.55;margin-top:13px}
+.two{display:grid;grid-template-columns:1fr 1.35fr;gap:9px;margin-top:15px}
+.mbtn{padding:16px 8px;border-radius:11px;border:none;font-size:15px;font-weight:800;
+cursor:pointer;font-family:inherit;transition:.12s}
+.mbtn:active{transform:scale(.97)}
+.mbtn.c{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:13.5px}
+.mbtn.g{background:var(--brand);color:#fff}
+.ok2{background:var(--okbg);border:1px solid var(--ok);color:var(--ok);border-radius:10px;
+padding:12px;font-size:11.5px;text-align:center;margin-top:12px;line-height:1.6}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.chk{background:#0d2622;border:1px solid #17453b;border-radius:11px;padding:16px}
+.chk h3{color:#5BC192;font-size:13.5px;margin-bottom:11px}
+.chk .q{font-size:12.5px;color:#C8D6CE;padding:9px 0;border-bottom:1px solid #17453b;line-height:1.65}
+.chk .q:last-child{border:0}
+.chk .q b{color:#7fd9b0;display:block;font-size:11px;margin-bottom:2px}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">04 / 16 — 施設変更の確認</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">04. 施設変更の確認</h1>
+<p data-i="d">複数施設のタスクが1画面に並ぶため、誤って別施設のタスクを開始する事故が起きうる。施設が変わる瞬間だけ確認を挟む。同一施設内の連続タスクでは確認を出さず、1タップ開始を維持する。左が確認あり、右が確認なしの動作。</p></div>
+
+<div class="row"><div class="phs">
+
+<div><div class="plbl"><span class="n">A</span><span data-i="pa">施設が変わる → 確認あり</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">📋 <span data-i="ttl">本日のタスク</span></div>
+<div class="b">8/10(月) · Nguyen (11) · 2<span data-i="shi">施設</span></div></div>
+<div class="bd">
+<div class="gh"><span class="ic">🏨</span><span class="nm">サンプルホテル東京</span>
+<span class="ct">✓ <span data-i="fin">完了</span></span></div>
+<div class="gh mv"><span class="ic">🚃</span><span class="nm" data-i="mv">移動 · 約25分</span>
+<span class="ct">14:30 →</span></div>
+<div class="gh"><span class="ic">🏨</span><span class="nm">ビジネスH横浜</span>
+<span class="ct">7<span data-i="ken">件</span></span></div>
+<div class="tb hl"><div class="r1"><div class="no">208</div>
+<div class="tg"><span data-i="todo">未着手</span></div></div>
+<div class="ty"><span data-i="ty_out">アウト清掃</span> · 2F · <span data-i="rt_t">ツイン</span></div>
+<div class="mt">⏱ <span data-i="std">目安</span>35<span data-i="min">分</span></div>
+<button class="big" id="btnA">▶ <span data-i="start">開始する</span></button></div>
+<div class="tb"><div class="r1"><div class="no">209</div>
+<div class="tg"><span data-i="todo">未着手</span></div></div>
+<div class="ty"><span data-i="ty_out">アウト清掃</span> · 2F</div>
+<button class="big o" data-i="start">開始する</button></div>
+</div>
+<div class="ov" id="ovA"><div class="mo">
+<div class="mh"><span class="i">🚃</span><span class="t" data-i="m_t">施設が変わります</span></div>
+<div class="mb">
+<div class="fl"><div class="p1">サンプルホテル東京</div>
+<div class="ar">↓</div>
+<div class="p2">ビジネスH横浜</div>
+<div class="rm2">208<span style="font-size:14px" data-i="go">号室</span></div>
+<div class="ty2"><span data-i="ty_out">アウト清掃</span> · 2F · <span data-i="rt_t">ツイン</span></div></div>
+<div class="dv"></div>
+<div class="kv"><span data-i="kv1">住所</span><b>横浜市西区北幸1-2-3</b></div>
+<div class="kv"><span data-i="kv2">担当フロア</span><b>2F・3F</b></div>
+<div class="kv"><span data-i="kv3">この施設の残り</span><b>7<span data-i="ken">件</span></b></div>
+<div class="warn">⚠ <span data-i="m_w">この施設で作業を開始します。移動が完了しているかご確認ください。</span></div>
+<div class="two"><button class="mbtn c" id="cA" data-i="cancel">キャンセル</button>
+<button class="mbtn g" id="okA" data-i="start2">開始する</button></div>
+</div></div></div>
+</div></div></div>
+
+<div><div class="plbl"><span class="n g">B</span><span data-i="pb">同一施設内 → 確認なし</span></div>
+<div class="ph"><div class="sc">
+<div class="top"><div class="a">📋 <span data-i="ttl">本日のタスク</span></div>
+<div class="b">8/10(月) · Nguyen (11) · 2<span data-i="shi">施設</span></div></div>
+<div class="bd">
+<div class="gh"><span class="ic">🏨</span><span class="nm">ビジネスH横浜</span>
+<span class="ct">6<span data-i="ken">件</span></span></div>
+<div class="tb"><div class="r1"><div class="no">208</div>
+<div class="tg" style="background:var(--okbg);color:var(--ok)">✓ <span data-i="fin">完了</span></div></div>
+<div class="ty">14:35 - 15:08 · 33<span data-i="min">分</span></div></div>
+<div class="tb hl"><div class="r1"><div class="no">209</div>
+<div class="tg"><span data-i="todo">未着手</span></div></div>
+<div class="ty"><span data-i="ty_out">アウト清掃</span> · 2F · <span data-i="rt_s">シングル</span></div>
+<div class="mt">⏱ <span data-i="std">目安</span>30<span data-i="min">分</span></div>
+<button class="big" id="btnB">▶ <span data-i="start">開始する</span></button></div>
+<div class="tb"><div class="r1"><div class="no">210</div>
+<div class="tg"><span data-i="todo">未着手</span></div></div>
+<div class="ty"><span data-i="ty_out">アウト清掃</span> · 2F</div>
+<button class="big o" data-i="start">開始する</button></div>
+<div class="ok2" id="okB" style="display:none">✓ <span data-i="b_ok">確認なしで即座に開始しました<br>（同一施設のため）</span></div>
+</div>
+</div></div></div>
+
+</div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">この画面の設計意図</span></h3>
+<p data-i="c1a"><b>施設が変わる瞬間だけ確認する。</b>02のグループ表示では複数施設のタスクが縦に並ぶ。スクロールしていくうちに、自分がまだ前の施設にいるのに次の施設のタスクを開始してしまう事故が起きうる。</p>
+<p data-i="c1b"><b>同一施設内では確認しない。</b>1日20室以上を回る現場で毎回確認を出すと、確認が無意味な作業になり、結果として誰も読まなくなる。確認は「本当に危ないとき」だけに絞る。</p>
+<p data-i="c1c"><b>住所を表示する。</b>施設名だけでは同系列のホテルを間違えることがある。住所を出すと物理的に今どこにいるかと照合できる。</p></div>
+
+<div class="card"><h3>📐 <span data-i="c2t">確認を出す条件</span></h3>
+<table><tr><th data-i="th_c">状況</th><th data-i="th_b">確認</th></tr>
+<tr><td data-i="s1">直前のタスクと同一施設</td><td class="nx" data-i="n_">出さない</td></tr>
+<tr><td data-i="s2">直前のタスクと別施設</td><td class="fx" data-i="y_">出す</td></tr>
+<tr><td data-i="s3">当日の初回タスク</td><td class="nx" data-i="n_">出さない</td></tr>
+<tr><td data-i="s4">中断からの再開</td><td class="nx" data-i="n_">出さない</td></tr>
+<tr><td data-i="s5">再清掃の対応</td><td class="fx" data-i="y2">別施設なら出す</td></tr>
+<tr><td data-i="s6">同じ施設に戻ってきた</td><td class="fx" data-i="y_">出す</td></tr></table>
+<div class="hint" data-i="c2h">💡「同じ施設に戻ってきた」場合も確認します。A館 → B館 → A館 と移動するケースでは、B館にいるつもりでA館のタスクを開始する誤操作が起きるためです。</div></div>
+
+<div class="card"><h3>🔐 <span data-i="c3t">サーバー側の検証（UIとは別に必須）</span></h3>
+<p data-i="c3a">確認ダイアログはあくまで<b>UI上の親切</b>。実際の安全はサーバー側で担保する。</p>
+<ul>
+<li data-i="cl1"><code>taskId</code> から <code>propertyId</code> を解決する</li>
+<li data-i="cl2">その施設が <code>allowedPropertyIds</code> に含まれるか検証</li>
+<li data-i="cl3">含まれなければ <b>404</b> を返す（403 ではない）</li>
+<li data-i="cl4">クライアントから送られた <code>propertyId</code> は信用しない</li>
+</ul>
+<div class="rmk" data-i="c3r">❗ 403 ではなく 404 を返す理由：403 は「そのリソースは存在するがアクセス権がない」ことを示唆してしまう。他社の施設IDを推測される余地を残さないため、存在自体を隠す 404 を使う。</div></div>
+
+<div class="card"><h3>📱 <span data-i="c4t">ダイアログの構成</span></h3>
+<table><tr><th data-i="th_e">要素</th><th data-i="th_r">理由</th></tr>
+<tr><td data-i="e1">🚃 アイコン</td><td data-i="r1">移動が必要なことを一目で伝える</td></tr>
+<tr><td data-i="e2">前施設 → 次施設</td><td data-i="r2">どこからどこへ変わるかを明示</td></tr>
+<tr><td data-i="e3">部屋番号（大）</td><td data-i="r3">開始する対象を確定させる</td></tr>
+<tr><td data-i="e4">住所</td><td data-i="r4">同系列ホテルの誤認を防ぐ</td></tr>
+<tr><td data-i="e5">担当フロア</td><td data-i="r5">現地での動線確認</td></tr>
+<tr><td data-i="e6">残り件数</td><td data-i="r6">この施設での作業量を把握</td></tr></table>
+<div class="hint" data-i="c4h">💡 ボタンは「キャンセル」を左、「開始する」を右に置き、幅を 1 : 1.35 にしています。日本のスマホUIの慣習に合わせ、肯定的な操作を右・大きめにしました。</div></div>
+
+<div class="chk"><h3>✅ <span data-i="c5t">確認していただきたい点</span></h3>
+<div class="q"><b data-i="q1t">Q1. 住所を表示しますか？</b>
+<span data-i="q1">現案は表示。同系列ホテル（○○ホテル横浜 / ○○ホテル川崎など）の誤認防止に有効ですが、ダイアログが長くなります。</span></div>
+<div class="q"><b data-i="q2t">Q2. 「移動が完了しているか」の警告文は必要ですか？</b>
+<span data-i="q2">現案はオレンジの警告。省くとダイアログが短くなりますが、移動前に開始してしまう可能性が残ります。</span></div>
+<div class="q"><b data-i="q3t">Q3. 「今日はもう確認しない」を付けますか？</b>
+<span data-i="q3">現案は付けない。付けると初回だけで済み快適ですが、安全弁の意味が薄れます。</span></div>
+<div class="q"><b data-i="q4t">Q4. 同じ施設に戻る場合も確認しますか？</b>
+<span data-i="q4">現案は確認する。A館 → B館 → A館 の移動で誤操作が起きるためです。</span></div>
+<div class="q"><b data-i="q5t">Q5. 移動時間の経過をチェックしますか？</b>
+<span data-i="q5">現案はチェックしない。「移動時間25分が経過していないのに次施設を開始した」を検出できますが、実際は早く着くこともあり、警告が邪魔になる懸念があります。</span></div>
+</div></div></div></div>
+<script>
+const I18N={ja:{},
+en:{t:"04. Property Change Confirmation",
+d:"Because tasks from several properties sit in one list, a cleaner can start a task at the wrong site. A confirmation appears only at the moment the property changes. Within the same property there is no dialog and the one-tap start is preserved. Left shows the confirm case, right shows no confirm.",
+pa:"Property changes → confirm",pb:"Same property → no confirm",
+ttl:"Today's Tasks",shi:" properties",fin:"Done",mv:"Travel · approx 25 min",ken:"",
+todo:"To do",ty_out:"Checkout Clean",rt_t:"Twin",rt_s:"Single",std:"target ",min:"m",start:"Start",
+m_t:"You are changing property",go:"",
+kv1:"Address",kv2:"Assigned floors",kv3:"Remaining here",
+m_w:"Work will start at this property. Please confirm you have arrived.",
+cancel:"Cancel",start2:"Start",
+b_ok:"Started immediately without a dialog<br>(same property)",
+c1t:"Design intent",
+c1a:"<b>Confirm only at the moment the property changes.</b> In the grouped view of screen 02, tasks from several properties are stacked vertically. While scrolling, a cleaner still at the previous site can start the next site's task by accident.",
+c1b:"<b>No confirmation within the same property.</b> On a floor doing 20+ rooms a day, confirming every time turns the dialog into meaningless work that nobody reads. Confirmation is reserved for genuinely risky moments.",
+c1c:"<b>The address is shown.</b> A property name alone can be mistaken between sister hotels. The address lets staff cross-check where they physically are.",
+c2t:"When the confirmation appears",th_c:"Situation",th_b:"Confirm",
+s1:"Same property as the previous task",n_:"No",
+s2:"Different property from the previous task",y_:"Yes",
+s3:"First task of the day",s4:"Resuming after a pause",
+s5:"Handling rework",y2:"Yes if another property",
+s6:"Returning to a property visited earlier",
+c2h:"💡 Returning to an earlier property also triggers the dialog. On an A → B → A route, staff who believe they are still at B can start A's task by mistake.",
+c3t:"Server-side validation (required, separate from UI)",
+c3a:"The dialog is only a <b>courtesy in the UI</b>. Real safety is enforced on the server.",
+cl1:"Resolve <code>propertyId</code> from <code>taskId</code>",
+cl2:"Verify the property is in <code>allowedPropertyIds</code>",
+cl3:"If not, return <b>404</b> (not 403)",
+cl4:"Never trust a <code>propertyId</code> sent by the client",
+c3r:"❗ Why 404 and not 403: a 403 implies the resource exists but access is denied. To leave no room for guessing another company's property IDs, we hide existence itself with a 404.",
+c4t:"Dialog composition",th_e:"Element",th_r:"Reason",
+e1:"🚃 icon",r1:"Signals at a glance that travel is involved",
+e2:"Previous → next property",r2:"Makes the change explicit",
+e3:"Room number (large)",r3:"Fixes exactly what is being started",
+e4:"Address",r4:"Prevents confusing sister hotels",
+e5:"Assigned floors",r5:"Confirms the route on arrival",
+e6:"Remaining count",r6:"Shows the workload at this property",
+c4h:"💡 Cancel sits on the left, Start on the right, at a 1 : 1.35 width ratio. Following Japanese mobile UI convention, the affirmative action is on the right and slightly larger.",
+c5t:"Points to confirm",
+q1t:"Q1. Should the address be shown?",
+q1:"Currently yes. Effective against confusing sister hotels (e.g. Hotel X Yokohama vs Hotel X Kawasaki), but it lengthens the dialog.",
+q2t:"Q2. Is the \"have you arrived\" warning needed?",
+q2:"Currently an orange warning. Removing it shortens the dialog but leaves room for starting before arrival.",
+q3t:"Q3. Add \"Don't ask again today\"?",
+q3:"Currently not added. It would be more comfortable after the first time, but weakens the safety valve.",
+q4t:"Q4. Confirm when returning to the same property?",
+q4:"Currently yes, because mistakes occur on an A → B → A route.",
+q5t:"Q5. Should elapsed travel time be checked?",
+q5:"Currently not checked. We could detect starting the next site before the 25-minute travel elapsed, but staff sometimes arrive early and the warning would become noise."},
+zh:{t:"04. 设施变更的确认",
+d:"因为多个设施的任务排在同一列表里，可能误开始别家设施的任务。仅在设施变更的瞬间插入确认。同一设施内不出确认，维持一键开始。左侧为有确认的情况，右侧为无确认。",
+pa:"设施变更 → 有确认",pb:"同一设施内 → 无确认",
+ttl:"今日任务",shi:"家设施",fin:"完成",mv:"移动 · 约 25 分",ken:"件",
+todo:"未开始",ty_out:"退房清扫",rt_t:"双床",rt_s:"单床",std:"目标",min:"分",start:"开始",
+m_t:"设施将发生变更",go:"号房",
+kv1:"地址",kv2:"担当楼层",kv3:"该设施剩余",
+m_w:"将在此设施开始作业。请确认移动是否已完成。",
+cancel:"取消",start2:"开始",
+b_ok:"未经确认立即开始<br>（因为是同一设施）",
+c1t:"本画面的设计意图",
+c1a:"<b>仅在设施变更的瞬间确认。</b>02 的分组显示中，多个设施的任务纵向排列。滚动过程中，人还在前一家设施却开始了下一家设施的任务，这种事故是会发生的。",
+c1b:"<b>同一设施内不确认。</b>一天要跑 20 间以上的现场，每次都出确认会让确认变成无意义的操作，结果谁都不看了。确认只留给「真正危险的时候」。",
+c1c:"<b>显示地址。</b>只有设施名的话，同系列酒店容易搞错。显示地址就能和自己现在的物理位置对照。",
+c2t:"出现确认的条件",th_c:"状况",th_b:"确认",
+s1:"与前一任务同一设施",n_:"不出",
+s2:"与前一任务不同设施",y_:"出",
+s3:"当天的首个任务",s4:"从中断恢复",
+s5:"返工的对应",y2:"别设施则出",
+s6:"回到之前去过的设施",
+c2h:"💡「回到之前去过的设施」也会确认。A 馆 → B 馆 → A 馆 这种移动中，以为自己在 B 馆却开始了 A 馆的任务，这种误操作会发生。",
+c3t:"服务器端的验证（与 UI 无关，必须）",
+c3a:"确认对话框只是<b>UI 上的贴心</b>。真正的安全在服务器端保障。",
+cl1:"从 <code>taskId</code> 解析出 <code>propertyId</code>",
+cl2:"验证该设施是否包含在 <code>allowedPropertyIds</code> 中",
+cl3:"不包含则返回 <b>404</b>（不是 403）",
+cl4:"绝不信任客户端发来的 <code>propertyId</code>",
+c3r:"❗ 用 404 而非 403 的理由：403 会暗示「该资源存在但无访问权」。为了不留下推测别家设施 ID 的余地，用 404 隐藏存在本身。",
+c4t:"对话框的构成",th_e:"要素",th_r:"理由",
+e1:"🚃 图标",r1:"一眼传达需要移动",
+e2:"前设施 → 次设施",r2:"明示从哪里变到哪里",
+e3:"房号（大）",r3:"确定要开始的对象",
+e4:"地址",r4:"防止同系列酒店的误认",
+e5:"担当楼层",r5:"到现场后确认动线",
+e6:"剩余件数",r6:"把握该设施的作业量",
+c4h:"💡 按钮把「取消」放左、「开始」放右，宽度比为 1 : 1.35。按日本手机 UI 的习惯，把肯定性操作放右侧且做大一些。",
+c5t:"请确认以下几点",
+q1t:"Q1. 要显示地址吗？",
+q1:"现案显示。对防止同系列酒店（○○酒店横滨 / ○○酒店川崎 等）的误认有效，但对话框会变长。",
+q2t:"Q2. 「移动是否完成」的警告文需要吗？",
+q2:"现案为橙色警告。省略可让对话框变短，但仍留有移动前就开始的可能。",
+q3t:"Q3. 要加「今天不再确认」吗？",
+q3:"现案不加。加了之后只需首次确认会更舒适，但安全阀的意义会变薄。",
+q4t:"Q4. 回到同一设施时也确认吗？",
+q4:"现案确认。因为 A 馆 → B 馆 → A 馆 的移动中会发生误操作。",
+q5t:"Q5. 要检查移动时间的经过吗？",
+q5:"现案不检查。虽能检测「移动时间 25 分还没过就开始了下一设施」，但实际也有提早到达的情况，担心警告会变成干扰。"},
+vi:{t:"04. Xác nhận đổi cơ sở",
+d:"Vì nhiệm vụ của nhiều cơ sở nằm trong một danh sách, có thể bắt đầu sai cơ sở. Xác nhận chỉ hiện đúng lúc đổi cơ sở.",
+pa:"Đổi cơ sở → có xác nhận",pb:"Cùng cơ sở → không xác nhận",
+ttl:"Nhiệm vụ hôm nay",shi:" cơ sở",fin:"Xong",mv:"Di chuyển · khoảng 25 phút",ken:"",
+todo:"Chưa làm",ty_out:"Dọn sau khách đi",rt_t:"2 giường",rt_s:"1 giường",std:"mục tiêu ",min:"phút",start:"Bắt đầu",
+m_t:"Bạn đang đổi cơ sở",go:"",
+kv1:"Địa chỉ",kv2:"Tầng phụ trách",kv3:"Còn lại ở đây",
+m_w:"Công việc sẽ bắt đầu tại cơ sở này. Vui lòng xác nhận bạn đã tới.",
+cancel:"Hủy",start2:"Bắt đầu",
+b_ok:"Bắt đầu ngay không cần hộp thoại<br>(cùng cơ sở)",
+c1t:"Ý đồ thiết kế",
+c1a:"<b>Chỉ xác nhận đúng lúc đổi cơ sở.</b> Khi cuộn, nhân viên còn ở cơ sở trước có thể bắt đầu nhiệm vụ của cơ sở sau.",
+c1b:"<b>Không xác nhận trong cùng cơ sở.</b> Làm 20+ phòng mỗi ngày, xác nhận mọi lần sẽ khiến không ai đọc.",
+c1c:"<b>Hiện địa chỉ.</b> Chỉ tên cơ sở dễ lẫn giữa các khách sạn cùng hệ thống.",
+c2t:"Khi nào hiện xác nhận",th_c:"Tình huống",th_b:"Xác nhận",
+s1:"Cùng cơ sở với nhiệm vụ trước",n_:"Không",
+s2:"Khác cơ sở với nhiệm vụ trước",y_:"Có",
+s3:"Nhiệm vụ đầu ngày",s4:"Tiếp tục sau tạm dừng",
+s5:"Xử lý dọn lại",y2:"Có nếu khác cơ sở",
+s6:"Quay lại cơ sở đã tới",
+c2h:"💡 Quay lại cơ sở cũ cũng hiện hộp thoại. Trên lộ trình A → B → A dễ nhầm.",
+c3t:"Kiểm tra phía server (bắt buộc)",
+c3a:"Hộp thoại chỉ là <b>phép lịch sự trên UI</b>. An toàn thực sự do server đảm bảo.",
+cl1:"Tìm <code>propertyId</code> từ <code>taskId</code>",
+cl2:"Kiểm tra cơ sở có trong <code>allowedPropertyIds</code>",
+cl3:"Nếu không, trả về <b>404</b> (không phải 403)",
+cl4:"Không bao giờ tin <code>propertyId</code> từ client",
+c3r:"❗ Vì sao 404 chứ không 403: 403 hàm ý tài nguyên tồn tại nhưng bị từ chối. Dùng 404 để che luôn sự tồn tại.",
+c4t:"Cấu trúc hộp thoại",th_e:"Thành phần",th_r:"Lý do",
+e1:"Biểu tượng 🚃",r1:"Cho biết cần di chuyển",
+e2:"Cơ sở trước → sau",r2:"Nêu rõ sự thay đổi",
+e3:"Số phòng (lớn)",r3:"Xác định đúng phòng sẽ bắt đầu",
+e4:"Địa chỉ",r4:"Tránh lẫn khách sạn cùng hệ thống",
+e5:"Tầng phụ trách",r5:"Xác nhận lộ trình khi tới",
+e6:"Số còn lại",r6:"Biết khối lượng ở cơ sở này",
+c4h:"💡 Hủy bên trái, Bắt đầu bên phải, tỉ lệ 1 : 1.35 theo thói quen UI di động Nhật.",
+c5t:"Điểm cần xác nhận",
+q1t:"Q1. Có hiện địa chỉ?",q1:"Hiện có. Hữu ích chống lẫn khách sạn cùng hệ thống.",
+q2t:"Q2. Có cần cảnh báo \"đã tới chưa\"?",q2:"Hiện là cảnh báo cam.",
+q3t:"Q3. Thêm \"Hôm nay không hỏi lại\"?",q3:"Hiện không thêm.",
+q4t:"Q4. Xác nhận khi quay lại cùng cơ sở?",q4:"Hiện có.",
+q5t:"Q5. Có kiểm tra thời gian di chuyển?",q5:"Hiện không kiểm tra."},
+id:{t:"04. Konfirmasi Ganti Properti",
+d:"Karena tugas beberapa properti berada dalam satu daftar, petugas bisa memulai di properti yang salah. Konfirmasi hanya muncul saat properti berganti.",
+pa:"Properti berganti → konfirmasi",pb:"Properti sama → tanpa konfirmasi",
+ttl:"Tugas Hari Ini",shi:" properti",fin:"Selesai",mv:"Perjalanan · sekitar 25 mnt",ken:"",
+todo:"Belum",ty_out:"Bersih Checkout",rt_t:"Twin",rt_s:"Single",std:"target ",min:"mnt",start:"Mulai",
+m_t:"Anda mengganti properti",go:"",
+kv1:"Alamat",kv2:"Lantai tugas",kv3:"Sisa di sini",
+m_w:"Pekerjaan akan dimulai di properti ini. Mohon pastikan Anda sudah tiba.",
+cancel:"Batal",start2:"Mulai",
+b_ok:"Dimulai langsung tanpa dialog<br>(properti sama)",
+c1t:"Maksud desain",
+c1a:"<b>Konfirmasi hanya saat properti berganti.</b> Saat menggulir, petugas yang masih di lokasi sebelumnya bisa memulai tugas lokasi berikutnya.",
+c1b:"<b>Tanpa konfirmasi dalam properti yang sama.</b> Dengan 20+ kamar sehari, konfirmasi setiap kali membuat tak ada yang membacanya.",
+c1c:"<b>Alamat ditampilkan.</b> Nama saja mudah tertukar antar hotel satu jaringan.",
+c2t:"Kapan konfirmasi muncul",th_c:"Situasi",th_b:"Konfirmasi",
+s1:"Properti sama dengan tugas sebelumnya",n_:"Tidak",
+s2:"Properti beda dengan tugas sebelumnya",y_:"Ya",
+s3:"Tugas pertama hari itu",s4:"Melanjutkan setelah jeda",
+s5:"Menangani bersih ulang",y2:"Ya bila properti lain",
+s6:"Kembali ke properti sebelumnya",
+c2h:"💡 Kembali ke properti sebelumnya juga memicu dialog. Pada rute A → B → A mudah keliru.",
+c3t:"Validasi sisi server (wajib)",
+c3a:"Dialog hanya <b>kesopanan di UI</b>. Keamanan nyata ditegakkan di server.",
+cl1:"Selesaikan <code>propertyId</code> dari <code>taskId</code>",
+cl2:"Pastikan properti ada di <code>allowedPropertyIds</code>",
+cl3:"Bila tidak, kembalikan <b>404</b> (bukan 403)",
+cl4:"Jangan pernah percaya <code>propertyId</code> dari klien",
+c3r:"❗ Mengapa 404 bukan 403: 403 menyiratkan sumber daya ada tapi ditolak. Kami gunakan 404 untuk menyembunyikan keberadaannya.",
+c4t:"Komposisi dialog",th_e:"Elemen",th_r:"Alasan",
+e1:"Ikon 🚃",r1:"Menandakan perlu berpindah",
+e2:"Properti sebelum → sesudah",r2:"Menjelaskan perubahan",
+e3:"Nomor kamar (besar)",r3:"Memastikan objek yang dimulai",
+e4:"Alamat",r4:"Mencegah tertukar hotel sejenis",
+e5:"Lantai tugas",r5:"Konfirmasi rute saat tiba",
+e6:"Jumlah sisa",r6:"Mengetahui beban di properti ini",
+c4h:"💡 Batal di kiri, Mulai di kanan, rasio 1 : 1.35 sesuai kebiasaan UI ponsel Jepang.",
+c5t:"Poin untuk dikonfirmasi",
+q1t:"Q1. Tampilkan alamat?",q1:"Kini ya. Efektif mencegah tertukar hotel sejenis.",
+q2t:"Q2. Perlukah peringatan \"sudah tiba\"?",q2:"Kini peringatan oranye.",
+q3t:"Q3. Tambah \"Jangan tanya lagi hari ini\"?",q3:"Kini tidak.",
+q4t:"Q4. Konfirmasi saat kembali ke properti sama?",q4:"Kini ya.",
+q5t:"Q5. Periksa waktu perjalanan?",q5:"Kini tidak diperiksa."},
+my:{t:"၀၄. အဆောက်အအုံပြောင်းခြင်း အတည်ပြုမှု",
+d:"အဆောက်အအုံအများ၏ အလုပ်များ တစ်စာရင်းတွင်ရှိသဖြင့် အခန်းမှားစတင်မိနိုင်သည်။ အဆောက်အအုံပြောင်းချိန်တွင်သာ အတည်ပြုမှုပြသည်။",
+pa:"အဆောက်အအုံပြောင်း → အတည်ပြုရ",pb:"အဆောက်အအုံတူ → အတည်ပြုမလို",
+ttl:"ဒီနေ့အလုပ်များ",shi:" အဆောက်အအုံ",fin:"ပြီး",mv:"ရွေ့လျား · ၂၅ မိနစ်ခန့်",ken:"ခု",
+todo:"မစသေး",ty_out:"ထွက်ခွာသန့်ရှင်းမှု",rt_t:"အိပ်ရာ၂လုံး",rt_s:"အိပ်ရာ၁လုံး",std:"ပန်းတိုင် ",min:"မိနစ်",start:"စတင်",
+m_t:"အဆောက်အအုံ ပြောင်းမည်",go:"",
+kv1:"လိပ်စာ",kv2:"တာဝန်ယူသည့်အလွှာ",kv3:"ဤနေရာ၌ကျန်",
+m_w:"ဤအဆောက်အအုံတွင် အလုပ်စမည်။ ရောက်ရှိပြီးမပြီး အတည်ပြုပါ။",
+cancel:"ပယ်ဖျက်",start2:"စတင်",
+b_ok:"အတည်ပြုမလိုဘဲ ချက်ချင်းစတင်ပါပြီ<br>（အဆောက်အအုံတူသောကြောင့်）",
+c1t:"ဒီဇိုင်းရည်ရွယ်ချက်",
+c1a:"<b>အဆောက်အအုံပြောင်းချိန်တွင်သာ အတည်ပြုသည်။</b> လှိမ်းရာမှ ရှေးအဆောက်အအုံတွင်ရှိနေစဉ် နောက်အဆောက်အအုံ၏အလုပ်ကို စမိနိုင်သည်။",
+c1b:"<b>အဆောက်အအုံတူပါက အတည်ပြုမလိုပါ။</b> တစ်ရက် ၂၀ အခန်းအထက်တွင် အခါတိုင်းအတည်ပြုပါက မည်သူမျှ မဖတ်တော့ပါ။",
+c1c:"<b>လိပ်စာ ပြသည်။</b> အဆောက်အအုံအမည်တစ်ခုတည်းဖြင့် တူညီသောကုမ္ပဏီ ဟိုတယ်များ မှားနိုင်သည်။",
+c2t:"အတည်ပြုမှု ပေါ်သည့်အခြေအနေ",th_c:"အခြေအနေ",th_b:"အတည်ပြုမှု",
+s1:"ရှေးအလုပ်နှင့် အဆောက်အအုံတူ",n_:"မပြ",
+s2:"ရှေးအလုပ်နှင့် အဆောက်အအုံမတူ",y_:"ပြ",
+s3:"ဒီနေ့ပထမဆုံးအလုပ်",s4:"ခေတ္တရပ်မှ ဆက်လုပ်",
+s5:"ပြန်လုပ်မှု",y2:"အဆောက်အအုံမတူပါက ပြ",
+s6:"ရှေးရောက်ဖူးသည့်အဆောက်အအုံသို့ ပြန်",
+c2h:"💡 ရှေးအဆောက်အအုံသို့ ပြန်လာပါကလည်း အတည်ပြုသည်။ A → B → A လမ်းကြောင်းတွင် မှားနိုင်သည်။",
+c3t:"ဆာဗာဘက် စစ်ဆေးမှု（မလိုမဖြစ်）",
+c3a:"အတည်ပြုမှုသည် <b>UI ၏ ကြင်နာမှု</b> သာဖြစ်သည်။ အမှန်တကယ်လုံခြုံမှုကို ဆာဗာဘက်တွင် ကာကွယ်သည်။",
+cl1:"<code>taskId</code> မှ <code>propertyId</code> ကို ရှာသည်",
+cl2:"ထိုအဆောက်အအုံသည် <code>allowedPropertyIds</code> တွင်ပါမပါ စစ်သည်",
+cl3:"မပါပါက <b>404</b> ပြန်ပေးသည်（403 မဟုတ်）",
+cl4:"Client မှပို့သော <code>propertyId</code> ကို မယုံပါ",
+c3r:"❗ 403 မဟုတ်ဘဲ 404 အသုံးပြုရသည့်အကြောင်း：403 သည် အရင်းအမြစ်ရှိသော်လည်း ခွင့်မပြုကြောင်း ဖော်ပြသည်။ တည်ရှိမှုကိုပင် ဖုံးကွယ်ရန် 404 အသုံးပြုသည်။",
+c4t:"အတည်ပြုမှု ဖွဲ့စည်းမှု",th_e:"အစိတ်အပိုင်း",th_r:"အကြောင်းရင်း",
+e1:"🚃 အိုင်ကွန်",r1:"ရွေ့လျားရန်လိုကြောင်း တစ်ချက်ဖြင့် ဖော်ပြ",
+e2:"ရှေး → နောက် အဆောက်အအုံ",r2:"ပြောင်းလဲမှုကို ရှင်းလင်းစွာ ဖော်ပြ",
+e3:"အခန်းနံပါတ်（ကြီး）",r3:"စတင်မည့်အခန်းကို အတိအလင်း",
+e4:"လိပ်စာ",r4:"တူညီကုမ္ပဏီ ဟိုတယ် မှားမှု တားဆီး",
+e5:"တာဝန်ယူသည့်အလွှာ",r5:"ရောက်ရှိချိန် လမ်းကြောင်းစစ်",
+e6:"ကျန်အရေအတွက်",r6:"ဤအဆောက်အအုံ၏ အလုပ်ပမာဏ",
+c4h:"💡 ပယ်ဖျက်ကို ဘယ်၊ စတင်ကို ယာ၊ အကျယ်အချိုး ၁ : ၁.၃၅။ ဂျပန်ဖုန်း UI ထုံးစံအရ။",
+c5t:"အတည်ပြုရန် အချက်များ",
+q1t:"မေး၁. လိပ်စာ ပြမလား။",q1:"လက်ရှိ ပြသည်။ တူညီကုမ္ပဏီဟိုတယ် မှားမှုကို တားဆီးရန် ထိရောက်။",
+q2t:"မေး၂. \"ရောက်ရှိပြီးမပြီး\" သတိပေးချက် လိုအပ်ပါသလား။",q2:"လက်ရှိ လိမ္မော်ရောင် သတိပေးချက်။",
+q3t:"မေး၃. \"ဒီနေ့ ထပ်မမေးပါ\" ထည့်မလား။",q3:"လက်ရှိ မထည့်ပါ။",
+q4t:"မေး၄. အဆောက်အအုံတူသို့ ပြန်ပါကလည်း အတည်ပြုမလား။",q4:"လက်ရှိ အတည်ပြုသည်။",
+q5t:"မေး၅. ရွေ့လျားအချိန် စစ်မလား။",q5:"လက်ရှိ မစစ်ပါ။"},
+ne:{t:"०४. सुविधा परिवर्तन पुष्टि",
+d:"धेरै सुविधाका काम एउटै सूचीमा हुने हुनाले गलत सुविधामा काम सुरु हुन सक्छ। सुविधा फेरिने बेलामा मात्र पुष्टि देखिन्छ।",
+pa:"सुविधा फेरिन्छ → पुष्टि",pb:"उही सुविधा → पुष्टि छैन",
+ttl:"आजका कामहरू",shi:" सुविधा",fin:"सम्पन्न",mv:"यात्रा · लगभग २५ मिनेट",ken:"",
+todo:"बाँकी",ty_out:"चेकआउट सफाई",rt_t:"ट्विन",rt_s:"सिंगल",std:"लक्ष्य ",min:"मिनेट",start:"सुरु",
+m_t:"तपाईं सुविधा फेर्दै छ",go:"",
+kv1:"ठेगाना",kv2:"जिम्मेवार तला",kv3:"यहाँ बाँकी",
+m_w:"यही सुविधामा काम सुरु हुनेछ। तपाईं पुगेको पुष्टि गर्नुहोस्।",
+cancel:"रद्द",start2:"सुरु",
+b_ok:"संवाद बिना तुरुन्तै सुरु भयो<br>(उही सुविधा)",
+c1t:"डिजाइनको उद्देश्य",
+c1a:"<b>सुविधा फेरिने बेलामा मात्र पुष्टि।</b> स्क्रोल गर्दा अघिल्लो सुविधामा भएको कर्मचारीले अर्को सुविधाको काम सुरु गर्न सक्छ।",
+c1b:"<b>उही सुविधामा पुष्टि छैन।</b> दिनमा २०+ कोठा गर्दा हरेक पटक पुष्टि गर्दा कसैले पढ्दैन।",
+c1c:"<b>ठेगाना देखाइन्छ।</b> नाम मात्रले एउटै समूहका होटेल झुक्किन सक्छ।",
+c2t:"पुष्टि कहिले देखिन्छ",th_c:"अवस्था",th_b:"पुष्टि",
+s1:"अघिल्लो कामसँग उही सुविधा",n_:"छैन",
+s2:"अघिल्लो कामसँग फरक सुविधा",y_:"छ",
+s3:"दिनको पहिलो काम",s4:"रोकेपछि जारी",
+s5:"पुनः सफाई",y2:"फरक सुविधा भए छ",
+s6:"पहिले गएको सुविधामा फर्कने",
+c2h:"💡 पहिलेको सुविधामा फर्कदा पनि देखिन्छ। A → B → A मार्गमा झुक्किन सक्छ।",
+c3t:"सर्भर पक्षको जाँच (अनिवार्य)",
+c3a:"संवाद <b>UI को शिष्टाचार</b> मात्र। वास्तविक सुरक्षा सर्भरले सुनिश्चित गर्छ।",
+cl1:"<code>taskId</code> बाट <code>propertyId</code> निकाल्ने",
+cl2:"सुविधा <code>allowedPropertyIds</code> मा छ कि जाँच्ने",
+cl3:"नभए <b>404</b> फर्काउने (403 होइन)",
+cl4:"क्लाइन्टले पठाएको <code>propertyId</code> कदापि विश्वास नगर्ने",
+c3r:"❗ ४०४ किन: ४०३ ले स्रोत छ तर पहुँच निषेध भन्ने संकेत गर्छ। अस्तित्व लुकाउन ४०४ प्रयोग गर्छौं।",
+c4t:"संवादको संरचना",th_e:"तत्व",th_r:"कारण",
+e1:"🚃 आइकन",r1:"यात्रा चाहिन्छ भन्ने एकै नजरमा",
+e2:"अघिल्लो → अर्को सुविधा",r2:"परिवर्तन स्पष्ट पार्ने",
+e3:"कोठा नम्बर (ठूलो)",r3:"सुरु गर्ने कोठा निश्चित",
+e4:"ठेगाना",r4:"एउटै समूहका होटेल झुक्किन नदिने",
+e5:"जिम्मेवार तला",r5:"पुगेपछि मार्ग पुष्टि",
+e6:"बाँकी संख्या",r6:"यहाँको कार्यभार थाहा",
+c4h:"💡 रद्द बायाँ, सुरु दायाँ, अनुपात १ : १.३५ — जापानी मोबाइल UI चलनअनुसार।",
+c5t:"पुष्टि गर्नुपर्ने बुँदा",
+q1t:"प्रश्न१. ठेगाना देखाउने?",q1:"अहिले हो। एउटै समूहका होटेल झुक्किन रोक्न प्रभावकारी।",
+q2t:"प्रश्न२. \"पुगेको\" चेतावनी चाहिन्छ?",q2:"अहिले सुन्तला चेतावनी।",
+q3t:"प्रश्न३. \"आज फेरि नसोध्ने\" थप्ने?",q3:"अहिले थपिएको छैन।",
+q4t:"प्रश्न४. उही सुविधामा फर्कदा पुष्टि?",q4:"अहिले हो।",
+q5t:"प्रश्न५. यात्रा समय जाँच्ने?",q5:"अहिले जाँचिँदैन।"}};
+const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+const ovA=document.getElementById('ovA');
+document.getElementById('btnA').onclick=()=>ovA.classList.add('on');
+document.getElementById('cA').onclick=()=>ovA.classList.remove('on');
+document.getElementById('okA').onclick=()=>{ovA.classList.remove('on');
+alert('→ 06 入室時の記録\n\nビジネスH横浜 208号室')};
+ovA.onclick=e=>{if(e.target===ovA)ovA.classList.remove('on')};
+const okB=document.getElementById('okB');
+document.getElementById('btnB').onclick=function(){okB.style.display='';
+setTimeout(()=>alert('→ 06 入室時の記録\n\nビジネスH横浜 209号室\n（確認なしで直行）'),350)};
+</script></body></html>

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 11 — 完了確認</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.q{font-size:14px;font-weight:700;margin:14px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:16px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;min-height:74px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:25px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tg2{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}
+.tg2 .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tg2 .sw{width:52px;height:30px;border-radius:16px;background:var(--dirtybg);
+position:relative;transition:.2s;flex-shrink:0}
+.tg2 .sw:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg2.on .sw{background:var(--ok)}.tg2.on .sw:after{left:25px}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.tri{display:flex;gap:5px;flex-shrink:0}
+.tri .b{width:40px;height:40px;border-radius:9px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:17px;font-weight:800;color:var(--ink2);cursor:pointer;font-family:inherit}
+.tri .b.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.tri .b.ng{background:var(--danger);border-color:var(--danger);color:#fff}
+.tri .b.na{font-size:14px}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid var(--line);background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.dn{border-color:var(--ok);background:var(--okbg);opacity:.75}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:34px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.hero{background:var(--brand);color:#fff;border-radius:14px;padding:19px 15px;text-align:center;margin-bottom:13px}
+.hero .e2{font-size:44px;line-height:1;margin-bottom:9px}
+.hero .rm{font-size:32px;font-weight:800;line-height:1.1}
+.hero .ty2{font-size:11.5px;color:#B9CFC2;margin-top:4px}
+.hero .tm2{font-size:12px;color:#B9CFC2;margin-top:10px;padding-top:10px;
+border-top:1px solid rgba(255,255,255,.18)}
+.chk2{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:6px 14px;margin-bottom:11px}
+.chk2 .r3{display:flex;justify-content:space-between;align-items:center;
+padding:11px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.chk2 .r3:last-child{border:0}
+.chk2 .r3 .lb2{display:flex;align-items:center;gap:8px;color:var(--ink2)}
+.chk2 .r3 .st2{font-weight:700;font-size:12px;display:flex;align-items:center;gap:5px}
+.chk2 .r3 .st2.ok{color:var(--ok)}
+.chk2 .r3 .st2.ng{color:var(--danger)}
+.chk2 .r3 .st2.sk{color:var(--muted);font-weight:400}
+.ngl{background:var(--dangerbg);border:1px solid var(--danger);border-radius:11px;
+padding:12px;margin-bottom:11px}
+.ngl .t3{font-size:12px;font-weight:800;color:var(--danger);margin-bottom:8px}
+.ngl .it{font-size:11.5px;color:var(--danger);padding:5px 0 5px 15px;position:relative;line-height:1.5}
+.ngl .it:before{content:"×";position:absolute;left:0;font-weight:800}
+.tmb{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:11px}
+.tmb .r4{display:flex;justify-content:space-between;font-size:12px;padding:5px 0}
+.tmb .r4 b{font-variant-numeric:tabular-nums}
+.tmb .r4.hl2{border-top:1px solid var(--line);margin-top:5px;padding-top:9px;font-weight:700}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">11 / 16 — 完了確認</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">STATE</span>
+<button class="gb st on" data-s="ok">全完了</button>
+<button class="gb st" data-s="ng">×あり</button>
+<button class="gb st" data-s="over">時間超過</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">11. 完了確認</h1>
+<p data-i="d">完了前の最後の画面。記録した内容を一覧で見せ、間違いに気づける機会をつくる。×が付いた項目は隠さず表示するが、責める表現は使わない。時間超過も事実として並べるだけ。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="bk">←</span> <span data-i="ttl">完了の確認</span></div>
+<div class="b" data-i="sub">内容をご確認ください</div></div>
+<div class="bd">
+
+<div class="hero"><div class="e2" id="he">✓</div>
+<div class="rm">302<span style="font-size:15px" data-i="go">号室</span></div>
+<div class="ty2">🏨 サンプルホテル東京 · <span data-i="ty">アウト清掃</span></div>
+<div class="tm2" id="ht">⏱ 14:02 → 14:56 · <span data-i="act">実作業</span> 48<span data-i="min">分</span></div></div>
+
+<div class="ngl" id="ng" style="display:none">
+<div class="t3" data-i="ng_t">できなかった項目（1件）</div>
+<div class="it" data-i="ng_i">浴槽を清掃した — <span data-i="ng_r">排水が詰まっていた</span></div>
+<div style="font-size:10.5px;color:var(--danger);margin-top:8px;line-height:1.55"
+data-i="ng_n">この内容は設備の記録として管理者に共有されます。清掃員の評価には使用されません。</div></div>
+
+<div class="sec">📋 <span data-i="s_ck">記録した内容</span></div>
+<div class="chk2">
+<div class="r3"><span class="lb2">📝 <span data-i="k1">チェックリスト</span></span>
+<span class="st2 ok" id="v1">16 / 16 ✓</span></div>
+<div class="r3"><span class="lb2">🔍 <span data-i="k2">入室時の記録</span></span>
+<span class="st2 ok">✓ <span data-i="done">記録済み</span></span></div>
+<div class="r3"><span class="lb2">📷 <span data-i="k3">写真</span></span>
+<span class="st2 ok">5 <span data-i="mai">枚</span> ✓</span></div>
+<div class="r3"><span class="lb2">🧺 <span data-i="k4">リネン記録</span></span>
+<span class="st2 ok">✓ <span data-i="done">記録済み</span></span></div>
+<div class="r3"><span class="lb2">🧴 <span data-i="k5">詳細記録</span></span>
+<span class="st2 sk" data-i="skip">未入力（任意）</span></div>
+<div class="r3"><span class="lb2">📝 <span data-i="k6">メモ</span></span>
+<span class="st2 sk" data-i="skip">未入力（任意）</span></div></div>
+
+<div class="sec">⏱ <span data-i="s_tm">作業時間</span></div>
+<div class="tmb">
+<div class="r4"><span data-i="t1">開始</span><b>14:02</b></div>
+<div class="r4"><span data-i="t2">終了</span><b>14:56</b></div>
+<div class="r4"><span data-i="t3">中断</span><b id="v2">0<span data-i="kai">回</span></b></div>
+<div class="r4 hl2"><span data-i="t4">実作業時間</span><b id="v3">48<span data-i="min">分</span></b></div>
+<div class="r4"><span data-i="t5">目安</span><b>40<span data-i="min">分</span></b></div></div>
+
+<div class="al i" id="ovm" style="display:none">ℹ <span data-i="ov_t">目安より8分長くかかりました。記録として残しますが、問題ではありません。</span></div>
+
+<button class="big g" id="bc2" style="margin-top:6px">✓ <span data-i="b_cp">完了する</span></button>
+<button class="big o" style="margin-top:9px" id="bb2">← <span data-i="b_bk">戻って修正する</span></button>
+</div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">この画面を挟む理由</span></h3>
+<p data-i="c1a">完了は<b>取り消しできない操作</b>。完了後に修正するには管理者の承認が必要になるため、その前に自分で気づける機会を作る。</p>
+<ul>
+<li data-i="w1">写真の撮り忘れに気づける</li>
+<li data-i="w2">リネン記録の入力漏れに気づける</li>
+<li data-i="w3">部屋番号の間違いに気づける</li>
+<li data-i="w4">任意項目を入れ忘れたことも分かる（責めない）</li>
+</ul>
+<div class="hint" data-i="c1h">💡 「戻って修正する」を下に置いています。完了ボタンより目立たない位置ですが、必ず見える場所に配置します。</div></div>
+
+<div class="card"><h3>🚫 <span data-i="c2t">×の項目の見せ方</span></h3>
+<p data-i="c2a">×が付いた項目は<b>隠さず表示する</b>が、表現には注意する。</p>
+<table><tr><th class="nx" data-i="th_ng">使わない</th><th class="fx" data-i="th_ok">使う</th></tr>
+<tr><td data-i="ng1">未実施の項目</td><td data-i="ok1">できなかった項目</td></tr>
+<tr><td data-i="ng2">不備あり</td><td data-i="ok2">記録された内容</td></tr>
+<tr><td data-i="ng3">警告：1件失敗</td><td data-i="ok3">できなかった項目（1件）</td></tr>
+</table>
+<div class="rmk" data-i="c2r">❗ ×の欄に「清掃員の評価には使用されません」と明記しています。これを書かないと、×を付けるのを避けて嘘の○を付ける行動につながります。</div></div>
+
+<div class="card"><h3>⏱ <span data-i="c3t">時間の見せ方</span></h3>
+<p data-i="c3a">開始・終了・中断回数・実作業時間・目安を並べる。<b>超過していても青いお知らせにとどめる</b>。</p>
+<ul>
+<li data-i="m1">実作業時間は中断を除いた合計</li>
+<li data-i="m2">超過時のメッセージは「問題ではありません」で終わる</li>
+<li data-i="m3">目安より短い場合も特に何も言わない</li>
+<li data-i="m4">評価・順位・平均との比較は一切表示しない</li>
+</ul></div>
+
+<div class="card"><h3>🔒 <span data-i="c4t">完了後の扱い</span></h3>
+<table><tr><th data-i="th_a">操作</th><th data-i="th_p">可否</th></tr>
+<tr><td data-i="a1">写真の追加</td><td class="fx" data-i="p1">24時間以内は可</td></tr>
+<tr><td data-i="a2">チェックリストの修正</td><td class="nx" data-i="p2">管理者の承認が必要</td></tr>
+<tr><td data-i="a3">入室時の記録の修正</td><td class="nx" data-i="p3">管理者の承認が必要</td></tr>
+<tr><td data-i="a4">メモの追記</td><td class="fx" data-i="p4">24時間以内は可</td></tr>
+<tr><td data-i="a5">完了の取り消し</td><td class="nx" data-i="p5">不可（再清掃として新規作成）</td></tr></table>
+<div class="hint" data-i="c4h">💡 修正操作はすべて <code>auditLog</code> に記録され、修正前後の値が保持されます。証跡としての信頼性を保つためです。</div></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="f1">完了前に記録内容を一覧表示</li>
+<li data-i="f2">×の項目は隠さないが責めない</li>
+<li data-i="f3">「評価には使用されません」を明記</li>
+<li data-i="f4">時間超過は青いお知らせのみ</li>
+<li data-i="f5">評価・順位・平均比較は表示しない</li>
+<li data-i="f6">「戻って修正する」を必ず用意</li>
+</ul></div>
+</div></div></div><script>const I18N={ja:{},
+en:{t:"11. Completion Review",
+d:"The last screen before completing. Everything recorded is listed so mistakes can still be caught. Items marked as couldn't-do are shown openly but never with blaming wording. Overrun time is simply listed as fact.",
+ttl:"Confirm Completion",sub:"Please review the details",
+go:"",ty:"Checkout Clean",act:"actual",min:"m",
+ng_t:"Items that couldn't be done (1)",
+ng_i:"Cleaned the bathtub — ",ng_r:"the drain was blocked",
+ng_n:"This is shared with managers as an equipment record. It is never used to evaluate the cleaner.",
+s_ck:"What was recorded",
+k1:"Checklist",k2:"Entry record",k3:"Photos",k4:"Linen record",k5:"Detail record",k6:"Memo",
+done:"recorded",mai:"photos",skip:"not entered (optional)",
+s_tm:"Working time",t1:"Start",t2:"End",t3:"Pauses",t4:"Actual working time",t5:"Target",kai:"",
+ov_t:"This took 8 minutes longer than the target. It is recorded, but it is not a problem.",
+b_cp:"Complete",b_bk:"Go back and fix",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"Why this screen exists",
+c1a:"Completing is an <b>irreversible action</b>. Fixing anything afterwards needs manager approval, so we give the cleaner a chance to notice first.",
+w1:"A forgotten photo can be spotted",
+w2:"A missing linen entry can be spotted",
+w3:"A wrong room number can be spotted",
+w4:"Skipped optional items are visible too (without blame)",
+c1h:"💡 \"Go back and fix\" sits below. It is less prominent than Complete but always visible.",
+c2t:"How couldn't-do items are shown",
+c2a:"Items marked as couldn't-do are <b>shown openly</b>, but the wording is chosen carefully.",
+th_ng:"Never",th_ok:"Instead",
+ng1:"Unperformed items",ok1:"Items that couldn't be done",
+ng2:"Deficiencies found",ok2:"What was recorded",
+ng3:"Warning: 1 failure",ok3:"Items that couldn't be done (1)",
+c2r:"❗ The note \"never used to evaluate the cleaner\" is stated explicitly. Without it, staff avoid marking couldn't-do and tick a false done instead.",
+c3t:"How time is shown",
+c3a:"Start, end, pause count, actual time and target are listed. <b>Overrun stays a blue notice.</b>",
+m1:"Actual time excludes pauses",
+m2:"The overrun message ends with \"it is not a problem\"",
+m3:"Finishing faster than target gets no comment either",
+m4:"No ratings, rankings or comparison with averages are ever shown",
+c4t:"After completion",th_a:"Action",th_p:"Allowed",
+a1:"Adding photos",p1:"Yes, within 24 hours",
+a2:"Editing the checklist",p2:"Requires manager approval",
+a3:"Editing the entry record",p3:"Requires manager approval",
+a4:"Appending to the memo",p4:"Yes, within 24 hours",
+a5:"Undoing completion",p5:"No (create a rework task instead)",
+c4h:"💡 Every edit is written to <code>auditLog</code> with both before and after values, preserving the reliability of the record as evidence.",
+c5t:"Decisions fixed on this screen",
+f1:"Recorded content listed before completing",
+f2:"Couldn't-do items shown but never blamed",
+f3:"\"Never used for evaluation\" stated explicitly",
+f4:"Overrun is only a blue notice",
+f5:"No ratings, rankings or average comparisons",
+f6:"\"Go back and fix\" always available"},
+zh:{t:"11. 完成确认",
+d:"完成前的最后一屏。把记录内容列成一览，创造发现错误的机会。打×的项目不隐藏，但不用责备的表达。时间超过也只作为事实并列。",
+ttl:"完成的确认",sub:"请确认内容",
+go:"号房",ty:"退房清扫",act:"实作业",min:"分",
+ng_t:"做不到的项目（1 件）",
+ng_i:"清扫浴缸 — ",ng_r:"排水堵塞了",
+ng_n:"此内容作为设备记录共享给管理者。不用于清扫员的评价。",
+s_ck:"记录的内容",
+k1:"检查表",k2:"入室记录",k3:"照片",k4:"布草记录",k5:"详细记录",k6:"备注",
+done:"已记录",mai:"张",skip:"未输入（任意）",
+s_tm:"作业时间",t1:"开始",t2:"结束",t3:"暂停",t4:"实作业时间",t5:"目标",kai:"次",
+ov_t:"比目标多花了 8 分钟。作为记录留下，但不是问题。",
+b_cp:"完成",b_bk:"返回修改",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"插入本画面的理由",
+c1a:"完成是<b>无法撤销的操作</b>。完成后要修改需要管理者承认，所以在那之前创造自己能发现的机会。",
+w1:"能发现忘记拍照",
+w2:"能发现布草记录漏填",
+w3:"能发现房号搞错",
+w4:"也能看到任意项目忘填（不责备）",
+c1h:"💡「返回修改」放在下方。比完成按钮不显眼，但一定放在能看见的位置。",
+c2t:"×项目的展示方式",
+c2a:"打×的项目<b>不隐藏而是显示</b>，但表达要注意。",
+th_ng:"不使用",th_ok:"使用",
+ng1:"未实施的项目",ok1:"做不到的项目",
+ng2:"有不备",ok2:"记录的内容",
+ng3:"警告：1 件失败",ok3:"做不到的项目（1 件）",
+c2r:"❗ ×的栏里明记「不用于清扫员的评价」。不写这句，就会导致回避打×而打上假的○。",
+c3t:"时间的展示方式",
+c3a:"并列开始・结束・暂停次数・实作业时间・目标。<b>即使超过也只停在蓝色通知</b>。",
+m1:"实作业时间是扣除暂停后的合计",
+m2:"超过时的讯息以「不是问题」结尾",
+m3:"比目标短的情况也不特别说什么",
+m4:"评价・排名・与平均的比较一概不显示",
+c4t:"完成后的处理",th_a:"操作",th_p:"可否",
+a1:"追加照片",p1:"24 小时内可",
+a2:"修改检查表",p2:"需要管理者承认",
+a3:"修改入室记录",p3:"需要管理者承认",
+a4:"追记备注",p4:"24 小时内可",
+a5:"撤销完成",p5:"不可（作为再清扫新建）",
+c4h:"💡 所有修改操作都记录到 <code>auditLog</code>，保留修改前后的值。为了保持作为证迹的可信度。",
+c5t:"本画面的确定事项",
+f1:"完成前一览显示记录内容",
+f2:"×的项目不隐藏但不责备",
+f3:"明记「不用于评价」",
+f4:"时间超过只用蓝色通知",
+f5:"不显示评价・排名・平均比较",
+f6:"必须准备「返回修改」"},
+vi:{t:"11. Xác nhận hoàn thành",
+d:"Màn hình cuối trước khi hoàn thành. Mọi thứ đã ghi được liệt kê để còn kịp phát hiện sai sót.",
+ttl:"Xác nhận hoàn thành",sub:"Vui lòng kiểm tra lại",
+go:"",ty:"Dọn sau khách đi",act:"thực tế",min:"phút",
+ng_t:"Mục không làm được (1)",ng_i:"Vệ sinh bồn tắm — ",ng_r:"cống bị tắc",
+ng_n:"Được chia sẻ với quản lý như ghi nhận thiết bị. Không dùng để đánh giá nhân viên.",
+s_ck:"Nội dung đã ghi",
+k1:"Danh sách kiểm tra",k2:"Ghi nhận khi vào",k3:"Ảnh",k4:"Ghi nhận khăn vải",k5:"Ghi chi tiết",k6:"Ghi chú",
+done:"đã ghi",mai:"ảnh",skip:"chưa nhập (tùy chọn)",
+s_tm:"Thời gian làm việc",t1:"Bắt đầu",t2:"Kết thúc",t3:"Tạm dừng",t4:"Thời gian thực",t5:"Mục tiêu",kai:" lần",
+ov_t:"Lâu hơn mục tiêu 8 phút. Được ghi lại nhưng không phải vấn đề.",
+b_cp:"Hoàn thành",b_bk:"Trở lại sửa",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Vì sao có màn hình này",
+c1a:"Hoàn thành là <b>hành động không thể hoàn tác</b>. Sửa sau cần quản lý phê duyệt, nên cho nhân viên cơ hội tự phát hiện trước.",
+w1:"Phát hiện ảnh còn thiếu",w2:"Phát hiện thiếu ghi nhận khăn vải",
+w3:"Phát hiện sai số phòng",w4:"Thấy cả mục tùy chọn bỏ trống (không quy lỗi)",
+c1h:"💡 \"Trở lại sửa\" nằm bên dưới, kém nổi bật hơn nhưng luôn thấy được.",
+c2t:"Cách hiển thị mục không làm được",
+c2a:"Mục không làm được <b>được hiện rõ</b>, nhưng câu chữ chọn cẩn thận.",
+th_ng:"Không dùng",th_ok:"Thay bằng",
+ng1:"Mục chưa thực hiện",ok1:"Mục không làm được",
+ng2:"Có thiếu sót",ok2:"Nội dung đã ghi",
+ng3:"Cảnh báo: 1 thất bại",ok3:"Mục không làm được (1)",
+c2r:"❗ Ghi rõ \"không dùng để đánh giá nhân viên\". Không có câu này, nhân viên sẽ tránh đánh không làm được và đánh xong giả.",
+c3t:"Cách hiển thị thời gian",
+c3a:"Liệt kê bắt đầu, kết thúc, số lần dừng, thời gian thực và mục tiêu. <b>Quá giờ chỉ là thông báo xanh.</b>",
+m1:"Thời gian thực trừ thời gian dừng",m2:"Thông báo quá giờ kết thúc bằng \"không phải vấn đề\"",
+m3:"Nhanh hơn mục tiêu cũng không bình luận",m4:"Không hiện xếp hạng hay so sánh trung bình",
+c4t:"Sau khi hoàn thành",th_a:"Hành động",th_p:"Cho phép",
+a1:"Thêm ảnh",p1:"Được, trong 24 giờ",
+a2:"Sửa danh sách kiểm tra",p2:"Cần quản lý phê duyệt",
+a3:"Sửa ghi nhận khi vào",p3:"Cần quản lý phê duyệt",
+a4:"Thêm ghi chú",p4:"Được, trong 24 giờ",
+a5:"Hủy hoàn thành",p5:"Không (tạo nhiệm vụ dọn lại)",
+c4h:"💡 Mọi lần sửa ghi vào <code>auditLog</code> với giá trị trước và sau.",
+c5t:"Quyết định đã chốt",
+f1:"Liệt kê nội dung trước khi hoàn thành",f2:"Hiện mục không làm được mà không quy lỗi",
+f3:"Ghi rõ không dùng để đánh giá",f4:"Quá giờ chỉ thông báo xanh",
+f5:"Không xếp hạng hay so sánh",f6:"Luôn có \"Trở lại sửa\""},
+id:{t:"11. Tinjauan Penyelesaian",
+d:"Layar terakhir sebelum menyelesaikan. Semua yang dicatat ditampilkan agar kesalahan masih bisa ditemukan.",
+ttl:"Konfirmasi Penyelesaian",sub:"Mohon tinjau rinciannya",
+go:"",ty:"Bersih Checkout",act:"aktual",min:"mnt",
+ng_t:"Item yang tak bisa dikerjakan (1)",ng_i:"Membersihkan bak mandi — ",ng_r:"salurannya tersumbat",
+ng_n:"Ini dibagikan ke manajer sebagai catatan peralatan. Tidak dipakai menilai petugas.",
+s_ck:"Yang dicatat",
+k1:"Daftar periksa",k2:"Catatan masuk",k3:"Foto",k4:"Catatan linen",k5:"Catatan detail",k6:"Catatan",
+done:"tercatat",mai:"foto",skip:"belum diisi (opsional)",
+s_tm:"Waktu kerja",t1:"Mulai",t2:"Selesai",t3:"Jeda",t4:"Waktu kerja aktual",t5:"Target",kai:" kali",
+ov_t:"Ini 8 menit lebih lama dari target. Dicatat, tetapi bukan masalah.",
+b_cp:"Selesaikan",b_bk:"Kembali dan perbaiki",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Mengapa layar ini ada",
+c1a:"Menyelesaikan adalah <b>tindakan tak bisa dibatalkan</b>. Memperbaiki setelahnya perlu persetujuan manajer.",
+w1:"Foto yang terlupa bisa ditemukan",w2:"Entri linen yang terlewat bisa ditemukan",
+w3:"Nomor kamar yang salah bisa ditemukan",w4:"Item opsional yang dilewat juga terlihat (tanpa menyalahkan)",
+c1h:"💡 \"Kembali dan perbaiki\" ada di bawah, kurang menonjol tapi selalu terlihat.",
+c2t:"Cara menampilkan item tak bisa",
+c2a:"Item tak bisa <b>ditampilkan terbuka</b>, tapi kata-katanya dipilih hati-hati.",
+th_ng:"Tidak dipakai",th_ok:"Diganti",
+ng1:"Item belum dikerjakan",ok1:"Item yang tak bisa dikerjakan",
+ng2:"Ada kekurangan",ok2:"Yang dicatat",
+ng3:"Peringatan: 1 kegagalan",ok3:"Item yang tak bisa dikerjakan (1)",
+c2r:"❗ Catatan \"tidak dipakai menilai petugas\" ditulis tegas. Tanpa itu petugas menghindari menandai tak bisa dan mencentang selesai palsu.",
+c3t:"Cara menampilkan waktu",
+c3a:"Mulai, selesai, jumlah jeda, waktu aktual dan target ditampilkan. <b>Kelebihan waktu tetap pemberitahuan biru.</b>",
+m1:"Waktu aktual tanpa jeda",m2:"Pesan kelebihan diakhiri \"bukan masalah\"",
+m3:"Lebih cepat dari target juga tanpa komentar",m4:"Tanpa peringkat atau perbandingan rata-rata",
+c4t:"Setelah penyelesaian",th_a:"Tindakan",th_p:"Diizinkan",
+a1:"Menambah foto",p1:"Ya, dalam 24 jam",
+a2:"Menyunting daftar periksa",p2:"Perlu persetujuan manajer",
+a3:"Menyunting catatan masuk",p3:"Perlu persetujuan manajer",
+a4:"Menambah catatan",p4:"Ya, dalam 24 jam",
+a5:"Membatalkan penyelesaian",p5:"Tidak (buat tugas bersih ulang)",
+c4h:"💡 Setiap suntingan ditulis ke <code>auditLog</code> dengan nilai sebelum dan sesudah.",
+c5t:"Keputusan yang ditetapkan",
+f1:"Isi catatan ditampilkan sebelum selesai",f2:"Item tak bisa ditampilkan tanpa disalahkan",
+f3:"\"Tidak dipakai menilai\" ditulis tegas",f4:"Kelebihan waktu hanya biru",
+f5:"Tanpa peringkat atau perbandingan",f6:"Selalu ada \"Kembali dan perbaiki\""},
+my:{t:"၁၁. ပြီးဆုံးမှု အတည်ပြုချက်",
+d:"ပြီးဆုံးမည့်အလို နောက်ဆုံးမျက်နှာပြင်။ မှတ်တမ်းအားလုံးကို စာရင်းပြ၍ အမှားသတိထားနိုင်စေသည်။",
+ttl:"ပြီးဆုံးမှုအတည်ပြုချက်",sub:"အကြောင်းအရာ စစ်ဆေးပါ",
+go:"",ty:"ထွက်ခွာသန့်ရှင်းမှု",act:"အမှန်တကယ်",min:"မိနစ်",
+ng_t:"မလုပ်နိုင်သည့်အချက်（၁ ခု）",ng_i:"ရေချိုးကန် သန့်ရှင်းမှု — ",ng_r:"ရေဆင်း ပိတ်နေခဲ့",
+ng_n:"ဤအကြောင်းအရာကို ပစ္စည်းမှတ်တမ်းအဖြစ် စီမံခန့်ခွဲသူနှင့် မျှဝေသည်။ ဝန်ထမ်းအဆင့်သတ်မှတ်မှုအတွက် မသုံးပါ။",
+s_ck:"မှတ်တမ်းတင်သည့်အကြောင်းအရာ",
+k1:"စစ်ဆေးစာရင်း",k2:"အခန်းဝင်မှတ်တမ်း",k3:"ဓာတ်ပုံ",k4:"အခင်းမှတ်တမ်း",k5:"အသေးစိတ်မှတ်တမ်း",k6:"မှတ်ချက်",
+done:"မှတ်ပြီး",mai:"ပုံ",skip:"မထည့်သေး（မလိုအပ်）",
+s_tm:"အလုပ်ချိန်",t1:"စတင်",t2:"ပြီးဆုံး",t3:"ခေတ္တရပ်",t4:"အမှန်တကယ်အလုပ်ချိန်",t5:"ပန်းတိုင်",kai:" ကြိမ်",
+ov_t:"ပန်းတိုင်ထက် ၈ မိနစ် ပိုကြာခဲ့သည်။ မှတ်တမ်းအဖြစ် ထားသော်လည်း ပြဿနာမဟုတ်ပါ။",
+b_cp:"ပြီးဆုံး",b_bk:"ပြန်၍ ပြင်",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"ဤမျက်နှာပြင် ထည့်ရသည့်အကြောင်း",
+c1a:"ပြီးဆုံးမှုသည် <b>ပြန်ပြောင်းမရသော လုပ်ဆောင်မှု</b>ဖြစ်သည်။ ပြီးမှ ပြင်ရန် စီမံခန့်ခွဲသူ ခွင့်ပြုချက်လိုသည်။",
+w1:"ဓာတ်ပုံ ရိုက်မေ့သည် သတိထားနိုင်",w2:"အခင်းမှတ်တမ်း လွတ်သည် သတိထားနိုင်",
+w3:"အခန်းနံပါတ် မှားသည် သတိထားနိုင်",w4:"မလိုအပ်အချက် မထည့်သည်ပါ တွေ့နိုင်（အပြစ်မတင်）",
+c1h:"💡 \"ပြန်၍ပြင်\" ကို အောက်တွင် ထားသည်။ ပြီးဆုံးခလုတ်ထက် မထင်ရှားသော်လည်း အမြဲမြင်နိုင်သည်။",
+c2t:"မလုပ်နိုင်အချက် ပြသနည်း",
+c2a:"မလုပ်နိုင်အချက်များကို <b>ဖုံးကွယ်မထားဘဲ ပြသည်</b>။ သို့သော် စကားလုံးကို သတိထားရွေးသည်။",
+th_ng:"မသုံး",th_ok:"အစား",
+ng1:"မလုပ်သေးသည့်အချက်",ok1:"မလုပ်နိုင်သည့်အချက်",
+ng2:"လိုအပ်ချက်ရှိ",ok2:"မှတ်တမ်းတင်သည့်အကြောင်းအရာ",
+ng3:"သတိပေး：၁ ခု မအောင်မြင်",ok3:"မလုပ်နိုင်သည့်အချက်（၁ ခု）",
+c2r:"❗ \"ဝန်ထမ်းအဆင့်သတ်မှတ်မှုအတွက် မသုံးပါ\" ကို ရှင်းလင်းစွာ ရေးသည်။ မရေးပါက မလုပ်နိုင်ဟု အမှတ်ပြုရန် ရှောင်၍ လိမ်လည်အမှတ်ပြုမိမည်။",
+c3t:"အချိန် ပြသနည်း",
+c3a:"စတင်・ပြီးဆုံး・ခေတ္တရပ်အရေအတွက်・အမှန်တကယ်ချိန်・ပန်းတိုင် စီပြသည်။ <b>ကျော်လွန်ပါက အပြာသတင်းသာ။</b>",
+m1:"အမှန်တကယ်ချိန်သည် ခေတ္တရပ်ဖြုတ်ပြီး",m2:"ကျော်လွန်သတင်းသည် \"ပြဿနာမဟုတ်\" ဖြင့် အဆုံးသတ်",
+m3:"ပန်းတိုင်ထက် တိုပါကလည်း မည်သည်မှ မဆို",m4:"အဆင့်・အစီအစဉ်・ပျမ်းမျှနှင့် နှိုင်းယှဉ်မှု လုံးဝ မပြ",
+c4t:"ပြီးဆုံးပြီးနောက်",th_a:"လုပ်ဆောင်မှု",th_p:"ခွင့်ပြု",
+a1:"ဓာတ်ပုံ ထပ်ထည့်",p1:"၂၄ နာရီအတွင်း ရ",
+a2:"စစ်ဆေးစာရင်း ပြင်",p2:"စီမံခန့်ခွဲသူ ခွင့်ပြုချက်လို",
+a3:"အခန်းဝင်မှတ်တမ်း ပြင်",p3:"စီမံခန့်ခွဲသူ ခွင့်ပြုချက်လို",
+a4:"မှတ်ချက် ထပ်ရေး",p4:"၂၄ နာရီအတွင်း ရ",
+a5:"ပြီးဆုံးမှု ပယ်ဖျက်",p5:"မရ（ပြန်သန့်ရှင်းမှုအဖြစ် အသစ်ဖန်တီး）",
+c4h:"💡 ပြင်ဆင်မှုအားလုံး <code>auditLog</code> တွင် မှတ်၍ ပြင်ရှေ့ပြင်နောက်တန်ဖိုးများ ထားသည်။",
+c5t:"အတည်ပြုချက်",
+f1:"ပြီးဆုံးမည့်အလို မှတ်တမ်းစာရင်းပြ",f2:"မလုပ်နိုင်အချက် ပြသော်လည်း အပြစ်မတင်",
+f3:"\"အဆင့်သတ်မှတ်မှုအတွက် မသုံး\" ဖော်ပြ",f4:"ကျော်လွန်မှု အပြာသတင်းသာ",
+f5:"အဆင့်・အစီအစဉ် မပြ",f6:"\"ပြန်၍ပြင်\" အမြဲထား"},
+ne:{t:"११. सम्पन्न पुष्टि",
+d:"सम्पन्न गर्नुअघिको अन्तिम स्क्रिन। लेखिएका सबै सूचीबद्ध हुन्छ जसले गल्ती पत्ता लगाउन दिन्छ।",
+ttl:"सम्पन्न पुष्टि",sub:"विवरण जाँच्नुहोस्",
+go:"",ty:"चेकआउट सफाई",act:"वास्तविक",min:"मिनेट",
+ng_t:"गर्न नसकिएका वस्तु (१)",ng_i:"बाथटब सफा गर्ने — ",ng_r:"ढल बन्द थियो",
+ng_n:"यो उपकरण रेकर्डको रूपमा प्रबन्धकसँग साझा हुन्छ। कर्मचारी मूल्याङ्कनमा प्रयोग हुँदैन।",
+s_ck:"लेखिएको सामग्री",
+k1:"जाँच सूची",k2:"प्रवेश रेकर्ड",k3:"तस्बिर",k4:"लिनेन रेकर्ड",k5:"विस्तृत रेकर्ड",k6:"टिप्पणी",
+done:"रेकर्ड भयो",mai:"तस्बिर",skip:"नभरिएको (स्वैच्छिक)",
+s_tm:"कार्य समय",t1:"सुरु",t2:"अन्त्य",t3:"रोकाइ",t4:"वास्तविक कार्य समय",t5:"लक्ष्य",kai:" पटक",
+ov_t:"लक्ष्यभन्दा ८ मिनेट लामो भयो। रेकर्ड हुन्छ, तर समस्या होइन।",
+b_cp:"सम्पन्न",b_bk:"फर्की सुधार्ने",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"यो स्क्रिन किन",
+c1a:"सम्पन्न गर्नु <b>फिर्ता नहुने कार्य</b> हो। पछि सुधार्न प्रबन्धकको स्वीकृति चाहिन्छ।",
+w1:"बिर्सिएको तस्बिर पत्ता लाग्छ",w2:"छुटेको लिनेन प्रविष्टि पत्ता लाग्छ",
+w3:"गलत कोठा नम्बर पत्ता लाग्छ",w4:"छोडिएका स्वैच्छिक वस्तु पनि देखिन्छ (दोष बिना)",
+c1h:"💡 \"फर्की सुधार्ने\" तल छ, कम प्रमुख तर सधैं देखिने।",
+c2t:"गर्न नसकिएका वस्तु देखाउने तरिका",
+c2a:"गर्न नसकिएका वस्तु <b>खुलेर देखाइन्छ</b>, तर शब्द छनोट सावधान।",
+th_ng:"नगर्ने",th_ok:"बदलामा",
+ng1:"नगरिएका वस्तु",ok1:"गर्न नसकिएका वस्तु",
+ng2:"कमी छ",ok2:"लेखिएको सामग्री",
+ng3:"चेतावनी: १ असफल",ok3:"गर्न नसकिएका वस्तु (१)",
+c2r:"❗ \"कर्मचारी मूल्याङ्कनमा प्रयोग हुँदैन\" स्पष्ट लेखिएको छ। नलेखे कर्मचारी गर्न नसकिएन नलेखी झूटो टिक गर्छन्।",
+c3t:"समय देखाउने तरिका",
+c3a:"सुरु, अन्त्य, रोकाइ संख्या, वास्तविक समय र लक्ष्य देखाइन्छ। <b>नाघेमा नीलो सूचना मात्र।</b>",
+m1:"वास्तविक समय रोकाइ बाहेक",m2:"नाघ्ने सन्देश \"समस्या होइन\" ले टुंगिन्छ",
+m3:"लक्ष्यभन्दा छिटो भए पनि टिप्पणी हुँदैन",m4:"मूल्याङ्कन, श्रेणी वा औसत तुलना देखाइँदैन",
+c4t:"सम्पन्न पछि",th_a:"कार्य",th_p:"अनुमति",
+a1:"तस्बिर थप्ने",p1:"हुन्छ, २४ घण्टाभित्र",
+a2:"जाँच सूची सम्पादन",p2:"प्रबन्धक स्वीकृति चाहिन्छ",
+a3:"प्रवेश रेकर्ड सम्पादन",p3:"प्रबन्धक स्वीकृति चाहिन्छ",
+a4:"टिप्पणी थप्ने",p4:"हुन्छ, २४ घण्टाभित्र",
+a5:"सम्पन्न रद्द",p5:"हुँदैन (पुनः सफाई काम बनाउने)",
+c4h:"💡 हरेक सम्पादन <code>auditLog</code> मा पहिले र पछिको मानसहित लेखिन्छ।",
+c5t:"तय भएका कुरा",
+f1:"सम्पन्न अघि सामग्री सूची",f2:"गर्न नसकिएका देखाउने तर दोष नदिने",
+f3:"\"मूल्याङ्कनमा प्रयोग हुँदैन\" स्पष्ट",f4:"नाघेमा नीलो सूचना मात्र",
+f5:"श्रेणी वा तुलना नदेखाउने",f6:"सधैं \"फर्की सुधार्ने\""}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const s=this.dataset.s,ng=document.getElementById('ng'),ov=document.getElementById('ovm'),
+he=document.getElementById('he'),ht=document.getElementById('ht'),
+v1=document.getElementById('v1'),v2=document.getElementById('v2'),v3=document.getElementById('v3');
+ng.style.display=s==='ng'?'':'none';ov.style.display=s==='over'?'':'none';
+if(s==='ng'){he.textContent='📋';v1.className='st2 ng';v1.textContent='15 / 16（× 1）';
+ht.innerHTML='⏱ 14:02 → 14:56 · 実作業 48分'}
+else if(s==='over'){he.textContent='📋';v1.className='st2 ok';v1.textContent='16 / 16 ✓';
+ht.innerHTML='⏱ 14:02 → 15:04 · 実作業 <b>62分</b>';
+v2.innerHTML='1回';v3.innerHTML='62分'}
+else{he.textContent='✓';v1.className='st2 ok';v1.textContent='16 / 16 ✓';
+ht.innerHTML='⏱ 14:02 → 14:56 · 実作業 48分';v2.innerHTML='0回';v3.innerHTML='48分'}});
+document.getElementById('bc2').onclick=()=>alert('完了しました\n\ntaskTimeLog に記録\n実作業時間を算出\n\n→ 02 タスク一覧 に戻ります');
+document.getElementById('bb2').onclick=()=>alert('→ 05 タスク詳細 に戻って修正できます');
+</script></body></html>

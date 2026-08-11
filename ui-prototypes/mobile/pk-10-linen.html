@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PK 10 — リネン記録</title><style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--brand:#123C32;--brand2:#1B5140;--accent:#B8893B;--accent2:#C09B4F;
+--bg:#F5F4EF;--surf:#FFF;--surf2:#FAF9F4;--line:#DDD9CB;
+--ink:#16211C;--ink2:#4A544E;--muted:#7A8480;
+--ok:#2E7D5B;--okbg:#DCECE4;--warn:#C56A28;--warnbg:#F8E4D4;
+--info:#3A5C8F;--infobg:#E3EAF5;--danger:#9C3B32;--dangerbg:#F6DFDC;
+--dirty:#8A8F88;--dirtybg:#ECEAE1}
+body.dark{--bg:#0E1613;--surf:#16211D;--surf2:#1B2823;--line:#2A3A34;
+--ink:#E8EDE9;--ink2:#B4C0BA;--muted:#7E8C86;--okbg:#153A2C;--warnbg:#3E2716;
+--infobg:#1A2740;--dangerbg:#3A1E1B;--dirtybg:#232B27;--ok:#5BC192;--warn:#E29556;
+--info:#7FA3DC;--danger:#D98B80;--dirty:#9AA39C}
+body{font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP","Noto Sans Myanmar","Noto Sans Devanagari",sans-serif;
+background:#0B0F0D;color:var(--ink);line-height:1.6}
+.ctl{position:sticky;top:0;z-index:99;background:#080C0A;border-bottom:1px solid #1E2A25;
+padding:11px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg{font-size:14px;font-weight:800;color:#E8EDE9}.lg em{color:var(--accent2);font-style:normal}
+.bt{font-size:10.5px;color:#00A8A8;background:#0d2622;padding:3px 9px;border-radius:5px;font-weight:700}
+.grp{display:flex;gap:4px;background:#111815;padding:4px;border-radius:8px;flex-wrap:wrap}
+.gb{padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#8C9A93;
+font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.gb.on{background:var(--accent);color:#1A1206}
+.gb.st.on{background:var(--brand2);color:#fff}
+.gl{font-size:10px;color:#5D6B64;align-self:center}
+.dm{margin-left:auto;padding:6px 12px;border-radius:7px;border:1px solid #2A3A34;
+background:#111815;color:#9BA8A1;font-size:11.5px;cursor:pointer;font-family:inherit}
+.page{padding:24px 20px;max-width:1200px;margin:0 auto}
+.hd h1{font-size:20px;color:#E8EDE9;margin-bottom:5px}
+.hd p{font-size:12.5px;color:#7E8C86;margin-bottom:20px;line-height:1.7}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ph{width:318px;border-radius:33px;padding:11px;background:var(--brand);
+box-shadow:0 16px 50px rgba(0,0,0,.62);flex-shrink:0}
+.sc{background:var(--bg);border-radius:24px;overflow:hidden;height:690px;
+display:flex;flex-direction:column;color:var(--ink);position:relative}
+.top{background:var(--brand);color:#fff;padding:12px 14px}
+.top .a{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.top .a .bk{opacity:.85;font-size:16px;cursor:pointer}
+.top .b{font-size:10.5px;color:#B9CFC2;margin-top:3px}
+.bd{flex:1;padding:12px;overflow-y:auto}
+.bd::-webkit-scrollbar{width:4px}
+.bd::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ft{display:flex;background:var(--surf);border-top:1px solid var(--line)}
+.ft div{flex:1;text-align:center;padding:10px 0 8px;font-size:9.5px;color:var(--muted);cursor:pointer}
+.ft div .i{display:block;font-size:20px;margin-bottom:2px}
+.ft div.on{color:var(--brand);font-weight:700}
+body.dark .ft div.on{color:var(--ok)}
+.big{width:100%;padding:19px;border-radius:12px;border:none;font-size:17px;font-weight:800;
+cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;
+display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+.big:active{transform:scale(.98)}
+.big.w{background:var(--warn)}.big.r{background:var(--danger)}.big.g{background:var(--ok)}
+.big.o{background:transparent;border:2px solid var(--line);color:var(--ink2);font-size:14px;padding:14px}
+.big.dis{opacity:.35;cursor:not-allowed}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.sec{font-size:11.5px;font-weight:800;color:var(--muted);margin:16px 0 8px;
+display:flex;align-items:center;justify-content:space-between}
+.sec .cn{font-weight:700}
+.cd{background:var(--surf);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:11px}
+.cd h4{font-size:12.5px;margin-bottom:10px;color:var(--ink2)}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+border-bottom:1px solid var(--line);font-size:12.5px}
+.rw:last-child{border:0}.rw b{font-variant-numeric:tabular-nums}
+.al{border-radius:11px;padding:13px;margin:11px 0;font-size:11.5px;line-height:1.65}
+.al.w{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.al.r{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.al.i{background:var(--infobg);border:1px solid var(--info);color:var(--info)}
+.al.g{background:var(--okbg);border:1px solid var(--ok);color:var(--ok)}
+.al b{display:block;margin-bottom:4px;font-size:12.5px}
+.panel{flex:1;min-width:330px}
+.card{background:#111815;border:1px solid #1E2A25;border-radius:11px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:#E8EDE9;margin-bottom:11px}
+.card p{font-size:12.5px;color:#A8B5AE;line-height:1.75;margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--accent2)}
+.card code{background:#0A100D;padding:1px 6px;border-radius:3px;font-size:11px;color:var(--accent2)}
+.card ul{list-style:none;margin-top:8px}
+.card li{font-size:12px;color:#A8B5AE;padding:6px 0 6px 20px;position:relative;line-height:1.6}
+.card li:before{content:"\u25b8";position:absolute;left:2px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+th{background:#16211D;color:#8C9A93;padding:8px 9px;border:1px solid #243029;text-align:left}
+td{background:#0E1613;color:#B4C0BA;padding:8px 9px;border:1px solid #243029}
+.hint{background:#0A100D;border-left:3px solid var(--accent);padding:10px 13px;
+font-size:11.5px;color:#9BA8A1;margin-top:11px;line-height:1.65}
+.rmk{background:#2a1a18;border-left:3px solid var(--danger);padding:10px 13px;
+font-size:11.5px;color:#e0b5ae;margin-top:11px;line-height:1.65}
+.fx{color:#5BC192}.nx{color:#D98B80}
+.q{font-size:14px;font-weight:700;margin:14px 0 10px;display:flex;align-items:center;gap:7px}
+.q .rq{font-size:9.5px;background:var(--dangerbg);color:var(--danger);padding:2px 7px;border-radius:4px}
+.q .op{font-size:9.5px;background:var(--dirtybg);color:var(--dirty);padding:2px 7px;border-radius:4px}
+.pk{display:grid;gap:8px;margin-bottom:16px}
+.pk.c2{grid-template-columns:repeat(2,1fr)}.pk.c3{grid-template-columns:repeat(3,1fr)}
+.pk.c4{grid-template-columns:repeat(4,1fr)}
+.pk .o{padding:16px 5px;border-radius:12px;border:2.5px solid var(--line);background:var(--surf);
+text-align:center;cursor:pointer;min-height:74px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.pk .o:active{transform:scale(.96)}
+.pk .o .i{font-size:25px;line-height:1}
+.pk .o .x{font-size:11px;font-weight:700;color:var(--ink2);line-height:1.2}
+.pk .o.on{border-color:var(--brand);background:var(--okbg)}
+.pk .o.on .x{color:var(--brand)}
+body.dark .pk .o.on .x{color:var(--ok)}
+.st{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.st .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st .lb .e{font-size:19px}
+.st .ct{display:flex;align-items:center;gap:11px}
+.st .mb{width:46px;height:46px;border-radius:11px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:23px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.st .mb:active{background:var(--okbg);border-color:var(--brand)}
+.st .vv{font-size:23px;font-weight:800;min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.st .vv.zero{color:var(--muted)}
+.tg2{display:flex;align-items:center;justify-content:space-between;background:var(--surf);
+border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}
+.tg2 .lb{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tg2 .sw{width:52px;height:30px;border-radius:16px;background:var(--dirtybg);
+position:relative;transition:.2s;flex-shrink:0}
+.tg2 .sw:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg2.on .sw{background:var(--ok)}.tg2.on .sw:after{left:25px}
+.ck{display:flex;align-items:center;gap:11px;background:var(--surf);border:1px solid var(--line);
+border-radius:11px;padding:13px;margin-bottom:8px;cursor:pointer}
+.ck .bx{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.ck.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.ck.on{background:var(--okbg);border-color:var(--ok)}
+.ck .tx{font-size:12.5px;flex:1}
+.ck .cm{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;
+background:var(--dangerbg);color:var(--danger);white-space:nowrap}
+.ck .cm.ok{background:var(--okbg);color:var(--ok)}
+.ck.fl{background:var(--dangerbg);border-color:var(--danger);border-width:2px}
+.tri{display:flex;gap:5px;flex-shrink:0}
+.tri .b{width:40px;height:40px;border-radius:9px;border:1.5px solid var(--line);
+background:var(--surf2);font-size:17px;font-weight:800;color:var(--ink2);cursor:pointer;font-family:inherit}
+.tri .b.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.tri .b.ng{background:var(--danger);border-color:var(--danger);color:#fff}
+.tri .b.na{font-size:14px}
+.ph2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.ph2 .p{aspect-ratio:1;border-radius:9px;background:var(--surf2);border:1px solid var(--line);
+display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);cursor:pointer}
+.ph2 .p.has{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.ph2 .p.add{border:2px dashed var(--line);font-size:22px}
+.tb{border-radius:14px;padding:15px;margin-bottom:11px;border:2px solid var(--line);background:var(--surf)}
+.tb.run{border-color:var(--warn);background:var(--warnbg)}
+.tb.rwk{border-color:var(--danger);background:var(--dangerbg)}
+.tb.dn{border-color:var(--ok);background:var(--okbg);opacity:.75}
+.tb .r1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.tb .no{font-size:34px;font-weight:800;line-height:1}
+.tb .tg{font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.tb .ty{font-size:12px;color:var(--ink2);margin-bottom:11px}
+.tb .mt{display:flex;gap:13px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.tb .wn{background:rgba(156,59,50,.13);border-radius:8px;padding:9px 11px;
+font-size:11.5px;margin-bottom:11px;line-height:1.5}
+.tabs{display:flex;gap:6px;padding:10px 12px 2px}
+.tabs .t{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;
+background:var(--surf);border:1px solid var(--line);color:var(--ink2);cursor:pointer}
+.tabs .t.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.lin{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:10px}
+.lin .hd2{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px}
+.lin .hd2 .nm{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.lin .hd2 .nm .e{font-size:20px}
+.lin .hd2 .df{font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;
+background:var(--dirtybg);color:var(--dirty)}
+.lin .hd2 .df.ne{background:var(--warnbg);color:var(--warn)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.g2 .cl{background:var(--surf2);border-radius:10px;padding:10px}
+.g2 .cl .k{font-size:9.5px;color:var(--muted);margin-bottom:6px;font-weight:700}
+.g2 .cl .ct{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.g2 .cl .mb{width:36px;height:36px;border-radius:9px;border:1.5px solid var(--line);
+background:var(--surf);font-size:18px;font-weight:800;color:var(--ink2);cursor:pointer;
+font-family:inherit;line-height:1}
+.g2 .cl .mb:active{background:var(--okbg)}
+.g2 .cl .vv{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;flex:1;text-align:center}
+.g2 .cl .vv.zero{color:var(--muted)}
+.dlt{font-size:10.5px;text-align:center;margin-top:9px;padding:7px;border-radius:7px;
+background:var(--infobg);color:var(--info);font-weight:700}
+.dlt.ng{background:var(--warnbg);color:var(--warn)}
+.sum{background:var(--brand);color:#fff;border-radius:12px;padding:14px;margin-bottom:12px}
+.sum .t2{font-size:11px;color:#B9CFC2;margin-bottom:9px;font-weight:700}
+.sum .r2{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0}
+.sum .r2 b{font-variant-numeric:tabular-nums}
+.sum .dv2{height:1px;background:rgba(255,255,255,.18);margin:8px 0}</style></head><body>
+<div class="ctl"><div class="lg">Proof<em>Keeping</em></div>
+<div class="bt">10 / 16 — リネン記録</div>
+<div class="grp"><span class="gl">LANG</span><button class="gb on" data-l="ja">日本語</button><button class="gb" data-l="en">EN</button>
+<button class="gb" data-l="zh">简中</button><button class="gb" data-l="vi">VN</button>
+<button class="gb" data-l="id">ID</button><button class="gb" data-l="my">MM</button>
+<button class="gb" data-l="ne">NE</button></div>
+<div class="grp"><span class="gl">STATE</span>
+<button class="gb st on" data-s="ok">差異なし</button>
+<button class="gb st" data-s="ng">差異あり</button></div>
+<button class="dm" id="dm">🌙 ダーク</button></div>
+<div class="page">
+<div class="hd"><h1 data-i="t">10. リネン記録</h1>
+<p data-i="d">回収と補充を左右2列で並べ、差分をその場で表示する。差分が出ても警告にはせず、事実として記録するだけ。数量が合わない理由は現場に多数あり、清掃員に説明責任を負わせない。</p></div>
+<div class="row">
+
+<div class="ph"><div class="sc">
+<div class="top"><div class="a"><span class="bk">←</span> 🧺 302 · <span data-i="ttl">リネン記録</span></div>
+<div class="b" data-i="sub">回収した数と補充した数を入力してください</div></div>
+<div class="bd">
+
+<div class="sum"><div class="t2" data-i="sm_t">📊 本日の集計（この施設）</div>
+<div class="r2"><span data-i="sm1">回収合計</span><b id="s1">42</b></div>
+<div class="r2"><span data-i="sm2">補充合計</span><b id="s2">45</b></div>
+<div class="dv2"></div>
+<div class="r2"><span data-i="sm3">差分</span><b id="s3">+3</b></div></div>
+
+<div class="lin"><div class="hd2"><div class="nm"><span class="e">🛏</span> <span data-i="i1">シーツ</span></div>
+<div class="df" data-i="dfl">既定値</div></div>
+<div class="g2"><div class="cl"><div class="k">↙ <span data-i="rec">回収</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="cl"><div class="k">↗ <span data-i="sup">補充</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div></div>
+<div class="dlt" data-i="same">回収と補充が一致しています</div></div>
+
+<div class="lin"><div class="hd2"><div class="nm"><span class="e">🛁</span> <span data-i="i2">バスタオル</span></div>
+<div class="df" data-i="dfl">既定値</div></div>
+<div class="g2"><div class="cl"><div class="k">↙ <span data-i="rec">回収</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="cl"><div class="k">↗ <span data-i="sup">補充</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div></div>
+<div class="dlt" data-i="same">回収と補充が一致しています</div></div>
+
+<div class="lin"><div class="hd2"><div class="nm"><span class="e">🧴</span> <span data-i="i3">フェイスタオル</span></div>
+<div class="df" data-i="dfl">既定値</div></div>
+<div class="g2"><div class="cl"><div class="k">↙ <span data-i="rec">回収</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="cl"><div class="k">↗ <span data-i="sup">補充</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div></div>
+<div class="dlt" data-i="same">回収と補充が一致しています</div></div>
+
+<div class="lin"><div class="hd2"><div class="nm"><span class="e">🦶</span> <span data-i="i4">バスマット</span></div>
+<div class="df" data-i="dfl">既定値</div></div>
+<div class="g2"><div class="cl"><div class="k">↙ <span data-i="rec">回収</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">1</span><button class="mb">＋</button></div></div>
+<div class="cl"><div class="k">↗ <span data-i="sup">補充</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">1</span><button class="mb">＋</button></div></div></div>
+<div class="dlt" data-i="same">回収と補充が一致しています</div></div>
+
+<div class="lin"><div class="hd2"><div class="nm"><span class="e">👘</span> <span data-i="i5">館内着</span></div>
+<div class="df" data-i="dfl">既定値</div></div>
+<div class="g2"><div class="cl"><div class="k">↙ <span data-i="rec">回収</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div>
+<div class="cl"><div class="k">↗ <span data-i="sup">補充</span></div>
+<div class="ct"><button class="mb">−</button><span class="vv">2</span><button class="mb">＋</button></div></div></div>
+<div class="dlt" data-i="same">回収と補充が一致しています</div></div>
+
+<button class="big" id="bs" style="margin-top:6px">✓ <span data-i="b_ok">この内容で記録</span></button>
+<button class="big o" style="margin-top:9px" id="bk3" data-i="b_skip">入力せずに戻る</button>
+</div>
+</div></div>
+
+<div class="panel">
+<div class="card"><h3>🎯 <span data-i="c1t">差分を警告にしない</span></h3>
+<p data-i="c1a">回収2枚・補充3枚のような差分は日常的に起きる。<b>差分は事実として記録するだけ</b>で、赤い警告や説明の要求は出さない。</p>
+<table><tr><th data-i="th_r">差分が出る理由</th><th data-i="th_f">誰の責任か</th></tr>
+<tr><td data-i="r1">前回の補充が不足していた</td><td data-i="f1">前日の運用</td></tr>
+<tr><td data-i="r2">客が持ち帰った</td><td data-i="f2">誰の責任でもない</td></tr>
+<tr><td data-i="r3">汚損で廃棄した</td><td data-i="f3">誰の責任でもない</td></tr>
+<tr><td data-i="r4">ワゴンの在庫が切れていた</td><td data-i="f4">供給側</td></tr>
+<tr><td data-i="r5">数え間違い</td><td data-i="f5">起きて当然</td></tr></table>
+<div class="rmk" data-i="c1r">❗ 差分の原因はほぼ清掃員の外にあります。ここで警告を出すと、数字を合わせるために嘘の値を入れる動機が生まれ、在庫管理のデータとして使えなくなります。</div></div>
+
+<div class="card"><h3>📐 <span data-i="c2t">左右2列にする理由</span></h3>
+<p data-i="c2a">回収と補充を縦に並べると、どちらの数字を入れているか分からなくなる。<b>↙回収</b>と<b>↗補充</b>を左右に並べ、矢印の向きで直感的に区別する。</p>
+<ul>
+<li data-i="l1">左=回収（部屋から持ち出す）</li>
+<li data-i="l2">右=補充（部屋に入れる）</li>
+<li data-i="l3">矢印は物の流れる方向を示す</li>
+<li data-i="l4">差分はその品目の直下に即座に表示</li>
+</ul></div>
+
+<div class="card"><h3>📊 <span data-i="c3t">上部の集計</span></h3>
+<p data-i="c3a">その日その施設での回収・補充の合計を常時表示する。1室ごとの差分は意味を持たないが、<b>施設単位の日次差分は在庫管理に直結する</b>。</p>
+<ul>
+<li data-i="s1">回収合計・補充合計・差分の3つのみ</li>
+<li data-i="s2">品目別の内訳はここでは出さない（管理画面で確認）</li>
+<li data-i="s3">他の清掃員の入力もリアルタイムに合算</li>
+<li data-i="s4">日次差分は在庫発注の参考値として P2 に連携</li>
+</ul></div>
+
+<div class="card"><h3>⚙️ <span data-i="c4t">既定値と品目設定</span></h3>
+<table><tr><th data-i="th_i2">品目</th><th data-i="th_d2">既定値の根拠</th></tr>
+<tr><td data-i="i1">シーツ</td><td data-i="d1">ベッド数と同数</td></tr>
+<tr><td data-i="i2">バスタオル</td><td data-i="d2">宿泊人数と同数</td></tr>
+<tr><td data-i="i3">フェイスタオル</td><td data-i="d3">宿泊人数と同数</td></tr>
+<tr><td data-i="i4">バスマット</td><td data-i="d4">1室1枚</td></tr>
+<tr><td data-i="i5">館内着</td><td data-i="d5">宿泊人数と同数</td></tr></table>
+<div class="hint" data-i="c4h">💡 既定値を変更すると「既定値」タグがオレンジの「変更あり」に変わります。どこを触ったかが一目で分かるようにしています。</div></div>
+
+<div class="card"><h3>✅ <span data-i="c5t">この画面の確定事項</span></h3>
+<ul>
+<li data-i="ff1">回収・補充を左右2列に配置</li>
+<li data-i="ff2">差分は事実として表示。警告にしない</li>
+<li data-i="ff3">差分の理由は聞かない</li>
+<li data-i="ff4">既定値をベッド数・宿泊人数から自動設定</li>
+<li data-i="ff5">上部に施設単位の日次集計を常時表示</li>
+<li data-i="ff6">入力せずに戻ることもできる</li>
+</ul></div>
+</div></div></div><script>const I18N={ja:{},
+en:{t:"10. Linen Record",
+d:"Collected and restocked are placed in two columns with the difference shown on the spot. A difference is never a warning — it is simply recorded as fact. There are many field reasons why counts do not match, and cleaners are not made accountable for them.",
+ttl:"Linen Record",sub:"Enter how many you collected and restocked",
+sm_t:"📊 Today's totals (this property)",sm1:"Collected",sm2:"Restocked",sm3:"Difference",
+i1:"Sheets",i2:"Bath towels",i3:"Face towels",i4:"Bath mats",i5:"Yukata",
+dfl:"default",chg:"changed",rec:"Collected",sup:"Restocked",
+same:"Collected and restocked match",
+b_ok:"Save this",b_skip:"Go back without entering",
+tb1:"Tasks",tb2:"Inspect",tb3:"Stats",tb4:"Settings",
+c1t:"A difference is not a warning",
+c1a:"Collecting 2 while restocking 3 happens every day. A <b>difference is only recorded as fact</b> — no red alert, no demand for an explanation.",
+th_r:"Why a difference appears",th_f:"Whose responsibility",
+r1:"The previous restock was short",f1:"Yesterday's operation",
+r2:"A guest took it home",f2:"Nobody's",
+r3:"Discarded because it was stained",f3:"Nobody's",
+r4:"The trolley had run out",f4:"The supply side",
+r5:"A miscount",f5:"Bound to happen",
+c1r:"❗ The causes are almost always outside the cleaner's control. A warning here would create an incentive to enter false numbers to make them match, destroying the data's value for inventory management.",
+c2t:"Why two columns",
+c2a:"Stacked vertically, it becomes unclear which number you are entering. <b>↙ Collected</b> on the left and <b>↗ Restocked</b> on the right are distinguished intuitively by the arrow direction.",
+l1:"Left = collected (taken out of the room)",
+l2:"Right = restocked (brought into the room)",
+l3:"Arrows show the direction goods flow",
+l4:"The difference appears immediately under that item",
+c3t:"The totals at the top",
+c3a:"Totals for that day and property stay visible. A single room's difference means little, but <b>the property's daily difference matters directly for inventory</b>.",
+s1:"Only three figures: collected, restocked, difference",
+s2:"No per-item breakdown here (available in the admin)",
+s3:"Other cleaners' entries are summed in real time",
+s4:"The daily difference feeds P2 as a reference for reordering",
+c4t:"Defaults and item settings",th_i2:"Item",th_d2:"Basis for the default",
+d1:"Same as the number of beds",d2:"Same as the guest count",
+d3:"Same as the guest count",d4:"One per room",d5:"Same as the guest count",
+c4h:"💡 Changing a default turns the \"default\" tag into an orange \"changed\" tag, so it is obvious at a glance what was touched.",
+c5t:"Decisions fixed on this screen",
+ff1:"Collected and restocked in two columns",
+ff2:"Differences shown as fact, never as warnings",
+ff3:"Reasons for differences are not asked",
+ff4:"Defaults set automatically from bed and guest counts",
+ff5:"Property-level daily totals always visible at the top",
+ff6:"Going back without entering is possible"},
+zh:{t:"10. 布草记录",
+d:"回收与补充左右两列并排，差分当场显示。差分不做成警告，只作为事实记录。数量不合的理由现场有很多，不让清扫员承担说明责任。",
+ttl:"布草记录",sub:"请输入回收数与补充数",
+sm_t:"📊 本日合计（该设施）",sm1:"回收合计",sm2:"补充合计",sm3:"差分",
+i1:"床单",i2:"浴巾",i3:"面巾",i4:"地垫",i5:"馆内服",
+dfl:"默认值",chg:"有变更",rec:"回收",sup:"补充",
+same:"回收与补充一致",
+b_ok:"按此记录",b_skip:"不输入返回",
+tb1:"任务",tb2:"检查",tb3:"实绩",tb4:"设置",
+c1t:"差分不做成警告",
+c1a:"回收 2 张・补充 3 张这样的差分每天都会发生。<b>差分只作为事实记录</b>，不出红色警告，也不要求说明。",
+th_r:"产生差分的理由",th_f:"是谁的责任",
+r1:"上次补充不足",f1:"前一天的运营",
+r2:"客人带走了",f2:"谁都没责任",
+r3:"因污损废弃了",f3:"谁都没责任",
+r4:"推车库存断了",f4:"供给侧",
+r5:"数错了",f5:"本来就会发生",
+c1r:"❗ 差分的原因几乎都在清扫员之外。这里出警告会产生为了凑数而填假值的动机，结果作为库存管理的数据就没法用了。",
+c2t:"做成左右两列的理由",
+c2a:"回收和补充纵向排列时，会分不清自己在填哪个数字。<b>↙回收</b>放左、<b>↗补充</b>放右，用箭头方向直观区分。",
+l1:"左＝回收（从房间拿出）",
+l2:"右＝补充（放进房间）",
+l3:"箭头表示物品流动的方向",
+l4:"差分立即显示在该品目正下方",
+c3t:"顶部的合计",
+c3a:"常时显示当天该设施的回收・补充合计。单间的差分没有意义，但<b>设施单位的日次差分直接关系到库存管理</b>。",
+s1:"只有回收合计・补充合计・差分 3 项",
+s2:"品目别明细在这里不显示（在管理画面确认）",
+s3:"其他清扫员的输入也实时合算",
+s4:"日次差分作为库存订货的参考值联动到 P2",
+c4t:"默认值与品目设定",th_i2:"品目",th_d2:"默认值的依据",
+d1:"与床数相同",d2:"与住宿人数相同",
+d3:"与住宿人数相同",d4:"1 室 1 张",d5:"与住宿人数相同",
+c4h:"💡 修改默认值后，「默认值」标签会变成橙色的「有变更」。让人一眼看出改了哪里。",
+c5t:"本画面的确定事项",
+ff1:"回收・补充配置为左右两列",
+ff2:"差分作为事实显示，不做成警告",
+ff3:"不询问差分的理由",
+ff4:"默认值按床数・住宿人数自动设定",
+ff5:"顶部常时显示设施单位的日次合计",
+ff6:"也可以不输入直接返回"},
+vi:{t:"10. Ghi nhận khăn vải",
+d:"Thu về và bổ sung xếp hai cột, chênh lệch hiện ngay. Chênh lệch không phải cảnh báo, chỉ ghi như sự thật.",
+ttl:"Ghi nhận khăn vải",sub:"Nhập số đã thu và số đã bổ sung",
+sm_t:"📊 Tổng hôm nay (cơ sở này)",sm1:"Đã thu",sm2:"Đã bổ sung",sm3:"Chênh lệch",
+i1:"Ga giường",i2:"Khăn tắm",i3:"Khăn mặt",i4:"Thảm tắm",i5:"Áo yukata",
+dfl:"mặc định",chg:"đã đổi",rec:"Thu về",sup:"Bổ sung",
+same:"Thu và bổ sung khớp nhau",b_ok:"Lưu như vậy",b_skip:"Trở về không nhập",
+tb1:"Việc",tb2:"Kiểm tra",tb3:"Thành tích",tb4:"Cài đặt",
+c1t:"Chênh lệch không phải cảnh báo",
+c1a:"Thu 2 mà bổ sung 3 xảy ra hằng ngày. <b>Chênh lệch chỉ được ghi như sự thật</b> — không báo đỏ, không đòi giải thích.",
+th_r:"Vì sao có chênh lệch",th_f:"Trách nhiệm của ai",
+r1:"Lần bổ sung trước thiếu",f1:"Vận hành hôm trước",
+r2:"Khách mang về",f2:"Không của ai",
+r3:"Bỏ vì bị vết bẩn",f3:"Không của ai",
+r4:"Xe đẩy đã hết",f4:"Bên cung ứng",
+r5:"Đếm sai",f5:"Chuyện tất yếu",
+c1r:"❗ Nguyên nhân gần như luôn ngoài tầm nhân viên. Cảnh báo ở đây sẽ tạo động cơ nhập số sai cho khớp, phá giá trị dữ liệu kho.",
+c2t:"Vì sao hai cột",
+c2a:"Xếp dọc sẽ không rõ đang nhập số nào. <b>↙ Thu</b> bên trái và <b>↗ Bổ sung</b> bên phải phân biệt trực quan bằng hướng mũi tên.",
+l1:"Trái = thu về (mang ra khỏi phòng)",l2:"Phải = bổ sung (mang vào phòng)",
+l3:"Mũi tên chỉ hướng hàng di chuyển",l4:"Chênh lệch hiện ngay dưới mục đó",
+c3t:"Tổng ở phía trên",
+c3a:"Tổng của ngày và cơ sở luôn hiển thị. Chênh lệch một phòng ít ý nghĩa, nhưng <b>chênh lệch ngày của cơ sở liên quan trực tiếp tới kho</b>.",
+s1:"Chỉ ba số: thu, bổ sung, chênh lệch",s2:"Không chi tiết theo mục ở đây",
+s3:"Số của nhân viên khác cộng theo thời gian thực",s4:"Chênh lệch ngày đưa vào P2 để tham chiếu đặt hàng",
+c4t:"Mặc định và cài đặt vật phẩm",th_i2:"Vật phẩm",th_d2:"Căn cứ mặc định",
+d1:"Bằng số giường",d2:"Bằng số khách",d3:"Bằng số khách",d4:"Một cái mỗi phòng",d5:"Bằng số khách",
+c4h:"💡 Đổi mặc định sẽ biến thẻ \"mặc định\" thành thẻ cam \"đã đổi\".",
+c5t:"Quyết định đã chốt",
+ff1:"Thu và bổ sung hai cột",ff2:"Chênh lệch là sự thật, không cảnh báo",
+ff3:"Không hỏi lý do chênh lệch",ff4:"Mặc định từ số giường và số khách",
+ff5:"Tổng ngày của cơ sở luôn hiện ở đầu",ff6:"Có thể trở về không nhập"},
+id:{t:"10. Catatan Linen",
+d:"Diambil dan diisi ulang ditempatkan dua kolom dengan selisih tampil langsung. Selisih bukan peringatan, hanya dicatat sebagai fakta.",
+ttl:"Catatan Linen",sub:"Masukkan jumlah yang diambil dan diisi ulang",
+sm_t:"📊 Total hari ini (properti ini)",sm1:"Diambil",sm2:"Diisi ulang",sm3:"Selisih",
+i1:"Sprei",i2:"Handuk mandi",i3:"Handuk muka",i4:"Keset",i5:"Yukata",
+dfl:"default",chg:"diubah",rec:"Diambil",sup:"Diisi ulang",
+same:"Diambil dan diisi ulang cocok",b_ok:"Simpan ini",b_skip:"Kembali tanpa mengisi",
+tb1:"Tugas",tb2:"Inspeksi",tb3:"Statistik",tb4:"Setelan",
+c1t:"Selisih bukan peringatan",
+c1a:"Mengambil 2 tapi mengisi 3 terjadi tiap hari. <b>Selisih hanya dicatat sebagai fakta</b> — tanpa peringatan merah, tanpa tuntutan penjelasan.",
+th_r:"Mengapa selisih muncul",th_f:"Tanggung jawab siapa",
+r1:"Pengisian sebelumnya kurang",f1:"Operasi hari sebelumnya",
+r2:"Tamu membawanya pulang",f2:"Bukan siapa-siapa",
+r3:"Dibuang karena kotor",f3:"Bukan siapa-siapa",
+r4:"Troli sudah habis",f4:"Sisi pasokan",
+r5:"Salah hitung",f5:"Pasti terjadi",
+c1r:"❗ Penyebabnya hampir selalu di luar kendali petugas. Peringatan di sini memicu pengisian angka palsu agar cocok, merusak nilai data untuk manajemen persediaan.",
+c2t:"Mengapa dua kolom",
+c2a:"Ditumpuk vertikal membuat tak jelas angka mana yang diisi. <b>↙ Diambil</b> di kiri dan <b>↗ Diisi ulang</b> di kanan dibedakan lewat arah panah.",
+l1:"Kiri = diambil (dibawa keluar kamar)",l2:"Kanan = diisi ulang (dibawa ke kamar)",
+l3:"Panah menunjukkan arah aliran barang",l4:"Selisih muncul langsung di bawah item itu",
+c3t:"Total di bagian atas",
+c3a:"Total hari dan properti selalu terlihat. Selisih satu kamar tak berarti, tapi <b>selisih harian properti langsung berkaitan dengan persediaan</b>.",
+s1:"Hanya tiga angka: diambil, diisi, selisih",s2:"Tanpa rincian per item di sini",
+s3:"Entri petugas lain dijumlahkan real time",s4:"Selisih harian masuk P2 sebagai acuan pemesanan",
+c4t:"Default dan setelan item",th_i2:"Item",th_d2:"Dasar default",
+d1:"Sama dengan jumlah tempat tidur",d2:"Sama dengan jumlah tamu",
+d3:"Sama dengan jumlah tamu",d4:"Satu per kamar",d5:"Sama dengan jumlah tamu",
+c4h:"💡 Mengubah default membuat tag \"default\" menjadi tag oranye \"diubah\".",
+c5t:"Keputusan yang ditetapkan",
+ff1:"Diambil dan diisi dalam dua kolom",ff2:"Selisih sebagai fakta, bukan peringatan",
+ff3:"Alasan selisih tidak ditanyakan",ff4:"Default dari jumlah tempat tidur dan tamu",
+ff5:"Total harian properti selalu di atas",ff6:"Bisa kembali tanpa mengisi"},
+my:{t:"၁၀. အခင်းအိပ်ရာ မှတ်တမ်း",
+d:"ပြန်သိမ်းမှုနှင့် ဖြည့်တင်းမှုကို ဘယ်ယာ ၂ တန်း စီ၍ ကွာဟမှုကို ချက်ချင်း ပြသည်။ ကွာဟမှုကို သတိပေးချက်မဟုတ်ဘဲ အချက်အလက်အဖြစ်သာ မှတ်သည်။",
+ttl:"အခင်းမှတ်တမ်း",sub:"ပြန်သိမ်းအရေအတွက်နှင့် ဖြည့်တင်းအရေအတွက် ထည့်ပါ",
+sm_t:"📊 ဒီနေ့စုစုပေါင်း（ဤအဆောက်အအုံ）",sm1:"ပြန်သိမ်းစုစုပေါင်း",sm2:"ဖြည့်တင်းစုစုပေါင်း",sm3:"ကွာဟမှု",
+i1:"အိပ်ရာခင်း",i2:"ရေချိုးတဘက်",i3:"မျက်နှာသုတ်",i4:"ရေချိုးခန်းဖျာ",i5:"ဟိုတယ်အင်္ကျီ",
+dfl:"မူရင်း",chg:"ပြောင်းပြီး",rec:"ပြန်သိမ်း",sup:"ဖြည့်တင်း",
+same:"ပြန်သိမ်းနှင့် ဖြည့်တင်း ကိုက်ညီသည်",b_ok:"ဤအတိုင်းမှတ်",b_skip:"မထည့်ဘဲ ပြန်",
+tb1:"အလုပ်",tb2:"စစ်ဆေး",tb3:"မှတ်တမ်း",tb4:"ဆက်တင်",
+c1t:"ကွာဟမှုကို သတိပေးချက် မလုပ်ပါ",
+c1a:"ပြန်သိမ်း ၂ ・ဖြည့်တင်း ၃ ကဲ့သို့ ကွာဟမှုသည် နေ့စဉ်ဖြစ်သည်။ <b>ကွာဟမှုကို အချက်အလက်အဖြစ်သာ မှတ်သည်</b>။",
+th_r:"ကွာဟမှုဖြစ်ရသည့်အကြောင်း",th_f:"မည်သူ့တာဝန်",
+r1:"ရှေးဖြည့်တင်းမှု လိုအပ်နေခဲ့",f1:"ယမန်နေ့လုပ်ငန်း",
+r2:"ဧည့်သည် ယူသွားခဲ့",f2:"မည်သူ့တာဝန်မှ မဟုတ်",
+r3:"အညစ်ကြေးဖြင့် စွန့်ပစ်ခဲ့",f3:"မည်သူ့တာဝန်မှ မဟုတ်",
+r4:"လှည်းတွင် ပစ္စည်းပြတ်နေခဲ့",f4:"ပေးသွင်းဘက်",
+r5:"အရေအတွက် မှားခဲ့",f5:"ဖြစ်လာမည်မှာ သဘာဝ",
+c1r:"❗ ကွာဟမှုအကြောင်းရင်းသည် အားလုံးနီးပါး ဝန်ထမ်းအပြင်တွင် ရှိသည်။ ဤတွင် သတိပေးပါက အရေအတွက်ကိုက်စေရန် လိမ်လည်တန်ဖိုးထည့်မိမည်။",
+c2t:"ဘယ်ယာ ၂ တန်း လုပ်ရသည့်အကြောင်း",
+c2a:"ပြန်သိမ်းနှင့် ဖြည့်တင်းကို ဒေါင်လိုက်စီပါက မည်သည့်နံပါတ် ထည့်နေမှန် မသိတော့ပါ။ <b>↙ပြန်သိမ်း</b> ဘယ်၊ <b>↗ဖြည့်တင်း</b> ယာ ထား၍ မြားဦးတည်ရာဖြင့် ခွဲသည်။",
+l1:"ဘယ်＝ပြန်သိမ်း（အခန်းမှ ထုတ်）",l2:"ယာ＝ဖြည့်တင်း（အခန်းသို့ ထည့်）",
+l3:"မြားသည် ပစ္စည်းစီးဆင်းရာ ဦးတည်ချက်",l4:"ကွာဟမှုကို အမျိုးအစားအောက်တွင် ချက်ချင်းပြ",
+c3t:"အထက်ပိုင်း စုစုပေါင်း",
+c3a:"ထိုနေ့ ထိုအဆောက်အအုံ၏ စုစုပေါင်းကို အမြဲပြသည်။ အခန်းတစ်ခု၏ကွာဟမှု အဓိပ္ပါယ်မရှိသော်လည်း <b>အဆောက်အအုံအလိုက် နေ့စဉ်ကွာဟမှုသည် စတော့ခ်စီမံမှုနှင့် တိုက်ရိုက်ဆက်စပ်သည်</b>။",
+s1:"ပြန်သိမ်း・ဖြည့်တင်း・ကွာဟမှု ၃ ခုသာ",s2:"အမျိုးအစားအလိုက်အသေးစိတ် ဤတွင် မပြ",
+s3:"အခြားဝန်ထမ်းများ၏ ထည့်သွင်းမှုပါ ချက်ချင်းပေါင်း",s4:"နေ့စဉ်ကွာဟမှုကို P2 သို့ ပစ္စည်းမှာယူမှုအညွှန်းအဖြစ် ပေးပို့",
+c4t:"မူရင်းတန်ဖိုးနှင့် အမျိုးအစားသတ်မှတ်ချက်",th_i2:"အမျိုးအစား",th_d2:"မူရင်းတန်ဖိုးအခြေခံ",
+d1:"အိပ်ရာအရေအတွက်နှင့် တူ",d2:"တည်းခိုသူအရေအတွက်နှင့် တူ",
+d3:"တည်းခိုသူအရေအတွက်နှင့် တူ",d4:"အခန်းတစ်ခု တစ်ခု",d5:"တည်းခိုသူအရေအတွက်နှင့် တူ",
+c4h:"💡 မူရင်းတန်ဖိုး ပြောင်းပါက \"မူရင်း\" တဲသည် လိမ္မော်ရောင် \"ပြောင်းပြီး\" ဖြစ်လာမည်။",
+c5t:"အတည်ပြုချက်",
+ff1:"ပြန်သိမ်း・ဖြည့်တင်း ဘယ်ယာ ၂ တန်း",ff2:"ကွာဟမှုကို အချက်အလက်အဖြစ်ပြ။ သတိပေးချက် မလုပ်",
+ff3:"ကွာဟမှုအကြောင်းရင်း မမေး",ff4:"မူရင်းတန်ဖိုးကို အလိုအလျောက်သတ်မှတ်",
+ff5:"အထက်တွင် အဆောက်အအုံအလိုက် နေ့စဉ်စုစုပေါင်း အမြဲပြ",ff6:"မထည့်ဘဲ ပြန်နိုင်"},
+ne:{t:"१०. लिनेन रेकर्ड",
+d:"संकलन र पुनःपूर्ति दुई स्तम्भमा राखिन्छ, फरक तुरुन्तै देखिन्छ। फरक चेतावनी होइन, तथ्यको रूपमा मात्र लेखिन्छ।",
+ttl:"लिनेन रेकर्ड",sub:"संकलन र पुनःपूर्ति संख्या हाल्नुहोस्",
+sm_t:"📊 आजको जोड (यो सुविधा)",sm1:"संकलन जोड",sm2:"पुनःपूर्ति जोड",sm3:"फरक",
+i1:"तनना",i2:"नुहाउने तौलिया",i3:"मुख तौलिया",i4:"बाथ म्याट",i5:"युकाता",
+dfl:"पूर्वनिर्धारित",chg:"बदलिएको",rec:"संकलन",sup:"पुनःपूर्ति",
+same:"संकलन र पुनःपूर्ति मिल्छ",b_ok:"यही सुरक्षित",b_skip:"नभरी फर्कने",
+tb1:"काम",tb2:"निरीक्षण",tb3:"नतिजा",tb4:"सेटिङ",
+c1t:"फरक चेतावनी होइन",
+c1a:"२ संकलन र ३ पुनःपूर्ति दैनिक हुन्छ। <b>फरक तथ्यको रूपमा मात्र लेखिन्छ</b> — रातो चेतावनी वा स्पष्टीकरणको माग हुँदैन।",
+th_r:"फरक किन आउँछ",th_f:"कसको जिम्मेवारी",
+r1:"अघिल्लो पुनःपूर्ति कम थियो",f1:"अघिल्लो दिनको सञ्चालन",
+r2:"पाहुनाले लगे",f2:"कसैको होइन",
+r3:"दाग लागेकोले फालिएको",f3:"कसैको होइन",
+r4:"ट्रलीमा सकिएको",f4:"आपूर्ति पक्ष",
+r5:"गन्तीमा गल्ती",f5:"हुनु स्वाभाविक",
+c1r:"❗ कारण प्रायः कर्मचारीको नियन्त्रण बाहिर हुन्छ। यहाँ चेतावनी दिँदा मिलाउन झूटो संख्या हाल्ने प्रेरणा बन्छ र मौज्दात डाटा बेकार हुन्छ।",
+c2t:"दुई स्तम्भ किन",
+c2a:"ठाडो राख्दा कुन संख्या हालेको अस्पष्ट हुन्छ। <b>↙ संकलन</b> बायाँ र <b>↗ पुनःपूर्ति</b> दायाँ राखी तीरको दिशाले छुट्याइन्छ।",
+l1:"बायाँ = संकलन (कोठाबाट बाहिर)",l2:"दायाँ = पुनःपूर्ति (कोठाभित्र)",
+l3:"तीरले सामानको बहाव देखाउँछ",l4:"फरक त्यही वस्तुको तल तुरुन्तै देखिन्छ",
+c3t:"माथिको जोड",
+c3a:"त्यो दिन र सुविधाको जोड सधैं देखिन्छ। एक कोठाको फरक अर्थपूर्ण छैन, तर <b>सुविधाको दैनिक फरक मौज्दातसँग सिधै सम्बन्धित छ</b>।",
+s1:"तीन अंक मात्र: संकलन, पुनःपूर्ति, फरक",s2:"यहाँ वस्तुगत विवरण छैन",
+s3:"अन्य कर्मचारीको इनपुट पनि तत्काल जोडिन्छ",s4:"दैनिक फरक P2 मा अर्डरको सन्दर्भ बन्छ",
+c4t:"पूर्वनिर्धारित र वस्तु सेटिङ",th_i2:"वस्तु",th_d2:"पूर्वनिर्धारितको आधार",
+d1:"ओछ्यान संख्या बराबर",d2:"पाहुना संख्या बराबर",
+d3:"पाहुना संख्या बराबर",d4:"प्रति कोठा एक",d5:"पाहुना संख्या बराबर",
+c4h:"💡 पूर्वनिर्धारित बदल्दा \"पूर्वनिर्धारित\" ट्याग सुन्तला \"बदलिएको\" बन्छ।",
+c5t:"तय भएका कुरा",
+ff1:"संकलन र पुनःपूर्ति दुई स्तम्भ",ff2:"फरक तथ्य, चेतावनी होइन",
+ff3:"फरकको कारण सोधिँदैन",ff4:"पूर्वनिर्धारित ओछ्यान र पाहुनाबाट",
+ff5:"सुविधाको दैनिक जोड सधैं माथि",ff6:"नभरी फर्कन सकिन्छ"}};const O={};
+document.querySelectorAll('[data-i]').forEach((e,i)=>{e.dataset.x=i;O[i]=e.innerHTML});
+function setL(l){document.querySelectorAll('[data-i]').forEach(e=>{
+const k=e.dataset.i,d=I18N[l];
+e.innerHTML=(l==='ja'||!d||d[k]===undefined)?O[e.dataset.x]:d[k]});
+document.documentElement.lang=l;
+document.querySelectorAll('.gb[data-l]').forEach(x=>x.classList.toggle('on',x.dataset.l===l))}
+document.querySelectorAll('.gb[data-l]').forEach(b=>b.onclick=()=>setL(b.dataset.l));
+document.getElementById('dm').onclick=function(){document.body.classList.toggle('dark');
+this.textContent=document.body.classList.contains('dark')?'☀️ ライト':'🌙 ダーク'};
+function upd(l){const v=l.querySelectorAll('.vv'),a=+v[0].textContent,b=+v[1].textContent,
+d=l.querySelector('.dlt'),tg=l.querySelector('.df');
+if(a===b){d.className='dlt';d.textContent='回収と補充が一致しています'}
+else{d.className='dlt ng';d.textContent='差分 '+(b-a>0?'+':'')+(b-a)+' 枚（記録のみ・問題ありません）'}
+let ch=false;const def=l.dataset.def.split(',');
+if(''+a!==def[0]||''+b!==def[1])ch=true;
+tg.className=ch?'df ne':'df';tg.textContent=ch?'変更あり':'既定値';tot()}
+function tot(){let r=0,s=0;document.querySelectorAll('.lin').forEach(l=>{
+const v=l.querySelectorAll('.vv');r+=+v[0].textContent;s+=+v[1].textContent});
+document.getElementById('s1').textContent=33+r;document.getElementById('s2').textContent=36+s;
+const d=(36+s)-(33+r);document.getElementById('s3').textContent=(d>0?'+':'')+d}
+document.querySelectorAll('.lin').forEach(l=>{
+const v=l.querySelectorAll('.vv');l.dataset.def=v[0].textContent+','+v[1].textContent;
+l.querySelectorAll('.mb').forEach(b=>b.onclick=function(){
+const vv=this.parentNode.querySelector('.vv');let n=+vv.textContent;
+n=this.textContent==='＋'?n+1:Math.max(0,n-1);vv.textContent=n;
+vv.classList.toggle('zero',n===0);upd(l)})});
+document.querySelectorAll('.gb.st').forEach(b=>b.onclick=function(){
+document.querySelectorAll('.gb.st').forEach(x=>x.classList.remove('on'));this.classList.add('on');
+const ng=this.dataset.s==='ng';document.querySelectorAll('.lin').forEach((l,i)=>{
+const v=l.querySelectorAll('.vv'),d=l.dataset.def.split(',');
+v[0].textContent=d[0];v[1].textContent=ng&&(i===1||i===4)?(+d[1]+1):d[1];
+v.forEach(x=>x.classList.toggle('zero',x.textContent==='0'));upd(l)})});
+document.getElementById('bs').onclick=()=>alert('リネン記録を保存しました\n\n→ 05 タスク詳細 に戻ります');
+document.getElementById('bk3').onclick=()=>alert('入力せずに戻ります');
+tot();
+</script></body></html>
