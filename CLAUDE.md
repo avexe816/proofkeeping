@@ -117,6 +117,7 @@ docs/                     仕様・task・進捗
 | `.claude/rules/ui-writing.md` | UI 文言・現場 UX・i18n | 画面を作るとき |
 | `.claude/rules/testing.md` | テスト方針・必須テスト | すべての PR |
 | `.claude/rules/billing.md` | インボイス・電帳法・端数処理 | 請求・領収を触るとき |
+| `docs/PK-IMPL-CONTRACT.md` | **不変条件 INV-01〜37・データ辞書・権限マトリクス・禁止語** | **すべての PR。第11章は実装前に必読** |
 
 ---
 
@@ -133,6 +134,16 @@ docs/                     仕様・task・進捗
 | `docs/PK-SPEC-P6.md` v1.0 | 外部連携と拡張 | M10–M11 |
 | `docs/PK-SPEC-P7.md` v1.0 | GA とスケール | M12 |
 | `docs/PK-SPEC-P8.md` v1.0 | Workforce と Inventory | GA後3〜6か月 |
+
+### UI 関連（画面を作るときは必読）
+
+| 文書 | 内容 |
+|---|---|
+| `docs/PK-IMPL-CONTRACT.md` | 実装契約。**仕様書と矛盾した場合はこちらを優先** |
+| `docs/PK-SPEC-UI.md` | 清掃員モバイル 16 画面の設計説明書 |
+| `docs/PK-SPEC-UI-A01.md` | v3 レイアウト標準（PC 全画面）。既存画面設計に優先する |
+| `docs/PK-BIZ-PLAN.md` | 版数構成（Base/Pro/Ent）と課金単位 |
+| `ui-prototypes/` | 動作する HTML プロトタイプ 55 画面。**見た目の正はここ** |
 
 **仕様の唯一の正は上記。** 本ファイルと矛盾する場合は仕様書を優先し、矛盾自体を `docs/OPEN_QUESTIONS.md` に報告する。
 
