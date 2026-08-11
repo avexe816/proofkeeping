@@ -72,7 +72,7 @@ export interface KvBindings {
    * この破損は無警告で進行する。
    *
    * 一括操作の対象になる `CONFIG` と同居させない。
-   * architecture.md §1 / docs/DECISIONS.md #004 を参照。
+   * architecture.md §1 / docs/DECISIONS.md #006 を参照。
    */
   SHARD_MAP: KVNamespace;
 }
