@@ -166,3 +166,44 @@
   100 組織では「全 16 シャードに 1 件以上（分岐の網羅）」を判定する。
   判定用の組織 ID は線形合同法で決定的に生成する。CI が確率的に落ちないこと、
   および将来ハッシュを変更した際に必ず気づけることを両立させるため。
+
+## #009 カスタム ESLint ルールの実装形式と allowlist の範囲
+- 日付: 2026-08-11
+- 状態: 採用
+- 背景: P0-04 で `no-direct-shard-access` / `no-raw-drizzle` を実装するにあたり、
+  (a) ESLint 上のどの形式で書くか、(b) 例外ファイルをどこに持たせるか、
+  (c) `no-raw-drizzle` の例外にリポジトリ層を含めるか、を決める必要があった。
+  (c) は仕様の記述がズレている。`docs/PK-SPEC-P0.md` §19.4 は
+  「リポジトリ以外のファイルで `drizzle(` を呼ぶことを lint で禁止する」と書き、
+  同 §19.3 は例外を「router.ts、マイグレーションランナー、シードのみ」と列挙している。
+- 選択肢:
+  1. `no-restricted-syntax` のセレクタで済ませる
+  2. rule object を書き、plugin オブジェクトにまとめて flat config へ `plugins` 登録する
+  3. 新規 workspace package `packages/eslint-plugin-pk` を切る
+- 決定: **2 を採用。** 実体は `packages/config/eslint/rules/*.js`、
+  束ねるのが `packages/config/eslint/plugin.js`、有効化が同 `base.js`。
+  例外リストは**ルール側の既定値**として持ち、flat config の `files` override では持たない。
+  `no-raw-drizzle` の例外は §19.3 の 3 ファイルのみとし、**リポジトリ層は含めない。**
+- 理由:
+  1 は却下。CLAUDE.md §4 と `.claude/rules/architecture.md` §1 がルールを固有名で
+  参照しているため、名前の付かない実装では違反メッセージからも docs からも辿れない。
+  ファイル単位の allowlist とユニットテストも持てない。
+  3 は却下。`packages/config/eslint/base.js` が既に置き場所を指定しており、
+  package を増やす必要がない。
+  例外をルール側に置くのは、`files` override に散らすと「例外ファイルで警告が出ない」
+  という P0-04 の完了条件を RuleTester で検証できなくなるため。
+  (c) で狭い方を採ったのは、P0-07 のリポジトリが `getTenantDb()` から db を
+  受け取る設計であり `drizzle(` を呼ぶ必要がないから。含めても穴が広がるだけで
+  得がない。リポジトリ側で必要になったら lint が止め、設計の誤りに気づける。
+- 影響:
+  **allowlist に書いたパスのうち 2 つはまだ存在しない。**
+  `packages/db/src/migrate.ts`（マイグレーションランナー。P0-06 が作る）と
+  `packages/db/src/seed.ts`（P0-18 が作る）。**この 2 つの task は
+  このファイル名を使うこと。** 別名で作った場合は lint がその場で落ちるので、
+  黙って例外が外れることはない。
+  適用範囲の与え方はルールの性質で分けた。アーキ 2 本はリポジトリ全域が禁止で
+  例外が数ファイルなのでルール側の allowlist、文言 2 本（`no-literal-string` /
+  `no-forbidden-words`）は適用対象がファイルの種類なので flat config の `files`。
+  `no-forbidden-words` を全 TS に当てないのは、`docs/PK-IMPL-CONTRACT.md` §5.1 の
+  禁止語に「エラー」「失敗」「異常」が含まれ、`throw new Error` 周りの通常の
+  コードまで落ちるため。§5.1 自身が対象を「UI文言」と限定している。

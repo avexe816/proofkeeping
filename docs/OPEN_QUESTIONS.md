@@ -21,6 +21,16 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 - 内容: Remix on Workers とするか、Next.js を OpenNext で載せるか。
 - 影響: P0-01, P0-14, 以降の全 UI タスク
 - 暫定対応: 1 週間の技術検証で決める
+- 補足（2026-08-11 / P0-04 実装中）: **`.tsx` は現在 ESLint で検査できない。**
+  `apps/web/tsconfig.json` の `include` が `src/**/*.ts` のみで、`jsx`
+  コンパイラオプションもどの tsconfig にも無いため、`.tsx` を置くと
+  ルール実行前に parse error になる（`was not found by the project service`）。
+  `jsx` の値（`react-jsx` / `preact` / Hono JSX）はフレームワークの決定に
+  依存するため P0-04 では決めていない。**最初の `.tsx` を作る P0-14 が、
+  tsconfig の `include` と `jsx` を同時に設定すること。** 設定を忘れた場合は
+  parse error として即座に現れるので、検査が黙って素通りすることはない。
+  `pk/no-literal-string` の検出能力は
+  `packages/config/eslint/rules/no-literal-string.spec.js` で担保してある。
 
 ### #002 最初に実接続する PMS
 - 提起: 未着手 / P6-06
