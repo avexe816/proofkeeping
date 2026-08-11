@@ -8,7 +8,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "pnpm --filter @pk/web dev",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/db/tsconfig.json && tsc --noEmit -p apps/web/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
     "test:isolation": "vitest run --dir tests/tenant-isolation --passWithNoTests",
@@ -22,6 +23,7 @@
     "eslint-config-prettier": "^9.1.0",
     "globals": "^15.12.0",
     "prettier": "^3.3.0",
+    "smol-toml": "^1.3.0",
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.15.0",
     "vitest": "^3.0.0"

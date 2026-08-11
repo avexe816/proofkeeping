@@ -1,4 +1,4 @@
 {
-  "extends": "@pk/config/tsconfig/library.json",
+  "extends": "@pk/config/tsconfig/worker.json",
   "include": ["src/**/*.ts"]
 }

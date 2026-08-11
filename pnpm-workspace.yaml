@@ -2,6 +2,12 @@ packages:
   - "apps/*"
   - "packages/*"
 
-# Vitest が依存する esbuild はネイティブバイナリの配置にビルドスクリプトを必要とする。
+# ネイティブバイナリの配置にビルドスクリプトを必要とするパッケージ。
+# ここに挙げないと pnpm がスクリプトを無視し、実行時に初めて壊れる。
 onlyBuiltDependencies:
+  # Vitest が依存する。
   - esbuild
+  # wrangler dev が使う Workers ランタイム本体（P0-02）。無いと dev が起動しない。
+  - workerd
+  # wrangler の画像処理まわりの依存（P0-02）。
+  - sharp

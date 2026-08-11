@@ -42,6 +42,18 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 - 内容: 清掃会社の兼務者を想定。Membership の設計上は可能だが UI が未定義。
 - 影響: P0-06, P0-14
 
+### #006 シャード明示マッピングを置く KV binding 名
+- 提起: 2026-08-11 / P0-02 実装中
+- 内容: `.claude/rules/architecture.md` §1 の `resolveShard()` のコード例は
+  `env.KV.get("shard:{organizationId}")` と binding 名 `KV` を使っている。
+  しかし P0-02 の task が作る KV namespace は `SESSION` / `RATELIMIT` /
+  `CONFIG` / `CREDENTIALS` の 4 本で、`KV` という namespace は存在しない。
+  ルールの例が古いのか、5 本目を作るべきなのかが判断できない。
+- 影響: P0-03（`resolveShard()` の実装）
+- 暫定対応: 設定キャッシュ用途の `CONFIG` に置く前提で `packages/db/src/env.ts` の
+  `Env` を定義し、`wrangler.toml` と `env.ts` の両方にコメントを残した。
+  P0-03 着手前に確定させたい。
+
 ---
 
 ## 解決済
