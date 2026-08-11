@@ -9,8 +9,13 @@ export {
   getTenantDb,
   resolveShard,
   shardIndexOf,
+  type ShardContext,
   type TenantContext,
 } from "./router.js";
+
+// リポジトリ層（P0-07）。テナント分離の第 1 層。
+// **アプリケーションコードは db から直に select しない。ここを通す。**
+export * from "./repositories/index.js";
 
 // ID 採番（P0-05）。テナント分離の第 2 層。ID を受け取ったら DB 問い合わせ前に
 // `assertIdBelongsToTenant()` を通すこと（一元化は P0-10 の withResourceGuard）。

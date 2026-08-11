@@ -48,19 +48,57 @@ import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 import type { Env } from "./env.js";
 import * as globalSchema from "./schema/global.js";
 import * as tenantSchema from "./schema/index.js";
+import type { Role } from "./schema/user.js";
 
 /**
- * リポジトリ関数が必須引数に取るテナント文脈。
+ * シャード解決と ID の自己記述検証に必要な最小限の文脈。
  *
- * ここでは解決に必要な最小限だけを持つ。`role` / `allowedPropertyIds` は
- * 施設スコープの絞り込み（architecture.md §2 第 1 層）で必要になるため
- * P0-07 / P0-10 が追加する。
+ * **`TenantContext` と分けてある理由**（P0-07 / docs/DECISIONS.md #016）:
+ * `TenantContext.allowedPropertyIds` は `membership` と `property_assignment` を
+ * 引かなければ作れない。その 2 つを引く関数までが `TenantContext` を要求すると、
+ * 認証（P0-08 / P0-10）が文脈を組み立てられなくなる（循環する）。
+ * ロールが確定する前でも作れる文脈をここに切り出し、
+ * **この型で足りるのは認証ブートストラップの 2 関数だけ**とする
+ * （`repositories/user.ts` の `findMembershipByUserId` / `listAssignedPropertyIds`）。
+ *
+ * 業務リポジトリはすべて `TenantContext` を要求すること。
  */
-export interface TenantContext {
+export interface ShardContext {
   /** 組織 ID。シャード解決のキー。 */
   organizationId: string;
   /** ID の自己記述検証に使う 6 桁英数（architecture.md §2 第 2 層）。 */
   orgShortId: string;
+}
+
+/**
+ * リポジトリ関数が必須引数に取るテナント文脈。
+ *
+ * 値を作るのはセッション middleware（P0-10）。**リクエストのボディ・クエリ・
+ * パス変数から `organizationId` を採らないこと**（PK-SPEC-P0 §19.4 / §19.5）。
+ */
+export interface TenantContext extends ShardContext {
+  /**
+   * `membership.role`。施設スコープの絞り込みに使う（architecture.md §2 第 1 層）。
+   *
+   * 1 ユーザーが複数ロールを持つ設計にはなっていない（`membership` は
+   * 組織 × ユーザーで unique）。
+   */
+  role: Role;
+  /**
+   * 施設スコープロールの担当施設。`property_assignment` から組み立てる
+   * （列としては持たせていない / P0-06 申し送り 1）。
+   *
+   * **空配列は「全施設」ではなく「1 件も見えない」を意味する。**
+   * 組織全体ロール（OWNER / ORG_ADMIN / AUDITOR）ではこの値を参照しない。
+   */
+  allowedPropertyIds: readonly string[];
+  /**
+   * 現在時刻。`createdAt` / `updatedAt` はこれを使う。
+   *
+   * リポジトリ層で `Date.now()` / `new Date()` を直接呼ばないこと
+   * （CLAUDE.md §5。`schema/columns.ts` の `timestamps` が前提にしている）。
+   */
+  now: Date;
 }
 
 /** シャード数の上限。仕様 §19.2 の「16 で固定。実行時に増減しない」。 */
@@ -205,10 +243,15 @@ export async function getShardBinding(env: Env, organizationId: string): Promise
  *
  * 渡すスキーマはテナントスコープの表だけ（`schema/index.ts`）。
  * 全局テーブルはここから引けない（P0-06）。
+ *
+ * 引数が `ShardContext` なのはシャード解決に組織 ID しか要らないため。
+ * `TenantContext` は部分型なのでそのまま渡せる。
+ * **返る db から直に `select()` しないこと。** クエリはリポジトリ関数を通し、
+ * `withTenantScope()` で `organizationId` 条件を必ず載せる（PK-SPEC-P0 §19.4 第1層）。
  */
 export async function getTenantDb(
   env: Env,
-  ctx: TenantContext,
+  ctx: ShardContext,
 ): Promise<DrizzleD1Database<typeof tenantSchema>> {
   return drizzle(await getShardBinding(env, ctx.organizationId), { schema: tenantSchema });
 }

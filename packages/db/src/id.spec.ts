@@ -36,7 +36,7 @@ import {
   type EntityPrefix,
   type RandomBytes,
 } from "./id.js";
-import type { TenantContext } from "./router.js";
+import type { ShardContext } from "./router.js";
 
 // ────────────────────────────────────────────────────────────
 // テストダブル
@@ -81,7 +81,7 @@ function expectedOrgShortId(value: number): string {
   );
 }
 
-const CTX: TenantContext = { organizationId: "org_alpha", orgShortId: "a2b3c4" };
+const CTX: ShardContext = { organizationId: "org_alpha", orgShortId: "a2b3c4" };
 
 // ────────────────────────────────────────────────────────────
 // entityPrefix レジストリ
@@ -447,12 +447,12 @@ describe("assertIdBelongsToTenant", () => {
 
   it("セッション側の orgShortId が壊れていたら通さない", () => {
     // 型を持たない呼び出し側から undefined 同士が一致してしまう経路を塞ぐ。
-    const broken: TenantContext = { organizationId: "org_alpha", orgShortId: "" };
+    const broken: ShardContext = { organizationId: "org_alpha", orgShortId: "" };
     expect(() => {
       assertIdBelongsToTenant(own, broken);
     }).toThrow(NotFoundError);
 
-    const missing = { organizationId: "org_alpha" } as unknown as TenantContext;
+    const missing = { organizationId: "org_alpha" } as unknown as ShardContext;
     expect(() => {
       assertIdBelongsToTenant(own, missing);
     }).toThrow(NotFoundError);

@@ -1,38 +1,54 @@
 # 実装進捗
 
-最終更新: 2026-08-11
+最終更新: 2026-08-11（P0-07 完了）
 
 ## 現在のセッション
 
 ```
-task: P0-06 スキーマ: 組織・ユーザー・施設
-状態: 完了。packages/db/src/schema/ に 14 テーブル（task の 13 + property）を定義し、
-      drizzle-kit で 0000_p0_initial.sql を生成、packages/db/src/migrate.ts に
-      16 シャードへの適用ランナーを実装した。orgShortId の全局一意は SHARD_00 の
-      org_directory と主キー制約で担保する（router.ts に getGlobalDb を追加）。
-      root package.json に db:generate / db:migrate を実体とともに追加した。
-      テスト 35 件を追加し、pnpm check（lint + typecheck + test 223 件）が通る。
-      ローカル（SHARD_COUNT=1）で生成 → check → 適用 → 3 回実行の冪等性まで実測済み。
-次: P0-07 リポジトリ層の雛形。
-申し送り 1: **getTenantDb() の戻り型が DrizzleD1Database<typeof schema> になった。**
-            P0-07 の scopeToProperties() は allowedPropertyIds を membership.role と
-            property_assignment から組み立てること（列としては持たせていない）。
-申し送り 2: **getGlobalDb() を getTenantDb() の代わりに使わないこと。**
-            返る DB のスキーマは schema/global.ts だけなので、テナント表を引く
-            コードは型が通らない。用途は org_directory のみ（DECISIONS #014）。
-            org_directory のテーブル定義は 16 シャード全部に流すが、実体は SHARD_00 のみ。
-申し送り 3: **entityPrefix を 13 個追加した（DECISIONS #013）。ID は永続データなので
-            綴りを変更できない。** 新テーブルを足す task は id.ts へ追記し由来を残すこと。
-申し送り 4: P0-18 は シードを packages/db/src/seed.ts という名前で作ること。
+task: P0-07 リポジトリ層の雛形
+状態: 完了。packages/db/src/repositories/ に base / organization / user / property / room を
+      実装した。全クエリの where は withTenantScope() が組み立て、
+      organizationId 条件と施設スコープを必ず載せる。TenantContext に
+      role / allowedPropertyIds / now を追加し、シャード解決だけに要る最小限を
+      ShardContext として切り出した（DECISIONS #016）。
+      テスト 47 件を追加し、pnpm check（lint + typecheck + test 270 件）が通る。
+次: P0-08 認証: メール＋パスワード。着手前に OPEN_QUESTIONS #014 の判断が要る。
+申し送り 1: **リポジトリ関数を追加したら repositories.spec.ts の INVOCATIONS に
+            1 行足すこと。** モジュールの export を走査しているため、登録が無い関数が
+            あるとテストが落ちる。登録すれば「organization_id 条件つきの SQL を発行する」
+            「越境 ID で DB へ触れずに NotFoundError」が自動で掛かる。
+申し送り 2: **ShardContext を取ってよいのは認証ブートストラップの 2 関数だけ。**
+            findMembershipByUserId / listAssignedPropertyIds。増やすと施設スコープの
+            掛からない経路が広がる。テストが 2 つに固定している（DECISIONS #016）。
+            P0-08 / P0-10 はこの 2 つから TenantContext を組み立てること。
+申し送り 3: **allowedPropertyIds の空配列は「全施設」ではなく「0 件」。**
+            scopeToProperties() が恒偽（1 = 0）を返す（DECISIONS #017）。
+            セッション構築側で「割当が無いから空にしておく」と書くと、
+            そのユーザーは何も見えなくなる。それが正しい挙動。
+申し送り 4: 組織全体ロールの列挙は base.ts の ORG_WIDE_ROLES（OWNER / ORG_ADMIN /
+            AUDITOR）。**ここに無いロールは施設スコープ扱いになる。** ROLES に
+            ロールを足すときは、組織全体で見せるなら必ずここへ追記すること。
+申し送り 5: getTenantDb() / assertIdBelongsToTenant() の引数型を ShardContext へ
+            緩めた。TenantContext は部分型なので既存の呼び出しは変わらない。
+            router.spec.ts / id.spec.ts の型注釈も ShardContext へ揃えてある。
+申し送り 6: **listUsers に施設の絞り込みは掛けていない（OPEN_QUESTIONS #016）。**
+            user / membership は propertyId を持たない。清掃スタッフが組織の
+            ユーザー一覧を取れてよいかは security.md に記述が無い。
+            到達可否は P0-10 の assertPermission() が判定する前提。**P0-10 の着手前に判断が要る。**
+申し送り 7: 越境テスト（tests/tenant-isolation/）は P0-13 の所有。P0-07 では作っていない。
+            リポジトリ層のテストは packages/db/src/repositories/*.spec.ts にある。
+            P0-13 は packages/db/src/test-support/fake-d1.ts を再利用できる。
+--- P0-06 からの申し送り（継続）---
+申し送り 8: P0-18 は シードを packages/db/src/seed.ts という名前で作ること。
             別名にすると allowlist から外れて lint が落ちる（DECISIONS #009）。
             seed / fixture に仕様書の例 `o7k2m9` を literal で書かないこと（DECISIONS #010）。
-申し送り 5: .tsx は現在 ESLint で検査できない。apps/web/tsconfig.json の include が
+申し送り 9: .tsx は現在 ESLint で検査できない。apps/web/tsconfig.json の include が
             src/**/*.ts のみで jsx オプションもどこにも無いため、置くと parse error に
             なる。P0-14 が include と jsx を同時に設定すること（OPEN_QUESTIONS #001）。
-申し送り 6: **文書間の食い違いを 5 件起票した（OPEN_QUESTIONS #011〜#015）。**
-            うち #011（role の語彙）は P0-10 の着手前、#013（PIN ログインの識別子）は
+申し送り 10: **文書間の食い違いは 6 件（OPEN_QUESTIONS #011〜#016）。**
+            #011（role の語彙）と #016 は P0-10 の着手前、#013（PIN ログインの識別子）は
             P0-09 の着手前、#014（メールから組織を解決する手段）は P0-08 の着手前に
-            人間の判断が要る。P0-06 は暫定の選択で進めてある。
+            人間の判断が要る。暫定の選択で進めてある。
 ブロッカー: P0-02 が未完のまま。実在する Cloudflare リソースは D1 の
             proofkeeping-shard-00 のみで、R2 / KV / Queue と残り 15 シャードは未作成。
             そのため pnpm dev による実環境での起動確認は P0-03〜P0-06 でも行えていない。
@@ -76,7 +92,15 @@ task: P0-06 スキーマ: 組織・ユーザー・施設
   - `room` の `isSellable` / `sourceType` / `externalRoomId` は追加済み。
     **P0-22 は ALTER TABLE ではなく画面と取込ロジックから始めてよい。**
   - 文書間の食い違いを OPEN_QUESTIONS #011〜#015 に起票した。
-- [ ] P0-07 リポジトリ層の雛形
+- [x] P0-07 リポジトリ層の雛形
+  - `withTenantScope()` が `organizationId` 条件と施設スコープを必ず載せる。
+    全リポジトリ関数の発行 SQL を `repositories.spec.ts` が表駆動で検証し、
+    **未登録の関数があると落ちる**（追加したら `INVOCATIONS` へ 1 行足す）。
+  - `TenantContext` に `role` / `allowedPropertyIds` / `now` を追加。
+    シャード解決だけに要る最小限は `ShardContext`（DECISIONS #016）。
+  - **担当施設が空の施設スコープロールは 0 件**（全件ではない / DECISIONS #017）。
+  - 実 D1 ではなく SQL を記録する代役で検証している（P0-02 が未完のため）。
+    実 DB に対する越境の実測は P0-13 の担当。
 - [ ] P0-08 認証: メール＋パスワード
 - [ ] P0-09 認証: PIN ログイン
 - [ ] P0-10 認可: 権限マトリクス
