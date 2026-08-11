@@ -4,6 +4,7 @@
 // `shardIndexOf` / `fnv1a32` は明示マッピングを見ないため、通常の経路では使わない。
 export {
   fnv1a32,
+  getGlobalDb,
   getShardBinding,
   getTenantDb,
   resolveShard,
@@ -36,6 +37,35 @@ export {
 // エラー（P0-05）。HTTP への写像は呼び出し側（P0-10）の責務。
 // 後続 task はこれを再定義せず再エクスポートで取り込むこと。
 export { NotFoundError } from "./errors.js";
+
+// Drizzle スキーマ（P0-06）。テナントスコープの表のみ。
+// 全局テーブル（org_directory）は `getGlobalDb()` 経由でしか引けない。
+export * from "./schema/index.js";
+export { schemaVersion } from "./schema/meta.js";
+
+// orgShortId の全局レジストリ（P0-06）。組織作成の手順は orgDirectory.ts の冒頭を読むこと。
+export {
+  createOrgShortIdTaken,
+  lookupOrganizationId,
+  reserveOrgShortId,
+  type ReserveOrgShortIdInput,
+} from "./orgDirectory.js";
+
+// マイグレーションランナー（P0-06）。CLI の入口は scripts/db-migrate.ts。
+export {
+  SCHEMA_VERSION_DDL,
+  buildRecordSql,
+  computeChecksum,
+  planPending,
+  runMigrations,
+  type AppliedMigration,
+  type MigrateDeps,
+  type MigrateOptions,
+  type MigrateResult,
+  type MigrationSource,
+  type ShardStatus,
+  type ShardTarget,
+} from "./migrate.js";
 
 // Workers の binding 定義（P0-02）。router.ts が `Env` を受け取るため db 側に置いている。
 export type {

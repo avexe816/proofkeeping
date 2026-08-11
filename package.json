@@ -9,6 +9,8 @@
   },
   "scripts": {
     "dev": "pnpm --filter @pk/web dev",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node scripts/db-migrate.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/db/tsconfig.json && tsc --noEmit -p apps/web/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
@@ -19,6 +21,7 @@
     "@eslint/js": "^9.15.0",
     "@pk/config": "workspace:*",
     "@types/node": "^22.9.0",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.15.0",
     "eslint-config-prettier": "^9.1.0",
     "globals": "^15.12.0",

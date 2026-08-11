@@ -5,35 +5,40 @@
 ## 現在のセッション
 
 ```
-task: P0-05 ID 採番
-状態: 完了。packages/db/src/id.ts に generateOrgShortId / generateId / parseId /
-      assertIdBelongsToTenant / createUlidFactory / ENTITY_PREFIXES を実装した。
-      ULID は独自実装（単調増加ファクトリ）。依存パッケージは増やしていない。
-      NotFoundError は packages/db/src/errors.ts に最小定義した（所有 task が無いため）。
-      テスト 43 件を追加し、pnpm check（lint + typecheck + test 188 件）が通る。
-次: P0-06 スキーマ: 組織・ユーザー・施設。
-申し送り 1: **orgShortId のグローバル一意性の保管場所が未決（OPEN_QUESTIONS #009）。**
-            generateOrgShortId(isTaken) の isTaken は必須の依存注入にしてある。
-            組織は 16 シャードへ分散するため単一シャードの UNIQUE では担保できない。
-            SHARD_MAP に相乗りさせないこと。P0-06 がこの回答を必要とする。
-申し送り 2: **ENTITY_PREFIXES は仕様に定義のある 11 個しか無い（OPEN_QUESTIONS #010）。**
-            P0-06 が作る 13 テーブルの接頭辞は仕様のどこにも書かれていない。
-            推測で足さず、決めたら id.ts へ追記し由来を DECISIONS に残すこと。
-申し送り 3: seed / fixture に仕様書の例 `o7k2m9` を literal で書かないこと。
-            生成 alphabet は `o` を含まないため生成器では作れない値（DECISIONS #010）。
-            検証側は `[0-9a-z]{6}` で受けるので parse は通る。
-申し送り 4: P0-06 は マイグレーションランナーを packages/db/src/migrate.ts、
-            P0-18 は シードを packages/db/src/seed.ts という名前で作ること。
+task: P0-06 スキーマ: 組織・ユーザー・施設
+状態: 完了。packages/db/src/schema/ に 14 テーブル（task の 13 + property）を定義し、
+      drizzle-kit で 0000_p0_initial.sql を生成、packages/db/src/migrate.ts に
+      16 シャードへの適用ランナーを実装した。orgShortId の全局一意は SHARD_00 の
+      org_directory と主キー制約で担保する（router.ts に getGlobalDb を追加）。
+      root package.json に db:generate / db:migrate を実体とともに追加した。
+      テスト 35 件を追加し、pnpm check（lint + typecheck + test 223 件）が通る。
+      ローカル（SHARD_COUNT=1）で生成 → check → 適用 → 3 回実行の冪等性まで実測済み。
+次: P0-07 リポジトリ層の雛形。
+申し送り 1: **getTenantDb() の戻り型が DrizzleD1Database<typeof schema> になった。**
+            P0-07 の scopeToProperties() は allowedPropertyIds を membership.role と
+            property_assignment から組み立てること（列としては持たせていない）。
+申し送り 2: **getGlobalDb() を getTenantDb() の代わりに使わないこと。**
+            返る DB のスキーマは schema/global.ts だけなので、テナント表を引く
+            コードは型が通らない。用途は org_directory のみ（DECISIONS #014）。
+            org_directory のテーブル定義は 16 シャード全部に流すが、実体は SHARD_00 のみ。
+申し送り 3: **entityPrefix を 13 個追加した（DECISIONS #013）。ID は永続データなので
+            綴りを変更できない。** 新テーブルを足す task は id.ts へ追記し由来を残すこと。
+申し送り 4: P0-18 は シードを packages/db/src/seed.ts という名前で作ること。
             別名にすると allowlist から外れて lint が落ちる（DECISIONS #009）。
+            seed / fixture に仕様書の例 `o7k2m9` を literal で書かないこと（DECISIONS #010）。
 申し送り 5: .tsx は現在 ESLint で検査できない。apps/web/tsconfig.json の include が
             src/**/*.ts のみで jsx オプションもどこにも無いため、置くと parse error に
             なる。P0-14 が include と jsx を同時に設定すること（OPEN_QUESTIONS #001）。
+申し送り 6: **文書間の食い違いを 5 件起票した（OPEN_QUESTIONS #011〜#015）。**
+            うち #011（role の語彙）は P0-10 の着手前、#013（PIN ログインの識別子）は
+            P0-09 の着手前、#014（メールから組織を解決する手段）は P0-08 の着手前に
+            人間の判断が要る。P0-06 は暫定の選択で進めてある。
 ブロッカー: P0-02 が未完のまま。実在する Cloudflare リソースは D1 の
             proofkeeping-shard-00 のみで、R2 / KV / Queue と残り 15 シャードは未作成。
-            そのため pnpm dev による実環境での起動確認は P0-03〜P0-05 でも行えていない。
-            P0-05 の id.ts は Env / D1 binding に依存しない純粋なモジュールで、
-            crypto.getRandomValues は Workers と Node の双方の global にあるため
-            このブロッカーの影響を受けない。
+            そのため pnpm dev による実環境での起動確認は P0-03〜P0-06 でも行えていない。
+            P0-06 の完了条件「16 シャードすべてに適用できる」は**未達**。
+            ローカル 1 シャードでの実測と、注入した代役による分岐の検証まで。
+            **P0-02 の完了後に 16 本での適用を確認すること。**
 ```
 
 補足: UI フレームワーク（OPEN_QUESTIONS #001）は未決のまま。`apps/web` は Hono のみ。
@@ -63,7 +68,14 @@ task: P0-05 ID 採番
     どこで保証するかは未決（OPEN_QUESTIONS #009）。P0-06 が実装する。
   - ULID は `ulid` パッケージを使わず独自実装。Workers は I/O の合間に時計を
     進めないため、単調増加カウンタが無いと一括生成の順序が崩れる（DECISIONS #011）。
-- [ ] P0-06 スキーマ: 組織・ユーザー・施設 ★最優先
+- [x] P0-06 スキーマ: 組織・ユーザー・施設 ★最優先
+  - 完了条件「マイグレーションが 16 シャードすべてに適用できる」は**未達**。
+    P0-02 が未完で実在する D1 が 1 本しかない。ローカル（SHARD_COUNT=1）で
+    生成・適用・冪等性・不一致検出まで実測し、16 シャードの順次適用と失敗時の
+    中止は `packages/db/src/migrate.spec.ts` の代役で検証している。
+  - `room` の `isSellable` / `sourceType` / `externalRoomId` は追加済み。
+    **P0-22 は ALTER TABLE ではなく画面と取込ロジックから始めてよい。**
+  - 文書間の食い違いを OPEN_QUESTIONS #011〜#015 に起票した。
 - [ ] P0-07 リポジトリ層の雛形
 - [ ] P0-08 認証: メール＋パスワード
 - [ ] P0-09 認証: PIN ログイン

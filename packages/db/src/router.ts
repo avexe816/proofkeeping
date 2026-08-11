@@ -46,6 +46,8 @@
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 
 import type { Env } from "./env.js";
+import * as globalSchema from "./schema/global.js";
+import * as tenantSchema from "./schema/index.js";
 
 /**
  * リポジトリ関数が必須引数に取るテナント文脈。
@@ -201,8 +203,37 @@ export async function getShardBinding(env: Env, organizationId: string): Promise
  * 同 §19.3 の `resolveShard` に明示マッピングが無く、architecture.md §1 と
  * P0-03 の完了条件が KV 優先を要求している（OPEN_QUESTIONS #008）。
  *
- * schema 引数は Drizzle スキーマを追加する P0-06 で渡す。
+ * 渡すスキーマはテナントスコープの表だけ（`schema/index.ts`）。
+ * 全局テーブルはここから引けない（P0-06）。
  */
-export async function getTenantDb(env: Env, ctx: TenantContext): Promise<DrizzleD1Database> {
-  return drizzle(await getShardBinding(env, ctx.organizationId));
+export async function getTenantDb(
+  env: Env,
+  ctx: TenantContext,
+): Promise<DrizzleD1Database<typeof tenantSchema>> {
+  return drizzle(await getShardBinding(env, ctx.organizationId), { schema: tenantSchema });
+}
+
+/** 全局テーブルを置くシャード。仕様 §19.2 の「開発・検証は SHARD_00 のみ」と揃う。 */
+const GLOBAL_SHARD_INDEX = 0;
+
+/**
+ * 全局（テナント横断）テーブル専用の DB を返す。**SHARD_00 に固定。**
+ *
+ * 用途は `org_directory` による `orgShortId` の全局一意の担保のみ
+ * （docs/DECISIONS.md #014）。組織 ID を取らないのは、この経路が
+ * テナントに紐づかない唯一の入口だからで、**テナントデータの取得に使わないこと。**
+ *
+ * 誤用を型で塞いである。返る DB のスキーマは `schema/global.ts` だけなので、
+ * ここから `task` や `room` を引くコードはコンパイルが通らない。
+ * これが `getTenantDb()` の迂回路になると、シャード分離もテナント分離も
+ * 一度に無効化される。
+ *
+ * `resolveShard()` を通さないのは、解決すべき組織が存在しないため。
+ * `SHARD_COUNT` が 1 でも 16 でも同じ SHARD_00 を指す。
+ */
+export function getGlobalDb(env: Env): DrizzleD1Database<typeof globalSchema> {
+  const key = `SHARD_${String(GLOBAL_SHARD_INDEX).padStart(2, "0")}` as keyof Env;
+  const db = env[key] as D1Database | undefined;
+  if (!db) throw new Error(`SHARD_BINDING_MISSING:${key}`);
+  return drizzle(db, { schema: globalSchema });
 }

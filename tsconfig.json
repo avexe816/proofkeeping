@@ -2,9 +2,18 @@
   "extends": "@pk/config/tsconfig/base.json",
   "compilerOptions": {
     "lib": ["ES2022"],
-    "types": ["node"]
+    "types": ["node"],
+    // scripts/db-migrate.ts は node が直接実行する（型を剥がすだけで
+    // import 指定子の読み替えはしない）ため、実ファイル名の `.ts` で import する。
+    "allowImportingTsExtensions": true
   },
-  "include": ["packages/*/src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
+  "include": [
+    "packages/*/src/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/**/*.ts",
+    "vitest.config.ts",
+    "drizzle.config.ts"
+  ],
   // Workers ランタイム型を使うパッケージは node 型と同居させない。
   // @types/node と @cloudflare/workers-types はグローバル（fetch / Response など）が
   // 衝突するため、それぞれ自前の tsconfig で別プログラムとして検査する。
