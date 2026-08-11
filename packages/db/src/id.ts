@@ -29,7 +29,7 @@
  */
 
 import { NotFoundError } from "./errors.js";
-import type { TenantContext } from "./router.js";
+import type { ShardContext } from "./router.js";
 
 // ────────────────────────────────────────────────────────────
 // entityPrefix レジストリ
@@ -449,7 +449,7 @@ export function parseId(id: string): ParsedId {
  *
  * @throws {NotFoundError} `RESOURCE_NOT_FOUND`。呼び出し側が 404 に写像する。
  */
-export function assertIdBelongsToTenant(id: string, ctx: TenantContext): void {
+export function assertIdBelongsToTenant(id: string, ctx: ShardContext): void {
   if (!ORG_SHORT_ID_PATTERN.test(ctx.orgShortId)) {
     throw new NotFoundError();
   }

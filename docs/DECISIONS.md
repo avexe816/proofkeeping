@@ -367,3 +367,57 @@
     INSERT は文字列連結になる。tag は `^[0-9]{4}_[a-z0-9_]+$`、checksum は
     `^[0-9a-f]{64}$` で形を閉じてから連結する。
   - CI の `migrate` ジョブ（P0-19）は `pnpm db:migrate --env <env> --check` を使う。
+
+## #016 テナント文脈を `ShardContext` と `TenantContext` の 2 段に分ける
+- 日付: 2026-08-11
+- 状態: 採用
+- 背景: P0-07 のリポジトリ層は `scopeToProperties()` のために
+  `role` と `allowedPropertyIds` を必要とする。しかし `allowedPropertyIds` は
+  `membership` と `property_assignment` を引かなければ作れない。
+  その 2 つを引く関数まで完全な `TenantContext` を要求すると、
+  認証（P0-08 / P0-10）が文脈を組み立てられない（循環する）。
+- 選択肢:
+  1. `role` / `allowedPropertyIds` を optional にする
+  2. 文脈を作る間だけ「偽の」文脈（OWNER 相当）を渡す
+  3. シャード解決に必要な最小限（`ShardContext`）を切り出し、
+     `TenantContext` がそれを継承する
+- 決定: **3 を採用。**
+- 理由: 1 は「未設定」と「担当施設ゼロ」が同じ形（undefined / 空）になり、
+  施設スコープの絞り込みが黙って外れる経路を作る。この失敗は例外にならず
+  「余分に見える」形で現れるため検知が遅れる。2 は論外で、偽の文脈が
+  そのまま業務クエリへ流れた瞬間に第 1 層が無効になる。
+  3 なら**型がブートストラップ経路と業務経路を分ける。**
+  業務リポジトリに `ShardContext` を渡すとコンパイルが通らない。
+- 影響:
+  - `ShardContext` で足りるのは `findMembershipByUserId` と
+    `listAssignedPropertyIds` の 2 つだけ。**増やさないこと。**
+    施設スコープが掛からない経路が広がる。
+    `repositories.spec.ts` が 2 つに固定し、`withOrganizationScope()` の
+    呼び出し元が `user.ts` だけであることをソース走査で確認している。
+  - `getTenantDb()` / `assertIdBelongsToTenant()` の引数は `ShardContext` へ緩めた。
+    `TenantContext` は部分型なので既存の呼び出しは変わらない。
+  - `TenantContext` に `now: Date` を持たせた。`createdAt` / `updatedAt` は
+    これを使い、リポジトリ層で `Date.now()` を呼ばない（CLAUDE.md §5）。
+
+## #017 施設スコープの絞り込みを `undefined` で表現しない
+- 日付: 2026-08-11
+- 状態: 採用
+- 背景: `architecture.md` §2 の例では `scopeToProperties(ctx)` が
+  `and()` の引数として並ぶ。drizzle の `and()` は `undefined` を黙って捨てるため、
+  「絞り込み不要」を `undefined` で表すと、実装の誤りで `undefined` が返った瞬間に
+  **条件が消えて全施設が見える。**
+- 選択肢:
+  1. 絞り込み不要なら `undefined` を返す（素直な実装）
+  2. 常に `SQL` を返す全域関数にし、不要なら恒真（`1 = 1`）を返す
+- 決定: **2 を採用。**
+- 理由: 1 の失敗は例外ではなく「余分に見える」形で現れ、テストの無い経路では
+  気づけない。可用性より破損回避を優先する方針（#007）と同じ。
+- 影響:
+  - **担当施設が空（`allowedPropertyIds: []`）の施設スコープロールは恒偽
+    （`1 = 0`）＝ 0 件。**「制限なし」ではない。割当前のユーザーに
+    全施設が見えることを防ぐ。`base.spec.ts` が 4 ロール分を固定している。
+  - `drizzle` の `inArray(col, [])` の挙動（バージョンにより例外／`false`）に
+    依存しない。空配列はライブラリへ渡す前に分岐する。
+  - 組織全体ロールの判定は `ORG_WIDE_ROLES` の**列挙側**に置く。
+    ここに無いロールは施設スコープ扱いになるため、`ROLES` にロールが増えても
+    「見えすぎる」方向には壊れない。

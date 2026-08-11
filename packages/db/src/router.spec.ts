@@ -23,7 +23,7 @@ import {
   getTenantDb,
   resolveShard,
   shardIndexOf,
-  type TenantContext,
+  type ShardContext,
 } from "./router.js";
 
 // ────────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ function countByShard(ids: readonly string[], shardCount: number): number[] {
   return counts;
 }
 
-const ctxOf = (organizationId: string): TenantContext => ({
+const ctxOf = (organizationId: string): ShardContext => ({
   organizationId,
   orgShortId: organizationId,
 });
@@ -353,7 +353,7 @@ describe("getShardBinding", () => {
 // ────────────────────────────────────────────────────────────
 
 describe("getTenantDb", () => {
-  it("TenantContext の organizationId でシャードを解決する", async () => {
+  it("ShardContext の organizationId でシャードを解決する", async () => {
     const env = fakeEnv({ shardCount: "16" });
     await expect(getTenantDb(env, ctxOf("o7k2m9"))).resolves.toBeDefined();
   });
