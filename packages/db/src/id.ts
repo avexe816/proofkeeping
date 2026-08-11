@@ -50,13 +50,19 @@ import type { TenantContext } from "./router.js";
  * `prop` / `property`、`insp` / `inspection` の表記揺れが増え、
  * ID は永続データなので後から統一できない。
  *
+ *   org / tax / seq / usr / mem / asgn / bldg / flr / rtyp / room / sub / ent / audit
+ *                                                … P0-06 の決定（DECISIONS #013）
+ *                                                  `mem` / `room` は PK-SPEC-P2 の
+ *                                                  記述（`mem_xxx` / `room_302`）に合わせた
+ *
  * ── 追加するときの手順 ──────────────────────────────────
- * P0-06 が作る 13 テーブル（organization / user / membership / room …）の
- * 接頭辞は**仕様のどこにも書かれていない**（OPEN_QUESTIONS #010）。
- * 追加する task は ① ここへ追記し ② 由来を docs/DECISIONS.md に残すこと。
- * 推測で増やして良い場所ではない。
+ * 新しいテーブルを作る task は ① ここへ追記し ② 由来を docs/DECISIONS.md に
+ * 残すこと。推測で増やして良い場所ではない。
+ * **一度使った接頭辞を変えないこと。** ID は永続データなので、
+ * 変更すると過去の行が `parseId()` を通らなくなる。
  */
 export const ENTITY_PREFIXES = [
+  // 仕様に定義があるもの（P0-05）
   "task",
   "insp",
   "evd",
@@ -68,6 +74,20 @@ export const ENTITY_PREFIXES = [
   "find",
   "run",
   "prop",
+  // P0-06 が決めたもの（docs/DECISIONS.md #013）
+  "org",
+  "tax",
+  "seq",
+  "usr",
+  "mem",
+  "asgn",
+  "bldg",
+  "flr",
+  "rtyp",
+  "room",
+  "sub",
+  "ent",
+  "audit",
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

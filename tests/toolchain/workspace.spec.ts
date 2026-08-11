@@ -23,9 +23,12 @@ const DEPENDENCY_FREE_PACKAGES = ["engine", "billing"] as const;
  *
  * `check` は上記 3 つの合成であり、CLAUDE.md §8 が PR 前必須と定めているため含む。
  * `dev` は wrangler.toml ができた P0-02 で追加した。
+ * `db:generate` / `db:migrate` はスキーマとランナーができた P0-06 で追加した。
  */
 const EXPECTED_ROOT_SCRIPTS = [
   "dev",
+  "db:generate",
+  "db:migrate",
   "typecheck",
   "lint",
   "test",
@@ -34,7 +37,7 @@ const EXPECTED_ROOT_SCRIPTS = [
 ] as const;
 
 /** 実体がないため未定義の script。担当 task が追加する。 */
-const DEFERRED_ROOT_SCRIPTS = ["db:generate", "db:migrate", "db:seed", "test:e2e"] as const;
+const DEFERRED_ROOT_SCRIPTS = ["db:seed", "test:e2e"] as const;
 
 interface PackageJson {
   name?: string;

@@ -282,3 +282,88 @@
   併せて `assertIdBelongsToTenant()` は**形式不正でも越境と同じ
   `NotFoundError` を投げる**。区別すると「形式は正しいが他組織」と「そもそも不正」が
   呼び分けられ、403 と同じくリソースの存在を示唆するため。
+
+## #013 P0-06 の 13 テーブルの `entityPrefix` を決める
+- 日付: 2026-08-11
+- 状態: 採用
+- 背景: `ENTITY_PREFIXES` には仕様書に定義のある 11 個しか無く、P0-06 が作る
+  13 テーブル分の接頭辞が仕様のどこにも書かれていなかった（OPEN_QUESTIONS #010）。
+- 選択肢:
+  1. `[a-z]+` の開いた検証にして、テーブルごとに好きな接頭辞を使う
+  2. 閉じたレジストリのまま 13 個を追記する
+- 決定: **2 を採用。** 追記したのは
+  `org` / `tax` / `seq` / `usr` / `mem` / `asgn` / `bldg` / `flr` / `rtyp` /
+  `room` / `sub` / `ent` / `audit`（`prop` は既存）。
+- 理由: `mem` と `room` は `docs/PK-SPEC-P2.md` の記述（`"cleanerId": "mem_xxx"` /
+  `"roomId": "room_302"`）に合わせた。説明用の JSON であり定義ではないが、
+  仕様書に現れる唯一の綴りをわざわざ外す理由がない。残る 11 個は本 task の決定。
+  開いた検証にしなかったのは、`prop` / `property`、`insp` / `inspection` の
+  表記揺れが増えると統一できなくなるため（P0-05 の判断を踏襲）。
+- 影響: **ID は永続データなので、一度使った接頭辞は変更できない。**
+  `packages/db/src/id.spec.ts` が並びと綴りごと固定している。
+  新テーブルを足す task は `ENTITY_PREFIXES` へ追記し、ここに由来を残すこと。
+
+## #014 `orgShortId` の全局一意を SHARD_00 の `org_directory` で担保する
+- 日付: 2026-08-11
+- 状態: 採用
+- 背景: `orgShortId` は 31 文字 6 桁で 31⁶ ≈ 8.9 億通りしかなく、1 万組織で
+  誕生日衝突が約 5.6% 起きる。衝突すると 2 組織の ID が
+  `assertIdBelongsToTenant()` を相互に通過し、**テナント分離の第 2 層が破れる。**
+  組織は 16 シャードへ分散するため、単一シャードの UNIQUE では担保できない
+  （OPEN_QUESTIONS #009）。
+- 選択肢:
+  1. 専用 KV namespace（`ORG_DIRECTORY`）に `orgshort:{orgShortId}` を置く
+  2. Durable Object で採番を直列化する
+  3. **SHARD_00 に `org_directory` テーブルを作り、主キー制約で担保する**
+- 決定: **3 を採用。** `packages/db/src/router.ts` に `getGlobalDb(env)` を追加し、
+  SHARD_00 の Drizzle インスタンスを返す。`wrangler.toml` は変更しない。
+- 理由: 1 は KV namespace の新設（`wrangler.toml` の 4 環境すべてに宣言）が要り、
+  さらに KV は結果整合なので「読んで無ければ書く」の競合を DB ほど強く塞げない。
+  D1 の主キー制約なら、競合した 2 リクエストのうち後発は必ず失敗する。
+  2 は `.claude/rules/architecture.md` §4 が DO の用途を 4 つに限定しており、
+  ルール改訂が要る。3 は既存のリソースだけで完結し、`router.ts` が既に
+  `no-direct-shard-access` の allowlist にあるため新しい例外も増えない。
+- 影響:
+  - **テーブル定義は 16 シャードすべてに流す。** SHARD_00 にだけ作ると
+    `schema_version` がシャード間で食い違い、起動時の不一致検出
+    （PK-SPEC-P0 §19.8）が正常時に発火して書き込み系 API が 503 になる。
+    実体として読み書きするのは SHARD_00 のみ。
+  - `getGlobalDb()` が返す DB のスキーマは `schema/global.ts` **だけ**。
+    テナント表をこの経路から引くコードは型が通らない。
+    これが `getTenantDb()` の迂回路になると、シャード分離とテナント分離が
+    同時に無効化されるため、型で塞いでいる。
+  - 組織作成は「① 採番 → ② `reserveOrgShortId()` → ③ 組織本体を自シャードへ」の順。
+    シャードをまたぐトランザクションは張れない（architecture.md §1）ので
+    ③ が失敗すると予約行が孤児として残るが、これは「使われない 6 桁が 1 つ減る」
+    だけで破損ではない。逆順にすると衝突を許す方向へ倒れる。
+  - `org_directory` に業務データを足さないこと。足した瞬間に
+    「テナント横断の集計を書かない」（architecture.md §3）が崩れる。
+
+## #015 マイグレーションを自前のランナーで 16 シャードへ適用する
+- 日付: 2026-08-11
+- 状態: 採用
+- 背景: PK-SPEC-P0 §19.8 は「SHARD_00 から順次実行 / 各シャードの `schema_version` を
+  記録 / 1 つでも失敗したら以降を中止し失敗シャード番号を出力」を MUST としている。
+- 選択肢:
+  1. `wrangler d1 migrations apply` を 16 回呼ぶ
+  2. `drizzle-kit migrate` を使う
+  3. 生成は drizzle-kit、適用は自前のランナー（`packages/db/src/migrate.ts`）
+- 決定: **3 を採用。**
+- 理由: 1 は適用済みの記録が wrangler 側の `d1_migrations` に入り、
+  §19.8 が求める `schema_version` と二重管理になる。checksum も持たない。
+  2 は Workers ランタイム上で D1 binding を要求し、CLI から 16 シャードを
+  順に回す用途に合わない。3 なら「未適用の検出」「checksum 不一致の検出」
+  「シャード間の不一致の検出」を 1 つのコマンド（`--check`）で満たせる。
+- 影響:
+  - `schema_version` は drizzle-kit の生成物に**含めない。** 最初の migration を
+    適用する前に読む必要があるため、ランナーが `CREATE TABLE IF NOT EXISTS` で作る。
+    DDL の正は `migrate.ts` の `SCHEMA_VERSION_DDL`、型定義は `schema/meta.ts`。
+    **両者を同じ形に保つこと。**
+  - `migrate.ts` に I/O を持ち込まない。`packages/db` は Workers の型で検査するため
+    node 型を持てない。`node:fs` / `node:child_process` はアダプタ
+    `scripts/db-migrate.ts` が持ち、ランナーへ関数として注入する。
+    結果として適用計画の全分岐をテストから決定的に検証できる。
+  - `wrangler d1 execute` はプレースホルダを取れないため、`schema_version` への
+    INSERT は文字列連結になる。tag は `^[0-9]{4}_[a-z0-9_]+$`、checksum は
+    `^[0-9a-f]{64}$` で形を閉じてから連結する。
+  - CI の `migrate` ジョブ（P0-19）は `pnpm db:migrate --env <env> --check` を使う。

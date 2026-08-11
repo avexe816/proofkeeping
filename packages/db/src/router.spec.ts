@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 import type { Env } from "./env.js";
 import {
   fnv1a32,
+  getGlobalDb,
   getShardBinding,
   getTenantDb,
   resolveShard,
@@ -67,6 +68,17 @@ function fakeEnv(init: FakeEnvInit): Env {
 /** binding の同一性を確認するためのラベル取り出し。 */
 function labelOf(db: D1Database): string {
   return (db as unknown as { __label: string }).__label;
+}
+
+/**
+ * Drizzle が内部で保持している D1 binding を取り出す。
+ *
+ * `$client` は実体としては存在するが `DrizzleD1Database` の型に載っていない
+ * （drizzle-orm 0.45）。どの binding を掴んだかはシャード分離の核心なので、
+ * 型に無いことを理由に検証を諦めない。
+ */
+function clientOf(db: object): D1Database {
+  return (db as { $client: D1Database }).$client;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -363,5 +375,34 @@ describe("getTenantDb", () => {
   it("解決できない環境ではエラーを伝播する", async () => {
     const env = fakeEnv({ shardCount: "0" });
     await expect(getTenantDb(env, ctxOf("o7k2m9"))).rejects.toThrow(/^SHARD_COUNT_INVALID:/);
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// getGlobalDb
+// ────────────────────────────────────────────────────────────
+
+describe("getGlobalDb", () => {
+  /**
+   * 全局テーブル（`org_directory`）は SHARD_00 の実体だけを正とする。
+   * ここが SHARD_COUNT やハッシュに影響されると、`orgShortId` の一意性が
+   * シャードごとに分裂して担保できなくなる（docs/DECISIONS.md #014）。
+   */
+  it("SHARD_COUNT に関わらず SHARD_00 を返す", () => {
+    for (const shardCount of ["1", "2", "16"]) {
+      const env = fakeEnv({ shardCount });
+      expect(labelOf(clientOf(getGlobalDb(env)))).toBe("SHARD_00");
+    }
+  });
+
+  it("明示マッピングの影響を受けない", () => {
+    // SHARD_MAP は組織 → シャードの写像であり、全局テーブルには関係しない。
+    const env = fakeEnv({ shardCount: "2", mappings: { "shard:o7k2m9": "1" } });
+    expect(labelOf(clientOf(getGlobalDb(env)))).toBe("SHARD_00");
+  });
+
+  it("SHARD_00 が宣言されていなければ binding 名を含めて落ちる", () => {
+    const env = fakeEnv({ shardCount: "2", declaredShards: [1] });
+    expect(() => getGlobalDb(env)).toThrow("SHARD_BINDING_MISSING:SHARD_00");
   });
 });

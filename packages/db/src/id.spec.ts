@@ -88,10 +88,13 @@ const CTX: TenantContext = { organizationId: "org_alpha", orgShortId: "a2b3c4" }
 // ────────────────────────────────────────────────────────────
 
 describe("ENTITY_PREFIXES", () => {
-  it("仕様書に定義のある 11 個だけを持つ", () => {
-    // PK-SPEC-P0.md §19.4（task/insp/evd/lost/issue/inv/rcp）
-    // + architecture.md §2（obs/find/run）+ 仕様のレスポンス例（prop）。
-    // ここを増やす task は OPEN_QUESTIONS #010 を読むこと。
+  it("仕様書由来の 11 個と P0-06 が決めた 13 個を持つ", () => {
+    // 前半: PK-SPEC-P0.md §19.4（task/insp/evd/lost/issue/inv/rcp）
+    //       + architecture.md §2（obs/find/run）+ 仕様のレスポンス例（prop）。
+    // 後半: P0-06 の 13 テーブル分（docs/DECISIONS.md #013）。
+    //
+    // **並びと綴りを変えないこと。** ID は永続データなので、
+    // 接頭辞を変えると過去の行が parseId() を通らなくなる。
     expect([...ENTITY_PREFIXES]).toEqual([
       "task",
       "insp",
@@ -104,6 +107,19 @@ describe("ENTITY_PREFIXES", () => {
       "find",
       "run",
       "prop",
+      "org",
+      "tax",
+      "seq",
+      "usr",
+      "mem",
+      "asgn",
+      "bldg",
+      "flr",
+      "rtyp",
+      "room",
+      "sub",
+      "ent",
+      "audit",
     ]);
   });
 
@@ -336,7 +352,8 @@ describe("generateId", () => {
 
   it("未登録の接頭辞を拒否する", () => {
     // 型では弾けるが、JS からの呼び出しと `as` のすり抜けが残る。
-    expect(() => generateId("a2b3c4", "room" as unknown as EntityPrefix)).toThrow(
+    // `guest` は宿泊者を保存しないため（security.md §3）永久に登録されない。
+    expect(() => generateId("a2b3c4", "guest" as unknown as EntityPrefix)).toThrow(
       "INVALID_ENTITY_PREFIX",
     );
   });
@@ -371,7 +388,7 @@ describe("parseId", () => {
     ["区切りが 1 本", `a2b3c4_task_${validUlid}`],
     ["orgShortId が 5 桁", `a2b3c__task_${validUlid}`],
     ["orgShortId が大文字", `A2B3C4__task_${validUlid}`],
-    ["未登録の接頭辞", `a2b3c4__room_${validUlid}`],
+    ["未登録の接頭辞", `a2b3c4__guest_${validUlid}`],
     ["接頭辞が空", `a2b3c4___${validUlid}`],
     ["ULID が 25 桁", `a2b3c4__task_${validUlid.slice(1)}`],
     ["ULID が小文字", `a2b3c4__task_${validUlid.toLowerCase()}`],
