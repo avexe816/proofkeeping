@@ -51,7 +51,7 @@
 name = "pk-local"
 main = "src/index.ts"
 compatibility_date = "2026-08-11"
-account_id = "0abcaf3ee0a5d1804975ce92d33255ca"
+account_id = "6c8b5b6228c4021c651755d1c5fb53d6"
 
 # workers.dev のサブドメインに露出させない。独自ドメインのみで公開する。
 workers_dev = false
@@ -73,7 +73,7 @@ APP_BASE_URL = "http://localhost:8787"
 [[d1_databases]]
 binding = "SHARD_00"
 database_name = "proofkeeping-shard-00"
-database_id = "92fde25d-7ec2-4ff6-9474-53aa72da80ff"
+database_id = "547d200a-6f86-41a9-b262-484329d44c59"
 
 # --- R2 ---------------------------------------------------------------------
 # キー体系は .claude/rules/security.md §4 を参照。
@@ -95,7 +95,7 @@ bucket_name = "pk-archive-local"
 
 # --- KV ---------------------------------------------------------------------
 # id は miniflare がローカル永続化ディレクトリ名に使う。
-# binding ごとに違う値にしないと 4 つの namespace が 1 つのストアに混ざる。
+# binding ごとに違う値にしないと 5 つの namespace が 1 つのストアに混ざる。
 [[kv_namespaces]]
 binding = "SESSION"
 id = "TODO-P0-02-未作成-SESSION"
@@ -353,7 +353,7 @@ APP_BASE_URL = "https://app.proofkeeping.example"
 [[env.production.d1_databases]]
 binding = "SHARD_00"
 database_name = "proofkeeping-shard-00"
-database_id = "92fde25d-7ec2-4ff6-9474-53aa72da80ff"
+database_id = "547d200a-6f86-41a9-b262-484329d44c59"
 
 [[env.production.d1_databases]]
 binding = "SHARD_01"

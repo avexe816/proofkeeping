@@ -15,9 +15,9 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(import.meta.dirname, "..", "..");
 
 /** 実在する唯一の D1（docs/tasks/P0-02.md）。 */
-const SHARD_00_DATABASE_ID = "92fde25d-7ec2-4ff6-9474-53aa72da80ff";
+const SHARD_00_DATABASE_ID = "547d200a-6f86-41a9-b262-484329d44c59";
 
-const ACCOUNT_ID = "0abcaf3ee0a5d1804975ce92d33255ca";
+const ACCOUNT_ID = "6c8b5b6228c4021c651755d1c5fb53d6";
 
 const R2_BINDINGS = ["PHOTOS", "DOCUMENTS", "EVIDENCE", "ARCHIVE"] as const;
 
