@@ -5,17 +5,24 @@
 ## 現在のセッション
 
 ```
-task: P0-03 シャードルーター
-状態: 完了。packages/db/src/router.ts に fnv1a32 / shardIndexOf / resolveShard /
-      getShardBinding / getTenantDb / TenantContext を実装。router.spec.ts 30 件を追加し、
-      pnpm check（lint + typecheck + test 79 件）が通る。drizzle-orm@0.45.2 を追加した。
-      SHARD_MAP は読むだけ。書き込み（組織の移送）は本 task の範囲外。
-次: P0-04 ESLint カスタムルール（no-direct-shard-access / no-raw-drizzle）。
-    router.ts を allowlist に入れること。
+task: P0-04 ESLint カスタムルール
+状態: 完了。packages/config/eslint/rules/ に 4 ルール（no-direct-shard-access /
+      no-raw-drizzle / no-literal-string / no-forbidden-words）を rule object として実装し、
+      plugin.js に束ねて base.js（flat config）で有効化した。RuleTester 66 件を追加し、
+      pnpm check（lint + typecheck + test 145 件）が通る。実地の陽性確認も実施済み。
+      allowlist は仕様 §19.3 の 3 ファイル。うち packages/db/src/migrate.ts（P0-06）と
+      packages/db/src/seed.ts（P0-18）は未作成のため、名前だけ先に確定した。
+次: P0-05 ID 採番。
+申し送り 1: P0-06 は マイグレーションランナーを packages/db/src/migrate.ts、
+            P0-18 は シードを packages/db/src/seed.ts という名前で作ること。
+            別名にすると allowlist から外れて lint が落ちる（DECISIONS #009）。
+申し送り 2: .tsx は現在 ESLint で検査できない。apps/web/tsconfig.json の include が
+            src/**/*.ts のみで jsx オプションもどこにも無いため、置くと parse error に
+            なる。P0-14 が include と jsx を同時に設定すること（OPEN_QUESTIONS #001）。
 ブロッカー: P0-02 が未完のまま。実在する Cloudflare リソースは D1 の
             proofkeeping-shard-00 のみで、R2 / KV / Queue と残り 15 シャードは未作成。
-            そのため pnpm dev による実環境での起動確認は P0-03 でも行えていない。
-            ルーターのテストは実 binding を使わない単体テストで担保している。
+            そのため pnpm dev による実環境での起動確認は P0-03 / P0-04 でも行えていない。
+            P0-04 は ESLint のみを触るため実 binding に依存しない。
 ```
 
 補足: UI フレームワーク（OPEN_QUESTIONS #001）は未決のまま。`apps/web` は Hono のみ。
@@ -33,7 +40,11 @@ task: P0-03 シャードルーター
   - `SHARD_MAP` は読み取りのみ実装。書き込み（組織の移送）を持つ task が
     どこにも無いことを OPEN_QUESTIONS #007 に記載した。
     ハッシュのみで解決できるため P0〜P6 の進行に支障はない。
-- [ ] P0-04 ESLint カスタムルール ★最優先
+- [x] P0-04 ESLint カスタムルール ★最優先
+  - allowlist に書いた `packages/db/src/migrate.ts`（P0-06）と
+    `packages/db/src/seed.ts`（P0-18）はまだ存在しない。この名前で作ること。
+  - `no-literal-string` は `.tsx` が 1 件も無いため実ファイルには当たっていない。
+    tsconfig の `jsx` 設定は P0-14 の責務（OPEN_QUESTIONS #001）。
 - [ ] P0-05 ID 採番 ★最優先
 - [ ] P0-06 スキーマ: 組織・ユーザー・施設 ★最優先
 - [ ] P0-07 リポジトリ層の雛形

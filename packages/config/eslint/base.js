@@ -3,11 +3,19 @@ import prettierConfig from "eslint-config-prettier";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
+import pk from "./plugin.js";
+
 /**
  * ProofKeeping 共通 ESLint 設定（flat config）。
  *
- * シャード直接アクセス・raw drizzle・JSX の日本語直書きを検出するカスタムルールは
- * P0-04 でここに追加する。
+ * カスタムルールは `./plugin.js`（実体は `./rules/*.js`）。P0-04 で追加した。
+ *
+ * 適用範囲の与え方が 2 系統ある。
+ *   - アーキ 2 本（no-direct-shard-access / no-raw-drizzle）
+ *     リポジトリ全域が禁止で、例外は数ファイル。例外リストはルール側の
+ *     既定値に持たせてある（rules/allowlist.js）。ここでは有効化するだけ。
+ *   - 文言 2 本（no-literal-string / no-forbidden-words）
+ *     適用対象が「ファイルの種類」なので `files` で絞る。
  */
 export default tseslint.config(
   {
@@ -23,6 +31,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {
+    plugins: { pk },
     languageOptions: {
       parserOptions: { projectService: true },
       globals: { ...globals.node },
@@ -30,6 +39,30 @@ export default tseslint.config(
     rules: {
       // CLAUDE.md §5: any の新規追加禁止。unknown + Zod で絞る。
       "@typescript-eslint/no-explicit-any": "error",
+
+      // architecture.md §1 / PK-SPEC-P0 §19.3。例外は router.ts・
+      // マイグレーションランナー・シードのみ（ルール側の既定 allowlist）。
+      "pk/no-direct-shard-access": "error",
+
+      // architecture.md §2 第1層 / PK-SPEC-P0 §19.4。
+      "pk/no-raw-drizzle": "error",
+    },
+  },
+  {
+    // ui-writing.md §1: UI 文字列を JSX に直書きしない。
+    // 現時点で .tsx は 1 件も無い（UI フレームワーク未決 / OPEN_QUESTIONS #001）。
+    files: ["**/*.tsx"],
+    rules: {
+      "pk/no-literal-string": "error",
+    },
+  },
+  {
+    // ui-writing.md §2 / PK-IMPL-CONTRACT §5.1 の禁止語。
+    // 全 TS に当てない。§5.1 は「エラー」「失敗」を含むため、
+    // 通常のエラーハンドリングまで落ちる。対象は UI 文言を持つファイルだけ。
+    files: ["**/*.tsx", "**/locales/**/*.{ts,tsx,json}", "packages/pdf/**/*.{ts,tsx}"],
+    rules: {
+      "pk/no-forbidden-words": "error",
     },
   },
   {
