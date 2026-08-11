@@ -17,7 +17,14 @@ export {
   organizationTaxProfile,
 } from "./organization.js";
 
-export { ROLES, membership, propertyAssignment, user, type Role } from "./user.js";
+export {
+  ROLES,
+  membership,
+  passwordHistory,
+  propertyAssignment,
+  user,
+  type Role,
+} from "./user.js";
 
 export {
   ROOM_SOURCE_TYPES,

@@ -88,6 +88,8 @@ export const ENTITY_PREFIXES = [
   "sub",
   "ent",
   "audit",
+  // P0-08 が決めたもの（docs/DECISIONS.md #018）
+  "pwh",
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

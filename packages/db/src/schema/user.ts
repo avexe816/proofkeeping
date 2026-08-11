@@ -9,8 +9,12 @@
  * （シャードをまたぐ参照が発生する）。同一人物が 2 組織に所属する場合は
  * 組織ごとに `user` 行を持つ（OPEN_QUESTIONS #005）。
  * その結果、メールアドレスの一意性は**組織内**でしか成立しない。
- * メール＋パスワードのログイン（P0-08）は、メールから組織を解決する手段を
- * 別途必要とする。OPEN_QUESTIONS に起票済み。
+ *
+ * ── ログイン識別子（P0-08 / DECISIONS #018）─────────────
+ * この制約のため、**メールアドレスはログイン識別子に使わない。**
+ * 識別子は `orgShortId` + `staffNumber` + 認証情報の 3 フィールドで、
+ * 組織の解決は SHARD_00 の `org_directory`（`lookupOrganizationId()`）が行う。
+ * `email` は通知の送信先としてのみ保持する。
  *
  * ── 保存しないもの ──────────────────────────────────────
  * 宿泊者の情報は一切持たない（security.md §3）。ここにあるのは従業員の情報で、
@@ -44,9 +48,10 @@ export type Role = (typeof ROLES)[number];
 /**
  * ユーザー。
  *
- * 管理系はメール＋パスワード、清掃スタッフは施設コード＋スタッフ番号＋PIN で
- * ログインする（security.md §2）。どちらか一方しか持たない行があるため、
- * 認証系の列はすべて null 許容にしてある。
+ * 管理系は orgShortId＋スタッフ番号＋パスワード、現場系（CLEANER / INSPECTOR）は
+ * orgShortId＋スタッフ番号＋PIN 4 桁でログインする（security.md §2）。
+ * 認証情報はロールによってどちらか一方しか持たないため、
+ * `passwordHash` / `pinHash` は null 許容にしてある。
  *
  * **`passwordHash` / `pinHash` を監査ログの before / after に載せない**
  * （security.md §6）。マスクは `recordAudit()`（P0-11）の責務。
@@ -56,11 +61,24 @@ export const user = sqliteTable(
   {
     ...primaryId,
     ...tenantColumn,
-    /** 管理系ログイン用。清掃スタッフは持たないことがある。 */
+    /**
+     * 通知の送信先。**ログイン識別子ではない**（DECISIONS #018）。
+     * 持たないユーザーがありうる。
+     */
     email: text("email"),
-    /** bcrypt cost 12（security.md §2）。 */
+    /**
+     * PBKDF2-SHA256 のハッシュ（DECISIONS #019）。
+     * `pbkdf2$sha256$210000$<salt>$<hash>` の自己記述文字列で、方式と反復回数を含む。
+     * **形式を解釈してよいのは `apps/web/src/lib/auth/password.ts` だけ。**
+     */
     passwordHash: text("password_hash"),
-    /** 清掃スタッフのログイン ID。施設コードと組み合わせて使う。 */
+    /**
+     * ログイン識別子の 2 番目。組織内で一意（下の `uq_user_org_staff_number`）。
+     *
+     * **全ロールで必須。** 列を null 許容のままにしてあるのは、後方互換のみという
+     * マイグレーション方針（architecture.md §6）に従い、既存行を壊さないため。
+     * null の行はログインできない（認証経路が弾く）。
+     */
     staffNumber: text("staff_number"),
     /** bcrypt cost 10。連番・ゾロ目は登録時に拒否する（security.md §2）。 */
     pinHash: text("pin_hash"),
@@ -73,6 +91,8 @@ export const user = sqliteTable(
     failedLoginCount: integer("failed_login_count").notNull().default(0),
     lockedUntil: integer("locked_until", { mode: "timestamp_ms" }),
     lastLoginAt: integer("last_login_at", { mode: "timestamp_ms" }),
+    /** パスワードを設定した時刻。有効期限には使わず、運用調査と再設定の判断に使う。 */
+    passwordUpdatedAt: integer("password_updated_at", { mode: "timestamp_ms" }),
     ...activeFlag,
     ...timestamps,
   },
@@ -80,6 +100,33 @@ export const user = sqliteTable(
     uniqueIndex("uq_user_org_email").on(t.organizationId, t.email),
     uniqueIndex("uq_user_org_staff_number").on(t.organizationId, t.staffNumber),
   ],
+);
+
+/**
+ * パスワードの世代。**直近 3 世代の再利用を禁止するためだけに存在する**
+ * （security.md §2 / P0-08）。
+ *
+ * ── 何を置くか ──────────────────────────────────────────
+ * 過去のハッシュだけ。**平文・ヒント・パスワードの長さや文字種を置かない。**
+ * 現在有効なハッシュもここに 1 行入る（設定のたびに追加するため）。
+ *
+ * ── 行を増やし続けない ──────────────────────────────────
+ * 照合に要るのは直近 3 世代なので、設定時に古い行を削る
+ * （`repositories/user.ts` の `setPasswordHash()`）。**残しても価値が無く、
+ * 漏洩時に総当たりの的が増えるだけ。** 監査の証跡は `AuditLog` が持つ。
+ */
+export const passwordHistory = sqliteTable(
+  "password_history",
+  {
+    ...primaryId,
+    ...tenantColumn,
+    userId: text("user_id").notNull(),
+    /** 当時の `user.password_hash` をそのまま。形式は自己記述（DECISIONS #019）。 */
+    passwordHash: text("password_hash").notNull(),
+    /** 訂正・更新はしない。追加と削除だけの表なので `updatedAt` を持たない。 */
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("idx_password_history_user").on(t.organizationId, t.userId, t.createdAt)],
 );
 
 /**
