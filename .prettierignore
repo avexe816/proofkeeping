@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+coverage/
+.wrangler/
+pnpm-lock.yaml
+
+# 仕様書・ルール・プロトタイプは整形対象外（人が書いた文書と HTML の見た目を変えない）
+**/*.md
+docs/
+ui-prototypes/
