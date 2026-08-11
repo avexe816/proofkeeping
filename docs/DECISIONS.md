@@ -80,3 +80,34 @@
   検証前に決めない。CLAUDE.md §1.4 の「推測で実装しない」にも従う。
 - 影響: OPEN_QUESTIONS #001 は未解決のまま維持する。決定は P0-14（UI シェル）で行う。
   それまで `apps/web/src/index.ts` は Hono インスタンスを生成して `export default` するだけに保つ。
+
+## #004 シャード明示マッピングを専用 KV namespace `SHARD_MAP` に置く
+- 日付: 2026-08-11
+- 状態: 採用
+- 背景: `resolveShard()` は `shard:{organizationId}` を KV から読み、
+  無ければ `fnv1a32(organizationId) % SHARD_COUNT` にフォールバックする。
+  P0-02 で KV namespace を宣言するにあたり、このキーの置き場所を決める必要があった。
+  `.claude/rules/architecture.md` §1 のコード例は binding 名 `KV` を使っていたが、
+  その名前の namespace は設計上どこにも存在しなかった（OPEN_QUESTIONS #006）。
+- 選択肢:
+  1. 設定キャッシュ用の `CONFIG` に相乗りさせる
+  2. 専用 namespace `SHARD_MAP` を追加する
+- 決定: 2 を採用。あわせて `SHARD_MAP` への TTL 付き書き込みを禁止する。
+- 理由: 明示マッピングの喪失は例外にならない。`resolveShard()` は静かに
+  ハッシュのフォールバックへ落ちるため、別シャードへ移送済みの組織では
+  以後の読み書きが移送前のシャードへ向かい、**同一テナントのデータが
+  複数シャードに分裂する。しかもこの破損は無警告で進行し、
+  越境テストにも引っかからない**（テナント分離は破れていないため）。
+  `CONFIG` は設計上、一括更新・一括削除・TTL 失効の対象であり、
+  そこに置けば運用中の正当なキャッシュ破棄が上記の破損を引き起こす。
+  失われてはならないデータと、失われてよいキャッシュを同じストアに置かない。
+- 影響: `wrangler.toml` の全 4 環境に `SHARD_MAP` を宣言。
+  `packages/db/src/env.ts` の `KvBindings` に追加。
+  `.claude/rules/architecture.md` §1 に TTL 禁止を MUST として明記。
+  P0-03 の `resolveShard()` は `env.SHARD_MAP` を読む。
+  組織のシャード移送手順（未設計・PK-SPEC-P0 §20）は `SHARD_MAP` の
+  書き込みを移送完了の前段に置くこと。
+- `docs/PK-SPEC-P7.md` §4.4（テナント移送）の `resolveShard()` のコード例も
+  同じコミットで `env.SHARD_MAP` に修正済み。仕様書は本ログの決定に優先されるため、
+  古い例を残すと P7-07 がそのまま実装して今回塞いだ経路が復活する。
+  同 §4.4 の手順 4「ルーティングテーブルを更新」は `SHARD_MAP` への書き込みを指す。

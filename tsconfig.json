@@ -4,5 +4,10 @@
     "lib": ["ES2022"],
     "types": ["node"]
   },
-  "include": ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+  "include": ["packages/*/src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
+  // Workers ランタイム型を使うパッケージは node 型と同居させない。
+  // @types/node と @cloudflare/workers-types はグローバル（fetch / Response など）が
+  // 衝突するため、それぞれ自前の tsconfig で別プログラムとして検査する。
+  // ルート package.json の `typecheck` が 3 パスに分かれているのはそのため。
+  "exclude": ["apps/**", "packages/db/**"]
 }

@@ -13,7 +13,7 @@ DB・API・データモデルを触るときは必ずこれを読む。
 ```ts
 // packages/db/src/router.ts — ここ以外でシャードを解決しない
 export async function resolveShard(env: Env, organizationId: string): Promise<number> {
-  const override = await env.KV.get(`shard:${organizationId}`);
+  const override = await env.SHARD_MAP.get(`shard:${organizationId}`);
   if (override) return Number(override);          // 明示マッピングが優先
   return fnv1a32(organizationId) % Number(env.SHARD_COUNT);
 }
@@ -27,11 +27,29 @@ export async function getTenantDb(env: Env, ctx: TenantContext) {
 }
 ```
 
+### SHARD_MAP（明示マッピング専用の KV）
+
+`shard:{organizationId}` は **`SHARD_MAP` 専用 namespace に置く。**
+`CONFIG` など他の namespace に相乗りさせない。
+
+理由: このキーが失われても `resolveShard()` はエラーにならず、
+`fnv1a32` のフォールバックに静かに落ちる。移送済みの組織なら、
+以後の読み書きが移送前のシャードへ向かい、**同一テナントのデータが
+複数シャードに分裂する。この破損は無警告で進行し、検知が遅れる。**
+`CONFIG` は設計上、一括更新・一括削除・TTL 失効の対象になるため同居させない。
+
+**MUST**
+- `SHARD_MAP` に書き込むとき `expirationTtl` / `expiration` を指定しない。**TTL を設定してはならない。**
+- `SHARD_MAP` に明示マッピング以外のキーを置かない。
+- `SHARD_MAP` を一括削除・一括上書きしない。削除は 1 組織の移送完了時のみ。
+- 組織を別シャードへ移送したら、移送の完了前に `SHARD_MAP` を書く。
+
 ### 禁止
 - `env.SHARD_XX` への直接アクセス（ESLint `no-direct-shard-access` で検出）
 - リポジトリ層以外での `drizzle(` 呼び出し（ESLint `no-raw-drizzle` で検出）
 - シャードをまたぐトランザクション
 - シャード番号の外部露出
+- `SHARD_MAP` への TTL 付き書き込み
 
 ## 2. テナント分離（三重防御）
 

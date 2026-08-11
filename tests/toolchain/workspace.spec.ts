@@ -22,11 +22,19 @@ const DEPENDENCY_FREE_PACKAGES = ["engine", "billing"] as const;
  * ルート package.json に定義してよい script（実体のあるものだけ）。
  *
  * `check` は上記 3 つの合成であり、CLAUDE.md §8 が PR 前必須と定めているため含む。
+ * `dev` は wrangler.toml ができた P0-02 で追加した。
  */
-const EXPECTED_ROOT_SCRIPTS = ["typecheck", "lint", "test", "test:isolation", "check"] as const;
+const EXPECTED_ROOT_SCRIPTS = [
+  "dev",
+  "typecheck",
+  "lint",
+  "test",
+  "test:isolation",
+  "check",
+] as const;
 
-/** 実体がないため P0-01 では定義しない script。担当 task が追加する。 */
-const DEFERRED_ROOT_SCRIPTS = ["dev", "db:generate", "db:migrate", "db:seed", "test:e2e"] as const;
+/** 実体がないため未定義の script。担当 task が追加する。 */
+const DEFERRED_ROOT_SCRIPTS = ["db:generate", "db:migrate", "db:seed", "test:e2e"] as const;
 
 interface PackageJson {
   name?: string;

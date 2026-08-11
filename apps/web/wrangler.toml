@@ -1,0 +1,496 @@
+# ProofKeeping — Workers 設定
+#
+# 仕様: docs/PK-SPEC-P0.md §9.2（4 環境）, §19.2（16 シャード）
+# ルール: .claude/rules/architecture.md §1, §5
+#
+# ------------------------------------------------------------------------------
+# このファイルを読むときに知っておくこと
+# ------------------------------------------------------------------------------
+#
+# 1. wrangler の [env.*] は top-level の binding を「継承しない」。
+#    d1_databases / r2_buckets / kv_namespaces / queues / vars は
+#    環境ごとに全部書き直す必要がある。重複しているのはそのため。
+#
+# 2. top-level（環境指定なし）は `wrangler dev` = ローカル開発用。
+#    §19.2 の MUST に従い SHARD_COUNT = 1 で SHARD_00 のみを使う。
+#
+# 3. 実在する Cloudflare リソースは D1 の proofkeeping-shard-00 だけ。
+#    R2 / KV / Queue と残り 15 シャードは未作成で、id は
+#    "TODO-P0-02-未作成-*" のプレースホルダにしてある。
+#    作成コマンドと差し替え手順は docs/tasks/P0-02.md の作業ログにある。
+#
+#        grep "TODO-P0-02" apps/web/wrangler.toml
+#
+#    で未設定箇所を全件拾える。推測した UUID は 1 つも書いていない。
+#
+# 4. シャード番号を URL・レスポンス・ログに出さない（architecture.md §1）。
+#    binding 名は内部にとどめること。
+#
+# ------------------------------------------------------------------------------
+# ここに「まだ」書いていないもの
+# ------------------------------------------------------------------------------
+#
+#   [[queues.consumers]]      queue() ハンドラが未実装。宣言すると wrangler が
+#                             起動しない。各コンシューマを実装する task
+#                             （P2-10 / P3-09 / P4-14 / P5-06 / P6-04 / P7-09）
+#                             が自分の分を追記する。
+#
+#   [[durable_objects.bindings]]
+#   [[migrations]]            DO クラスが未実装。同上。P0-17（DocumentSequencer）
+#                             が最初に追加する。InspectionLock / PropertyBoard /
+#                             ReconciliationLock も同様。
+#
+#   [triggers]（Cron）        P0-02 の作業範囲外。
+#
+#   compatibility_flags       同上。@react-pdf/renderer を Queue コンシューマで
+#                             動かす P2 の task が nodejs_compat を追加する。
+#                             フラグの後付けは非破壊。
+#
+# ------------------------------------------------------------------------------
+
+name = "pk-local"
+main = "src/index.ts"
+compatibility_date = "2026-08-11"
+account_id = "0abcaf3ee0a5d1804975ce92d33255ca"
+
+# workers.dev のサブドメインに露出させない。独自ドメインのみで公開する。
+workers_dev = false
+
+# ==============================================================================
+# local — `wrangler dev`（miniflare）
+# ==============================================================================
+#
+# ローカルは remote D1 へ接続せず、.wrangler/state 配下の SQLite を使う。
+# SHARD_00 に実 database_id を書いてあるのは `--remote` 実行時の整合のためで、
+# 通常の `pnpm dev` が本番データに触れることはない。
+
+[vars]
+ENVIRONMENT = "local"
+SHARD_COUNT = "1"
+APP_BASE_URL = "http://localhost:8787"
+
+# --- D1 ---------------------------------------------------------------------
+[[d1_databases]]
+binding = "SHARD_00"
+database_name = "proofkeeping-shard-00"
+database_id = "92fde25d-7ec2-4ff6-9474-53aa72da80ff"
+
+# --- R2 ---------------------------------------------------------------------
+# キー体系は .claude/rules/security.md §4 を参照。
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "pk-photos-local"
+
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "pk-documents-local"
+
+[[r2_buckets]]
+binding = "EVIDENCE"
+bucket_name = "pk-evidence-local"
+
+[[r2_buckets]]
+binding = "ARCHIVE"
+bucket_name = "pk-archive-local"
+
+# --- KV ---------------------------------------------------------------------
+# id は miniflare がローカル永続化ディレクトリ名に使う。
+# binding ごとに違う値にしないと 4 つの namespace が 1 つのストアに混ざる。
+[[kv_namespaces]]
+binding = "SESSION"
+id = "TODO-P0-02-未作成-SESSION"
+
+[[kv_namespaces]]
+binding = "RATELIMIT"
+id = "TODO-P0-02-未作成-RATELIMIT"
+
+[[kv_namespaces]]
+binding = "CONFIG"
+id = "TODO-P0-02-未作成-CONFIG"
+
+# シャードの明示マッピング（shard:{organizationId}）専用。architecture.md §1 の MUST:
+# TTL を設定してはならない。失効すると resolveShard() が無警告で fnv1a32 の
+# フォールバックに落ち、同一テナントのデータが複数シャードに分裂する。
+# 一括更新・一括削除の対象になる CONFIG と同居させない（DECISIONS.md #004）。
+[[kv_namespaces]]
+binding = "SHARD_MAP"
+id = "TODO-P0-02-未作成-SHARD_MAP"
+
+# 外部連携の資格情報は暗号化してここに置き、DB からは credentialRef で参照する
+# （security.md §7）。
+[[kv_namespaces]]
+binding = "CREDENTIALS"
+id = "TODO-P0-02-未作成-CREDENTIALS"
+
+# --- Queues（producer のみ）---------------------------------------------------
+# 用途は architecture.md §5 / PK-SPEC-P0 §19.10。
+[[queues.producers]]
+binding = "QUEUE_PDF_GENERATION"
+queue = "pk-pdf-generation-local"
+
+[[queues.producers]]
+binding = "QUEUE_EVIDENCE_EXPORT"
+queue = "pk-evidence-export-local"
+
+[[queues.producers]]
+binding = "QUEUE_RECONCILIATION"
+queue = "pk-reconciliation-local"
+
+[[queues.producers]]
+binding = "QUEUE_ROLLUP_UPDATE"
+queue = "pk-rollup-update-local"
+
+[[queues.producers]]
+binding = "QUEUE_BASELINE_LEARNING"
+queue = "pk-baseline-learning-local"
+
+[[queues.producers]]
+binding = "QUEUE_NOTIFICATION"
+queue = "pk-notification-local"
+
+[[queues.producers]]
+binding = "QUEUE_ARCHIVE_RESTORE"
+queue = "pk-archive-restore-local"
+
+# ==============================================================================
+# preview — PR ごと（§9.2: pk-pr-{n} / 1 シャード）
+# ==============================================================================
+#
+# Worker 名は PR 番号を含められないため固定名を置く。
+# PR ごとに分ける場合は CI で `--name pk-pr-${PR_NUMBER}` を渡す（P0-19）。
+
+[env.preview]
+name = "pk-preview"
+
+[env.preview.vars]
+ENVIRONMENT = "preview"
+SHARD_COUNT = "1"
+APP_BASE_URL = "https://pk-preview.example.workers.dev"
+
+[[env.preview.d1_databases]]
+binding = "SHARD_00"
+database_name = "proofkeeping-shard-00-preview"
+database_id = "TODO-P0-02-未作成-PREVIEW-SHARD-00"
+
+[[env.preview.r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "pk-photos-preview"
+
+[[env.preview.r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "pk-documents-preview"
+
+[[env.preview.r2_buckets]]
+binding = "EVIDENCE"
+bucket_name = "pk-evidence-preview"
+
+[[env.preview.r2_buckets]]
+binding = "ARCHIVE"
+bucket_name = "pk-archive-preview"
+
+[[env.preview.kv_namespaces]]
+binding = "SESSION"
+id = "TODO-P0-02-未作成-PREVIEW-SESSION"
+
+[[env.preview.kv_namespaces]]
+binding = "RATELIMIT"
+id = "TODO-P0-02-未作成-PREVIEW-RATELIMIT"
+
+[[env.preview.kv_namespaces]]
+binding = "CONFIG"
+id = "TODO-P0-02-未作成-PREVIEW-CONFIG"
+
+[[env.preview.kv_namespaces]]
+binding = "CREDENTIALS"
+id = "TODO-P0-02-未作成-PREVIEW-CREDENTIALS"
+
+# TTL 禁止。理由は top-level の SHARD_MAP のコメントを参照。
+[[env.preview.kv_namespaces]]
+binding = "SHARD_MAP"
+id = "TODO-P0-02-未作成-PREVIEW-SHARD_MAP"
+
+[[env.preview.queues.producers]]
+binding = "QUEUE_PDF_GENERATION"
+queue = "pk-pdf-generation-preview"
+
+[[env.preview.queues.producers]]
+binding = "QUEUE_EVIDENCE_EXPORT"
+queue = "pk-evidence-export-preview"
+
+[[env.preview.queues.producers]]
+binding = "QUEUE_RECONCILIATION"
+queue = "pk-reconciliation-preview"
+
+[[env.preview.queues.producers]]
+binding = "QUEUE_ROLLUP_UPDATE"
+queue = "pk-rollup-update-preview"
+
+[[env.preview.queues.producers]]
+binding = "QUEUE_BASELINE_LEARNING"
+queue = "pk-baseline-learning-preview"
+
+[[env.preview.queues.producers]]
+binding = "QUEUE_NOTIFICATION"
+queue = "pk-notification-preview"
+
+[[env.preview.queues.producers]]
+binding = "QUEUE_ARCHIVE_RESTORE"
+queue = "pk-archive-restore-preview"
+
+# ==============================================================================
+# staging — main マージで自動デプロイ（§9.2: pk-staging / 2 シャード）
+# ==============================================================================
+#
+# シャードが 2 本あるのは意味がある。SHARD_COUNT = 1 では
+# fnv1a32(orgId) % 1 が常に 0 になり、ルーティングの分岐が一度も踏まれない。
+# staging で 2 本持つことで「複数シャードに散る」経路を実際に通す。
+
+[env.staging]
+name = "pk-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+SHARD_COUNT = "2"
+APP_BASE_URL = "https://staging.proofkeeping.example"
+
+[[env.staging.d1_databases]]
+binding = "SHARD_00"
+database_name = "proofkeeping-shard-00-staging"
+database_id = "TODO-P0-02-未作成-STAGING-SHARD-00"
+
+[[env.staging.d1_databases]]
+binding = "SHARD_01"
+database_name = "proofkeeping-shard-01-staging"
+database_id = "TODO-P0-02-未作成-STAGING-SHARD-01"
+
+[[env.staging.r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "pk-photos-staging"
+
+[[env.staging.r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "pk-documents-staging"
+
+[[env.staging.r2_buckets]]
+binding = "EVIDENCE"
+bucket_name = "pk-evidence-staging"
+
+[[env.staging.r2_buckets]]
+binding = "ARCHIVE"
+bucket_name = "pk-archive-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "SESSION"
+id = "TODO-P0-02-未作成-STAGING-SESSION"
+
+[[env.staging.kv_namespaces]]
+binding = "RATELIMIT"
+id = "TODO-P0-02-未作成-STAGING-RATELIMIT"
+
+[[env.staging.kv_namespaces]]
+binding = "CONFIG"
+id = "TODO-P0-02-未作成-STAGING-CONFIG"
+
+[[env.staging.kv_namespaces]]
+binding = "CREDENTIALS"
+id = "TODO-P0-02-未作成-STAGING-CREDENTIALS"
+
+# TTL 禁止。理由は top-level の SHARD_MAP のコメントを参照。
+# staging は SHARD_COUNT = 2 なので、明示マッピングが実際に効く唯一の非本番環境。
+[[env.staging.kv_namespaces]]
+binding = "SHARD_MAP"
+id = "TODO-P0-02-未作成-STAGING-SHARD_MAP"
+
+[[env.staging.queues.producers]]
+binding = "QUEUE_PDF_GENERATION"
+queue = "pk-pdf-generation-staging"
+
+[[env.staging.queues.producers]]
+binding = "QUEUE_EVIDENCE_EXPORT"
+queue = "pk-evidence-export-staging"
+
+[[env.staging.queues.producers]]
+binding = "QUEUE_RECONCILIATION"
+queue = "pk-reconciliation-staging"
+
+[[env.staging.queues.producers]]
+binding = "QUEUE_ROLLUP_UPDATE"
+queue = "pk-rollup-update-staging"
+
+[[env.staging.queues.producers]]
+binding = "QUEUE_BASELINE_LEARNING"
+queue = "pk-baseline-learning-staging"
+
+[[env.staging.queues.producers]]
+binding = "QUEUE_NOTIFICATION"
+queue = "pk-notification-staging"
+
+[[env.staging.queues.producers]]
+binding = "QUEUE_ARCHIVE_RESTORE"
+queue = "pk-archive-restore-staging"
+
+# ==============================================================================
+# production — 手動デプロイ（§9.2: pk-prod / 16 シャード）
+# ==============================================================================
+#
+# §19.2 MUST: シャード数は 16 で固定。実行時に増減しない。
+#             全 16 個の binding をここに静的宣言する。動的な D1 作成は行わない。
+#
+# 実在するのは SHARD_00（proofkeeping-shard-00）だけ。
+# SHARD_01〜SHARD_15 は production 環境で作成予定であり、
+# `wrangler d1 create proofkeeping-shard-NN` の出力 uuid を
+# 各 database_id に差し替えるまで `wrangler deploy --env production` は通らない。
+# 手順は docs/tasks/P0-02.md の作業ログを参照。
+
+[env.production]
+name = "pk-prod"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+SHARD_COUNT = "16"
+APP_BASE_URL = "https://app.proofkeeping.example"
+
+[[env.production.d1_databases]]
+binding = "SHARD_00"
+database_name = "proofkeeping-shard-00"
+database_id = "92fde25d-7ec2-4ff6-9474-53aa72da80ff"
+
+[[env.production.d1_databases]]
+binding = "SHARD_01"
+database_name = "proofkeeping-shard-01"
+database_id = "TODO-P0-02-未作成-SHARD-01"
+
+[[env.production.d1_databases]]
+binding = "SHARD_02"
+database_name = "proofkeeping-shard-02"
+database_id = "TODO-P0-02-未作成-SHARD-02"
+
+[[env.production.d1_databases]]
+binding = "SHARD_03"
+database_name = "proofkeeping-shard-03"
+database_id = "TODO-P0-02-未作成-SHARD-03"
+
+[[env.production.d1_databases]]
+binding = "SHARD_04"
+database_name = "proofkeeping-shard-04"
+database_id = "TODO-P0-02-未作成-SHARD-04"
+
+[[env.production.d1_databases]]
+binding = "SHARD_05"
+database_name = "proofkeeping-shard-05"
+database_id = "TODO-P0-02-未作成-SHARD-05"
+
+[[env.production.d1_databases]]
+binding = "SHARD_06"
+database_name = "proofkeeping-shard-06"
+database_id = "TODO-P0-02-未作成-SHARD-06"
+
+[[env.production.d1_databases]]
+binding = "SHARD_07"
+database_name = "proofkeeping-shard-07"
+database_id = "TODO-P0-02-未作成-SHARD-07"
+
+[[env.production.d1_databases]]
+binding = "SHARD_08"
+database_name = "proofkeeping-shard-08"
+database_id = "TODO-P0-02-未作成-SHARD-08"
+
+[[env.production.d1_databases]]
+binding = "SHARD_09"
+database_name = "proofkeeping-shard-09"
+database_id = "TODO-P0-02-未作成-SHARD-09"
+
+[[env.production.d1_databases]]
+binding = "SHARD_10"
+database_name = "proofkeeping-shard-10"
+database_id = "TODO-P0-02-未作成-SHARD-10"
+
+[[env.production.d1_databases]]
+binding = "SHARD_11"
+database_name = "proofkeeping-shard-11"
+database_id = "TODO-P0-02-未作成-SHARD-11"
+
+[[env.production.d1_databases]]
+binding = "SHARD_12"
+database_name = "proofkeeping-shard-12"
+database_id = "TODO-P0-02-未作成-SHARD-12"
+
+[[env.production.d1_databases]]
+binding = "SHARD_13"
+database_name = "proofkeeping-shard-13"
+database_id = "TODO-P0-02-未作成-SHARD-13"
+
+[[env.production.d1_databases]]
+binding = "SHARD_14"
+database_name = "proofkeeping-shard-14"
+database_id = "TODO-P0-02-未作成-SHARD-14"
+
+[[env.production.d1_databases]]
+binding = "SHARD_15"
+database_name = "proofkeeping-shard-15"
+database_id = "TODO-P0-02-未作成-SHARD-15"
+
+[[env.production.r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "pk-photos"
+
+[[env.production.r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "pk-documents"
+
+[[env.production.r2_buckets]]
+binding = "EVIDENCE"
+bucket_name = "pk-evidence"
+
+[[env.production.r2_buckets]]
+binding = "ARCHIVE"
+bucket_name = "pk-archive"
+
+[[env.production.kv_namespaces]]
+binding = "SESSION"
+id = "TODO-P0-02-未作成-PROD-SESSION"
+
+[[env.production.kv_namespaces]]
+binding = "RATELIMIT"
+id = "TODO-P0-02-未作成-PROD-RATELIMIT"
+
+[[env.production.kv_namespaces]]
+binding = "CONFIG"
+id = "TODO-P0-02-未作成-PROD-CONFIG"
+
+[[env.production.kv_namespaces]]
+binding = "CREDENTIALS"
+id = "TODO-P0-02-未作成-PROD-CREDENTIALS"
+
+# TTL 禁止。理由は top-level の SHARD_MAP のコメントを参照。
+[[env.production.kv_namespaces]]
+binding = "SHARD_MAP"
+id = "TODO-P0-02-未作成-PROD-SHARD_MAP"
+
+[[env.production.queues.producers]]
+binding = "QUEUE_PDF_GENERATION"
+queue = "pk-pdf-generation"
+
+[[env.production.queues.producers]]
+binding = "QUEUE_EVIDENCE_EXPORT"
+queue = "pk-evidence-export"
+
+[[env.production.queues.producers]]
+binding = "QUEUE_RECONCILIATION"
+queue = "pk-reconciliation"
+
+[[env.production.queues.producers]]
+binding = "QUEUE_ROLLUP_UPDATE"
+queue = "pk-rollup-update"
+
+[[env.production.queues.producers]]
+binding = "QUEUE_BASELINE_LEARNING"
+queue = "pk-baseline-learning"
+
+[[env.production.queues.producers]]
+binding = "QUEUE_NOTIFICATION"
+queue = "pk-notification"
+
+[[env.production.queues.producers]]
+binding = "QUEUE_ARCHIVE_RESTORE"
+queue = "pk-archive-restore"

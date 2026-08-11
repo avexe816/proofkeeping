@@ -219,8 +219,11 @@ MUST: ハッシュベースのルーティングを、明示マッピングで�
 
 ts
 // 明示マッピングを優先する
+// SHARD_MAP は明示マッピング専用の KV namespace。TTL を設定しない。
+// 失効すると下の fnv1a32 に無警告で落ち、移送済みテナントのデータが分裂する。
+// architecture.md §1 / DECISIONS.md #004
 export async function resolveShard(env: Env, organizationId: string) {
-  const override = await env.KV.get(`shard:${organizationId}`);
+  const override = await env.SHARD_MAP.get(`shard:${organizationId}`);
   if (override) return Number(override);
   return fnv1a32(organizationId) % SHARD_COUNT;
 }

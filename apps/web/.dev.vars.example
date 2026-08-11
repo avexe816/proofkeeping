@@ -1,0 +1,19 @@
+# ローカル開発用の secret のひな形。
+#
+#   cp apps/web/.dev.vars.example apps/web/.dev.vars
+#
+# .dev.vars は .gitignore 済み。実値をこのファイルに書き戻さないこと。
+# 本番・staging・preview へは wrangler.toml ではなく `wrangler secret put` で入れる。
+# 手順は docs/tasks/P0-02.md の作業ログを参照。
+
+# セッション ID の署名鍵。32 バイト以上のランダム文字列。
+SESSION_SECRET="dev-only-session-secret-change-me"
+
+# Resend の API キー。ローカルではメールを実送信しないためダミーでよい。
+RESEND_API_KEY="dev-only-resend-key"
+
+# CREDENTIALS KV に置く外部連携の資格情報を暗号化する鍵（security.md §7）。
+CREDENTIAL_ENCRYPTION_KEY="dev-only-credential-encryption-key"
+
+# Sentry の DSN。空でよい（採用可否は PK-SPEC-P0 §20 で未決）。
+SENTRY_DSN=""

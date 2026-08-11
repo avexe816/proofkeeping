@@ -5,18 +5,27 @@
 ## 現在のセッション
 
 ```
-task: P0-01 monorepo とツールチェーン
-状態: 完了。pnpm install / typecheck / lint / test / test:isolation がすべて通る
-次: P0-02 Cloudflare リソース作成（wrangler.toml と 16 シャードの binding 宣言、pnpm dev）
-ブロッカー: なし
+task: P0-02 Cloudflare リソース作成
+状態: 実装済み・リソース作成待ち。wrangler.toml（local/preview/staging/production）と
+      packages/db/src/env.ts の Env を追加し、pnpm check（lint + typecheck + test 45 件）が通る。
+      Cloudflare の認証情報が無いため wrangler は実行しておらず、wrangler dev の起動は未検証。
+次: 手元で docs/tasks/P0-02.md のリソース作成コマンドを実行し、
+    D1 の database_id と KV の id を差し替える → pnpm dev で起動確認 → P0-03 シャードルーター
+ブロッカー: 実在する Cloudflare リソースは D1 の proofkeeping-shard-00 のみ。
+            R2 / KV / Queue と残り 15 シャードは未作成。
 ```
 
 補足: UI フレームワーク（OPEN_QUESTIONS #001）は未決のまま。`apps/web` は Hono のみ。
+シャード明示マッピングは専用 KV namespace `SHARD_MAP` に置く（DECISIONS #004 / OPEN_QUESTIONS #006 解決済）。
 
 ## Phase 0 — 基盤構築（M1）
 
 - [x] P0-01 monorepo とツールチェーン
 - [ ] P0-02 Cloudflare リソース作成
+  - 宣言と型は実装済み。ローカル（`SHARD_COUNT=1`）は成立する構成になっている。
+    実在するリソースは D1 `proofkeeping-shard-00` のみのため、完了条件
+    「production で 16 シャードすべてに接続できる」は未達成。
+    R2 / KV / Queue と残り 15 シャードを作成し `database_id` を差し替えた後にチェックする。
 - [ ] P0-03 シャードルーター ★最優先
 - [ ] P0-04 ESLint カスタムルール ★最優先
 - [ ] P0-05 ID 採番 ★最優先
