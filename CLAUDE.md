@@ -143,7 +143,10 @@ docs/                     仕様・task・進捗
 | `docs/PK-SPEC-UI.md` | 清掃員モバイル 16 画面の設計説明書 |
 | `docs/PK-SPEC-UI-A01.md` | v3 レイアウト標準（PC 全画面）。既存画面設計に優先する |
 | `docs/PK-BIZ-PLAN.md` | 版数構成（Base/Pro/Ent）と課金単位 |
-| `ui-prototypes/` | 動作する HTML プロトタイプ 55 画面。**見た目の正はここ** |
+| `ui-prototypes/` | HTML プロトタイプ **55 画面 / 33 ファイル**。**見た目の正はここ** |
+
+- モバイル 16 画面は 1 ファイル 1 画面、PC 36 画面は 1 ファイルに 3〜4 画面を収めている。内訳は `ui-prototypes/README.md` を見ること。
+- `ui-prototypes/_archive/` は初期検討版。**実装の参照に使わないこと。**
 
 **仕様の唯一の正は上記。** 本ファイルと矛盾する場合は仕様書を優先し、矛盾自体を `docs/OPEN_QUESTIONS.md` に報告する。
 
@@ -174,3 +177,4 @@ pnpm check                  # lint + typecheck + test を一括
 - **P2 は P1 の現場出荷判定**（自社施設で 2 週間、紙を全廃）を通過するまで着手しない。
 - **P7 は新機能を追加しない。** 既存機能の完成度を上げるフェーズ。
 - **P8 は P7-17 の GA 判定**（有償顧客 5 社稼働）を通過するまで着手しない。Workforce と Inventory は購入の決定理由ではないため、コア機能を固めてから追加する。
+- **`docs/tasks/` に P8 の task ファイルは意図的に存在しない。** `docs/tasks/` は P0〜P7 の 137 件。P8 の 9 項目は `docs/PROGRESS.md` にチェックボックスだけを置いてあり、GA 判定通過後に task 化する。**GA 判定前に P8 の task ファイルを作成しないこと。**
