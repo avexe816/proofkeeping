@@ -60,7 +60,7 @@
 | `pkops-B-records-staff.html` | 05 稼働の差異 / 06 清掃記録 / 07 スタッフ管理 / 08 研修と資格 |
 | `pkops-C-materials-billing-config.html` | 09 リネン・備品 / 10 請求管理 / 11 施設・手順設定 / 12 権限と監査 |
 
-## 第4批 プラットフォーム運営 PC（9 画面・3 ファイル）
+## 第4批 プラットフォーム運営 PC（12 画面・4 ファイル）
 
 `platform/`
 
@@ -69,8 +69,7 @@
 | `pkplat-A-status-tenants.html` | 01 サービス稼働 / 02 テナント管理 / 03 利用状況 |
 | `pkplat-B-p4-engine.html` | 04 ルール管理 / 05 精度モニタ / 06 検証と再学習 |
 | `pkplat-C-support-announce.html` | 07 問い合わせ / 08 不具合と要望 / 09 お知らせ配信 |
-
-**未収録**: 10 契約と収益 / 11 監査と法令 / 12 システム設定（`pkplat-D`）は未アップロード。内容は `docs/PK-BIZ-PLAN.md` と `docs/PK-IMPL-CONTRACT.md` 第 11 章で代替可能。
+| `pkplat-D-contract-audit-config.html` | 10 契約と収益 / 11 監査と法令 / 12 システム設定 |
 
 ## 共通
 
