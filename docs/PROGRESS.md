@@ -1,19 +1,21 @@
 # 実装進捗
 
-最終更新: （未着手）
+最終更新: 2026-08-11
 
 ## 現在のセッション
 
 ```
-task: （未着手）
-状態:
-次:
-ブロッカー:
+task: P0-01 monorepo とツールチェーン
+状態: 完了。pnpm install / typecheck / lint / test / test:isolation がすべて通る
+次: P0-02 Cloudflare リソース作成（wrangler.toml と 16 シャードの binding 宣言、pnpm dev）
+ブロッカー: なし
 ```
+
+補足: UI フレームワーク（OPEN_QUESTIONS #001）は未決のまま。`apps/web` は Hono のみ。
 
 ## Phase 0 — 基盤構築（M1）
 
-- [ ] P0-01 monorepo とツールチェーン
+- [x] P0-01 monorepo とツールチェーン
 - [ ] P0-02 Cloudflare リソース作成
 - [ ] P0-03 シャードルーター ★最優先
 - [ ] P0-04 ESLint カスタムルール ★最優先

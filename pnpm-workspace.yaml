@@ -1,0 +1,7 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Vitest が依存する esbuild はネイティブバイナリの配置にビルドスクリプトを必要とする。
+onlyBuiltDependencies:
+  - esbuild

@@ -1,0 +1,28 @@
+{
+  "name": "proofkeeping",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "test:isolation": "vitest run --dir tests/tenant-isolation --passWithNoTests"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@pk/config": "workspace:*",
+    "@types/node": "^22.9.0",
+    "eslint": "^9.15.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.12.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.15.0",
+    "vitest": "^3.0.0"
+  }
+}
