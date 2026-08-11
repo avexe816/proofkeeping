@@ -104,12 +104,17 @@ id = "TODO-P0-02-未作成-SESSION"
 binding = "RATELIMIT"
 id = "TODO-P0-02-未作成-RATELIMIT"
 
-# シャードの明示マッピング（shard:{organizationId}）はこの CONFIG に置く。
-# architecture.md §1 のコード例は binding 名 `KV` を使っているが、
-# その名前の namespace は存在しない。docs/OPEN_QUESTIONS.md #006 を参照。
 [[kv_namespaces]]
 binding = "CONFIG"
 id = "TODO-P0-02-未作成-CONFIG"
+
+# シャードの明示マッピング（shard:{organizationId}）専用。architecture.md §1 の MUST:
+# TTL を設定してはならない。失効すると resolveShard() が無警告で fnv1a32 の
+# フォールバックに落ち、同一テナントのデータが複数シャードに分裂する。
+# 一括更新・一括削除の対象になる CONFIG と同居させない（DECISIONS.md #004）。
+[[kv_namespaces]]
+binding = "SHARD_MAP"
+id = "TODO-P0-02-未作成-SHARD_MAP"
 
 # 外部連携の資格情報は暗号化してここに置き、DB からは credentialRef で参照する
 # （security.md §7）。
@@ -199,6 +204,11 @@ id = "TODO-P0-02-未作成-PREVIEW-CONFIG"
 binding = "CREDENTIALS"
 id = "TODO-P0-02-未作成-PREVIEW-CREDENTIALS"
 
+# TTL 禁止。理由は top-level の SHARD_MAP のコメントを参照。
+[[env.preview.kv_namespaces]]
+binding = "SHARD_MAP"
+id = "TODO-P0-02-未作成-PREVIEW-SHARD_MAP"
+
 [[env.preview.queues.producers]]
 binding = "QUEUE_PDF_GENERATION"
 queue = "pk-pdf-generation-preview"
@@ -284,6 +294,12 @@ id = "TODO-P0-02-未作成-STAGING-CONFIG"
 [[env.staging.kv_namespaces]]
 binding = "CREDENTIALS"
 id = "TODO-P0-02-未作成-STAGING-CREDENTIALS"
+
+# TTL 禁止。理由は top-level の SHARD_MAP のコメントを参照。
+# staging は SHARD_COUNT = 2 なので、明示マッピングが実際に効く唯一の非本番環境。
+[[env.staging.kv_namespaces]]
+binding = "SHARD_MAP"
+id = "TODO-P0-02-未作成-STAGING-SHARD_MAP"
 
 [[env.staging.queues.producers]]
 binding = "QUEUE_PDF_GENERATION"
@@ -445,6 +461,11 @@ id = "TODO-P0-02-未作成-PROD-CONFIG"
 [[env.production.kv_namespaces]]
 binding = "CREDENTIALS"
 id = "TODO-P0-02-未作成-PROD-CREDENTIALS"
+
+# TTL 禁止。理由は top-level の SHARD_MAP のコメントを参照。
+[[env.production.kv_namespaces]]
+binding = "SHARD_MAP"
+id = "TODO-P0-02-未作成-PROD-SHARD_MAP"
 
 [[env.production.queues.producers]]
 binding = "QUEUE_PDF_GENERATION"

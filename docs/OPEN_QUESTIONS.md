@@ -42,20 +42,20 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 - 内容: 清掃会社の兼務者を想定。Membership の設計上は可能だが UI が未定義。
 - 影響: P0-06, P0-14
 
-### #006 シャード明示マッピングを置く KV binding 名
-- 提起: 2026-08-11 / P0-02 実装中
-- 内容: `.claude/rules/architecture.md` §1 の `resolveShard()` のコード例は
-  `env.KV.get("shard:{organizationId}")` と binding 名 `KV` を使っている。
-  しかし P0-02 の task が作る KV namespace は `SESSION` / `RATELIMIT` /
-  `CONFIG` / `CREDENTIALS` の 4 本で、`KV` という namespace は存在しない。
-  ルールの例が古いのか、5 本目を作るべきなのかが判断できない。
-- 影響: P0-03（`resolveShard()` の実装）
-- 暫定対応: 設定キャッシュ用途の `CONFIG` に置く前提で `packages/db/src/env.ts` の
-  `Env` を定義し、`wrangler.toml` と `env.ts` の両方にコメントを残した。
-  P0-03 着手前に確定させたい。
-
 ---
 
 ## 解決済
 
-（なし）
+### #006 シャード明示マッピングを置く KV binding 名
+- 提起: 2026-08-11 / P0-02 実装中
+- 回答: 2026-08-11
+- 内容: `.claude/rules/architecture.md` §1 の `resolveShard()` のコード例は
+  `env.KV.get("shard:{organizationId}")` と binding 名 `KV` を使っている。
+  しかし P0-02 の task が作る KV namespace は `SESSION` / `RATELIMIT` /
+  `CONFIG` / `CREDENTIALS` の 4 本で、`KV` という namespace は存在しない。
+- 影響: P0-03（`resolveShard()` の実装）
+- 決定: **専用の namespace `SHARD_MAP` を追加する。** `CONFIG` に相乗りさせない。
+  `shard:{organizationId}` が失われても `resolveShard()` はエラーにならず
+  `fnv1a32` のフォールバックに落ちるため、同一テナントのデータが複数シャードへ
+  無警告で分裂する。`CONFIG` は一括更新・一括削除・TTL 失効の対象であり同居できない。
+  `SHARD_MAP` には TTL を設定しない。詳細は `docs/DECISIONS.md` #004。

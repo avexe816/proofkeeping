@@ -16,7 +16,7 @@ task: P0-02 Cloudflare リソース作成
 ```
 
 補足: UI フレームワーク（OPEN_QUESTIONS #001）は未決のまま。`apps/web` は Hono のみ。
-シャード明示マッピングを置く KV binding 名は OPEN_QUESTIONS #006 で未決（暫定 `CONFIG`）。
+シャード明示マッピングは専用 KV namespace `SHARD_MAP` に置く（DECISIONS #004 / OPEN_QUESTIONS #006 解決済）。
 
 ## Phase 0 — 基盤構築（M1）
 

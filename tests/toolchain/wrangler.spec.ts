@@ -21,7 +21,7 @@ const ACCOUNT_ID = "0abcaf3ee0a5d1804975ce92d33255ca";
 
 const R2_BINDINGS = ["PHOTOS", "DOCUMENTS", "EVIDENCE", "ARCHIVE"] as const;
 
-const KV_BINDINGS = ["SESSION", "RATELIMIT", "CONFIG", "CREDENTIALS"] as const;
+const KV_BINDINGS = ["SESSION", "RATELIMIT", "CONFIG", "CREDENTIALS", "SHARD_MAP"] as const;
 
 /** architecture.md §5 の 7 キュー。 */
 const QUEUE_BINDINGS = [
@@ -150,14 +150,25 @@ describe("P0-02 wrangler.toml の構成", () => {
       expect(bindings.sort()).toEqual([...R2_BINDINGS].sort());
     });
 
-    it("KV namespace 4 本が揃い、id が binding ごとに一意である", () => {
+    it("KV namespace 5 本が揃い、id が binding ごとに一意である", () => {
       const entries = section.kv_namespaces ?? [];
 
       expect(entries.map((entry) => entry.binding).sort()).toEqual([...KV_BINDINGS].sort());
 
       // 同じ id を共有すると miniflare のローカルストアが 1 つに混ざる。
+      // SHARD_MAP が CONFIG と同じストアに載ると、CONFIG の一括削除で
+      // 明示マッピングが消え、テナントのデータが複数シャードに分裂する。
       const ids = entries.map((entry) => entry.id);
       expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it("SHARD_MAP が CONFIG とは別の namespace として宣言されている", () => {
+      const entries = section.kv_namespaces ?? [];
+      const shardMap = entries.find((entry) => entry.binding === "SHARD_MAP");
+      const config = entries.find((entry) => entry.binding === "CONFIG");
+
+      expect(shardMap?.id, label).toBeTypeOf("string");
+      expect(shardMap?.id, label).not.toBe(config?.id);
     });
 
     it("Queue producer 7 本が揃う", () => {

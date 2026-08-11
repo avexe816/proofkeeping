@@ -58,15 +58,23 @@ export interface KvBindings {
   SESSION: KVNamespace;
   /** レート制限のカウンタ（security.md §8）。 */
   RATELIMIT: KVNamespace;
-  /**
-   * 組織 → シャードの明示マッピング（`shard:{organizationId}`）と設定キャッシュ。
-   *
-   * architecture.md §1 のコード例は binding 名 `KV` を使っているが、
-   * その名前の namespace は存在しない。docs/OPEN_QUESTIONS.md #006 を参照。
-   */
+  /** 設定キャッシュ。一括更新・一括削除・TTL 失効の対象。 */
   CONFIG: KVNamespace;
   /** 外部連携の資格情報を暗号化して保持する。DB には平文を置かない（security.md §7）。 */
   CREDENTIALS: KVNamespace;
+  /**
+   * 組織 → シャードの明示マッピング（`shard:{organizationId}`）専用。
+   *
+   * MUST: TTL（`expirationTtl` / `expiration`）を設定しない。
+   * このキーが失効しても `resolveShard()` はエラーにならず `fnv1a32` の
+   * フォールバックに静かに落ちる。移送済みの組織なら以後の読み書きが
+   * 移送前のシャードへ向かい、同一テナントのデータが複数シャードに分裂する。
+   * この破損は無警告で進行する。
+   *
+   * 一括操作の対象になる `CONFIG` と同居させない。
+   * architecture.md §1 / docs/DECISIONS.md #004 を参照。
+   */
+  SHARD_MAP: KVNamespace;
 }
 
 /**
