@@ -21,6 +21,15 @@ export {
   type TenantScopedTable,
 } from "./base.js";
 
+export {
+  AUDIT_ACTIONS,
+  recordAudit,
+  type AuditAction,
+  type RecordAuditInput,
+} from "./audit.js";
+
+export { isModuleEnabled } from "./entitlement.js";
+
 export { findOrganization, findTaxProfile } from "./organization.js";
 
 export {

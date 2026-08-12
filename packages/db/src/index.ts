@@ -39,9 +39,13 @@ export {
   type UlidFactoryDeps,
 } from "./id.js";
 
-// エラー（P0-05）。HTTP への写像は呼び出し側（P0-10）の責務。
+// エラー（P0-05 / P0-12）。HTTP への写像は呼び出し側（P0-10）の責務。
 // 後続 task はこれを再定義せず再エクスポートで取り込むこと。
-export { NotFoundError } from "./errors.js";
+export { NotFoundError, PaymentRequiredError } from "./errors.js";
+
+// 監査ログのマスク（P0-11）。`recordAudit()` が内側で使う。
+// 呼び出し側が事前にマスクする必要は無いが、ログ出力など別経路でも使える。
+export { MASKED, maskSensitive, serializeAuditPayload } from "./mask.js";
 
 // Drizzle スキーマ（P0-06）。テナントスコープの表のみ。
 // 全局テーブル（org_directory）は `getGlobalDb()` 経由でしか引けない。

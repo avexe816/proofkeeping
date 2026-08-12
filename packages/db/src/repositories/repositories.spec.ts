@@ -31,6 +31,8 @@ import {
   tenantContext,
 } from "../test-support/fake-d1.js";
 
+import * as auditRepo from "./audit.js";
+import * as entitlementRepo from "./entitlement.js";
 import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
 import * as roomRepo from "./room.js";
@@ -38,6 +40,8 @@ import * as userRepo from "./user.js";
 
 /** 検証対象のリポジトリモジュール。**新しいファイルを足したらここに追加する。** */
 const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
+  audit: auditRepo,
+  entitlement: entitlementRepo,
   organization: organizationRepo,
   property: propertyRepo,
   room: roomRepo,
@@ -86,6 +90,30 @@ interface Invocation {
  * 「全 export が登録されている」テストが検出する。
  */
 const INVOCATIONS: Invocation[] = [
+  {
+    name: "audit.recordAudit",
+    kind: "tenant",
+    run: (env, ctx) =>
+      auditRepo.recordAudit(env, ctx, {
+        actorId: OWN_ID.membership,
+        action: "property.created",
+        targetType: "property",
+        targetId: OWN_ID.property,
+      }),
+    // actorId は membership の自己記述 ID。別組織の操作者を記録できてはならない。
+    crossTenant: (env, ctx) =>
+      auditRepo.recordAudit(env, ctx, {
+        actorId: OTHER_ID.membership,
+        action: "property.created",
+        targetType: "property",
+      }),
+  },
+  {
+    name: "entitlement.isModuleEnabled",
+    kind: "tenant",
+    run: (env, ctx) => entitlementRepo.isModuleEnabled(env, ctx, "AUDIT", null),
+    crossTenant: (env, ctx) => entitlementRepo.isModuleEnabled(env, ctx, "AUDIT", OTHER_ID.property),
+  },
   {
     name: "organization.findOrganization",
     kind: "tenant",
