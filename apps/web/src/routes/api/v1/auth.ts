@@ -1,11 +1,12 @@
 /**
  * 認証 API。
  *
- * task:  docs/tasks/P0-08.md
+ * task:  docs/tasks/P0-08.md（/login）/ docs/tasks/P0-09.md（/pin-login）
  * ルール: .claude/rules/security.md §2 / §8
  *
- *   POST /api/v1/auth/login    orgShortId + スタッフ番号 + パスワード
- *   POST /api/v1/auth/logout   セッションの破棄
+ *   POST /api/v1/auth/login      orgShortId + スタッフ番号 + パスワード（管理系）
+ *   POST /api/v1/auth/pin-login  orgShortId + スタッフ番号 + PIN 4 桁（現場系）
+ *   POST /api/v1/auth/logout     セッションの破棄
  *
  * ── 応答 ────────────────────────────────────────────────
  *   200 `{ expiresAt }`      成功。セッションは Set-Cookie で運ぶ
@@ -23,7 +24,7 @@
  * ことが分かる応答を返さない。
  */
 
-import { loginRequestSchema, type AuthErrorCode } from "@pk/contracts";
+import { loginRequestSchema, pinLoginRequestSchema, type AuthErrorCode } from "@pk/contracts";
 import type { Env } from "@pk/db";
 import { Hono } from "hono";
 
@@ -33,6 +34,7 @@ import {
   readSessionCookie,
 } from "../../../lib/auth/cookie.js";
 import { login } from "../../../lib/auth/login.js";
+import { pinLogin } from "../../../lib/auth/pinLogin.js";
 import { clientIp, consumeRateLimit } from "../../../lib/auth/rateLimit.js";
 import { deleteSession } from "../../../lib/auth/session.js";
 
@@ -66,6 +68,40 @@ auth.post("/login", async (c) => {
     buildSessionCookie(result.session.cookieValue, result.session.maxAgeSeconds),
   );
   return c.json({ expiresAt: new Date(result.session.record.expiresAt).toISOString() });
+});
+
+/**
+ * 現場系（CLEANER / INSPECTOR）のログイン。
+ *
+ * `/login` と写像は同じ。違うのはレート制限のバケツ（20 req/分/IP — security.md §8）と、
+ * 本体に `pinMustChange` を載せることだけ。**別のバケツを使うのが要点で、
+ * `login` と共有すると片方の総当たりでもう片方が締め出される。**
+ */
+auth.post("/pin-login", async (c) => {
+  const now = new Date();
+
+  const rate = await consumeRateLimit(c.env, "pinLogin", clientIp(c.req.raw), now);
+  if (!rate.allowed) {
+    return c.json(errorBody("RATE_LIMITED"), 429, {
+      "Retry-After": String(rate.retryAfterSeconds),
+    });
+  }
+
+  const body: unknown = await c.req.json().catch(() => null);
+  const parsed = pinLoginRequestSchema.safeParse(body);
+  if (!parsed.success) return c.json(errorBody("INVALID_REQUEST"), 400);
+
+  const result = await pinLogin(c.env, { credentials: parsed.data, now });
+  if (!result.ok) return c.json(errorBody("AUTH_FAILED"), 401);
+
+  c.header(
+    "Set-Cookie",
+    buildSessionCookie(result.session.cookieValue, result.session.maxAgeSeconds),
+  );
+  return c.json({
+    expiresAt: new Date(result.session.record.expiresAt).toISOString(),
+    pinMustChange: result.pinMustChange,
+  });
 });
 
 auth.post("/logout", async (c) => {

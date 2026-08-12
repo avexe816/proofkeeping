@@ -80,14 +80,29 @@ export const user = sqliteTable(
      * null の行はログインできない（認証経路が弾く）。
      */
     staffNumber: text("staff_number"),
-    /** bcrypt cost 10。連番・ゾロ目は登録時に拒否する（security.md §2）。 */
+    /**
+     * PBKDF2-SHA256 のハッシュ（DECISIONS #021）。
+     * `pbkdf2$sha256$50000$<salt>$<hash>` の自己記述文字列。
+     * **反復回数がパスワードより低い**のは、4 桁 PIN では KDF の強度差が
+     * 効かないため（理由は `apps/web/src/lib/auth/pin.ts` の冒頭）。
+     * **形式を解釈してよいのは `apps/web/src/lib/auth/pin.ts` だけ。**
+     * 連番・ゾロ目は登録時に拒否する（`pinSchema` / security.md §2）。
+     */
     pinHash: text("pin_hash"),
     /** 初回変更を強制する（security.md §2）。 */
     pinMustChange: integer("pin_must_change", { mode: "boolean" }).notNull().default(true),
     displayName: text("display_name").notNull(),
     /** モバイルのみ多言語。管理画面は日本語のみ（ui-writing.md §1）。 */
     locale: text("locale").notNull().default("ja"),
-    /** 連続失敗回数。パスワード 10 回で 30 分、PIN 5 回で 15 分ロック。 */
+    /**
+     * 連続失敗回数。パスワード 10 回で 30 分ロック（P0-08 が実装）。
+     *
+     * security.md §2 は PIN にも 5 回で 15 分を定めるが、**P0-09 では
+     * 数えていない**（PIN の総当たりはレート制限が止めている）。
+     * この列はパスワードと PIN で共有しているため、PIN 側で数え始めるなら
+     * **列を分けるところから設計すること。** 共有のままだと
+     * 「PIN の失敗でパスワードがロックされる」が起きる。
+     */
     failedLoginCount: integer("failed_login_count").notNull().default(0),
     lockedUntil: integer("locked_until", { mode: "timestamp_ms" }),
     lastLoginAt: integer("last_login_at", { mode: "timestamp_ms" }),

@@ -1,12 +1,13 @@
 /**
- * 認証 API のハンドラ（P0-08）。ステータスコードと Cookie の写像。
+ * 認証 API のハンドラ（P0-08 /login・/logout / P0-09 /pin-login）。
+ * ステータスコードと Cookie の写像。
  *
- * 認証の判定そのものは `lib/auth/login.spec.ts` が見る。ここで確かめるのは
- * 「どの失敗も 401 で理由が 1 種類か」「レート制限が 429 になるか」
- * 「Cookie の属性が落ちていないか」。
+ * 認証の判定そのものは `lib/auth/login.spec.ts` と `lib/auth/pinLogin.spec.ts`
+ * が見る。ここで確かめるのは「どの失敗も 401 で理由が 1 種類か」
+ * 「レート制限が 429 になるか」「Cookie の属性が落ちていないか」。
  */
 
-import { loginResponseSchema } from "@pk/contracts";
+import { loginResponseSchema, pinLoginResponseSchema } from "@pk/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const lookupOrganizationId = vi.fn();
@@ -22,6 +23,7 @@ vi.mock("@pk/db", () => ({
 }));
 
 const { hashPassword } = await import("../../../lib/auth/password.js");
+const { hashPin } = await import("../../../lib/auth/pin.js");
 const { RATE_LIMITS } = await import("../../../lib/auth/rateLimit.js");
 const { createFakeKv } = await import("../../../lib/auth/test-support/fake-kv.js");
 const auth = (await import("./auth.js")).default;
@@ -31,12 +33,14 @@ type FakeKv = import("../../../lib/auth/test-support/fake-kv.js").FakeKv;
 
 const ORG = { organizationId: "org_test_alpha", orgShortId: "a1b2c3" } as const;
 const PASSWORD = "Correct1Horse";
+const PIN = "8261";
 const IP = "203.0.113.10";
 
 let sessionKv: FakeKv;
 let rateLimitKv: FakeKv;
 let env: Env;
 let passwordHash = "";
+let pinHash = "";
 
 async function post(body: unknown, headers: Record<string, string> = {}): Promise<Response> {
   return auth.request(
@@ -52,7 +56,9 @@ async function post(body: unknown, headers: Record<string, string> = {}): Promis
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  // PBKDF2 は遅い。ファイル全体で 1 回ずつしか作らない。
   if (passwordHash === "") passwordHash = await hashPassword(PASSWORD);
+  if (pinHash === "") pinHash = await hashPin(PIN);
 
   sessionKv = createFakeKv();
   rateLimitKv = createFakeKv();
@@ -68,6 +74,8 @@ beforeEach(async () => {
     organizationId: ORG.organizationId,
     staffNumber: "S-0001",
     passwordHash,
+    pinHash,
+    pinMustChange: false,
     isActive: true,
     failedLoginCount: 0,
     lockedUntil: null,
@@ -192,6 +200,135 @@ describe("POST /login", () => {
     for (let i = 0; i < RATE_LIMITS.login.limit; i++) await post(credentials);
     vi.clearAllMocks();
     await post(credentials);
+    expect(lookupOrganizationId).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /pin-login", () => {
+  async function postPin(body: unknown, headers: Record<string, string> = {}): Promise<Response> {
+    return auth.request(
+      "/pin-login",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "CF-Connecting-IP": IP, ...headers },
+        body: typeof body === "string" ? body : JSON.stringify(body),
+      },
+      env,
+    );
+  }
+
+  function credentials(overrides: Record<string, unknown> = {}) {
+    return { orgShortId: ORG.orgShortId, staffNumber: "S-0001", pin: PIN, ...overrides };
+  }
+
+  beforeEach(() => {
+    // 既定の所属は ORG_ADMIN（/login 用）。PIN が通るのは現場系だけ。
+    findMembershipByUserId.mockResolvedValue({
+      id: "a1b2c3__mem_01JBXQ3ZK8N4P2VYR60000",
+      organizationId: ORG.organizationId,
+      role: "CLEANER",
+      isActive: true,
+    });
+  });
+
+  it("成功すると 200 と expiresAt / pinMustChange を返す", async () => {
+    const response = await postPin(credentials());
+    expect(response.status).toBe(200);
+    const body = pinLoginResponseSchema.parse(await response.json());
+    expect(Date.parse(body.expiresAt)).toBeGreaterThan(Date.now());
+    expect(body.pinMustChange).toBe(false);
+  });
+
+  it("Cookie の Max-Age は 16 時間（1 勤務）", async () => {
+    // 管理系の 43200 秒（12 時間）と混ざらないこと。
+    const response = await postPin(credentials());
+    const cookie = response.headers.get("Set-Cookie") ?? "";
+    expect(cookie).toContain("pk_session=");
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("SameSite=Lax");
+    expect(cookie).toContain("Max-Age=57600");
+  });
+
+  it("本体にセッション ID を入れない（httpOnly の意味を消さない）", async () => {
+    const response = await postPin(credentials());
+    const body: unknown = await response.json();
+    expect(Object.keys(body as Record<string, unknown>).sort()).toEqual([
+      "expiresAt",
+      "pinMustChange",
+    ]);
+  });
+
+  it("PIN が違えば 401 と AUTH_FAILED のみ", async () => {
+    const response = await postPin(credentials({ pin: "8262" }));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "AUTH_FAILED" });
+    expect(response.headers.get("Set-Cookie")).toBeNull();
+  });
+
+  it("組織が存在しなくても同じ 401 AUTH_FAILED", async () => {
+    lookupOrganizationId.mockResolvedValue(null);
+    const response = await postPin(credentials({ orgShortId: "zzzzzz" }));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "AUTH_FAILED" });
+  });
+
+  it("管理系ロールは 401（4 桁で 16 時間のセッションを持たせない）", async () => {
+    findMembershipByUserId.mockResolvedValue({
+      id: "a1b2c3__mem_01JBXQ3ZK8N4P2VYR60000",
+      organizationId: ORG.organizationId,
+      role: "ORG_ADMIN",
+      isActive: true,
+    });
+    const response = await postPin(credentials());
+    expect(response.status).toBe(401);
+  });
+
+  it.each([
+    ["項目が足りない", { orgShortId: "a1b2c3", pin: PIN }],
+    ["orgShortId の桁数が違う", { orgShortId: "a1b2", staffNumber: "S-0001", pin: PIN }],
+    ["PIN が 3 桁", { orgShortId: "a1b2c3", staffNumber: "S-0001", pin: "826" }],
+    ["PIN が英字", { orgShortId: "a1b2c3", staffNumber: "S-0001", pin: "abcd" }],
+    ["パスワードを送ってきた", { orgShortId: "a1b2c3", staffNumber: "S-0001", password: PASSWORD }],
+    ["本体が JSON でない", "not json"],
+  ])("入力の形が違えば 400（%s）", async (_label, body) => {
+    const response = await postPin(body);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "INVALID_REQUEST" });
+  });
+
+  it("ポリシー違反の PIN（1234）でも 400 ではなく 401", async () => {
+    // 400 と 401 が分かれると、その PIN がポリシー違反の値だと分かる。
+    const response = await postPin(credentials({ pin: "1234" }));
+    expect(response.status).toBe(401);
+  });
+
+  it("21 回目のリクエストは 429 と Retry-After（login の 10 回とは別の上限）", async () => {
+    const body = credentials({ pin: "8262" });
+    for (let i = 0; i < RATE_LIMITS.pinLogin.limit; i++) {
+      const response = await postPin(body);
+      expect(response.status, `${String(i + 1)} 回目`).toBe(401);
+    }
+    const limited = await postPin(body);
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toEqual({ error: "RATE_LIMITED" });
+    expect(Number(limited.headers.get("Retry-After"))).toBeGreaterThan(0);
+  });
+
+  it("/login と窓を共有しない（片方の総当たりで他方を止めない）", async () => {
+    // 現場のログインが、管理系への総当たりの巻き添えで止まってはいけない。
+    for (let i = 0; i < RATE_LIMITS.login.limit + 1; i++) {
+      await post({ orgShortId: ORG.orgShortId, staffNumber: "S-0001", password: "Wrong1Password" });
+    }
+    const response = await postPin(credentials());
+    expect(response.status).toBe(200);
+  });
+
+  it("レート制限に掛かったら認証まで進まない", async () => {
+    const body = credentials();
+    for (let i = 0; i < RATE_LIMITS.pinLogin.limit; i++) await postPin(body);
+    vi.clearAllMocks();
+    await postPin(body);
     expect(lookupOrganizationId).not.toHaveBeenCalled();
   });
 });
