@@ -97,6 +97,49 @@ export async function countSellableRoomsByProperty(
 }
 
 /**
+ * 施設の中で、客室タイプごとに何室が割り当てられているか。
+ *
+ * task: docs/tasks/P1-24.md
+ * 仕様: docs/PK-SPEC-P0.md §24.5（無効化の前に影響件数を提示する）
+ *
+ * ── 有効な客室だけを数える ──────────────────────────────
+ * 無効化済みの客室を数に入れると、「3 室あります」と言われて客室一覧を
+ * 見に行っても 1 室しか見つからない、という食い違いが起きる。
+ * **`isSellable` では絞らない。** 清掃専用の場所にも客室タイプは付く
+ * （§24.2 の `PANTRY`）。無効化の影響を受ける点では客室と同じ。
+ *
+ * 客室タイプが未設定（`roomTypeId IS NULL`）の客室は返さない。
+ * `GROUP BY` で NULL の行が 1 つのキーにまとまるが、呼び出し側が
+ * 引くのは客室タイプの ID なので、そのキーには到達しない。
+ */
+export async function countRoomsByRoomType(
+  env: Env,
+  ctx: TenantContext,
+  propertyId: string,
+): Promise<Map<string, number>> {
+  assertIdBelongsToTenant(propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({ roomTypeId: room.roomTypeId, count: count() })
+    .from(room)
+    .where(
+      withTenantScope(
+        room,
+        ctx,
+        room.propertyId,
+        eq(room.propertyId, propertyId),
+        eq(room.isActive, true),
+      ),
+    )
+    .groupBy(room.roomTypeId);
+  return new Map(
+    rows
+      .filter((row): row is { roomTypeId: string; count: number } => row.roomTypeId !== null)
+      .map((row) => [row.roomTypeId, row.count]),
+  );
+}
+
+/**
  * 階の一覧（客室ボードの見出し / PK-SPEC-P1 §9.5）。
  *
  * task: docs/tasks/P1-15.md

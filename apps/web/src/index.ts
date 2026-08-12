@@ -18,6 +18,7 @@ import files from "./routes/api/v1/files.js";
 import organization from "./routes/api/v1/organization.js";
 import properties from "./routes/api/v1/properties.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
+import roomTypes from "./routes/api/v1/roomTypes.js";
 import session from "./routes/api/v1/session.js";
 import standardTimes from "./routes/api/v1/standardTimes.js";
 import tasks from "./routes/api/v1/tasks.js";
@@ -92,6 +93,8 @@ api.route("/files", files);
 api.route("/tasks", tasks);
 // 当日の客室状況（P1-04 / W-05）。CSV 取込と「全室アウト清掃として生成」。
 api.route("/room-plans", roomPlans);
+// 客室タイプ（P1-24 / W-25）。**物理削除の口が無い**（無効化のみ）。
+api.route("/room-types", roomTypes);
 // 標準時間マスタ（P1-02 / W-17）。
 api.route("/standard-times", standardTimes);
 // チェックリスト定義（P1-06 / W-16）。3 階層の継承はタスク生成時に解決する。

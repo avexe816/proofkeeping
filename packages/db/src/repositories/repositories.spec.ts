@@ -210,6 +210,42 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => propertyRepo.listRoomTypes(env, ctx, OWN_ID.property),
     crossTenant: (env, ctx) => propertyRepo.listRoomTypes(env, ctx, OTHER_ID.property),
   },
+  // ── P1-24: 客室タイプに書く経路 ────────────────────────
+  {
+    name: "property.findRoomTypeById",
+    kind: "tenant",
+    run: (env, ctx) => propertyRepo.findRoomTypeById(env, ctx, OWN_ID.roomType),
+    crossTenant: (env, ctx) => propertyRepo.findRoomTypeById(env, ctx, OTHER_ID.roomType),
+  },
+  {
+    name: "property.createRoomType",
+    kind: "tenant",
+    run: (env, ctx) =>
+      propertyRepo.createRoomType(env, ctx, {
+        propertyId: OWN_ID.property,
+        code: "TWN",
+        name: "ツイン",
+      }),
+    crossTenant: (env, ctx) =>
+      propertyRepo.createRoomType(env, ctx, {
+        propertyId: OTHER_ID.property,
+        code: "TWN",
+        name: "ツイン",
+      }),
+  },
+  {
+    name: "property.updateRoomType",
+    kind: "tenant",
+    run: (env, ctx) => propertyRepo.updateRoomType(env, ctx, OWN_ID.roomType, { name: "ツイン" }),
+    crossTenant: (env, ctx) =>
+      propertyRepo.updateRoomType(env, ctx, OTHER_ID.roomType, { name: "ツイン" }),
+  },
+  {
+    name: "room.countRoomsByRoomType",
+    kind: "tenant",
+    run: (env, ctx) => roomRepo.countRoomsByRoomType(env, ctx, OWN_ID.property),
+    crossTenant: (env, ctx) => roomRepo.countRoomsByRoomType(env, ctx, OTHER_ID.property),
+  },
   {
     name: "room.listRooms",
     kind: "tenant",

@@ -57,9 +57,18 @@ export {
   invoiceRegistrationNumberSchema,
   propertySummaryResponseSchema,
   propertySummarySchema,
+  roomTypeCodeSchema,
+  roomTypeCreateSchema,
+  roomTypeListResponseSchema,
+  roomTypeSummarySchema,
+  roomTypeUpdateSchema,
   taxProfileUpdateSchema,
   type PropertySummary,
   type PropertySummaryResponse,
+  type RoomTypeCreate,
+  type RoomTypeListResponse,
+  type RoomTypeSummary,
+  type RoomTypeUpdate,
   type TaxProfileUpdate,
 } from "./property.js";
 

@@ -74,6 +74,8 @@ describe("登録簿の不変条件", () => {
       // `/app/settings/*` の 4 画面。客室マスタ（P0-22）と事業者税務（P0-16）は
       // ルートが実在するのに**サイドバーに出ていなかった。**
       "nav.rooms",
+      // W-25 客室タイプ管理（P1-24）。客室マスタの直後。
+      "nav.roomTypes",
       "nav.checklists",
       "nav.standardTimes",
       "nav.taxProfile",

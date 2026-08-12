@@ -1271,3 +1271,64 @@
   書いてある。`nav.propertySettings` は PLANNED のままにしてあり、
   P1-24 がそこに入れるか `/app/settings/rooms` に節を足すかを実装時に
   決めて DECISIONS へ残すこと。
+
+## #055 客室タイプ管理を独立ルート `/app/settings/room-types` に置いた
+- 日付: 2026-08-12
+- 状態: 採用
+- 背景: #054 が「`nav.propertySettings`（PLANNED）の一部として置くか、
+  `/app/settings/rooms` の中に節を足すかを実装時に決めて残すこと」と
+  していた宿題。
+- 決定: **独立したルートと独立したサイドバー項目にする。**
+  `nav.roomTypes` を新設し、`nav.rooms`（客室マスタ）の直後に置いた。
+  `nav.propertySettings` は PLANNED のまま据え置く。
+- 理由:
+  ① 客室タイプは客室とは**別の一意制約を持つマスタ**
+     （`uq_room_type_property_code`）で、W-16 の第 3 階層と W-17 の行は
+     客室ではなくこちらを参照する。「客室マスタの一部」ではない。
+  ② `rooms.tsx` は既に 3 つの `intent`（範囲一括・CSV・無効化）を持ち、
+     P1-24 で 4 つ目（客室タイプの付け替え）が加わる。ここへさらに
+     客室タイプの CRUD を混ぜると、**1 つの `action` が 7 分岐**になる。
+  ③ W-16 / W-17 は客室タイプが 1 件も無いと設定を始められない。
+     設定の並びとして、客室マスタの直後に見えている必要がある。
+  `nav.propertySettings` を使わなかったのは、あちらが「施設設定」という
+  **未確定の入れ物**で、日締め時刻・施設情報など別のものが入る予定の枠
+  だから。客室タイプを先に入れると、あとで枠の意味が決まったときに
+  移動することになる。
+- 影響: `apps/web/src/routes/app/roomTypes.tsx`（新規）、`routes.ts`、
+  `ui/navigation.ts`、`ui/navigation.spec.ts` の READY 一覧。
+
+## #056 客室タイプの API に `Idempotency-Key` の記録を実装しない
+- 日付: 2026-08-12
+- 状態: 採用
+- 背景: CLAUDE.md §5「状態変更 API は `Idempotency-Key` ヘッダに対応する」。
+  `/api/v1/room-types` の POST / PATCH が状態変更にあたる。
+- 決定: ヘッダは受けるが、**鍵を保存する表・KV を作らない。**
+- 理由: この 2 操作は再送しても状態が変わらない。
+  - `POST` は `uq_room_type_property_code` があり、2 回目は
+    `onConflictDoNothing()` で弾かれて 409 になる。**行が 2 つできない。**
+  - `PATCH` は渡された項目をその値にするだけで、何度送っても同じ状態。
+  採番も課金も伴わないため、`routes/api/v1/session.ts`（`/switch-property`）
+  と同じ判断。**壊れるものが無いところに、鍵の寿命管理という新しい
+  状態を増やさない。**
+  一方 `cleaningTask` の状態遷移は `taskTimeLog` に行が積まれるため
+  鍵の照合が要る（`findTimeLogByIdempotencyKey()`）。この違いは
+  「再送で行が増えるか」で分かれる。
+- 影響: `apps/web/src/routes/api/v1/roomTypes.ts` の冒頭コメント。
+  **新しい API を足す task は、この基準（再送で行が増えるか）で判断すること。**
+
+## #057 `createFakeD1()` の `meta.changes` の既定を 1 にした
+- 日付: 2026-08-12
+- 状態: 採用
+- 背景: 代役の `run()` / `all()` が `meta: {}` を返していた。
+  `result.meta.changes > 0` を見る経路（`createRooms()` /
+  `createRoomType()` / `appendTimeLog()` など 14 か所）は、代役の下では
+  `undefined > 0` すなわち**常に false** を通っていた。
+- 決定: 既定を `1`（1 行書けた）にし、`enqueueChanges(n)` で
+  1 回ぶんだけ上書きできるようにした。`0` は
+  `onConflictDoNothing()` で見送られた状態を表す。
+- 理由: **代役が本物と違う分岐を通ると、テストが通っていることの意味が
+  変わる。** 既存のテストは SQL の形だけを見ていたため誰も気づかなかったが、
+  P1-24 で「重複したら 409」を検証しようとした時点で、代役では
+  常に重複扱いになることが分かった。
+- 影響: `packages/db/src/test-support/fake-d1.ts`。既存 1615 件は緑のまま
+  （どのテストも `changes` の値に依存していなかった）。

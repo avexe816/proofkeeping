@@ -198,6 +198,19 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/settings/rooms",
   },
+  // W-25 客室タイプ管理（P1-24）。**客室マスタの直後に置く。**
+  // W-16 / W-17 は客室タイプが 1 件も無いと設定を始められないので、
+  // 設定の並びとしてはこちらが先に目に入る必要がある。
+  // `scope` は `PROPERTY`（`room_type` は施設ごとのマスタ）。
+  {
+    key: "nav.roomTypes",
+    section: "settings",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "property.write",
+    scope: "PROPERTY",
+    status: "READY",
+    href: "/app/settings/room-types",
+  },
   // W-16 / W-17（P1-06 / P1-02 の未達分）。§10.1 の担当ロールは `ORG_ADMIN`。
   // **`scope` は `ORGANIZATION`。** 権限マトリクスがこの 2 操作を組織単位で
   // 定めており、施設スコープロールには項目ごと出ない。

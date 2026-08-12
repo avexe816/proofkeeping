@@ -2,6 +2,8 @@ import {
   NotFoundError,
   OPEN_TASK_STATUSES,
   createRooms,
+  findRoomById,
+  listRoomTypes,
   listRooms,
   listTasks,
   recordAudit,
@@ -17,6 +19,7 @@ import {
   parseExcludedNumbers,
   parseRoomCsv,
 } from "../../lib/room/bulk.js";
+import { buildRoomTypeIndex, resolveRoomTypeCodes } from "../../lib/room/roomTypes.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
 
@@ -43,6 +46,15 @@ import { requireAppContext } from "../../lib/ui/requireSession.js";
  * 明示操作を求めるところまでがこの画面の責務で、タスクをどうするかは
  * W-04（`/app/p/:propertyId/tasks`）で決める。同じボタンに
  * 「まとめて取消す」を足さないこと（P0-22 は P1 のタスク表を待っていた）。
+ *
+ * ── 客室タイプ（P1-24 で追加）────────────────────────────
+ * CSV の `room_type_code` を客室タイプのマスタと突き合わせる。
+ * **マスタに無いコードで取込全体を落とさない**（§24.2 の「エラーにしない」）。
+ * 未設定として取り込み、コードを画面へ返す。
+ *
+ * `PANTRY` を `isSellable = false` に写す既存の扱いは**変えていない。**
+ * マスタに `PANTRY` を登録していない施設でも、清掃専用の場所の判定は
+ * 従来どおり効く必要がある（突き合わせの成否と結びつけない）。
  */
 
 /**
@@ -56,10 +68,26 @@ function fieldOf(form: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
+/** 一覧の 1 行。`roomTypeId` は付け替えの `select` の初期値に使う。 */
+interface RoomRow {
+  id: string;
+  roomNumber: string;
+  note: string | null;
+  roomTypeId: string | null;
+}
+
+/** 付け替えの選択肢。**有効な客室タイプだけ**（無効化したものを選ばせない）。 */
+interface RoomTypeChoice {
+  id: string;
+  code: string;
+  name: string;
+}
+
 interface RoomsData {
   propertyId: string | null;
-  sellable: readonly { id: string; roomNumber: string; note: string | null }[];
-  nonSellable: readonly { id: string; roomNumber: string; note: string | null }[];
+  sellable: readonly RoomRow[];
+  nonSellable: readonly RoomRow[];
+  roomTypes: readonly RoomTypeChoice[];
 }
 
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<RoomsData> {
@@ -69,21 +97,30 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
 
   const properties = await listSelectableProperties(env, tenant);
   const { property } = resolveSelectedScope(session.selectedPropertyId, tenant, properties);
-  if (property === null) return { propertyId: null, sellable: [], nonSellable: [] };
+  if (property === null) {
+    return { propertyId: null, sellable: [], nonSellable: [], roomTypes: [] };
+  }
 
   assertPermission(tenant, "property.read", { kind: "PROPERTY", propertyIds: [property.id] });
 
-  const rows = await listRooms(env, tenant, { propertyId: property.id, isActive: true });
-  const shape = (row: (typeof rows)[number]) => ({
+  // 客室タイプは**有効なものだけ**（既定の絞り込み）。無効化したタイプを
+  // 付け替えの選択肢に戻すと、無効化した意味が消える。
+  const [rows, roomTypes] = await Promise.all([
+    listRooms(env, tenant, { propertyId: property.id, isActive: true }),
+    listRoomTypes(env, tenant, property.id),
+  ]);
+  const shape = (row: (typeof rows)[number]): RoomRow => ({
     id: row.id,
     roomNumber: row.roomNumber,
     note: row.note,
+    roomTypeId: row.roomTypeId,
   });
 
   return {
     propertyId: property.id,
     sellable: rows.filter((row) => row.isSellable).map(shape),
     nonSellable: rows.filter((row) => !row.isSellable).map(shape),
+    roomTypes: roomTypes.map((type) => ({ id: type.id, code: type.code, name: type.name })),
   };
 }
 
@@ -93,6 +130,13 @@ interface RoomsActionResult {
   skipped?: number;
   rejectedRows?: number;
   invalid?: boolean;
+  /**
+   * CSV にあってマスタに無かった客室タイプのコード（P1-24）。
+   *
+   * **件数ではなくコードそのものを返す。** 何を登録すればよいのかが
+   * 分からないと、取り込み直す判断ができない。
+   */
+  unknownRoomTypeCodes?: readonly string[];
   /**
    * 無効化の確認待ち（§24.5）。未完了タスクを抱えた客室。
    *
@@ -144,31 +188,75 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
 
   if (intent === "csv") {
     const parsed = parseRoomCsv(fieldOf(form, "csv"));
+
+    // P1-24: `room_type_code` を客室タイプのマスタと突き合わせる。
+    // **マスタに無いコードは未設定として取り込む**（§24.2 の「エラーにしない」）。
+    const roomTypes = await listRoomTypes(env, tenant, property.id);
+    const resolved = resolveRoomTypeCodes(parsed.rows, buildRoomTypeIndex(roomTypes));
+
     const result = await createRooms(
       env,
       tenant,
-      parsed.rows.map((row) => ({
-        propertyId: property.id,
-        roomNumber: row.roomNumber,
-        // §24.2 の例で清掃専用の場所は PANTRY という客室タイプで表される。
-        // 客室タイプのマスタが解決できるまでは、その 1 語だけを見る。
-        isSellable: row.roomTypeCode !== "PANTRY",
-        sourceType: "CSV" as const,
-        note: row.note ?? undefined,
-      })),
+      parsed.rows.map((row, index) => {
+        const roomTypeId = resolved.rows[index]?.roomTypeId;
+        return {
+          propertyId: property.id,
+          roomNumber: row.roomNumber,
+          // §24.2 の例で清掃専用の場所は PANTRY という客室タイプで表される。
+          // **突き合わせの成否と結びつけない。** マスタに PANTRY を登録して
+          // いない施設でも、清掃専用の場所の判定は効く必要がある。
+          isSellable: row.roomTypeCode !== "PANTRY",
+          ...(roomTypeId === undefined ? {} : { roomTypeId }),
+          sourceType: "CSV" as const,
+          note: row.note ?? undefined,
+        };
+      }),
     );
     await recordAudit(env, tenant, {
       actorId: session.membershipId,
       action: "room.created",
       targetType: "room",
       propertyId: property.id,
-      after: { created: result.created, skipped: result.skipped },
+      after: {
+        created: result.created,
+        skipped: result.skipped,
+        unknownRoomTypeCodes: resolved.unknownCodes,
+      },
     });
     return {
       created: result.created,
       skipped: result.skipped,
       rejectedRows: parsed.rejected.length,
+      unknownRoomTypeCodes: resolved.unknownCodes,
     };
+  }
+
+  // P1-24: 客室タイプの付け替え。W-05 のタイプ列を埋める経路。
+  if (intent === "assignRoomType") {
+    const roomId = fieldOf(form, "roomId");
+    const raw = fieldOf(form, "roomTypeId");
+    if (roomId === "") return { invalid: true };
+
+    // **フォームの `roomTypeId` をそのまま信用しない。** その施設の
+    // 有効な客室タイプに限る（W-17 の `buildMatrix()` と同じ向き / INV-32）。
+    const roomTypes = await listRoomTypes(env, tenant, property.id);
+    const roomTypeId = roomTypes.some((type) => type.id === raw) ? raw : null;
+    if (raw !== "" && roomTypeId === null) return { invalid: true };
+
+    const before = await findRoomById(env, tenant, roomId);
+    if (before === undefined || before.propertyId !== property.id) throw new NotFoundError();
+
+    await updateRoom(env, tenant, roomId, { roomTypeId });
+    await recordAudit(env, tenant, {
+      actorId: session.membershipId,
+      action: "room.updated",
+      targetType: "room",
+      targetId: roomId,
+      propertyId: property.id,
+      before: { roomTypeId: before.roomTypeId },
+      after: { roomTypeId },
+    });
+    return {};
   }
 
   if (intent === "rename") {
@@ -250,6 +338,13 @@ export default function Rooms() {
           {`${t("room.csv.invalidRows")}: ${String(result.rejectedRows)}`}
         </p>
       )}
+      {/* P1-24: どのコードが未登録だったかを出す。件数だけでは直せない。 */}
+      {result?.unknownRoomTypeCodes === undefined ||
+      result.unknownRoomTypeCodes.length === 0 ? null : (
+        <p className="pk-notice pk-notice--warn">
+          {`${t("room.csv.unknownRoomTypes")} ${result.unknownRoomTypeCodes.join(" / ")}`}
+        </p>
+      )}
 
       {/* §24.5: 件数を提示して明示操作を求める。タスクは取消さない。 */}
       {result?.confirmDeactivate === undefined ? null : (
@@ -297,11 +392,17 @@ export default function Rooms() {
         </button>
       </Form>
 
+      {/* P1-24: 客室タイプが 1 件も無いと付け替えができない。行き先を示す。 */}
+      {data.roomTypes.length === 0 ? (
+        <p className="pk-notice">{t("room.type.noneRegistered")}</p>
+      ) : null}
+
       <h2>{`${t("room.section.sellable")}（${t("room.count.sellable")}: ${String(data.sellable.length)}）`}</h2>
       <ul className="pk-room-list">
         {data.sellable.map((room) => (
           <li key={room.id}>
             {room.roomNumber}
+            <RoomTypePicker room={room} roomTypes={data.roomTypes} />
             <DeactivateButton roomId={room.id} roomNumber={room.roomNumber} />
           </li>
         ))}
@@ -312,11 +413,55 @@ export default function Rooms() {
         {data.nonSellable.map((room) => (
           <li key={room.id}>
             {room.roomNumber}
+            <RoomTypePicker room={room} roomTypes={data.roomTypes} />
             <DeactivateButton roomId={room.id} roomNumber={room.roomNumber} />
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * 客室タイプの付け替え（P1-24）。**W-05 のタイプ列を埋める経路。**
+ *
+ * 選択肢に「未設定」を残す。客室タイプを決めずに部屋番号だけ登録するのは
+ * 正常な使い方で、一度付けたら外せない状態にしない。
+ *
+ * 選んだ時点で送る（保存ボタンを置かない）。100 室の付け替えで
+ * 1 行ごとにボタンを押させると、現場の設定作業として重い。
+ */
+function RoomTypePicker({
+  room,
+  roomTypes,
+}: {
+  room: RoomRow;
+  roomTypes: readonly RoomTypeChoice[];
+}) {
+  if (roomTypes.length === 0) return null;
+
+  return (
+    <Form method="post" className="pk-inline">
+      <input type="hidden" name="intent" value="assignRoomType" />
+      <input type="hidden" name="roomId" value={room.id} />
+      <select
+        name="roomTypeId"
+        aria-label={t("room.type.assign")}
+        defaultValue={room.roomTypeId ?? ""}
+        // JS が無い環境でも `submit` で送れるよう、ボタンも残す。
+        onChange={(event) => event.currentTarget.form?.requestSubmit()}
+      >
+        <option value="">{t("room.type.unset")}</option>
+        {roomTypes.map((type) => (
+          <option key={type.id} value={type.id}>
+            {`${type.name}（${type.code}）`}
+          </option>
+        ))}
+      </select>
+      <button className="pk-button" type="submit">
+        {t("room.type.assign")}
+      </button>
+    </Form>
   );
 }
 
