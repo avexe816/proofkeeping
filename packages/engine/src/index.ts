@@ -50,6 +50,7 @@ export {
   ELAPSED_TONES,
   FAR_OVER_RATIO,
   TASK_GROUPS,
+  compareRoomNumber,
   countByGroup,
   elapsedToneOf,
   remainingMinutes,
@@ -59,6 +60,50 @@ export {
   type SortableTask,
   type TaskGroup,
 } from "./taskBoard.js";
+
+// 客室ステータスの同期（P1-16 / 同 §11.1）。**READY は検査完了後のみ。**
+export {
+  HOUSEKEEPING_STATUS_VALUES,
+  ROOM_BOARD_GROUPS,
+  countRoomsByGroup,
+  housekeepingStatusFor,
+  roomBoardGroupOf,
+  type HousekeepingStatusValue,
+  type RoomBoardGroup,
+  type RoomStatusTrigger,
+} from "./roomStatus.js";
+
+// 客室ボードの並び（P1-15 / 同 §9.5）。W-03 と M-10 が同じ盤面を使う。
+export {
+  buildRoomBoard,
+  type BoardCell,
+  type BoardRoomInput,
+  type BoardSection,
+  type BoardTaskInput,
+} from "./roomBoard.js";
+
+// 人員配分（P1-14 / 同 §4）。**自動配分は提案。適用は呼び出し側。**
+export {
+  WORKLOAD_LIMIT_MINUTES,
+  isAssignable,
+  planAutoAssignment,
+  sortTasksForAssignment,
+  summarizeUnassigned,
+  summarizeWorkload,
+  type AssignableStaff,
+  type AssignableTask,
+  type AssignmentPlan,
+  type WorkloadRow,
+} from "./assignment.js";
+
+// M-11 自分の実績（P1-17 / 同 §9.6）。**比較対象を引数に取らない。**
+export {
+  MINIMUM_TASKS_FOR_AVERAGE,
+  summarizeOwnWork,
+  weekRangeOf,
+  type OwnWorkSummary,
+  type OwnWorkTask,
+} from "./ownWork.js";
 
 // チェックリスト（P1-06 / 同 §6）。
 export {

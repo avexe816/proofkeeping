@@ -13,7 +13,7 @@
  * 監査ログとセットで足すこと。
  */
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -46,6 +46,34 @@ export async function countTaskPhotos(
     .from(taskPhoto)
     .where(withTenantScope(taskPhoto, ctx, taskPhoto.propertyId, eq(taskPhoto.taskId, taskId)));
   return rows[0]?.count ?? 0;
+}
+
+/**
+ * 施設 × 業務日の写真枚数をタスクごとに数える（客室ボード / §9.5）。
+ *
+ * task: docs/tasks/P1-15.md
+ *
+ * **タスクごとに `countTaskPhotos()` を呼ばない。** 100 室の盤面で
+ * 100 クエリになり §13 の応答時間を満たせない。1 回で引いて突き合わせる。
+ * 施設で絞るのは絞り込みであって権限ではない（判定は `assertPermission()`）。
+ */
+export async function countPhotosByTask(
+  env: Env,
+  ctx: TenantContext,
+  taskIds: readonly string[],
+): Promise<Map<string, number>> {
+  if (taskIds.length === 0) return new Map();
+  for (const taskId of taskIds) assertIdBelongsToTenant(taskId, ctx);
+
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({ taskId: taskPhoto.taskId, count: sql<number>`count(*)` })
+    .from(taskPhoto)
+    .where(
+      withTenantScope(taskPhoto, ctx, taskPhoto.propertyId, inArray(taskPhoto.taskId, [...taskIds])),
+    )
+    .groupBy(taskPhoto.taskId);
+  return new Map(rows.map((row) => [row.taskId, row.count]));
 }
 
 /** `clientId` で 1 件引く（§7.5 の冪等性）。 */

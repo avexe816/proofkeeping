@@ -61,11 +61,42 @@ describe("登録簿の不変条件", () => {
     }
   });
 
-  it("P0-14 で実在する画面はダッシュボードだけ", () => {
-    // 到達先の無いリンクを作らない。画面を作る task が READY に変える。
+  it("実在する画面だけが READY になっている", () => {
+    // 到達先の無いリンクを作らない。**画面を作る task が READY に変え、
+    // ここへ 1 行足す。** P0-14 はダッシュボードだけ、P1-14 / P1-15 が
+    // タスク管理と客室ボードを足した。
     expect(NAV_ITEMS.filter((item) => item.status === "READY").map((item) => item.key)).toEqual([
       "nav.dashboard",
+      "nav.board",
+      "nav.tasks",
     ]);
+  });
+
+  it("施設が選ばれていなければ施設 ID を含む項目を出さない", () => {
+    // `{propertyId}` を空文字で埋めたリンクを作らない（404 へ誘導しない）。
+    const keys = buildNavigation(ctxFor("OWNER"), {
+      selectedPropertyId: null,
+      enabledModules: ALL_MODULES,
+    }).flatMap((group) => group.items.map((entry) => entry.item.key));
+    expect(keys).not.toContain("nav.board");
+    expect(keys).not.toContain("nav.tasks");
+  });
+
+  it("READY の項目は解決済みの href を持つ", () => {
+    const entries = buildNavigation(ctxFor("PROPERTY_MANAGER"), {
+      selectedPropertyId: PROPERTY_ID,
+      enabledModules: ALL_MODULES,
+    }).flatMap((group) => group.items);
+    const board = entries.find((entry) => entry.item.key === "nav.board");
+    expect(board?.href).toBe(`/app/p/${PROPERTY_ID}/board`);
+  });
+
+  it("CLEANER にタスク管理を出さない（配分は施設責任者の判断）", () => {
+    expect(keysFor("CLEANER")).not.toContain("nav.tasks");
+  });
+
+  it("INSPECTOR にタスク管理を出さない", () => {
+    expect(keysFor("INSPECTOR")).not.toContain("nav.tasks");
   });
 
   it("項目のキーが重複しない", () => {

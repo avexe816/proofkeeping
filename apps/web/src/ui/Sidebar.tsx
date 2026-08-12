@@ -56,7 +56,9 @@ function NavEntry({ entry }: { entry: VisibleNavItem }) {
     );
   }
 
-  if (entry.item.status === "PLANNED") {
+  // `href` は `buildNavigation()` が `{propertyId}` を解決した値。
+  // `PLANNED` は到達先が無いので `null`（型ではなく値で判定する）。
+  if (entry.item.status === "PLANNED" || entry.href === null) {
     return (
       <span className="pk-nav pk-nav--planned">
         {label}
@@ -68,7 +70,7 @@ function NavEntry({ entry }: { entry: VisibleNavItem }) {
   return (
     <NavLink
       className={({ isActive }) => (isActive ? "pk-nav pk-nav--active" : "pk-nav")}
-      to={entry.item.href}
+      to={entry.href}
     >
       {label}
     </NavLink>

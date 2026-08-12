@@ -29,12 +29,14 @@ import {
   listTemplateItems,
   listTemplatesForProperty,
   reviveCancelledTasks,
+  setHousekeepingStatus,
   updatePlannedTasks,
   type CreateTaskInput,
   type Env,
   type TenantContext,
 } from "@pk/db";
 import {
+  housekeepingStatusFor,
   planGeneration,
   resolveTemplate,
   type ExistingTask,
@@ -123,6 +125,19 @@ export async function generateTasksForProperty(
   const updated = await updatePlannedTasks(env, ctx, businessDate, plan.update);
   const cancelled = await cancelPlannedTasks(env, ctx, businessDate, plan.cancel);
   const revived = await reviveCancelledTasks(env, ctx, businessDate, plan.revive);
+
+  // タスクを作った客室を `DIRTY` にする（§11.1 の 1 行目 / P1-16）。
+  // **作れた客室だけ。** 見送られた（既にある）客室まで戻すと、
+  // 再生成のたびに作業中の客室が「未清掃」に戻る。
+  const generated = housekeepingStatusFor("generate", false);
+  if (generated !== null && createResult.createdInputs.length > 0) {
+    await setHousekeepingStatus(
+      env,
+      ctx,
+      [...new Set(createResult.createdInputs.map((input) => input.roomId))],
+      generated,
+    );
+  }
 
   await expandChecklistsFor(env, ctx, propertyId, createResult.createdIds, createResult.createdInputs, roomById);
 

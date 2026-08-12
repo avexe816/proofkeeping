@@ -23,6 +23,28 @@ import {
 export const ROOM_SOURCE_TYPES = ["MANUAL", "PMS_SYNC", "CSV"] as const;
 
 /**
+ * 客室の清掃ステータス（PK-SPEC-P1 §11.1）。
+ *
+ * task: docs/tasks/P1-16.md（OPEN_QUESTIONS #034 の解消）
+ *
+ * タスクの状態（`cleaning_task.status`）とは別物。**タスクは作業の進み、
+ * こちらは客室が使える状態か**を表す。1 客室に複数のタスクが立ちうるため
+ * 1 対 1 にはならない（同期の規則は `packages/engine` の
+ * `housekeepingStatusFor()` が持つ）。
+ *
+ * **`READY` になるのは検査が終わってから**（§11.1 MUST）。
+ */
+export const HOUSEKEEPING_STATUSES = [
+  "DIRTY",
+  "IN_PROGRESS",
+  "INSPECTING",
+  "READY",
+  "BLOCKED",
+] as const;
+
+export type HousekeepingStatus = (typeof HOUSEKEEPING_STATUSES)[number];
+
+/**
  * 施設。
  *
  * `code` は清掃スタッフのログインで使う施設コード（security.md §2、
@@ -156,6 +178,16 @@ export const room = sqliteTable(
     roomNumber: text("room_number").notNull(),
     /** 既定 true。false は清掃専用の場所（PK-SPEC-P0 §24.3）。 */
     isSellable: integer("is_sellable", { mode: "boolean" }).notNull().default(true),
+    /**
+     * 清掃ステータス（PK-SPEC-P1 §11.1）。**既定は `DIRTY`。**
+     *
+     * 既定を `READY` にすると、まだ一度も清掃していない客室が
+     * 「清掃済」として盤面に並ぶ。**分からない状態を「終わっている」側へ
+     * 倒さない。** 手動上書き（§11.2）は理由必須で `AuditLog` に残る。
+     */
+    housekeepingStatus: text("housekeeping_status", { enum: HOUSEKEEPING_STATUSES })
+      .notNull()
+      .default("DIRTY"),
     /** 登録経路。PMS からの取得で既存を自動上書きしない（同 §24.4）。 */
     sourceType: text("source_type", { enum: ROOM_SOURCE_TYPES }).notNull().default("MANUAL"),
     /** PMS 側の ID（方式B・P6 用）。P0 では書き込まない。 */

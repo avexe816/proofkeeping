@@ -112,6 +112,26 @@ export const PERMISSION_ACTIONS = {
   /** 当日の客室状況（W-05）。§10.1 の担当ロールは `P_MANAGER 以上`。 */
   "roomPlan.read": { write: false },
   "roomPlan.write": { write: true },
+  /**
+   * 客室ステータスの手動上書き（W-03 / M-10）。§11.2 の「施設責任者」。
+   *
+   * **`property.write`（客室マスタ）と分けてある。** 当日の状態を直すことと、
+   * 客室そのものを増減させることは別の権限。前者は日常の運用で、
+   * 後者は設定の変更にあたる。
+   */
+  "room.statusOverride": { write: true },
+  /**
+   * 自分の実績（M-11 / §9.6）。
+   *
+   * **`SELF` スコープを足していない。** 判定に要るのは「自分のものか」
+   * だけで、それは `listTasks({ assigneeId })` が構造として満たしている
+   * （他人の ID を受け取る口が無い）。マトリクスに `SELF` を足すと、
+   * 対象に `membershipId` を持ち回る必要が出て、**渡し忘れが「広い側」へ
+   * 倒れる**（`ORGANIZATION_TARGET` を第 3 引数から省けない理由と同じ）。
+   * ここは「自分の記録の閲覧」という操作そのものを 1 行にした。
+   * security.md §5 の「本人が自分の記録を閲覧できる画面」に対応する。
+   */
+  "task.readOwn": { write: false },
 } as const satisfies Record<string, { write: boolean }>;
 
 /** `PERMISSION_ACTIONS` に載っている操作だけを許す型。 */
@@ -398,6 +418,28 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+  },
+  // §11.2 は「施設責任者は客室ステータスを手動で変更できる」。
+  // `VENDOR_ADMIN`（清掃会社）に明記が無いため DENY（広げるのは根拠を持つ task）。
+  "room.statusOverride": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // M-11。**全ロールが自分の記録を見られる**（security.md §5 MUST）。
+  // `AUDITOR` も読み取りなので許す。対象は常に自分で、他人は選べない。
+  "task.readOwn": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ORG",
+    INSPECTOR: "ORG",
+    CLEANER: "ORG",
+    VENDOR_ADMIN: "ORG",
+    AUDITOR: "ORG",
   },
 };
 

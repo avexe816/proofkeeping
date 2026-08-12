@@ -27,6 +27,11 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  *   /m/task/:taskId           M-03 タスク詳細（写真もここ）
  *   /m/task/:taskId/checklist M-04 チェックリスト
  *
+ * ── P1-14〜P1-18 が足した画面 ───────────────────────────
+ *   /app/p/:propertyId/tasks  W-04 タスク管理・人員配分
+ *   /m/board                  M-10 客室ボード（W-03 と同じ盤面）
+ *   /m/me                     M-11 自分の実績・表示言語
+ *
  * `/m/*` は `/app/*` と別のシェルを持つ（topbar も sidebar も無い）。
  * **同じ layout に相乗りさせないこと。** 現場の画面は片手・手袋・暗所が
  * 前提で、管理画面と共有できる部品がほとんど無い（ui-writing.md §3）。
@@ -40,10 +45,13 @@ export default [
     route("m/today", "routes/m/today.tsx"),
     route("m/task/:taskId", "routes/m/task.tsx"),
     route("m/task/:taskId/checklist", "routes/m/checklist.tsx"),
+    route("m/board", "routes/m/board.tsx"),
+    route("m/me", "routes/m/me.tsx"),
   ]),
   layout("routes/app/layout.tsx", [
     route("app/dashboard", "routes/app/dashboard.tsx"),
     route("app/p/:propertyId/board", "routes/app/propertyBoard.tsx"),
+    route("app/p/:propertyId/tasks", "routes/app/propertyTasks.tsx"),
     route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
     route("app/settings/tax", "routes/app/taxProfile.tsx"),

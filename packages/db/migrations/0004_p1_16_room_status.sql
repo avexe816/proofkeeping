@@ -1,0 +1,1 @@
+ALTER TABLE `room` ADD `housekeeping_status` text DEFAULT 'DIRTY' NOT NULL;

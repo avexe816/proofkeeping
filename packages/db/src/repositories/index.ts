@@ -49,6 +49,7 @@ export {
   updatePlannedTasks,
   type AppendTimeLogInput,
   type ApplyTransitionInput,
+  type AssignTasksOptions,
   type CreateTaskInput,
   type CreateTasksResult,
   type TaskFilter,
@@ -74,6 +75,7 @@ export {
 
 // 清掃写真のメタデータ（P1-11）。実体は R2。位置情報の列を持たない（INV-11）。
 export {
+  countPhotosByTask,
   countTaskPhotos,
   createTaskPhoto,
   findTaskPhotoByClientId,
@@ -119,7 +121,9 @@ export {
   countSellableRoomsByProperty,
   createRooms,
   findRoomById,
+  listFloors,
   listRooms,
+  setHousekeepingStatus,
   updateRoom,
   type CreateRoomInput,
   type CreateRoomsResult,
@@ -136,11 +140,14 @@ export {
   findUserById,
   findUserByStaffNumber,
   listAssignedPropertyIds,
+  listPropertyStaff,
   listRecentPasswordHashes,
   listUsers,
   recordLoginAttempt,
   setPasswordHash,
+  setUserLocale,
   type LoginAttemptInput,
+  type PropertyStaff,
   type SetPasswordHashInput,
   type UserFilter,
 } from "./user.js";

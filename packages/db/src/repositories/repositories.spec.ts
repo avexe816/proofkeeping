@@ -209,6 +209,18 @@ const INVOCATIONS: Invocation[] = [
     crossTenant: (env, ctx) => roomRepo.updateRoom(env, ctx, OTHER_ID.room, { note: "メモ" }),
   },
   {
+    name: "room.listFloors",
+    kind: "tenant",
+    run: (env, ctx) => roomRepo.listFloors(env, ctx, OWN_ID.property),
+    crossTenant: (env, ctx) => roomRepo.listFloors(env, ctx, OTHER_ID.property),
+  },
+  {
+    name: "room.setHousekeepingStatus",
+    kind: "tenant",
+    run: (env, ctx) => roomRepo.setHousekeepingStatus(env, ctx, [OWN_ID.room], "READY"),
+    crossTenant: (env, ctx) => roomRepo.setHousekeepingStatus(env, ctx, [OTHER_ID.room], "READY"),
+  },
+  {
     name: "rollup.listPropertyRollups",
     kind: "tenant",
     run: (env, ctx) => rollupRepo.listPropertyRollups(env, ctx, "2026-08-12"),
@@ -278,6 +290,18 @@ const INVOCATIONS: Invocation[] = [
       userRepo.setPasswordHash(env, ctx, { userId: OWN_ID.user, passwordHash: FAKE_HASH }),
     crossTenant: (env, ctx) =>
       userRepo.setPasswordHash(env, ctx, { userId: OTHER_ID.user, passwordHash: FAKE_HASH }),
+  },
+  {
+    name: "user.listPropertyStaff",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.listPropertyStaff(env, ctx, OWN_ID.property),
+    crossTenant: (env, ctx) => userRepo.listPropertyStaff(env, ctx, OTHER_ID.property),
+  },
+  {
+    name: "user.setUserLocale",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.setUserLocale(env, ctx, OWN_ID.user, "en"),
+    crossTenant: (env, ctx) => userRepo.setUserLocale(env, ctx, OTHER_ID.user, "en"),
   },
 
   // ── P1-01 / P1-03 / P1-05: 清掃タスク ──────────────────

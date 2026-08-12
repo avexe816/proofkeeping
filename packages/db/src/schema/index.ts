@@ -27,12 +27,14 @@ export {
 } from "./user.js";
 
 export {
+  HOUSEKEEPING_STATUSES,
   ROOM_SOURCE_TYPES,
   building,
   floor,
   property,
   room,
   roomType,
+  type HousekeepingStatus,
 } from "./property.js";
 
 export {

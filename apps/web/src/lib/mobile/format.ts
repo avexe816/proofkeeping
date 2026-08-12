@@ -27,6 +27,17 @@ export function elapsedMinutes(ms: number): number {
 }
 
 /**
+ * 分を「時間と分」に割る（M-11 の「合計作業時間 5時間20分」/ §9.6）。
+ *
+ * **単位のラベルを返さない。** 「時間」「分」の語順は言語で変わるので、
+ * 画面が `t()` で組む（このファイルの冒頭の方針）。
+ */
+export function splitHoursMinutes(totalMinutes: number): { hours: number; minutes: number } {
+  const safe = Math.max(0, Math.floor(totalMinutes));
+  return { hours: Math.floor(safe / 60), minutes: safe % 60 };
+}
+
+/**
  * 施設の時刻帯での `HH:MM`。
  *
  * **端末のタイムゾーンを使わない。** 共用端末の設定は現場を表さない

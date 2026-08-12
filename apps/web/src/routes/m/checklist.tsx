@@ -45,6 +45,13 @@ export interface ChecklistItemView {
   section: string;
   /** 表示言語の文言。**未翻訳なら日本語**（§12.2）。 */
   label: string;
+  /**
+   * 表示言語の訳が無く日本語を出しているか（§12.2 の「日本語のみ」）。
+   *
+   * **空欄にしない。** 訳が無いことを黙って隠すと、現場は「この項目は
+   * 自分の言語に訳されている」と受け取る。項目名の横に小さく示す。
+   */
+  isJapaneseOnly: boolean;
   isRequired: boolean;
   photoRequired: boolean;
   value: ChecklistValue | null;
@@ -95,6 +102,7 @@ export async function loader({
           itemId: row.itemId,
           section: item?.section ?? "",
           label: item?.labels[locale] ?? item?.labels.ja ?? "",
+          isJapaneseOnly: locale !== "ja" && (item?.labels[locale] ?? "") === "",
           isRequired: row.isRequired,
           photoRequired: row.photoRequired,
           value: row.value,
@@ -190,6 +198,12 @@ export default function ChecklistRoute(): React.ReactElement {
                           {item.label}
                           {item.isRequired ? (
                             <span className="pk-m-check__badge">{t("m.checklist.required")}</span>
+                          ) : null}
+                          {/* §12.2。未翻訳は日本語を出し、そのことを小さく示す。 */}
+                          {item.isJapaneseOnly ? (
+                            <span className="pk-m-check__badge pk-m-check__badge--lang">
+                              {t("m.checklist.japaneseOnly")}
+                            </span>
                           ) : null}
                         </div>
                         {item.photoRequired && item.photoCount === 0 ? (

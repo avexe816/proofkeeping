@@ -29,6 +29,13 @@
       "when": 1786537344524,
       "tag": "0003_p1_01_cleaning_task",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786543641463,
+      "tag": "0004_p1_16_room_status",
+      "breakpoints": true
     }
   ]
 }

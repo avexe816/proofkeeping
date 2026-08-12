@@ -639,3 +639,112 @@
 .pk-m-note--center {
   text-align: center;
 }
+
+/* ── 下部タブ（P1-15 / P1-17）───────────────────────── */
+
+/*
+ * タップ領域 48px 以上（INV-25）。**3 つだけ**（検査は P2）。
+ * 到達先の無いタブを置かないこと（`routes/m/layout.tsx` の注記）。
+ */
+.pk-m-tabs {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  margin-top: auto;
+  background: var(--surf);
+  border-top: 1px solid var(--line);
+}
+
+.pk-m-tabs__item {
+  flex: 1;
+  min-height: 52px;
+  padding: 14px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  text-decoration: none;
+}
+
+.pk-m-tabs__item--on {
+  font-weight: 800;
+  color: var(--brand);
+  box-shadow: inset 0 2px 0 var(--brand);
+}
+
+/* ── M-11 自分の実績（P1-17）────────────────────────── */
+
+.pk-m-stats {
+  padding: 14px;
+  margin-bottom: 12px;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.pk-m-stats__title {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pk-m-stats__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line2);
+}
+
+.pk-m-stats__row:last-child {
+  border-bottom: none;
+}
+
+.pk-m-stats__label {
+  font-size: 15px;
+  color: var(--ink2);
+}
+
+.pk-m-stats__value {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 表示言語（P1-18 / §12.3）──────────────────────── */
+
+.pk-m-lang {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  padding: 14px;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.pk-m-lang__item {
+  min-width: 96px;
+  min-height: 48px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surf2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.pk-m-lang__item--on {
+  font-weight: 800;
+  color: #fff;
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+/* 未翻訳の項目（§12.2）。**目立たせない。** 事実として添えるだけ。 */
+.pk-m-check__badge--lang {
+  color: var(--muted);
+  background: var(--surf3);
+}
