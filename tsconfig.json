@@ -9,6 +9,9 @@
   },
   "include": [
     "packages/*/src/**/*.ts",
+    // packages/config は src/ を持たない。ESLint ルールの語彙表に型を与える
+    // 宣言ファイル（P0-15）だけが TypeScript として検査される。
+    "packages/config/eslint/**/*.d.ts",
     "tests/**/*.ts",
     "scripts/**/*.ts",
     "vitest.config.ts",

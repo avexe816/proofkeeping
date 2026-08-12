@@ -15,6 +15,13 @@
       "when": 1786467257813,
       "tag": "0001_p0_08_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786523776471,
+      "tag": "0002_p0_21_rollup_mapping",
+      "breakpoints": true
     }
   ]
 }

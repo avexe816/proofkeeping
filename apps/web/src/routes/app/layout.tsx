@@ -1,3 +1,4 @@
+import { ALL_PROPERTIES, type PropertySummary } from "@pk/contracts";
 import {
   findUserById,
   isOrgWideRole,
@@ -7,11 +8,14 @@ import {
 } from "@pk/db";
 import { Outlet, useLoaderData, type LoaderFunctionArgs } from "react-router";
 
+import { businessDateOf } from "../../lib/businessDate.js";
 import {
+  hasOrgWideView,
   listSelectableProperties,
-  resolveSelectedProperty,
+  resolveSelectedScope,
   type SelectableProperty,
 } from "../../lib/property/selection.js";
+import { getPropertySummaries } from "../../lib/property/summary.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
 import { Sidebar } from "../../ui/Sidebar.js";
@@ -49,6 +53,10 @@ export interface ShellData {
   isOrgWide: boolean;
   properties: readonly SelectableProperty[];
   selectedPropertyId: string | null;
+  /** `"ALL"` を選んでいるか（P0-21）。 */
+  isOrgScope: boolean;
+  canViewOrgWide: boolean;
+  summaries: readonly PropertySummary[];
   navigation: readonly VisibleNavSection[];
   enabledModules: readonly ModuleCode[];
 }
@@ -59,8 +67,18 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   const { session, tenant } = await requireAppContext(env, request, now);
 
   const properties = await listSelectableProperties(env, tenant);
-  const selected = resolveSelectedProperty(session.selectedPropertyId, properties);
+  // **セッションの値を認可の根拠にしない。** ロールと一覧から解き直す
+  // （DECISIONS #020）。降格後に `"ALL"` が残っていれば既定施設へ落ちる。
+  const { scope, property: selected } = resolveSelectedScope(
+    session.selectedPropertyId,
+    tenant,
+    properties,
+  );
+  const isOrgScope = scope === ALL_PROPERTIES;
   const selectedPropertyId = selected?.id ?? null;
+
+  // ミニバッジ（§23.3）。60 秒キャッシュが効くので毎画面で引いてよい。
+  const summaries = await getPropertySummaries(env, tenant, businessDateOf(now));
 
   // 表示中の施設の契約を見る。施設が無い場合は組織全体の契約で判断する。
   const enabledModules = await listEnabledModules(env, tenant, selectedPropertyId);
@@ -77,6 +95,9 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     isOrgWide: isOrgWideRole(tenant.role),
     properties,
     selectedPropertyId,
+    isOrgScope,
+    canViewOrgWide: hasOrgWideView(tenant),
+    summaries,
     navigation: buildNavigation(tenant, { selectedPropertyId, enabledModules }),
     enabledModules,
   };
@@ -93,6 +114,9 @@ export default function AppShell() {
         isOrgWide={data.isOrgWide}
         properties={data.properties}
         selectedPropertyId={data.selectedPropertyId}
+        isOrgScope={data.isOrgScope}
+        canViewOrgWide={data.canViewOrgWide}
+        summaries={data.summaries}
       />
       <div className="pk-shell__body">
         <Sidebar navigation={data.navigation} isOrgWide={data.isOrgWide} role={data.role} />

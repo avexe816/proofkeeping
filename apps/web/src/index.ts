@@ -8,7 +8,10 @@ import {
   useTenantMiddleware,
   type AppEnv,
 } from "./middleware/index.js";
+import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
+import files from "./routes/api/v1/files.js";
+import properties from "./routes/api/v1/properties.js";
 import session from "./routes/api/v1/session.js";
 
 /**
@@ -18,7 +21,8 @@ import session from "./routes/api/v1/session.js";
  * - 認証 API（/api/v1/auth）: P0-08 / P0-09
  * - middleware（session / tenant / resourceGuard）: P0-10
  * - UI シェル（React Router）: P0-14
- * - /health: P0-20
+ * - DocumentSequencer（Durable Object）: P0-17
+ * - /api/health: P0-20
  *
  * ── 経路の分かれ方 ──────────────────────────────────────
  *   /api/**   Hono。JSON を返す。応答の形は `packages/contracts` が定義する
@@ -41,6 +45,10 @@ const app = new Hono<AppEnv>();
 app.onError(apiErrorHandler());
 app.notFound(apiNotFoundHandler());
 
+// ヘルスチェック（P0-20）。**認証を要求しない唯一の API。**
+// セッション middleware より前段に置く。監視はセッションを持てない。
+app.route("/api/health", health);
+
 // 認証だけはセッション middleware（P0-10）より前段に置く。
 // セッションを作る経路がセッションを要求すると入口が無くなる。
 //
@@ -62,6 +70,10 @@ useTenantMiddleware(api);
 // 認証済みでなければ意味が無いので、上の `auth`（未認証で通る側）ではなく
 // こちらへ載せる。
 api.route("/auth", session);
+// 施設サマリー（P0-21）。rollup からのみ組み立て、60 秒 KV キャッシュ。
+api.route("/properties", properties);
+// 署名付き URL の受け口（P0-16）。角印だけ。**写真をここへ載せない。**
+api.route("/files", files);
 app.route("/api/v1", api);
 
 /**
@@ -85,5 +97,14 @@ app.all("*", async (c) => {
   context.set(cloudflareContext, { env: c.env, ctx: c.executionCtx });
   return handleUiRequest(c.req.raw, context);
 });
+
+/**
+ * Durable Object クラスの公開。**wrangler.toml の `class_name` と対応する。**
+ *
+ * ここに現れないクラスは binding から到達できない。逆に、wrangler.toml へ
+ * binding だけ足してここへ export を足さないと wrangler が起動しない。
+ * 実装した task が両方を同時に足すこと（architecture.md §4 の 4 用途のみ）。
+ */
+export { DocumentSequencer } from "./durable/DocumentSequencer.js";
 
 export default app;

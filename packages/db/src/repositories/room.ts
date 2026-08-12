@@ -10,10 +10,10 @@
  * **画面が何を出すかは呼び出し側が `filter` で決める。**
  */
 
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 
 import type { Env } from "../env.js";
-import { assertIdBelongsToTenant } from "../id.js";
+import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import { room } from "../schema/property.js";
 
@@ -60,4 +60,147 @@ export async function findRoomById(env: Env, ctx: TenantContext, roomId: string)
     .where(withTenantScope(room, ctx, room.propertyId, eq(room.id, roomId)))
     .limit(1);
   return rows[0];
+}
+
+/**
+ * 施設ごとの客室数。**`isSellable = true` の有効な客室だけを数える。**
+ *
+ * task: docs/tasks/P0-21.md / docs/tasks/P0-22.md
+ * 仕様: docs/PK-SPEC-P0.md §24.3（清掃専用の場所を客室数に含めない）
+ *
+ * ── これは「タスクテーブルへの直接集計」ではない ────────
+ * §26 が禁じているのは**稼働状況のサマリー**を rollup 以外から取ることで、
+ * 客室数は客室マスタにしか存在しない。`dailyPropertyRollup` に室数の列は無い。
+ *
+ * 組織内の GROUP BY なので、テナント横断の集計にはあたらない
+ * （architecture.md §3 が禁じるのは組織をまたぐ集計）。
+ */
+export async function countSellableRoomsByProperty(
+  env: Env,
+  ctx: TenantContext,
+): Promise<Map<string, number>> {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({ propertyId: room.propertyId, count: count() })
+    .from(room)
+    .where(
+      withTenantScope(
+        room,
+        ctx,
+        room.propertyId,
+        eq(room.isSellable, true),
+        eq(room.isActive, true),
+      ),
+    )
+    .groupBy(room.propertyId);
+  return new Map(rows.map((row) => [row.propertyId, row.count]));
+}
+
+/** `createRooms()` の 1 行ぶん。ID・組織・時刻は受け取らない。 */
+export interface CreateRoomInput {
+  propertyId: string;
+  roomNumber: string;
+  roomTypeId?: string | undefined;
+  buildingId?: string | undefined;
+  floorId?: string | undefined;
+  /** 既定 true。false は清掃専用の場所（§24.3）。 */
+  isSellable?: boolean | undefined;
+  /** 登録経路。範囲一括は `MANUAL`、CSV 取込は `CSV`。 */
+  sourceType?: "MANUAL" | "CSV" | undefined;
+  note?: string | undefined;
+  sortOrder?: number | undefined;
+}
+
+/** `createRooms()` の結果。**既存はエラーにせず見送る**（§24.2 MUST）。 */
+export interface CreateRoomsResult {
+  created: number;
+  skipped: number;
+  createdIds: readonly string[];
+}
+
+/**
+ * 客室をまとめて作る。
+ *
+ * **既に在る部屋番号は見送る。** 100 室の一括登録で 1 室ぶつかっただけで
+ * 全部やり直しになると、現場で使えない（§24.2「エラーにしない」）。
+ * 見送った件数は呼び出し側が画面に出す。
+ *
+ * 冪等: 同じ入力で 2 回呼んでも 2 回目は全件 `skipped`
+ * （`uq_room_property_number` と `onConflictDoNothing()`）。
+ */
+export async function createRooms(
+  env: Env,
+  ctx: TenantContext,
+  inputs: readonly CreateRoomInput[],
+): Promise<CreateRoomsResult> {
+  const db = await getTenantDb(env, ctx);
+
+  const createdIds: string[] = [];
+  let created = 0;
+  for (const input of inputs) {
+    const id = generateId(ctx.orgShortId, "room");
+    const result = await db
+      .insert(room)
+      .values({
+        id,
+        organizationId: ctx.organizationId,
+        propertyId: input.propertyId,
+        roomNumber: input.roomNumber,
+        roomTypeId: input.roomTypeId ?? null,
+        buildingId: input.buildingId ?? null,
+        floorId: input.floorId ?? null,
+        isSellable: input.isSellable ?? true,
+        sourceType: input.sourceType ?? "MANUAL",
+        note: input.note ?? null,
+        ...(input.sortOrder === undefined ? {} : { sortOrder: input.sortOrder }),
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+      })
+      .onConflictDoNothing();
+
+    // D1 は影響行数を meta.changes で返す。0 なら既存とぶつかって見送られた。
+    if (result.meta.changes > 0) {
+      created += 1;
+      createdIds.push(id);
+    }
+  }
+
+  return { created, skipped: inputs.length - created, createdIds };
+}
+
+/** `updateRoom()` の入力。**`isSellable` と `sourceType` は変えない。** */
+export interface UpdateRoomInput {
+  roomNumber?: string | undefined;
+  roomTypeId?: string | null | undefined;
+  floorId?: string | null | undefined;
+  note?: string | null | undefined;
+  /** 無効化。**`true` へ戻す経路も残す**（誤操作の取り消し）。 */
+  isActive?: boolean | undefined;
+}
+
+/**
+ * 客室を更新する。**物理削除の関数は無い**（§26 / PK-SPEC-P0 §26）。
+ *
+ * 部屋番号の変更は許可する。**旧番号を `AuditLog` に残すのは呼び出し側**
+ * （§24.5）。この層は監査ログを書かない（P0-07 の方針）。
+ */
+export async function updateRoom(
+  env: Env,
+  ctx: TenantContext,
+  roomId: string,
+  input: UpdateRoomInput,
+): Promise<void> {
+  assertIdBelongsToTenant(roomId, ctx);
+  const db = await getTenantDb(env, ctx);
+  await db
+    .update(room)
+    .set({
+      ...(input.roomNumber === undefined ? {} : { roomNumber: input.roomNumber }),
+      ...(input.roomTypeId === undefined ? {} : { roomTypeId: input.roomTypeId }),
+      ...(input.floorId === undefined ? {} : { floorId: input.floorId }),
+      ...(input.note === undefined ? {} : { note: input.note }),
+      ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+      updatedAt: ctx.now,
+    })
+    .where(withTenantScope(room, ctx, room.propertyId, eq(room.id, roomId)));
 }

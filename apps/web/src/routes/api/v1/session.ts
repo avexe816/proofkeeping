@@ -1,8 +1,14 @@
-import { switchPropertyRequestSchema, type ApiErrorCode, type AuthErrorCode } from "@pk/contracts";
+import {
+  switchPropertyRequestSchema,
+  type ApiErrorCode,
+  type AuthErrorCode,
+  type ScopeErrorCode,
+} from "@pk/contracts";
 import { Hono } from "hono";
 
 import { readSessionCookie } from "../../../lib/auth/cookie.js";
-import { switchProperty } from "../../../lib/property/selection.js";
+import { readSession } from "../../../lib/auth/session.js";
+import { ScopeForbiddenError, switchProperty } from "../../../lib/property/selection.js";
 import { getNow, getTenant, type AppEnv } from "../../../middleware/index.js";
 
 /**
@@ -19,7 +25,8 @@ import { getNow, getTenant, type AppEnv } from "../../../middleware/index.js";
  *
  * ── 応答 ────────────────────────────────────────────────
  *   200 `{ propertyId }`     切り替えた
- *   400 `INVALID_REQUEST`    入力の形が違う（`"ALL"` を含む — P0-21 まで）
+ *   400 `INVALID_REQUEST`    入力の形が違う
+ *   403 `SCOPE_FORBIDDEN`    全社ビューを持たないロールが `"ALL"` を指定した
  *   401                      セッションが無い（middleware が返す）
  *   404 `RESOURCE_NOT_FOUND` 担当外・別組織・無効化済み（`onError` が写像）
  *
@@ -39,7 +46,7 @@ const session = new Hono<AppEnv>();
  * この経路は `/api/v1/auth/*` に属し、隣の認証 API と語彙を揃える。
  * middleware が返す共通コード（`UNAUTHENTICATED` など）は `ApiErrorCode`。
  */
-function errorBody<T extends ApiErrorCode | AuthErrorCode>(code: T): { error: T } {
+function errorBody<T extends ApiErrorCode | AuthErrorCode | ScopeErrorCode>(code: T): { error: T } {
   return { error: code };
 }
 
@@ -53,15 +60,27 @@ session.post("/switch-property", async (c) => {
   const cookieValue = readSessionCookie(c.req.header("Cookie") ?? null);
   if (cookieValue === null) return c.json(errorBody("UNAUTHENTICATED"), 401);
 
-  const propertyId = await switchProperty(
-    c.env,
-    getTenant(c),
-    cookieValue,
-    parsed.data.propertyId,
-    getNow(c),
-  );
+  const now = getNow(c);
+  // 監査ログの操作者。**`"ALL"` への切替だけ記録する**（§23.4）。
+  const session = await readSession(c.env, cookieValue, now);
+  if (session === null) return c.json(errorBody("UNAUTHENTICATED"), 401);
 
-  return c.json({ propertyId });
+  try {
+    const propertyId = await switchProperty(
+      c.env,
+      getTenant(c),
+      cookieValue,
+      parsed.data.propertyId,
+      now,
+      session.membershipId,
+    );
+    return c.json({ propertyId });
+  } catch (error) {
+    // **403 を返してよい唯一の経路。** `"ALL"` は資源ではないので
+    // 存在を示唆しない（packages/contracts/src/session.ts の注記）。
+    if (error instanceof ScopeForbiddenError) return c.json(errorBody("SCOPE_FORBIDDEN"), 403);
+    throw error;
+  }
 });
 
 export default session;

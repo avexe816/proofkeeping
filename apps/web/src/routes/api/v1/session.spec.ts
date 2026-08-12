@@ -1,11 +1,12 @@
 /**
- * `POST /api/v1/auth/switch-property`（P0-14）。
+ * `POST /api/v1/auth/switch-property`（P0-14 / P0-21）。
  *
  * 仕様: docs/PK-SPEC-P0.md §23.4
  *
  * ── 見ているもの ────────────────────────────────────────
- * 到達できない施設が **404**（403 ではない）であること、`"ALL"` を
- * まだ受け付けないこと、そして切り替えがセッションに残ること。
+ * 到達できない施設が **404**（403 ではない）であること、全社ビューを
+ * 持たないロールの `"ALL"` が **403** であること、そして切り替えが
+ * セッションに残ること。**この 2 つの使い分けが P0-21 の要点。**
  *
  * 施設の解決そのもの（権限外が残っていたら既定へ戻す）は純粋関数の
  * `lib/property/selection.spec.ts`、KV への保存は
@@ -172,14 +173,18 @@ describe("POST /api/v1/auth/switch-property", () => {
     expect(res.status).toBe(404);
   });
 
-  it('"ALL" はまだ受け付けない（P0-21）', async () => {
-    // 受け口だけ先に開けると、判定の無いまま全社表示がセッションに入る。
+  it('全社ビューを持たないロールの "ALL" は 403（§23.4 / §25.1）', async () => {
+    // このテストの membership は PROPERTY_MANAGER。§23.1 の表で全社ビューなし。
+    //
+    // **403 を返してよい唯一の経路。** INV-31 が 404 を求めるのは
+    // 「権限外の propertyId」で、`"ALL"` は資源ではなくスコープの指定。
+    // どの組織にも同じように存在するので、403 でも漏れる情報が無い。
     const ctx = setup();
 
     const res = await post(ctx, { propertyId: "ALL" }, await ctx.cookie());
 
-    // 形としては通る文字列なので、DB に行って 404 になる。**セッションには残らない。**
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "SCOPE_FORBIDDEN" });
   });
 
   it("propertyId が無ければ 400", async () => {

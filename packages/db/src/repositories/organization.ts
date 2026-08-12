@@ -13,6 +13,7 @@
  */
 
 import type { Env } from "../env.js";
+import { generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import { organization, organizationTaxProfile } from "../schema/organization.js";
 
@@ -43,4 +44,60 @@ export async function findTaxProfile(env: Env, ctx: TenantContext) {
     .where(withTenantScope(organizationTaxProfile, ctx, NO_PROPERTY_SCOPE))
     .limit(1);
   return rows[0];
+}
+
+/** `updateTaxProfile()` の入力。ID・組織・時刻は受け取らない。 */
+export interface UpdateTaxProfileInput {
+  legalName: string;
+  /** `T` + 13 桁。未取得なら `null`。**空文字を入れない。** */
+  invoiceRegistrationNumber: string | null;
+  defaultTaxRoundingMode: "FLOOR" | "CEIL" | "ROUND";
+  postalCode?: string | null | undefined;
+  address?: string | null | undefined;
+  tel?: string | null | undefined;
+  fiscalYearStartMonth: number;
+  /** 角印画像の R2 キー。**画像そのものを DB に入れない。** */
+  sealImageKey?: string | null | undefined;
+}
+
+/**
+ * 税務プロファイルを更新する。**無ければ作る。**
+ *
+ * task: docs/tasks/P0-16.md
+ * ルール: .claude/rules/billing.md §1
+ *
+ * ── 発行済み帳票は変わらない ────────────────────────────
+ * この表は現在値のマスタで、帳票には発行時のスナップショットが載る
+ * （billing.md §6）。**ここを直しても過去の請求書は変わらない。**
+ *
+ * 監査ログ（`taxProfile.updated`）は呼び出し側が書く（P0-07 の方針）。
+ */
+export async function updateTaxProfile(
+  env: Env,
+  ctx: TenantContext,
+  input: UpdateTaxProfileInput,
+): Promise<void> {
+  const db = await getTenantDb(env, ctx);
+  const values = {
+    legalName: input.legalName,
+    invoiceRegistrationNumber: input.invoiceRegistrationNumber,
+    defaultTaxRoundingMode: input.defaultTaxRoundingMode,
+    postalCode: input.postalCode ?? null,
+    address: input.address ?? null,
+    tel: input.tel ?? null,
+    fiscalYearStartMonth: input.fiscalYearStartMonth,
+    ...(input.sealImageKey === undefined ? {} : { sealImageKey: input.sealImageKey }),
+    updatedAt: ctx.now,
+  };
+
+  await db
+    .insert(organizationTaxProfile)
+    .values({
+      id: generateId(ctx.orgShortId, "tax"),
+      organizationId: ctx.organizationId,
+      createdAt: ctx.now,
+      ...values,
+    })
+    // 組織あたり 1 行（`uq_tax_profile_org`）。2 回目以降は更新になる。
+    .onConflictDoUpdate({ target: organizationTaxProfile.organizationId, set: values });
 }

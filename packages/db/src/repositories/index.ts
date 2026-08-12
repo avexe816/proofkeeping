@@ -30,7 +30,12 @@ export {
 
 export { isModuleEnabled, listEnabledModules } from "./entitlement.js";
 
-export { findOrganization, findTaxProfile } from "./organization.js";
+export {
+  findOrganization,
+  findTaxProfile,
+  updateTaxProfile,
+  type UpdateTaxProfileInput,
+} from "./organization.js";
 
 export {
   createProperty,
@@ -41,7 +46,20 @@ export {
   type PropertyFilter,
 } from "./property.js";
 
-export { findRoomById, listRooms, type RoomFilter } from "./room.js";
+export {
+  countSellableRoomsByProperty,
+  createRooms,
+  findRoomById,
+  listRooms,
+  updateRoom,
+  type CreateRoomInput,
+  type CreateRoomsResult,
+  type RoomFilter,
+  type UpdateRoomInput,
+} from "./room.js";
+
+// 日次集計（P0-21）。施設サマリーはここからのみ取る。
+export { findPropertyRollup, listPropertyRollups } from "./rollup.js";
 
 export {
   PASSWORD_HISTORY_GENERATIONS,

@@ -67,11 +67,15 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("15 テーブルを定義している", () => {
+  it("17 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       "auditLog",
       "building",
+      // P0-21。施設サマリーの唯一の出どころ（§19.6）。
+      "dailyPropertyRollup",
       "documentSequence",
+      // P0-22。**定義のみ。読み書きは P6**（§24.4）。
+      "externalMapping",
       "floor",
       "membership",
       "moduleEntitlement",

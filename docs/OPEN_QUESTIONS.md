@@ -305,3 +305,49 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 - 残る注意: `user.staff_number` が全ロールの必須項目になった。列は後方互換のため
   null 許容のままだが、認証経路は null を弾く。ユーザー作成側（P0-18 seed・
   将来の招待画面）は**スタッフ番号を必ず採番すること。**
+
+### #029 `dailyPropertyRollup` の列と §23.3 の応答が対応しない
+- 提起: 2026-08-12 / P0-21 実装中
+- 内容: `docs/PK-SPEC-P0.md` §23.3 の応答例は `ready` / `inProgress` / `dirty`
+  （**客室の状態**の数）だが、§19.6 の `dailyPropertyRollup` が持つのは
+  `totalTasks` / `completedTasks` / `reworkTasks`（**タスク**の数）。
+  1 つの客室に複数のタスクが立つ設計なので、両者は 1 対 1 にならない。
+  仕様の中に対応の定義が無い。
+- 影響: P0-21（実装済み）、P1（客室ステータスを持つ task）、P5-xx
+  （月次レポートも同じ rollup を読む — PK-SPEC-P5 §517）。
+- 暫定対応: **rollup の列名のまま返した**（DECISIONS #030）。
+  `PropertySummary` に `hasRollup` を置き、集計が無い施設には数字を出さない。
+  P0 の間は `cleaningTask` が無いので rollup は常に空で、表示は変わらない。
+  客室ステータスを持つ task が、①対応を定義するか ②rollup に列を足すか
+  を決めること。**列を足す場合は再計算コンシューマの冪等性の検証範囲が
+  広がる**（§19.6 MUST）。
+
+### #030 Sentry を採用するかが未決のままヘルスチェックの task に含まれている
+- 提起: 2026-08-12 / P0-20 実装中
+- 内容: `docs/tasks/P0-20.md` の完了条件は「Sentry にエラーが集約される」だが、
+  `docs/PK-SPEC-P0.md` §20（未決事項）は
+  「Sentry を使うか、Cloudflare の Workers Observability に寄せるか」を
+  **未決として挙げている。** 採用先が決まっていないので、どちらの SDK を
+  入れるかも、DSN をどこから渡すかも決められない。
+- 影響: P0-20、および全 task のエラー報告経路。
+- 暫定対応: **`/api/health` だけを実装した。** `EnvSecrets` に `SENTRY_DSN` の
+  宣言はあるが（P0-02）、読む処理は無い。採用先が決まってから、
+  エラー報告の入口（`apps/web/src/middleware/index.ts` の `apiErrorHandler`）
+  1 か所に足すこと。**各所に散らさない。**
+
+### #031 `pnpm db:seed` を実行できる経路が無い
+- 提起: 2026-08-12 / P0-18 実装中
+- 内容: シードの実体（`packages/db/src/seed.ts`）と、`hashPin` / `hashPassword`
+  を束ねる入口（`apps/web/src/lib/seed/runSeed.ts`）は実装した。しかし
+  **node から直接実行できない。** `apps/web` の相対 import は `.js` 指定子で
+  書かれており、node の型剥がしでは `.ts` へ読み替えられない
+  （`scripts/db-migrate.ts` が `packages/db/src/migrate.ts` を呼べているのは、
+  あちらが import を 1 つも持たないため）。実行するには Workers の binding
+  （D1 / KV）も要り、実在するのは shard-00 だけ。
+- 影響: P0-18、P0-02、および実機確認全般。
+- 暫定対応: `db:seed` を配線していない（`tests/toolchain/workspace.spec.ts` の
+  `DEFERRED_ROOT_SCRIPTS` に残してある）。P0-02 が bindings を作った後、
+  `wrangler dev` から `runSeed()` を呼べる入口を足すこと。
+  **`packages/db/src/seed.ts` を import の無い形に書き換える案は採らない。**
+  drizzle のスキーマ（実行時の値）が要るので、書き換えると SQL を手で
+  組むことになり、スキーマとの対応が切れる。

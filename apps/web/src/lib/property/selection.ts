@@ -4,10 +4,13 @@
  * task:  docs/tasks/P0-14.md
  * ルール: .claude/rules/security.md §1 / .claude/rules/architecture.md §2
  *
- * ── P0-14 が持つ範囲 ────────────────────────────────────
- * 「切り替えがセッションに残り、リロード後も維持される」までを持つ。
- * **状態サマリーの 3 数字・全社サマリー（`"ALL"`）・9 施設以上の検索は
- * P0-21 の担当**で、ここには無い。`"ALL"` を受け取る口も開けていない。
+ * ── 全社サマリー（`"ALL"`）────────────────────────────
+ * P0-21 で追加した。**受け取れるのは全社ビューを持つロールだけ**
+ * （OWNER / ORG_ADMIN / AUDITOR / VENDOR_ADMIN — §23.1 の表）。
+ * それ以外は 403（`ScopeForbiddenError`）。施設 ID の拒否は 404 のまま
+ * （INV-31）。理由の違いは packages/contracts/src/session.ts の注記。
+ *
+ * サマリーの数字は `summary.ts`。ここは「どのスコープを見ているか」だけを持つ。
  *
  * ── セッションの値を信用しない ──────────────────────────
  * `selectedPropertyId` はセッションに入っているが、**認可の根拠にしない。**
@@ -16,15 +19,43 @@
  * ロール降格・施設割当の解除が即座に効く形にするため（DECISIONS #020）。
  */
 
+import { ALL_PROPERTIES, type PropertyScopeValue } from "@pk/contracts";
 import {
   NotFoundError,
   findPropertyById,
+  isOrgWideRole,
   listProperties,
+  recordAudit,
   type Env,
   type TenantContext,
 } from "@pk/db";
 
 import { setSelectedPropertyId } from "../auth/session.js";
+
+/**
+ * 全社サマリーを見る権限が無い。**403 に写す唯一の例外。**
+ *
+ * `NotFoundError` を使わないのは、`"ALL"` が資源ではないため
+ * （packages/contracts/src/session.ts の注記）。
+ */
+export class ScopeForbiddenError extends Error {
+  constructor() {
+    super("SCOPE_FORBIDDEN");
+    this.name = "ScopeForbiddenError";
+  }
+}
+
+/**
+ * 全社ビューを持つロールか（§23.1 の表）。
+ *
+ * `isOrgWideRole()` と同じ 3 ロール（OWNER / ORG_ADMIN / AUDITOR）に
+ * `VENDOR_ADMIN`（受託範囲内の全社ビューあり）を足す。
+ * **`VENDOR_ADMIN` は施設スコープのまま**なので、見えるのは受託施設だけ。
+ * 第 1 層が `allowedPropertyIds` で絞るため、ここを緩めても越境しない。
+ */
+export function hasOrgWideView(ctx: TenantContext): boolean {
+  return isOrgWideRole(ctx.role) || ctx.role === "VENDOR_ADMIN";
+}
 
 /** 画面が施設について知る必要のある最小の形。 */
 export interface SelectableProperty {
@@ -92,25 +123,45 @@ export async function listSelectableProperties(
 }
 
 /**
- * 表示する施設を切り替える。
+ * 表示するスコープを切り替える。
  *
- * **担当外・別組織の施設 ID は `NotFoundError`。** `findPropertyById()` が
+ * **担当外・別組織の施設 ID は `NotFoundError`（404）。** `findPropertyById()` が
  * 越境 ID を DB に行く前に落とし、担当外の施設は 0 件になる。403 を返さない
  * （リソースの存在を示唆するため / architecture.md §2 第 2 層）。
  *
- * 監査ログは書かない（§23.4 — 頻度が高くノイズになる）。
- * **`"ALL"` への切替は記録が要る。実装する P0-21 が `recordAudit()` を足すこと。**
+ * **`"ALL"` は全社ビューを持たないロールに `ScopeForbiddenError`（403）。**
+ * こちらは資源ではないので存在を示唆しない（§23.4 MUST / §25.1）。
  *
- * @returns 切り替え後の施設 ID。
+ * 監査ログは施設の切替では書かない（§23.4 — 頻度が高くノイズになる）。
+ * **`"ALL"` への切替だけ記録する**（同 §23.4）。
+ *
+ * @returns 切り替え後のスコープ。
  */
 export async function switchProperty(
   env: Env,
   ctx: TenantContext,
   cookieValue: string,
-  propertyId: string,
+  scope: PropertyScopeValue,
   now: Date,
-): Promise<string> {
-  const property = await findPropertyById(env, ctx, propertyId);
+  /** 監査ログの操作者（membership ID）。`"ALL"` への切替でのみ使う。 */
+  actorId: string,
+): Promise<PropertyScopeValue> {
+  if (scope === ALL_PROPERTIES) {
+    if (!hasOrgWideView(ctx)) throw new ScopeForbiddenError();
+
+    const updated = await setSelectedPropertyId(env, cookieValue, ALL_PROPERTIES, now);
+    if (updated === null) throw new NotFoundError();
+
+    await recordAudit(env, ctx, {
+      actorId,
+      action: "session.scopeSwitchedToAll",
+      targetType: "session",
+      targetId: ALL_PROPERTIES,
+    });
+    return ALL_PROPERTIES;
+  }
+
+  const property = await findPropertyById(env, ctx, scope);
   if (property === undefined) throw new NotFoundError();
   // 無効化された施設へは切り替えさせない。一覧に出ないものを URL で選べると、
   // 「一覧に無い施設が表示中」という説明できない状態が作れる。
@@ -121,4 +172,32 @@ export async function switchProperty(
   if (updated === null) throw new NotFoundError();
 
   return property.id;
+}
+
+/**
+ * セッションに残っているスコープを、いま到達できるものへ解決する。
+ *
+ * | セッション | ロール | 結果 |
+ * |---|---|---|
+ * | `"ALL"` | 全社ビューあり | `"ALL"` |
+ * | `"ALL"` | 全社ビューなし（降格後） | 既定施設 |
+ * | 施設 ID | 一覧にある | その施設 |
+ * | 施設 ID | 一覧に無い（権限外・無効化） | 既定施設 |
+ *
+ * **セッションの値を認可の根拠にしない。** 毎回ロールと一覧から解き直す
+ * （DECISIONS #020）。
+ */
+export function resolveSelectedScope(
+  selected: string | undefined,
+  ctx: TenantContext,
+  properties: readonly SelectableProperty[],
+): { scope: PropertyScopeValue | null; property: SelectableProperty | null } {
+  if (selected === ALL_PROPERTIES && hasOrgWideView(ctx)) {
+    return { scope: ALL_PROPERTIES, property: null };
+  }
+  const property = resolveSelectedProperty(
+    selected === ALL_PROPERTIES ? undefined : selected,
+    properties,
+  );
+  return { scope: property?.id ?? null, property };
 }

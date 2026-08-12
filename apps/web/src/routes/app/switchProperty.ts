@@ -1,7 +1,7 @@
 import { NotFoundError } from "@pk/db";
 import { redirect, type ActionFunctionArgs } from "react-router";
 
-import { switchProperty } from "../../lib/property/selection.js";
+import { ScopeForbiddenError, switchProperty } from "../../lib/property/selection.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { HOME_PATH, requireAppContext, safeNextPath } from "../../lib/ui/requireSession.js";
 
@@ -19,12 +19,14 @@ import { HOME_PATH, requireAppContext, safeNextPath } from "../../lib/ui/require
  * **どの施設が存在するかを画面の挙動から読み取れないようにする**という点でも、
  * 「存在しない ID」と「担当外の ID」の結果が同じである必要がある。
  *
- * **`"ALL"`（全社サマリー）は受け付けない。** 実装は P0-21。
+ * **`"ALL"`（全社サマリー）も受け付ける**（P0-21）。全社ビューを持たない
+ * ロールが指定した場合は API なら 403 だが、**画面では戻すだけ**にする。
+ * 押せないはずの項目が押された状態なので、業務を止める必要が無い。
  */
 export async function action({ request, context }: ActionFunctionArgs) {
   const env = getEnv(context);
   const now = new Date();
-  const { tenant, cookieValue } = await requireAppContext(env, request, now);
+  const { session, tenant, cookieValue } = await requireAppContext(env, request, now);
 
   const form = await request.formData();
   const propertyId = form.get("propertyId");
@@ -33,10 +35,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (typeof propertyId !== "string" || propertyId === "") return redirect(next);
 
   try {
-    await switchProperty(env, tenant, cookieValue, propertyId, now);
+    await switchProperty(env, tenant, cookieValue, propertyId, now, session.membershipId);
   } catch (error) {
-    // 到達できない施設。選択は変えずに戻す。
-    if (!(error instanceof NotFoundError)) throw error;
+    // 到達できない施設（404）／権限の無い全社サマリー（403）。
+    // どちらも選択は変えずに戻す。
+    if (!(error instanceof NotFoundError) && !(error instanceof ScopeForbiddenError)) throw error;
   }
 
   return redirect(next);

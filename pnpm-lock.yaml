@@ -53,6 +53,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@pk/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@pk/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -139,6 +142,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@pk/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@cloudflare/workers-types@5.20260811.1)

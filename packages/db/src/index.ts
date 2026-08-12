@@ -43,6 +43,25 @@ export {
 // 後続 task はこれを再定義せず再エクスポートで取り込むこと。
 export { NotFoundError, PaymentRequiredError } from "./errors.js";
 
+// ヘルスチェック（P0-20）。**返すのは件数と真偽だけ。シャード番号を含めない。**
+export {
+  checkHealth,
+  type HealthReport,
+  type HealthState,
+  type ShardHealth,
+} from "./health.js";
+
+// シードデータ（P0-18）。ハッシュ化は注入で受ける（apps/web が渡す）。
+export {
+  SEED_CLEANER_COUNT,
+  SEED_ORG_SHORT_ID,
+  SEED_OWNER_STAFF_NUMBER,
+  seed,
+  type SeedCredentials,
+  type SeedDeps,
+  type SeedResult,
+} from "./seed.js";
+
 // 監査ログのマスク（P0-11）。`recordAudit()` が内側で使う。
 // 呼び出し側が事前にマスクする必要は無いが、ログ出力など別経路でも使える。
 export { MASKED, maskSensitive, serializeAuditPayload } from "./mask.js";

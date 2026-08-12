@@ -63,6 +63,17 @@ interface QueueProducerEntry {
   queue: string;
 }
 
+interface DurableObjectEntry {
+  name: string;
+  class_name: string;
+}
+
+interface MigrationEntry {
+  tag: string;
+  new_sqlite_classes?: string[];
+  new_classes?: string[];
+}
+
 interface EnvSection {
   name?: string;
   assets?: { directory?: string };
@@ -71,8 +82,8 @@ interface EnvSection {
   r2_buckets?: R2Entry[];
   kv_namespaces?: KvEntry[];
   queues?: { producers?: QueueProducerEntry[]; consumers?: unknown[] };
-  durable_objects?: unknown;
-  migrations?: unknown;
+  durable_objects?: { bindings?: DurableObjectEntry[] };
+  migrations?: MigrationEntry[];
 }
 
 interface WranglerConfig extends EnvSection {
@@ -224,12 +235,46 @@ describe("P0-02 wrangler.toml の構成", () => {
     }
   });
 
-  it("実装のない Queue コンシューマ・Durable Object を宣言していない", () => {
-    // 宣言だけ先に置くと queue() ハンドラや DO クラスが無いまま wrangler が起動しない。
+  it("実装のない Queue コンシューマを宣言していない", () => {
+    // 宣言だけ先に置くと queue() ハンドラが無いまま wrangler が起動しない。
     for (const { label, section } of ENVIRONMENTS) {
       expect(section.queues?.consumers, label).toBeUndefined();
-      expect(section.durable_objects, label).toBeUndefined();
-      expect(section.migrations, label).toBeUndefined();
+    }
+  });
+
+  // architecture.md §4 の 4 用途のうち、クラスが在るのは DocumentSequencer だけ
+  // （P0-17）。InspectionLock / PropertyBoard / ReconciliationLock を実装する
+  // task がここへ 1 行足す。**足す前に apps/web/src/index.ts の export も足すこと。**
+  const IMPLEMENTED_DO_CLASSES = ["DocumentSequencer"] as const;
+
+  it.each(ENVIRONMENTS)("$label: 実装済みの Durable Object だけを宣言する", ({ section }) => {
+    const bindings = section.durable_objects?.bindings ?? [];
+    expect(bindings).toHaveLength(IMPLEMENTED_DO_CLASSES.length);
+    for (const binding of bindings) {
+      expect(IMPLEMENTED_DO_CLASSES).toContain(binding.class_name);
+    }
+  });
+
+  it.each(ENVIRONMENTS)("$label: DO binding 名が全環境で同じ", ({ section }) => {
+    const names = (section.durable_objects?.bindings ?? []).map((entry) => entry.name);
+    expect(names).toEqual(["DOCUMENT_SEQUENCER"]);
+  });
+
+  it.each(ENVIRONMENTS)("$label: migrations が宣言済みの DO クラスを覆う", ({ section }) => {
+    const migrations = section.migrations ?? [];
+    expect(migrations.length).toBeGreaterThan(0);
+
+    // タグは重複しない。**既存タグの書き換えではなく追記で増やす。**
+    const tags = migrations.map((entry) => entry.tag);
+    expect(new Set(tags).size).toBe(tags.length);
+
+    const declared = (section.durable_objects?.bindings ?? []).map((entry) => entry.class_name);
+    const migrated = migrations.flatMap((entry) => [
+      ...(entry.new_sqlite_classes ?? []),
+      ...(entry.new_classes ?? []),
+    ]);
+    for (const className of declared) {
+      expect(migrated).toContain(className);
     }
   });
 });

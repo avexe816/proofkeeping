@@ -11,6 +11,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@pk/billing": "workspace:*",
     "@pk/contracts": "workspace:*",
     "@pk/db": "workspace:*",
     "hono": "^4.6.0",

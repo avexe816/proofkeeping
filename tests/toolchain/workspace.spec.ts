@@ -29,15 +29,23 @@ const EXPECTED_ROOT_SCRIPTS = [
   "dev",
   "db:generate",
   "db:migrate",
+  "db:check",
   "typecheck",
   "lint",
   "test",
   "test:isolation",
+  "test:e2e",
   "check",
 ] as const;
 
-/** 実体がないため未定義の script。担当 task が追加する。 */
-const DEFERRED_ROOT_SCRIPTS = ["db:seed", "test:e2e"] as const;
+/**
+ * 実体がないため未定義の script。担当 task が追加する。
+ *
+ * `db:seed` は投入の実体（packages/db/src/seed.ts）が P0-18 で入ったが、
+ * **実行するには Workers の binding が要る**（D1 / KV）。実在するのは
+ * shard-00 だけなので、配線は P0-02 の完了後。
+ */
+const DEFERRED_ROOT_SCRIPTS = ["db:seed"] as const;
 
 interface PackageJson {
   name?: string;
