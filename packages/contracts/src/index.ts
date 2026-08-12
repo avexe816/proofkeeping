@@ -23,3 +23,11 @@ export {
   type PinLoginRequest,
   type PinLoginResponse,
 } from "./auth.js";
+
+// middleware 共通のエラー応答（P0-10）。**403 を足さないこと**（INV-31）。
+export {
+  API_ERROR_CODES,
+  apiErrorSchema,
+  type ApiError,
+  type ApiErrorCode,
+} from "./error.js";
