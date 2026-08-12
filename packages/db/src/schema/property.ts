@@ -43,6 +43,18 @@ export const property = sqliteTable(
      * 全ての日次集計はこれを基準にした `businessDate` で行う。
      */
     dayCutoffTime: text("day_cutoff_time").notNull().default("05:00"),
+    /**
+     * 検査を要求するか（PK-SPEC-P1 §5.2 の `Property.inspectionRequired`）。
+     *
+     * `false` なら `complete` が直接 `COMPLETED` へ進む。`true` なら
+     * `AWAITING_INSPECTION` で止まる。**既定を `false` にしてある**のは、
+     * P1 に検査画面が無く（§1.2 Out of Scope）、既定が `true` だと
+     * 全タスクが検査待ちで滞留するため。**この設定自体の変更は
+     * `AuditLog` に残す**（§11.1 MUST）。
+     */
+    inspectionRequired: integer("inspection_required", { mode: "boolean" })
+      .notNull()
+      .default(false),
     ...sortOrderColumn,
     ...activeFlag,
     ...timestamps,

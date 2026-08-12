@@ -64,6 +64,14 @@ export const AUDIT_ACTIONS = {
   "user.pinReset": { requiresReason: false },
   // タスクの完了・検査合格・差戻し・一括承認（P1 以降で使う）
   "task.completed": { requiresReason: false },
+  // 人員配分の変更（PK-SPEC-P1 §4.2「変更は AuditLog に記録する」）。
+  "task.assigned": { requiresReason: false },
+  // タスクの取消。security.md §6 の列挙には無いが、CLAUDE.md §5 の
+  // 「破壊的操作には必ず recordAudit()」に当たる（取消は当日の作業予定を消す）。
+  "task.cancelled": { requiresReason: false },
+  // 入室不可。**理由必須**（PK-SPEC-P1 §5.3）。DND / 施錠 / 在室 の別が
+  // 残らないと、翌日の再訪の判断ができない。
+  "task.blocked": { requiresReason: true },
   "inspection.passed": { requiresReason: false },
   "task.reworkAssigned": { requiresReason: false },
   "task.bulkApproved": { requiresReason: false },

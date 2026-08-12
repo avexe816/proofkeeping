@@ -48,6 +48,38 @@ export {
 
 export { auditLog } from "./audit.js";
 
+// 清掃タスクとその周辺（P1-01）。enum の語彙は PK-SPEC-P1 §2.1 を正とする
+// （実装契約書 §2.1 との食い違いは OPEN_QUESTIONS #032）。
+export {
+  PHOTO_KINDS,
+  ROOM_PLAN_SOURCES,
+  TASK_SHORT_ID_LENGTH,
+  TASK_SOURCE_TYPES,
+  TASK_STATUSES,
+  TASK_TYPES,
+  TIME_EVENTS,
+  cleaningTask,
+  dailyRoomPlan,
+  standardTime,
+  taskPhoto,
+  taskTimeLog,
+  type PhotoKind,
+  type RoomPlanSource,
+  type TaskSourceType,
+  type TaskStatus,
+  type TaskType,
+  type TimeEvent,
+} from "./task.js";
+
+// チェックリスト（P1-01 / P1-06）。実施結果は 3 値（INV-22）。
+export {
+  CHECKLIST_VALUES,
+  checklistItem,
+  checklistTemplate,
+  taskChecklistResult,
+  type ChecklistValue,
+} from "./checklist.js";
+
 // 日次の施設別集計（P0-21）。施設サマリーはここだけを読む（§26 の絶対ルール）。
 export { dailyPropertyRollup } from "./rollup.js";
 

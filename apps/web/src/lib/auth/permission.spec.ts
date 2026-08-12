@@ -61,6 +61,16 @@ const EXPECTED: Record<PermissionAction, string> = {
   "finding.read": "OOA--AO",
   "lostItem.readStorage": "OOAA-AO",
   "billing.read": "OOA---O",
+  // P1。清掃タスク（PK-SPEC-P1 §5.3）と設定画面（同 §10.1）。
+  "task.read": "OOAAAAO",
+  "task.write": "OOA-AA-",
+  "task.manage": "OOA--A-",
+  "checklistTemplate.read": "OO----O",
+  "checklistTemplate.write": "OO-----",
+  "standardTime.read": "OO----O",
+  "standardTime.write": "OO-----",
+  "roomPlan.read": "OOA---O",
+  "roomPlan.write": "OOA----",
 };
 
 const SYMBOL_TO_SCOPE: Record<string, PermissionScope> = {

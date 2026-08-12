@@ -67,12 +67,18 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("17 テーブルを定義している", () => {
+  it("25 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       "auditLog",
       "building",
+      // P1-01。チェックリストの定義と実施結果（PK-SPEC-P1 §2.1 / §6）。
+      "checklistItem",
+      "checklistTemplate",
+      "cleaningTask",
       // P0-21。施設サマリーの唯一の出どころ（§19.6）。
       "dailyPropertyRollup",
+      // P1-01。当日の客室状況（P1 は PMS 連携が無いため施設側が入力する）。
+      "dailyRoomPlan",
       "documentSequence",
       // P0-22。**定義のみ。読み書きは P6**（§24.4）。
       "externalMapping",
@@ -87,7 +93,13 @@ describe("P0-06 スキーマ", () => {
       "propertyAssignment",
       "room",
       "roomType",
+      // P1-01 / P1-02。標準時間マスタ（客室タイプ × 清掃種別）。
+      "standardTime",
       "subscription",
+      // P1-01。実施結果・写真・作業時間ログ。
+      "taskChecklistResult",
+      "taskPhoto",
+      "taskTimeLog",
       "user",
     ]);
   });
@@ -111,6 +123,14 @@ describe("P0-06 スキーマ", () => {
       "audit",
       // P0-08
       "pwh",
+      // P1-01（docs/DECISIONS.md #032）。`task` は P0-05 で登録済み。
+      "tlog",
+      "ctpl",
+      "citm",
+      "cres",
+      "photo",
+      "stdt",
+      "plan",
     ];
 
     for (const prefix of required) {

@@ -62,6 +62,9 @@ importers:
       '@pk/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@pk/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       hono:
         specifier: ^4.6.0
         version: 4.13.1

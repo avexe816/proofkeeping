@@ -138,12 +138,17 @@ describe("recordAudit", () => {
 });
 
 describe("AUDIT_ACTIONS", () => {
-  it("security.md §6 の理由必須 2 操作が requiresReason を持つ", () => {
-    // 客室ステータスの手動上書き（理由必須）と観察記録の事後修正。
+  it("理由必須の操作が宣言どおり", () => {
+    // security.md §6 の 2 操作（客室ステータスの手動上書き・観察記録の事後修正）に
+    // 加え、PK-SPEC-P1 §5.3 が理由を必須とする入室不可（P1-05）。
     const required = Object.entries(AUDIT_ACTIONS)
       .filter(([, meta]) => meta.requiresReason)
       .map(([action]) => action);
-    expect(required.sort()).toEqual(["observation.amended", "room.statusOverridden"]);
+    expect(required.sort()).toEqual([
+      "observation.amended",
+      "room.statusOverridden",
+      "task.blocked",
+    ]);
   });
 
   it("action は `対象.操作` の形で揃っている", () => {

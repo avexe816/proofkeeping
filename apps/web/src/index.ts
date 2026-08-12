@@ -1,3 +1,4 @@
+import type { Env } from "@pk/db";
 import { Hono } from "hono";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 
@@ -8,11 +9,16 @@ import {
   useTenantMiddleware,
   type AppEnv,
 } from "./middleware/index.js";
+import { runNightlyGeneration } from "./lib/task/nightly.js";
 import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
+import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
 import files from "./routes/api/v1/files.js";
 import properties from "./routes/api/v1/properties.js";
+import roomPlans from "./routes/api/v1/roomPlans.js";
 import session from "./routes/api/v1/session.js";
+import standardTimes from "./routes/api/v1/standardTimes.js";
+import tasks from "./routes/api/v1/tasks.js";
 
 /**
  * Workers のエントリポイント。**API（Hono）と画面（React Router）が同居する。**
@@ -76,6 +82,14 @@ api.route("/properties", properties);
 // **`api` 側に載せてあるのは意図。** 署名に加えてセッションも要求する
 // （routes/api/v1/files.ts の注記）。`app` へ直に載せ替えないこと。
 api.route("/files", files);
+// 清掃タスク（P1-03 / P1-05 / P1-06）。状態変更は `Idempotency-Key` に対応する。
+api.route("/tasks", tasks);
+// 当日の客室状況（P1-04 / W-05）。CSV 取込と「全室アウト清掃として生成」。
+api.route("/room-plans", roomPlans);
+// 標準時間マスタ（P1-02 / W-17）。
+api.route("/standard-times", standardTimes);
+// チェックリスト定義（P1-06 / W-16）。3 階層の継承はタスク生成時に解決する。
+api.route("/checklist-templates", checklistTemplates);
 app.route("/api/v1", api);
 
 /**
@@ -109,4 +123,29 @@ app.all("*", async (c) => {
  */
 export { DocumentSequencer } from "./durable/DocumentSequencer.js";
 
-export default app;
+/**
+ * Workers の既定エクスポート。**`fetch` と `scheduled` の両方を持つ。**
+ *
+ * `app` をそのまま既定エクスポートにすると `scheduled()` を生やせない
+ * （Hono のインスタンスは `fetch` しか持たない）。オブジェクトへ包み、
+ * `fetch` は Hono へ委譲する。
+ *
+ * ── scheduled（P1-03 / PK-SPEC-P1 §3.2）────────────────
+ * 02:00 Asia/Tokyo に翌業務日のタスクを生成する。cron 式は
+ * `wrangler.toml` の `[triggers]`（UTC 指定なので 17:00 UTC）。
+ *
+ * **返す Promise を `await` する。** Cron の実行は `scheduled()` の返した
+ * Promise が解決するまで続く。`await` せずに投げると生成が途中で打ち切られる。
+ * 結果は件数だけをログに出す（組織 ID・シャード番号を出さない /
+ * architecture.md §1）。
+ */
+export default {
+  fetch: app.fetch,
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    const result = await runNightlyGeneration(env, new Date());
+    console.log(
+      `nightly-generation properties=${String(result.properties)} ` +
+        `created=${String(result.created)} failed=${String(result.failedProperties)}`,
+    );
+  },
+} satisfies ExportedHandler<Env>;

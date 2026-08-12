@@ -32,21 +32,29 @@ import {
 } from "../test-support/fake-d1.js";
 
 import * as auditRepo from "./audit.js";
+import * as checklistRepo from "./checklist.js";
+import * as cleaningTaskRepo from "./cleaningTask.js";
 import * as entitlementRepo from "./entitlement.js";
 import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
 import * as rollupRepo from "./rollup.js";
 import * as roomRepo from "./room.js";
+import * as roomPlanRepo from "./roomPlan.js";
+import * as standardTimeRepo from "./standardTime.js";
 import * as userRepo from "./user.js";
 
 /** 検証対象のリポジトリモジュール。**新しいファイルを足したらここに追加する。** */
 const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   audit: auditRepo,
+  checklist: checklistRepo,
+  cleaningTask: cleaningTaskRepo,
   entitlement: entitlementRepo,
   organization: organizationRepo,
   property: propertyRepo,
   rollup: rollupRepo,
   room: roomRepo,
+  roomPlan: roomPlanRepo,
+  standardTime: standardTimeRepo,
   user: userRepo,
 };
 
@@ -56,6 +64,10 @@ const OWN_ID = {
   membership: generateId(TEST_ORG.orgShortId, "mem"),
   property: generateId(TEST_ORG.orgShortId, "prop"),
   room: generateId(TEST_ORG.orgShortId, "room"),
+  roomType: generateId(TEST_ORG.orgShortId, "rtyp"),
+  task: generateId(TEST_ORG.orgShortId, "task"),
+  template: generateId(TEST_ORG.orgShortId, "ctpl"),
+  item: generateId(TEST_ORG.orgShortId, "citm"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -67,6 +79,10 @@ const OTHER_ID = {
   membership: generateId(OTHER_ORG.orgShortId, "mem"),
   property: generateId(OTHER_ORG.orgShortId, "prop"),
   room: generateId(OTHER_ORG.orgShortId, "room"),
+  roomType: generateId(OTHER_ORG.orgShortId, "rtyp"),
+  task: generateId(OTHER_ORG.orgShortId, "task"),
+  template: generateId(OTHER_ORG.orgShortId, "ctpl"),
+  item: generateId(OTHER_ORG.orgShortId, "citm"),
 } as const;
 
 /**
@@ -262,6 +278,266 @@ const INVOCATIONS: Invocation[] = [
       userRepo.setPasswordHash(env, ctx, { userId: OWN_ID.user, passwordHash: FAKE_HASH }),
     crossTenant: (env, ctx) =>
       userRepo.setPasswordHash(env, ctx, { userId: OTHER_ID.user, passwordHash: FAKE_HASH }),
+  },
+
+  // ── P1-01 / P1-03 / P1-05: 清掃タスク ──────────────────
+  {
+    name: "cleaningTask.listTasks",
+    kind: "tenant",
+    run: (env, ctx) => cleaningTaskRepo.listTasks(env, ctx, { businessDate: "2026-08-12" }),
+  },
+  {
+    name: "cleaningTask.findTaskById",
+    kind: "tenant",
+    run: (env, ctx) => cleaningTaskRepo.findTaskById(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => cleaningTaskRepo.findTaskById(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "cleaningTask.findTaskByShortId",
+    kind: "tenant",
+    run: (env, ctx) => cleaningTaskRepo.findTaskByShortId(env, ctx, "a1b2c3d4"),
+  },
+  {
+    name: "cleaningTask.createTasks",
+    kind: "tenant",
+    run: (env, ctx) =>
+      cleaningTaskRepo.createTasks(env, ctx, [
+        {
+          propertyId: OWN_ID.property,
+          roomId: OWN_ID.room,
+          businessDate: "2026-08-12",
+          taskType: "CHECKOUT",
+          priority: 40,
+          standardMinutes: 40,
+          shortId: "a1b2c3d4",
+        },
+      ]),
+  },
+  {
+    name: "cleaningTask.updatePlannedTasks",
+    kind: "tenant",
+    run: (env, ctx) =>
+      cleaningTaskRepo.updatePlannedTasks(env, ctx, "2026-08-12", [
+        { roomId: OWN_ID.room, taskType: "CHECKOUT", priority: 10, standardMinutes: 40 },
+      ]),
+  },
+  {
+    name: "cleaningTask.cancelPlannedTasks",
+    kind: "tenant",
+    run: (env, ctx) =>
+      cleaningTaskRepo.cancelPlannedTasks(env, ctx, "2026-08-12", [
+        { roomId: OWN_ID.room, taskType: "CHECKOUT" },
+      ]),
+  },
+  {
+    name: "cleaningTask.reviveCancelledTasks",
+    kind: "tenant",
+    run: (env, ctx) =>
+      cleaningTaskRepo.reviveCancelledTasks(env, ctx, "2026-08-12", [
+        { roomId: OWN_ID.room, taskType: "CHECKOUT", priority: 40, standardMinutes: 40 },
+      ]),
+  },
+  {
+    name: "cleaningTask.applyTransition",
+    kind: "tenant",
+    run: (env, ctx) =>
+      cleaningTaskRepo.applyTransition(env, ctx, OWN_ID.task, "ASSIGNED", {
+        status: "IN_PROGRESS",
+      }),
+    crossTenant: (env, ctx) =>
+      cleaningTaskRepo.applyTransition(env, ctx, OTHER_ID.task, "ASSIGNED", {
+        status: "IN_PROGRESS",
+      }),
+  },
+  {
+    name: "cleaningTask.listTimeLogs",
+    kind: "tenant",
+    run: (env, ctx) => cleaningTaskRepo.listTimeLogs(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => cleaningTaskRepo.listTimeLogs(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "cleaningTask.appendTimeLog",
+    kind: "tenant",
+    run: (env, ctx) =>
+      cleaningTaskRepo.appendTimeLog(env, ctx, {
+        taskId: OWN_ID.task,
+        propertyId: OWN_ID.property,
+        event: "START",
+        actorId: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      cleaningTaskRepo.appendTimeLog(env, ctx, {
+        taskId: OTHER_ID.task,
+        propertyId: OWN_ID.property,
+        event: "START",
+        actorId: OWN_ID.membership,
+      }),
+  },
+  {
+    name: "cleaningTask.findTimeLogByIdempotencyKey",
+    kind: "tenant",
+    run: (env, ctx) => cleaningTaskRepo.findTimeLogByIdempotencyKey(env, ctx, "key-1"),
+  },
+  {
+    name: "cleaningTask.countTasksByStatus",
+    kind: "tenant",
+    run: (env, ctx) => cleaningTaskRepo.countTasksByStatus(env, ctx, OWN_ID.property, "2026-08-12"),
+    crossTenant: (env, ctx) =>
+      cleaningTaskRepo.countTasksByStatus(env, ctx, OTHER_ID.property, "2026-08-12"),
+  },
+  {
+    name: "cleaningTask.listShortIds",
+    kind: "tenant",
+    run: (env, ctx) => cleaningTaskRepo.listShortIds(env, ctx, "2026-08-12"),
+  },
+  {
+    name: "cleaningTask.assignTasks",
+    kind: "tenant",
+    run: (env, ctx) => cleaningTaskRepo.assignTasks(env, ctx, [OWN_ID.task], OWN_ID.membership),
+    crossTenant: (env, ctx) =>
+      cleaningTaskRepo.assignTasks(env, ctx, [OTHER_ID.task], OWN_ID.membership),
+  },
+  {
+    name: "cleaningTask.countPhotosByChecklistItem",
+    kind: "tenant",
+    run: (env, ctx) => cleaningTaskRepo.countPhotosByChecklistItem(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) =>
+      cleaningTaskRepo.countPhotosByChecklistItem(env, ctx, OTHER_ID.task),
+  },
+  // ── P1-06: チェックリスト ──────────────────────────────
+  {
+    name: "checklist.listTemplates",
+    kind: "tenant",
+    run: (env, ctx) => checklistRepo.listTemplates(env, ctx),
+  },
+  {
+    name: "checklist.listTemplatesForProperty",
+    kind: "tenant",
+    run: (env, ctx) => checklistRepo.listTemplatesForProperty(env, ctx, OWN_ID.property),
+    crossTenant: (env, ctx) => checklistRepo.listTemplatesForProperty(env, ctx, OTHER_ID.property),
+  },
+  {
+    name: "checklist.listTemplateItems",
+    kind: "tenant",
+    run: (env, ctx) => checklistRepo.listTemplateItems(env, ctx, [OWN_ID.template]),
+    crossTenant: (env, ctx) => checklistRepo.listTemplateItems(env, ctx, [OTHER_ID.template]),
+  },
+  {
+    name: "checklist.createTemplate",
+    kind: "tenant",
+    run: (env, ctx) =>
+      checklistRepo.createTemplate(env, ctx, {
+        propertyId: null,
+        roomTypeId: null,
+        taskType: "CHECKOUT",
+        name: "アウト清掃",
+        items: [
+          { section: "浴室", labels: { ja: "浴槽を洗浄した" }, isRequired: true, photoRequired: false },
+        ],
+      }),
+  },
+  {
+    name: "checklist.replaceTemplateItems",
+    kind: "tenant",
+    run: (env, ctx) =>
+      checklistRepo.replaceTemplateItems(env, ctx, OWN_ID.template, {
+        name: "アウト清掃",
+        items: [
+          { section: "浴室", labels: { ja: "浴槽を洗浄した" }, isRequired: true, photoRequired: false },
+        ],
+      }),
+    crossTenant: (env, ctx) =>
+      checklistRepo.replaceTemplateItems(env, ctx, OTHER_ID.template, { name: "x", items: [] }),
+  },
+  {
+    name: "checklist.deactivateTemplate",
+    kind: "tenant",
+    run: (env, ctx) => checklistRepo.deactivateTemplate(env, ctx, OWN_ID.template),
+    crossTenant: (env, ctx) => checklistRepo.deactivateTemplate(env, ctx, OTHER_ID.template),
+  },
+  {
+    name: "checklist.expandChecklist",
+    kind: "tenant",
+    run: (env, ctx) =>
+      checklistRepo.expandChecklist(env, ctx, [
+        {
+          taskId: OWN_ID.task,
+          propertyId: OWN_ID.property,
+          templateVersion: 1,
+          items: [{ itemId: OWN_ID.item, isRequired: true, photoRequired: false }],
+        },
+      ]),
+  },
+  {
+    name: "checklist.listChecklistResults",
+    kind: "tenant",
+    run: (env, ctx) => checklistRepo.listChecklistResults(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => checklistRepo.listChecklistResults(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "checklist.recordChecklistResult",
+    kind: "tenant",
+    run: (env, ctx) =>
+      checklistRepo.recordChecklistResult(env, ctx, {
+        taskId: OWN_ID.task,
+        itemId: OWN_ID.item,
+        value: "DONE",
+        checkedById: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      checklistRepo.recordChecklistResult(env, ctx, {
+        taskId: OTHER_ID.task,
+        itemId: OWN_ID.item,
+        value: "DONE",
+        checkedById: OWN_ID.membership,
+      }),
+  },
+  // ── P1-02: 標準時間マスタ ──────────────────────────────
+  {
+    name: "standardTime.listStandardTimes",
+    kind: "tenant",
+    run: (env, ctx) => standardTimeRepo.listStandardTimes(env, ctx, OWN_ID.property),
+    crossTenant: (env, ctx) => standardTimeRepo.listStandardTimes(env, ctx, OTHER_ID.property),
+  },
+  {
+    name: "standardTime.upsertStandardTimes",
+    kind: "tenant",
+    run: (env, ctx) =>
+      standardTimeRepo.upsertStandardTimes(env, ctx, OWN_ID.property, [
+        { roomTypeId: OWN_ID.roomType, taskType: "CHECKOUT", minutes: 40 },
+      ]),
+    crossTenant: (env, ctx) => standardTimeRepo.upsertStandardTimes(env, ctx, OTHER_ID.property, []),
+  },
+  // ── P1-04: 当日の客室状況 ──────────────────────────────
+  {
+    name: "roomPlan.listRoomPlans",
+    kind: "tenant",
+    run: (env, ctx) => roomPlanRepo.listRoomPlans(env, ctx, OWN_ID.property, "2026-08-12"),
+    crossTenant: (env, ctx) => roomPlanRepo.listRoomPlans(env, ctx, OTHER_ID.property, "2026-08-12"),
+  },
+  {
+    name: "roomPlan.upsertRoomPlans",
+    kind: "tenant",
+    run: (env, ctx) =>
+      roomPlanRepo.upsertRoomPlans(
+        env,
+        ctx,
+        OWN_ID.property,
+        "2026-08-12",
+        [
+          {
+            roomId: OWN_ID.room,
+            hasCheckout: true,
+            hasCheckin: false,
+            isStayover: false,
+            guestCount: 2,
+            declineClean: false,
+          },
+        ],
+        "MANUAL",
+      ),
+    crossTenant: (env, ctx) =>
+      roomPlanRepo.upsertRoomPlans(env, ctx, OTHER_ID.property, "2026-08-12", [], "CSV"),
   },
 ];
 

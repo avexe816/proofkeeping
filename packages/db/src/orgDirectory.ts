@@ -75,6 +75,52 @@ export async function reserveOrgShortId(
   });
 }
 
+/** `listOrganizationDirectory()` が返す 1 件。 */
+export interface OrganizationDirectoryEntry {
+  orgShortId: string;
+  organizationId: string;
+}
+
+/**
+ * 採番済みの全組織を列挙する。**日次バッチ専用。**
+ *
+ * task: docs/tasks/P1-03.md（タスク自動生成の Cron Trigger）
+ *
+ * ── なぜここに置くのか ──────────────────────────────────
+ * Cron はセッションを持たない。`TenantContext` は本来セッションから
+ * 組み立てる（PK-SPEC-P0 §19.4）ので、**バッチには「どの組織があるか」を
+ * 知る手段が無い。** 組織の一覧を持つ表は SHARD_00 の `org_directory` だけで、
+ * ここ以外に逆引き表を作らないと決めてある（security.md §2）。
+ *
+ * ── 越えていない線 ──────────────────────────────────────
+ * これは**全シャード走査ではない。** 引くのは SHARD_00 の 1 表だけで、
+ * 業務データは各組織のシャードから `getTenantDb()` 経由で読む。
+ * `lookupOrganizationId()` の「ここから業務データへ辿らないこと」は
+ * **リクエスト経路**への注意（セッションの組織を迂回して他組織を引く
+ * 経路を作らない）で、バッチはそもそもセッションを持たない。
+ *
+ * **リクエストハンドラからこれを呼ばないこと。** 呼べば、セッションの
+ * 組織と無関係な組織 ID を手に入れる経路ができる。使ってよいのは
+ * `scheduled()` から始まる経路だけで、そのことは
+ * `apps/web/src/lib/task/nightly.ts` の冒頭に書いてある。
+ *
+ * @param limit 1 回に読む上限。組織数が増えたときに Cron の CPU 予算を
+ *   超えないための歯止め。**上限に達したことを呼び出し側が検知できるよう、
+ *   件数をそのまま返す**（黙って切り捨てない）。
+ */
+export async function listOrganizationDirectory(
+  env: Env,
+  limit: number,
+): Promise<OrganizationDirectoryEntry[]> {
+  return getGlobalDb(env)
+    .select({
+      orgShortId: orgDirectory.orgShortId,
+      organizationId: orgDirectory.organizationId,
+    })
+    .from(orgDirectory)
+    .limit(limit);
+}
+
 /**
  * 予約済みの 6 桁から組織 ID を引く。
  *

@@ -85,6 +85,33 @@ export const PERMISSION_ACTIONS = {
   "lostItem.readStorage": { write: false },
   /** 請求情報。**`INSPECTOR` は見られない**（security.md §1）。P0 に実体は無い。 */
   "billing.read": { write: false },
+  /**
+   * 清掃タスクの閲覧（P1-05 / PK-SPEC-P1 §5.3・§9）。
+   *
+   * `CLEANER` は自分の担当を見る必要があるので担当施設で許す。
+   * **「自分のタスクだけ」への絞り込みは権限ではなく一覧の条件**
+   * （`listTasks({ assigneeId })`）。`SELF` スコープはまだ無い。
+   */
+  "task.read": { write: false },
+  /**
+   * 状態変更（start / pause / resume / complete / block / unblock）。
+   * §5.3 の「担当者本人、P_MANAGER 以上」。
+   */
+  "task.write": { write: true },
+  /**
+   * 割当・取消・タスク生成（§5.3 の assign / cancel、§3.2 の再生成）。
+   * **`CLEANER` は自分にも割り当てられない。** 人員配分は施設責任者の判断。
+   */
+  "task.manage": { write: true },
+  /** チェックリスト定義（W-16）。§10.1 の担当ロールは `ORG_ADMIN`。 */
+  "checklistTemplate.read": { write: false },
+  "checklistTemplate.write": { write: true },
+  /** 標準時間マスタ（W-17）。§10.1 の担当ロールは `ORG_ADMIN`。 */
+  "standardTime.read": { write: false },
+  "standardTime.write": { write: true },
+  /** 当日の客室状況（W-05）。§10.1 の担当ロールは `P_MANAGER 以上`。 */
+  "roomPlan.read": { write: false },
+  "roomPlan.write": { write: true },
 } as const satisfies Record<string, { write: boolean }>;
 
 /** `PERMISSION_ACTIONS` に載っている操作だけを許す型。 */
@@ -280,6 +307,97 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+  },
+  // ── P1: 清掃タスク ──────────────────────────────────
+  // `INSPECTOR` は検査担当。P2 で検査画面が入るまで自分の対象を見る必要がある
+  // （§5.2 の `AWAITING_INSPECTION`）ので閲覧は担当施設で許す。
+  "task.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "ASSIGNED",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "ORG",
+  },
+  // §5.3 の「担当者本人、P_MANAGER 以上」。`INSPECTOR` は清掃を行わない
+  // （検査の書き込みは P2 が別のアクションで足す）。
+  "task.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "ASSIGNED",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "DENY",
+  },
+  // §5.3: assign / cancel は「P_MANAGER 以上、VENDOR_ADMIN」。
+  "task.manage": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "DENY",
+  },
+  // W-16 / W-17 は §10.1 で `ORG_ADMIN` の画面。**施設責任者に広げない。**
+  // 「管理職だから」で広げないこと（PK-IMPL-CONTRACT §11.5）。
+  "checklistTemplate.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "checklistTemplate.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  "standardTime.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "standardTime.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // W-05 は §10.1 で `P_MANAGER 以上`。`VENDOR_ADMIN` は稼働予定の入力者では
+  // ないため明記が無く DENY（広げるのは根拠を持つ task）。
+  "roomPlan.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "roomPlan.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
   },
 };
 

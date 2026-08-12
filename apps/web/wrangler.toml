@@ -46,11 +46,17 @@
 #                             [[migrations]] の新しいタグを同時に足す。
 #                             **既存の tag = "v1" を書き換えないこと。**
 #
-#   [triggers]（Cron）        P0-02 の作業範囲外。
-#
 #   compatibility_flags       同上。@react-pdf/renderer を Queue コンシューマで
 #                             動かす P2 の task が nodejs_compat を追加する。
 #                             フラグの後付けは非破壊。
+#
+# ------------------------------------------------------------------------------
+# Cron Triggers の本数
+# ------------------------------------------------------------------------------
+#
+#   無料枠は 5 本まで。**現在 1 本**（P1-03 のタスク自動生成 / 02:00 JST）。
+#   足す task は、この行の本数を数え直してから追記すること。
+#   cron 式は UTC 指定。日本時間で書かない（下の [triggers] の注記を参照）。
 #
 # ------------------------------------------------------------------------------
 
@@ -182,6 +188,16 @@ class_name = "DocumentSequencer"
 tag = "v1"
 new_sqlite_classes = ["DocumentSequencer"]
 
+# --- Cron Triggers（P1-03）---------------------------------------------------
+# PK-SPEC-P1 §3.2: 02:00 に全アクティブ施設の翌業務日のタスクを生成する。
+# **cron 式は UTC。** 02:00 Asia/Tokyo = 17:00 UTC（前日）。
+# 日本は夏時間を採らないので固定のオフセットで足りる。
+#
+# ハンドラは apps/web/src/index.ts の `scheduled()`。
+# **本数を増やすときは無料枠（5 本）を数えること。** 現在 1 本。
+[triggers]
+crons = ["0 17 * * *"]
+
 # ==============================================================================
 # preview — PR ごと（§9.2: pk-pr-{n} / 1 シャード）
 # ==============================================================================
@@ -284,6 +300,11 @@ class_name = "DocumentSequencer"
 [[env.preview.migrations]]
 tag = "v1"
 new_sqlite_classes = ["DocumentSequencer"]
+
+# Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
+# [env.*] は top-level を継承しないため環境ごとに書く。
+[env.preview.triggers]
+crons = ["0 17 * * *"]
 
 # ==============================================================================
 # staging — main マージで自動デプロイ（§9.2: pk-staging / 2 シャード）
@@ -394,6 +415,11 @@ class_name = "DocumentSequencer"
 [[env.staging.migrations]]
 tag = "v1"
 new_sqlite_classes = ["DocumentSequencer"]
+
+# Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
+# [env.*] は top-level を継承しないため環境ごとに書く。
+[env.staging.triggers]
+crons = ["0 17 * * *"]
 
 # ==============================================================================
 # production — 手動デプロイ（§9.2: pk-prod / 16 シャード）
@@ -578,3 +604,8 @@ class_name = "DocumentSequencer"
 [[env.production.migrations]]
 tag = "v1"
 new_sqlite_classes = ["DocumentSequencer"]
+
+# Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
+# [env.*] は top-level を継承しないため環境ごとに書く。
+[env.production.triggers]
+crons = ["0 17 * * *"]

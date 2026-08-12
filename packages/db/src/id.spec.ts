@@ -88,11 +88,12 @@ const CTX: ShardContext = { organizationId: "org_alpha", orgShortId: "a2b3c4" };
 // ────────────────────────────────────────────────────────────
 
 describe("ENTITY_PREFIXES", () => {
-  it("仕様書由来の 11 個と P0-06 の 13 個・P0-08 の 1 個を持つ", () => {
+  it("仕様書由来の 11 個と P0-06 の 13 個・P0-08 の 1 個・P1-01 の 7 個を持つ", () => {
     // 前半: PK-SPEC-P0.md §19.4（task/insp/evd/lost/issue/inv/rcp）
     //       + architecture.md §2（obs/find/run）+ 仕様のレスポンス例（prop）。
     // 中盤: P0-06 の 13 テーブル分（docs/DECISIONS.md #013）。
-    // 末尾: P0-08 の password_history（docs/DECISIONS.md #018）。
+    // 次:   P0-08 の password_history（docs/DECISIONS.md #018）。
+    // 末尾: P1-01 の 7 テーブル分（docs/DECISIONS.md #032）。
     //
     // **並びと綴りを変えないこと。** ID は永続データなので、
     // 接頭辞を変えると過去の行が parseId() を通らなくなる。
@@ -122,6 +123,13 @@ describe("ENTITY_PREFIXES", () => {
       "ent",
       "audit",
       "pwh",
+      "tlog",
+      "ctpl",
+      "citm",
+      "cres",
+      "photo",
+      "stdt",
+      "plan",
     ]);
   });
 
