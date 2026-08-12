@@ -14,14 +14,18 @@
 # 2. top-level（環境指定なし）は `wrangler dev` = ローカル開発用。
 #    §19.2 の MUST に従い SHARD_COUNT = 1 で SHARD_00 のみを使う。
 #
-# 3. 実在する Cloudflare リソースは D1 の proofkeeping-shard-00 だけ。
-#    R2 / KV / Queue と残り 15 シャードは未作成で、id は
-#    "TODO-P0-02-未作成-*" のプレースホルダにしてある。
+# 3. P0-02 は**実 ID を順次埋めている途中**。現時点で実在するのは
+#    D1 の proofkeeping-shard-00 と、local の KV 5 本。
+#    残りは "TODO-P0-02-未作成-*" のプレースホルダのまま。
 #    作成コマンドと差し替え手順は docs/tasks/P0-02.md の作業ログにある。
 #
 #        grep "TODO-P0-02" apps/web/wrangler.toml
 #
 #    で未設定箇所を全件拾える。推測した UUID は 1 つも書いていない。
+#
+#    **本数をどこかに書き写さないこと。** 埋めるたびに 2 か所直すことになる。
+#    tests/toolchain/wrangler.spec.ts は件数ではなく「実 ID の形か、
+#    TODO-P0-02- で始まるか」だけを見ている。
 #
 # 4. シャード番号を URL・レスポンス・ログに出さない（architecture.md §1）。
 #    binding 名は内部にとどめること。
