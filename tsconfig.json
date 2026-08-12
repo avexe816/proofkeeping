@@ -17,6 +17,11 @@
   // Workers ランタイム型を使うパッケージは node 型と同居させない。
   // @types/node と @cloudflare/workers-types はグローバル（fetch / Response など）が
   // 衝突するため、それぞれ自前の tsconfig で別プログラムとして検査する。
-  // ルート package.json の `typecheck` が 3 パスに分かれているのはそのため。
-  "exclude": ["apps/**", "packages/db/**"]
+  // ルート package.json の `typecheck` が 4 パスに分かれているのはそのため。
+  //
+  // `tests/tenant-isolation/**` も同じ理由で外す（P0-13）。あちらは `@pk/db` を
+  // 引くため Workers 型が要る。専用の tsconfig を置いてある。
+  // **`tests/fixtures/**` は外していない。** import を持たない素のデータなので
+  // node 側でも検査でき、両方のプログラムから使える。
+  "exclude": ["apps/**", "packages/db/**", "tests/tenant-isolation/**"]
 }

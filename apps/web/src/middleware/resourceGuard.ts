@@ -8,7 +8,8 @@
  *
  * ここには 3 つの部品がある。役割が違うので分けてある。
  *
- *   apiErrorHandler()   `app.onError()` へ渡す。`NotFoundError` → 404、他 → 500
+ *   apiErrorHandler()   `app.onError()` へ渡す。`NotFoundError` → 404、
+ *                       `PaymentRequiredError` → 402、他 → 500
  *   apiNotFoundHandler()`app.notFound()` へ渡す。未定義の経路も同じ 404 の形
  *   withResourceGuard() tenant の後。パス中の ID を DB 問い合わせ前に照合
  *
@@ -26,7 +27,7 @@
  */
 
 import type { ApiErrorCode } from "@pk/contracts";
-import { NotFoundError, assertIdBelongsToTenant } from "@pk/db";
+import { NotFoundError, PaymentRequiredError, assertIdBelongsToTenant } from "@pk/db";
 import type { Context, ErrorHandler, MiddlewareHandler, NotFoundHandler } from "hono";
 
 import { ContextMissingError, type AppEnv } from "./context.js";
@@ -38,6 +39,17 @@ const ID_SEPARATOR = "__";
 function notFound(c: Context<AppEnv>): Response {
   const body: { error: ApiErrorCode } = { error: "RESOURCE_NOT_FOUND" };
   return c.json(body, 404);
+}
+
+/**
+ * 402 の応答（P0-12）。**契約していないモジュールだけに使う。**
+ *
+ * どのモジュールが不足しているかを本体に載せない。購入導線は画面が
+ * 組織の契約内容から組み立てる（`assertEntitlement()` の doc）。
+ */
+function paymentRequired(c: Context<AppEnv>): Response {
+  const body: { error: ApiErrorCode } = { error: "PAYMENT_REQUIRED" };
+  return c.json(body, 402);
 }
 
 /** 500 の応答。**内訳を載せない。** */
@@ -75,7 +87,10 @@ export function sanitizeErrorCode(error: unknown): string {
  */
 export function apiErrorHandler(): ErrorHandler<AppEnv> {
   return (error, c) => {
+    // 順序に意味がある。**404 を先に見る。** 権限で拒否された資源に対して
+    // 402 を返すと、契約状況を通じて資源の存在が読める（P0-12 / errors.ts）。
     if (error instanceof NotFoundError) return notFound(c);
+    if (error instanceof PaymentRequiredError) return paymentRequired(c);
     console.error(sanitizeErrorCode(error));
     return internalError(c);
   };

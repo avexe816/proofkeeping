@@ -6,7 +6,7 @@
  */
 
 import type { Env, TenantContext } from "@pk/db";
-import { NotFoundError } from "@pk/db";
+import { NotFoundError, PaymentRequiredError } from "@pk/db";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 
@@ -173,6 +173,19 @@ describe("apiErrorHandler", () => {
 
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "RESOURCE_NOT_FOUND" });
+  });
+
+  it("ハンドラの PaymentRequiredError を 402 にする（P0-12）", async () => {
+    const res = await appThatThrows(new PaymentRequiredError()).request("/x", {}, ENV);
+
+    expect(res.status).toBe(402);
+    expect(await res.json()).toEqual({ error: "PAYMENT_REQUIRED" });
+  });
+
+  it("402 の本体に不足モジュール名を載せない", async () => {
+    const res = await appThatThrows(new PaymentRequiredError("AUDIT")).request("/x", {}, ENV);
+
+    expect(await res.text()).not.toContain("AUDIT");
   });
 
   it("それ以外は 500。内訳を応答に載せない", async () => {

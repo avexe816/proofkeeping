@@ -20,6 +20,12 @@
  * 現場が「入り直せばよい」のか「そもそも見られない」のかを判断できなくなる。
  * 逆に権限判定の失敗を 401 に寄せるのも誤り（ログインし直せば見えると読める）。
  *
+ * ── 402 は 403 の言い換えではない ───────────────────────
+ * `PAYMENT_REQUIRED` は「契約していないモジュール」だけに使う（P0-12）。
+ * 権限が無いことを 402 で表さないこと。**判定は権限（404）が先、契約（402）が後。**
+ * 逆にすると担当外施設に「契約していない」と答えてしまい、
+ * 402 が施設の存在を示唆する経路になる（`packages/db/src/errors.ts`）。
+ *
  * ── `INTERNAL_ERROR` に内訳を持たせない ─────────────────
  * `SHARD_BINDING_MISSING:SHARD_07` のような例外はシャード番号を含む。
  * これを応答へ載せない（architecture.md §1「シャード番号を URL・レスポンス・
@@ -34,10 +40,16 @@ import { z } from "zod";
  * | コード | HTTP | 意味 |
  * |---|---|---|
  * | `UNAUTHENTICATED` | 401 | セッションが無い・期限切れ・所属が無効 |
+ * | `PAYMENT_REQUIRED` | 402 | モジュールを契約していない（P0-12） |
  * | `RESOURCE_NOT_FOUND` | 404 | 資源が無い / 権限が無い / 担当外施設 / 別テナントの ID |
  * | `INTERNAL_ERROR` | 500 | 上記以外。内訳を外へ出さない |
  */
-export const API_ERROR_CODES = ["UNAUTHENTICATED", "RESOURCE_NOT_FOUND", "INTERNAL_ERROR"] as const;
+export const API_ERROR_CODES = [
+  "UNAUTHENTICATED",
+  "PAYMENT_REQUIRED",
+  "RESOURCE_NOT_FOUND",
+  "INTERNAL_ERROR",
+] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 

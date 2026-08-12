@@ -15,16 +15,18 @@ const lookupOrganizationId = vi.fn();
 const findUserByStaffNumber = vi.fn();
 const findMembershipByUserId = vi.fn();
 const recordLoginAttempt = vi.fn();
+const recordAudit = vi.fn();
 
 vi.mock("@pk/db", () => ({
   lookupOrganizationId: (...args: unknown[]) => lookupOrganizationId(...args) as unknown,
   findUserByStaffNumber: (...args: unknown[]) => findUserByStaffNumber(...args) as unknown,
   findMembershipByUserId: (...args: unknown[]) => findMembershipByUserId(...args) as unknown,
   recordLoginAttempt: (...args: unknown[]) => recordLoginAttempt(...args) as unknown,
+  recordAudit: (...args: unknown[]) => recordAudit(...args) as unknown,
 }));
 
 const { hashPassword } = await import("./password.js");
-const { PASSWORD_LOCK_POLICY, login } = await import("./login.js");
+const { PASSWORD_FAILURE_AUDIT_AT, PASSWORD_LOCK_POLICY, login } = await import("./login.js");
 const { createFakeKv } = await import("./test-support/fake-kv.js");
 
 type Env = import("@pk/db").Env;
@@ -79,6 +81,7 @@ beforeEach(() => {
   findUserByStaffNumber.mockResolvedValue(userRow());
   findMembershipByUserId.mockResolvedValue(membershipRow());
   recordLoginAttempt.mockResolvedValue(undefined);
+  recordAudit.mockResolvedValue(undefined);
 });
 
 describe("成功", () => {
@@ -282,5 +285,83 @@ describe("アカウントロック", () => {
       lockedUntil: null,
       now: NOW,
     });
+  });
+});
+
+describe("ログイン失敗の監査ログ（P0-11）", () => {
+  /** `failedLoginCount` が n の状態から 1 回失敗させる。 */
+  async function failOnceFrom(failedLoginCount: number, ip?: string) {
+    findUserByStaffNumber.mockResolvedValue(userRow({ failedLoginCount }));
+    return login(env, {
+      credentials: credentials({ password: "WrongPassword1" }),
+      now: NOW,
+      ...(ip === undefined ? {} : { ip }),
+    });
+  }
+
+  it("5 回目の失敗で 1 件だけ書く", async () => {
+    // security.md §6「ログイン失敗（5 回目のみ）」。
+    await failOnceFrom(PASSWORD_FAILURE_AUDIT_AT - 1);
+    expect(recordAudit).toHaveBeenCalledTimes(1);
+    const input = recordAudit.mock.calls[0]?.[2] as Record<string, unknown>;
+    expect(input["action"]).toBe("auth.loginFailed");
+    expect(input["actorId"]).toBe(MEMBERSHIP_ID);
+    expect(input["targetId"]).toBe(USER_ID);
+  });
+
+  it.each([0, 1, 3, 5, 8])("%s 回目からの失敗（5 回目以外）では書かない", async (count) => {
+    await failOnceFrom(count);
+    const expected = count + 1 === PASSWORD_FAILURE_AUDIT_AT ? 1 : 0;
+    expect(recordAudit).toHaveBeenCalledTimes(expected);
+  });
+
+  it("ロックの閾値（10 回）では書かない", async () => {
+    // 5 と 10 は別の数字。ロックに合わせて動かさない。
+    await failOnceFrom(PASSWORD_LOCK_POLICY.maxFailures - 1);
+    expect(recordAudit).not.toHaveBeenCalled();
+  });
+
+  it("IP を渡せば監査ログに載る", async () => {
+    await failOnceFrom(PASSWORD_FAILURE_AUDIT_AT - 1, "203.0.113.7");
+    const input = recordAudit.mock.calls[0]?.[2] as Record<string, unknown>;
+    expect(input["ip"]).toBe("203.0.113.7");
+  });
+
+  it("actorRole は membership のロールから入る", async () => {
+    findMembershipByUserId.mockResolvedValue(membershipRow("PROPERTY_MANAGER"));
+    await failOnceFrom(PASSWORD_FAILURE_AUDIT_AT - 1);
+    const ctx = recordAudit.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(ctx["role"]).toBe("PROPERTY_MANAGER");
+    expect(ctx["organizationId"]).toBe(ORG.organizationId);
+    expect(ctx["now"]).toBe(NOW);
+  });
+
+  it("所属が無いユーザーでは書かない（誰の操作か決められない）", async () => {
+    findMembershipByUserId.mockResolvedValue(undefined);
+    await failOnceFrom(PASSWORD_FAILURE_AUDIT_AT - 1);
+    expect(recordAudit).not.toHaveBeenCalled();
+  });
+
+  it("監査ログの書き込みが失敗しても応答は AUTH_FAILED のまま", async () => {
+    // ここで 500 になると、失敗の理由が応答から読める。
+    recordAudit.mockRejectedValue(new Error("D1_UNAVAILABLE"));
+    const result = await failOnceFrom(PASSWORD_FAILURE_AUDIT_AT - 1);
+    expect(result).toEqual({ ok: false, reason: "AUTH_FAILED" });
+  });
+
+  it("ログイン成功では書かない", async () => {
+    await login(env, { credentials: credentials(), now: NOW });
+    expect(recordAudit).not.toHaveBeenCalled();
+  });
+
+  it("ロック中の失敗では数え上げず、書かない", async () => {
+    findUserByStaffNumber.mockResolvedValue(
+      userRow({
+        failedLoginCount: PASSWORD_FAILURE_AUDIT_AT - 1,
+        lockedUntil: new Date(NOW.getTime() + 60_000),
+      }),
+    );
+    await login(env, { credentials: credentials({ password: "WrongPassword1" }), now: NOW });
+    expect(recordAudit).not.toHaveBeenCalled();
   });
 });

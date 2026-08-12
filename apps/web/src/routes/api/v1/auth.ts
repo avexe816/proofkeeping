@@ -60,7 +60,8 @@ auth.post("/login", async (c) => {
   const parsed = loginRequestSchema.safeParse(body);
   if (!parsed.success) return c.json(errorBody("INVALID_REQUEST"), 400);
 
-  const result = await login(c.env, { credentials: parsed.data, now });
+  // IP は監査ログ（security.md §6）に入る。認証の判定には使わない。
+  const result = await login(c.env, { credentials: parsed.data, now, ip: clientIp(c.req.raw) });
   if (!result.ok) return c.json(errorBody("AUTH_FAILED"), 401);
 
   c.header(
