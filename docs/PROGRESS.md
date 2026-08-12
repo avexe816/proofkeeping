@@ -1,9 +1,61 @@
 # 実装進捗
 
-最終更新: 2026-08-12（P0-09 完了）
+最終更新: 2026-08-12（P0-10 完了）
 
 ## 現在のセッション
 
+```
+task: P0-10 認可: 権限マトリクス
+状態: 完了。**権限チェックの枠組みだけを作った。個別画面の権限設定は各 task が行う。**
+      OPEN_QUESTIONS #016 を解決（DECISIONS #023）。**施設列を持たない表
+      （user / membership / organization / organizationTaxProfile）は
+      読み取りを組織全体に開き、書き込みだけを自施設に絞る。**
+      この回答は既存のリポジトリ層をそのまま追認したので、`NO_PROPERTY_SCOPE` は無変更。
+      拒否は一律 404（DECISIONS #022）。**403 を返す経路をコードベースに作っていない。**
+      task の完了条件「設定画面で 403」は 404 へ改訂した（INV-31 / security.md §1 が
+      404 を要求しており、両立しないため）。
+      追加したのは apps/web/src/middleware/{context,session,tenant,resourceGuard,index}.ts と
+      apps/web/src/lib/auth/permission.ts、packages/contracts/src/error.ts。
+      packages/db は 1 行も変えていない（NotFoundError も Role も既存を使う）。
+      テスト 67 件を追加し、pnpm check（lint + typecheck + test 594 件）が通る。
+次: P0-11 監査ログ基盤。recordAudit() の実体を作る。P0-08 の「失敗 5 回目の監査ログ」と
+    P0-10 の権限変更の記録がここを待っている。
+    **assertPermission() の失敗を監査ログに書いていない**（security.md §6 の列挙に無く、
+    書くと全 404 が記録されて量が読めない）。P0-11 で方針を確かめること。
+申し送り a: **PK-IMPL-CONTRACT §4 の権限マトリクスを転記していない。**
+            OPEN_QUESTIONS #011（role 語彙の食い違い）が未解決のため。
+            §4 は 6 語（SITE_LEAD / OPS_MANAGER / VIEWER / PLATFORM_ADMIN）で書かれ、
+            **§4 の OWNER は「自施設・清掃員氏名 ×」で security.md §1 の OWNER
+            （組織全体）とは別概念。** 取り違えると逆向きの実装になる。
+            画面を作る task は PERMISSION_ACTIONS に 1 行足す形で進めること。
+申し送り b: **security.md §1 に明記の無いセルはすべて DENY に倒してある。**
+            例: VENDOR_ADMIN の user.write / billing.read。
+            広げるのは根拠を持つ task の仕事（P5 の請求、招待画面など）。
+            base.ts の ORG_WIDE_ROLES と同じく、書き忘れが「見えすぎる」方向へ壊れない向き。
+申し送り c: **SELF スコープ（自分の記録のみ）を実装していない。** M-11（security.md §5 が
+            要求する本人の記録閲覧）に要るが、対象の資源が P0 に無く、判定に
+            target.userId が要る。**その画面を作る task が PermissionScope に 1 値足すこと。**
+申し送り d: **Hono では `await next()` を try で囲んでも下流の例外を捕まえられない。**
+            Hono が各ハンドラを内側で try/catch し onError を適用してから上流へ戻すため。
+            middleware で写像すると 404 のはずが 500 になる。**app.onError() /
+            app.notFound() に登録すること。** 実装中にこれで 1 度落とした。
+申し送り e: **`c.req.param()` は `app.use("*")` の middleware から呼ぶと空になる。**
+            マッチしたルートに紐づくため。withResourceGuard はパスを `/` で割って
+            自己記述 ID の形をした区切りを見る。**ルート変数に依存する実装へ戻さないこと。**
+申し送り e2: **`app.route()` は子アプリの notFoundHandler を引き継がない**
+            （errorHandler は保つ）。apiNotFoundHandler() は最上位の app に
+            置いてある。**子アプリ側へ移すと未定義経路だけ Hono 既定のテキスト
+            404 に戻り、応答の形の違いで経路の実装有無が読める。**
+申し送り f: **ASSIGNED は部分集合で判定する（交差ではない）。** 帰結として
+            PROPERTY_MANAGER は施設割当を持たないユーザーを作れない。
+            招待 API は「招待と施設割当を同時に行う」形にすること。
+申し送り g: **認証済みリクエストごとに D1 読み取りが 1〜2 回増える**
+            （findMembershipByUserId + 施設スコープロールなら listAssignedPropertyIds）。
+            DECISIONS #020 のとおりキャッシュを入れていない。入れるなら
+            「ロール降格・施設割当の解除が即時に効く」ことを別途保証してから。
+```
+
+--- P0-09 からの申し送り（継続）---
 ```
 task: P0-09 認証: PIN ログイン
 状態: 完了。**ただし完了条件 2 件が未達**（下の申し送り甲・乙）。
@@ -17,8 +69,8 @@ task: P0-09 認証: PIN ログイン
       セッション 16 時間・Cookie 署名・レート制限 20 req/分/IP は P0-08 のものを
       そのまま使い、session.ts / cookie.ts / rateLimit.ts は 1 行も変えていない。
       テスト 106 件を追加し、pnpm check（lint + typecheck + test 527 件）が通る。
-次: P0-10 middleware（session / tenant / resourceGuard）。
-    セッションの authMethod で 12 時間 / 16 時間を判別できる。role は入っていない。
+次: （P0-10 で消化済み。セッションの authMethod で 12 時間 / 16 時間を判別できる。
+    role は入っていない。）
 申し送り甲: **PIN のロックアウト（5 回失敗で 15 分）は実装していない。** task の
             完了条件だが今回のスコープ外。総当たりを止めているのは 20 req/分/IP のみ。
             `failedLoginCount` 列を**パスワードと共有している**ため、中途半端に数えると
@@ -71,6 +123,7 @@ task: P0-08 認証: orgShortId + スタッフ番号 + パスワード
 申し送り E: セッション middleware（Cookie → TenantContext）は **P0-10 の所有**。
             P0-08 は readSession() が識別情報を返すところまで。
             TenantContext は findMembershipByUserId + listAssignedPropertyIds から毎回組み立てる。
+            → **P0-10 で消化済み**（apps/web/src/middleware/{session,tenant}.ts）。
 申し送り F: レート制限（KV RATELIMIT）は固定窓で**厳密ではない**。
             KV の read-modify-write が原子的でないため、同時到着で上限を数回超えうる。
             厳密化には DO が要るが architecture.md §4 が 4 用途に限定している。
@@ -107,6 +160,8 @@ task: P0-07 リポジトリ層の雛形
             user / membership は propertyId を持たない。清掃スタッフが組織の
             ユーザー一覧を取れてよいかは security.md に記述が無い。
             到達可否は P0-10 の assertPermission() が判定する前提。**P0-10 の着手前に判断が要る。**
+            → **解決済（DECISIONS #023）。読み取りは組織全体・書き込みは自施設のみ。
+            listUsers は現状のままでよい。** user.read は 7 ロールすべてに ORG。
 申し送り 7: 越境テスト（tests/tenant-isolation/）は P0-13 の所有。P0-07 では作っていない。
             リポジトリ層のテストは packages/db/src/repositories/*.spec.ts にある。
             P0-13 は packages/db/src/test-support/fake-d1.ts を再利用できる。
@@ -121,6 +176,9 @@ task: P0-07 リポジトリ層の雛形
             #011（role の語彙）と #016 は P0-10 の着手前、#013（PIN ログインの識別子）は
             P0-09 の着手前、#014（メールから組織を解決する手段）は P0-08 の着手前に
             人間の判断が要る。暫定の選択で進めてある。
+            → #014 / #016 は解決済。**#011 は未解決のまま。** P0-10 は
+            PK-IMPL-CONTRACT §4 のビジネス表を実装対象から外すことで回避した。
+            §4 を実装対象にする task が現れたら、その前に判断が要る。
 ブロッカー: P0-02 が未完のまま。実在する Cloudflare リソースは D1 の
             proofkeeping-shard-00 のみで、R2 / KV / Queue と残り 15 シャードは未作成。
             そのため pnpm dev による実環境での起動確認は P0-03〜P0-06 でも行えていない。
@@ -188,7 +246,17 @@ task: P0-07 リポジトリ層の雛形
     ② 初回変更の強制（変更画面が P1 以降。応答に `pinMustChange` を返すまで）。
   - `setUserPin()` を作っていないため、`hashPin()` を直接呼ぶと `pinSchema`
     （連番・ゾロ目の拒否）を迂回できる。PIN を書き込む経路は必ず先に検証すること。
-- [ ] P0-10 認可: 権限マトリクス
+- [x] P0-10 認可: 権限マトリクス
+  - **枠組みのみ。** `PERMISSION_ACTIONS` は 11 件で、security.md §1 の
+    「絶対に守る境界」と P0 に実体のある資源に限る。**PK-IMPL-CONTRACT §4 の
+    ビジネス表は転記していない**（OPEN_QUESTIONS #011 が未解決のため）。
+    各画面の権限は、その画面を作る task が 1 行足す。
+  - OPEN_QUESTIONS #016 を解決（DECISIONS #023）。**読み取りは組織全体・
+    書き込みは自施設のみ。** リポジトリ層（`NO_PROPERTY_SCOPE`）は無変更。
+  - 拒否は一律 404（DECISIONS #022）。**403 を返す経路が無い。**
+    task の完了条件にあった「設定画面で 403」は 404 へ改訂した。
+  - `finding.read` / `lostItem.readStorage` / `billing.read` は**対応する資源も
+    API もまだ無い。** 境界だけ先に固定してある（P0-13 が掴めるように）。
 - [ ] P0-11 監査ログ基盤
 - [ ] P0-12 エンタイトルメント基盤
 - [ ] P0-13 テナント越境テスト基盤 ★最優先
