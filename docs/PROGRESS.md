@@ -80,6 +80,15 @@ task: P0-15 i18n / P0-16 事業者税務 / P0-17 DocumentSequencer / P0-18 seed 
 申し送り 10: **署名付き URL で読めるのは `seals/` だけ**（`storage/prefix.ts`）。
             清掃写真をここへ載せないこと。写真は別のキー体系と保持期間を持つ
             （security.md §4）。載せる task が判定と経路を自分で足すこと。
+            `/api/v1/files` は **セッションと署名の両方**を要求する
+            （`/api/v1/*` に載せてある）。片方を外さないこと。
+
+申し送り 11: **`pnpm dev` は起動する。** 実際に確認した経路:
+            `/api/health` は migration 適用前が 503（`schema_version` が
+            読めない）、`pnpm db:migrate --env local` 適用後に 200。
+            `/` → `/login`（302）、`/app/**` の 5 画面はすべて
+            `/login?next=...` へ 302、`/api/v1/**` は未認証で 401。
+            **実機（iPhone Safari / Android Chrome）は依然として未確認。**
 ```
 
 --- P0-11 / P0-12 / P0-13 からの申し送り（継続）---

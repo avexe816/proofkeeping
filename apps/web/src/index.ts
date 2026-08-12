@@ -73,6 +73,8 @@ api.route("/auth", session);
 // 施設サマリー（P0-21）。rollup からのみ組み立て、60 秒 KV キャッシュ。
 api.route("/properties", properties);
 // 署名付き URL の受け口（P0-16）。角印だけ。**写真をここへ載せない。**
+// **`api` 側に載せてあるのは意図。** 署名に加えてセッションも要求する
+// （routes/api/v1/files.ts の注記）。`app` へ直に載せ替えないこと。
 api.route("/files", files);
 app.route("/api/v1", api);
 
