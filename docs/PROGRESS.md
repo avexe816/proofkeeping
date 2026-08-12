@@ -1,9 +1,97 @@
 # 実装進捗
 
-最終更新: 2026-08-12（P0-11 / P0-12 / P0-13 完了）
+最終更新: 2026-08-12（P0-14 完了）
 
 ## 現在のセッション
 
+```
+task: P0-14 UI シェル
+状態: 完了。**シェルだけ。各画面の中身は後続 task。**
+      OPEN_QUESTIONS #001 を解決（DECISIONS #026）。**UI は React Router v8 の
+      framework mode**（Remix の直系後継）+ @cloudflare/vite-plugin。
+      apps/web は **API（Hono）と画面（React Router）が 1 つの Worker に同居**する。
+      src/index.ts の catch-all が /api/** 以外を createRequestHandler() へ渡す。
+      **既存 API の応答形は 1 つも変えていない。**
+
+      P0-04 からの申し送り（tsconfig の jsx と include）を消化した。
+      `jsx: "react-jsx"` / `src/**/*.tsx` を入れ、**pk/no-literal-string と
+      pk/no-forbidden-words が実ファイルに当たることを確認した**（実際に日本語を
+      直書きした .tsx で検出されることを確かめた）。設定が外れると
+      tests/toolchain/workspace.spec.ts が落ちる。
+
+      作った画面: /login（3 フィールド最小）/ /logout / /app のシェル /
+      /app/dashboard（空の器）/ /app/switch-property（action のみ）。
+      API に POST /api/v1/auth/switch-property を追加（画面と同じ関数を呼ぶ）。
+      施設の選択は SessionRecord の省略可能フィールド（DECISIONS #027）。
+      未購入モジュールはグレー＋案内、権限が無い項目は**非表示**（存在を示唆しない）。
+
+      テスト 42 件を追加し、pnpm check（lint + typecheck + test 754 件 / skip 2）が通る。
+      さらにローカル（SHARD_COUNT=1）の実 D1 + KV に手作業のデータを入れ、
+      **ログイン → シェル表示 → 施設切替 → リロードで維持 → ログアウト**を
+      実際に通した（下の「実機の状況」）。
+次: P0-15 i18n 基盤。**P0-02 は依然として未完。**
+申し送り a: **完了条件「iPhone Safari と Android Chrome でログインできる」は未達。**
+            実機の確認ができていない（この環境にブラウザが無い）。ローカルでは
+            上記の一連の操作が通っている。**実機確認は P0-02（実リソース）と
+            P0-18（seed）の完了後に、誰かが端末で行うこと。**
+申し送り b: **t() は文言カタログの引き当てだけ。** apps/web/src/lib/i18n.ts と
+            src/locales/ja.ts。**言語の選択・en の雛形・ユーザー属性での保持は
+            P0-15 が実装する。** ja.ts をそのまま JSON へ移せる形にしてある
+            （キーは画面ごとの接頭辞つき）。ブラウザ言語は参照していない。
+申し送り c: **施設セレクタは select 1 つ。** v3 標準（PK-SPEC-UI-A01 §2）が
+            要求する**状態サマリーの 3 数字・全社サマリー・8 施設超の検索は P0-21。**
+            どれも dailyPropertyRollup と GET /api/v1/properties/summary を前提に
+            していて、まだ無い。数字の入らないミニバッジを先に置いていない。
+申し送り d: **`"ALL"`（全社サマリー）を受け付ける口を開けていない。** P0-21 が
+            packages/contracts/src/session.ts の schema を union へ広げ、
+            全社ビューを持つロールの判定（PROPERTY_MANAGER は 403）と
+            **`"ALL"` への切替の監査ログ**（§23.4）を同時に足すこと。
+申し送り e: **URL に施設 ID を含めていない。** PK-SPEC-P0 §23.5 の
+            `/app/p/{propertyId}/board` と「URL を正としてセッションを更新」は P0-21。
+            P0-14 は /app/dashboard だけを実在させた。
+申し送り f: **ナビの action は暫定。** P0-10 が「各画面の権限はその画面を作る task が
+            PERMISSION_ACTIONS に 1 行足す」と定めており、画面固有の行はまだ無い。
+            PLANNED の項目には**到達の前提として最低限必要な操作**（property.read など）を
+            置いてある。**各画面の task が自分の行を足して差し替えること。**
+            navigation.spec.ts が「全項目の action が実在すること」を固定している。
+申し送り g: **通知（topbar 右の鈴）を置いていない。** A01 §3.2 はバッジの規定を
+            定めるが、数える対象が P0 に無い。0 件ならバッジを出さない規定に従うと
+            常に空になる。**通知を作る task が topbar のユーザーの左隣に足す。**
+申し送り h: **ユーザーメニューの項目はログアウトのみ。** A01 §3.3 の 5 項目のうち
+            実体があるのはこれだけ（言語は P0-15、通知は P2 以降、
+            アカウント設定は P0 に task が無い）。押しても何も起きない項目を置かない。
+申し送り i: **Tailwind / shadcn を導入していない**（DECISIONS #028）。
+            src/styles/app.css は v3 の寸法（58px / 214px）とトークンだけ。
+            **ここに部品のスタイルを増やさないこと。** 最初に本格的な画面を作る
+            task が Tailwind を入れて置き換える。
+申し送り j: **switch-property に Idempotency-Key を要求していない。** CLAUDE.md §5 は
+            状態変更 API に対応を求めるが、この操作は同じ入力を何度送っても
+            結果が同じで、採番も課金も伴わない。**キーの記録という別の状態を
+            増やさない判断。** 採番や金額を伴う API では必ず対応すること。
+```
+
+## 実機の状況（P0-14 時点）
+
+```
+確認済み（ローカル / vite dev / SHARD_COUNT=1 / 実 D1・KV）:
+  GET  /                    → 302 /login
+  GET  /app/dashboard       → 302 /login?next=%2Fapp%2Fdashboard
+  POST /login               → 302 /app/dashboard + pk_session（Max-Age 43200 = 12 時間）
+  GET  /app/dashboard       → 200。topbar（ブランド・施設セレクタ・氏名・
+                              「オーナー · 全施設」バッジ）、sidebar（4 セクション、
+                              未契約モジュールは「ご契約に含まれていません」、
+                              未実装は「準備中」）、フッター「閲覧範囲：組織全体」
+  POST /app/switch-property → 302。**リロード後も切替後の施設が選択されている**
+  POST /api/v1/auth/switch-property → 200 / 別組織の ID は 404
+  POST /logout              → 302 /login。以後 /app/* は /login へ戻る
+  GET  /api/v1/auth/login（不正な本体） → 400 INVALID_REQUEST（JSON のまま）
+
+未確認:
+  - iPhone Safari / Android Chrome（実機。申し送り a）
+  - preview / staging / production（P0-02 が未完で実リソースが無い）
+```
+
+--- P0-11 / P0-12 / P0-13 からの申し送り（継続）---
 ```
 task: P0-11 監査ログ基盤 / P0-12 エンタイトルメント基盤 / P0-13 テナント越境テスト基盤
 状態: 3 件とも完了。**いずれも枠組みのみ。詳細は後続 task が足す。**
@@ -314,7 +402,16 @@ task: P0-07 リポジトリ層の雛形
   - **枠組みと 4 表のみ。** 残り 11 表は _template.spec.ts の UNCOVERED_TABLES に
     理由付きで宣言してある。表を読み書きする task が spec を足して行を消す。
   - 実 D1 での実測は P0-02 の完了後（現在は発行 SQL を見ている）。
-- [ ] P0-14 UI シェル
+- [x] P0-14 UI シェル
+  - UI は **React Router v8 framework mode**（OPEN_QUESTIONS #001 / DECISIONS #026）。
+    API（Hono）と画面が 1 つの Worker に同居する。
+  - **シェルだけ。** 実在する画面は /login と /app/dashboard（空の器）のみ。
+    ナビの他 10 項目は「準備中」で、各画面の task が READY に変える。
+  - 施設セレクタは select 1 つ。**状態サマリー・全社サマリー・検索・
+    URL の施設 ID は P0-21。**
+  - t() は文言カタログの引き当てだけ。**言語の選択と en は P0-15。**
+  - 完了条件のうち**実機（iPhone Safari / Android Chrome）は未確認。**
+    ローカルではログイン〜施設切替〜ログアウトを通してある。
 - [ ] P0-15 i18n 基盤
 - [ ] P0-16 事業者・税務マスタ画面
 - [ ] P0-17 DocumentSequencer（Durable Object）

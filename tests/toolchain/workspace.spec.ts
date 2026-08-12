@@ -49,6 +49,7 @@ interface PackageJson {
 interface TsConfig {
   extends?: string;
   compilerOptions?: Record<string, unknown>;
+  include?: string[];
 }
 
 function readText(relativePath: string): string {
@@ -59,8 +60,17 @@ function readPackageJson(relativePath: string): PackageJson {
   return JSON.parse(readText(relativePath)) as PackageJson;
 }
 
+/**
+ * tsconfig は JSONC（コメント可）。`JSON.parse` に渡す前に**行全体が
+ * コメントの行だけ**を落とす。行末コメントまで落とそうとすると
+ * `"$schema": "https://json.schemastore.org/tsconfig"` の `//` を切ってしまう。
+ */
 function readTsConfig(relativePath: string): TsConfig {
-  return JSON.parse(readText(relativePath)) as TsConfig;
+  const source = readText(relativePath)
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("//"))
+    .join("\n");
+  return JSON.parse(source) as TsConfig;
 }
 
 /** ワークスペースに属する全パッケージのディレクトリ（ルートは含まない）。 */
@@ -124,6 +134,51 @@ describe("P0-01 ツールチェーン構成", () => {
     for (const name of DEPENDENCY_FREE_PACKAGES) {
       const pkg = readPackageJson(`packages/${name}/package.json`);
       expect(pkg.dependencies, name).toBeUndefined();
+    }
+  });
+});
+
+/**
+ * P0-14 が決めた UI まわりの構成。
+ *
+ * **`.tsx` が検査対象から外れていないこと**を機械的に押さえる。
+ * `jsx` か `include` のどちらかが落ちると、ESLint は .tsx を parse できず、
+ * `pk/no-literal-string`（日本語の直書き禁止）と `pk/no-forbidden-words`
+ * （禁止語）が 1 件も動かないまま CI が緑になる（OPEN_QUESTIONS #001）。
+ */
+describe("P0-14 UI シェルの構成", () => {
+  it("apps/web の tsconfig が jsx: react-jsx を持つ", () => {
+    const tsconfig = readTsConfig("apps/web/tsconfig.json");
+
+    expect(tsconfig.compilerOptions?.["jsx"]).toBe("react-jsx");
+    expect(tsconfig.compilerOptions?.["jsxImportSource"]).toBe("react");
+  });
+
+  it("apps/web の tsconfig が .tsx を include する", () => {
+    const tsconfig = readTsConfig("apps/web/tsconfig.json");
+
+    expect(tsconfig.include).toContain("src/**/*.tsx");
+  });
+
+  it("apps/web に dev と build の script がある", () => {
+    // どちらも vite（@cloudflare/vite-plugin）が実体。DECISIONS #004。
+    const pkg = readPackageJson("apps/web/package.json");
+
+    expect(pkg.scripts?.["dev"]).toBe("vite dev");
+    expect(pkg.scripts?.["build"]).toBe("vite build");
+  });
+
+  it("ESLint が .tsx へ文言ルールを当てている", () => {
+    const config = readText("packages/config/eslint/base.js");
+
+    expect(config).toContain("pk/no-literal-string");
+    expect(config).toContain('files: ["**/*.tsx"]');
+  });
+
+  it("生成物（build / .react-router）を git にも Prettier にも載せない", () => {
+    for (const file of [".gitignore", ".prettierignore"]) {
+      expect(readText(file), file).toContain(".react-router/");
+      expect(readText(file), file).toContain("build/");
     }
   });
 });

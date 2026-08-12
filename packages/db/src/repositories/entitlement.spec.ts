@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { generateId } from "../id.js";
 import { createFakeD1, createFakeEnv, TEST_ORG, tenantContext } from "../test-support/fake-d1.js";
 
-import { isModuleEnabled } from "./entitlement.js";
+import { isModuleEnabled, listEnabledModules } from "./entitlement.js";
 
 const PROPERTY = generateId(TEST_ORG.orgShortId, "prop");
 
@@ -96,5 +96,77 @@ describe("isModuleEnabled", () => {
     );
     expect(enabled).toBe(true);
     expect(fake.queries[0]?.sql).not.toContain("1 = 0");
+  });
+});
+
+/**
+ * 契約済みモジュールの一覧（P0-14 — ナビゲーションのグレー表示）。
+ *
+ * **`isModuleEnabled()` と同じ条件を組むこと**が要点。ずれると
+ * 「グレーなのに 402 が出ない」「押せるのに 402」が生まれる。
+ */
+describe("listEnabledModules", () => {
+  it("返った行のモジュールを配列で返す", async () => {
+    const fake = createFakeD1();
+    fake.enqueueRows([["HOUSEKEEPING_CORE"], ["AUDIT"]]);
+
+    const modules = await listEnabledModules(createFakeEnv(fake), tenantContext(), null);
+
+    expect(modules).toEqual(["HOUSEKEEPING_CORE", "AUDIT"]);
+  });
+
+  it("組織全体の行と施設単位の行で重複したモジュールを畳む", async () => {
+    // 判定が OR なので同じモジュールが 2 行立ちうる（schema/billing.ts）。
+    const fake = createFakeD1();
+    fake.enqueueRows([["AUDIT"], ["AUDIT"], ["BILLING"]]);
+
+    const modules = await listEnabledModules(createFakeEnv(fake), tenantContext(), PROPERTY);
+
+    expect(modules).toEqual(["AUDIT", "BILLING"]);
+  });
+
+  it("1 行も無ければ空配列（全項目がグレーになる）", async () => {
+    const fake = createFakeD1();
+    expect(await listEnabledModules(createFakeEnv(fake), tenantContext(), null)).toEqual([]);
+  });
+
+  it("moduleCode で絞らない（一覧なので全モジュールを見る）", async () => {
+    const fake = createFakeD1();
+    await listEnabledModules(createFakeEnv(fake), tenantContext(), null);
+
+    expect(fake.queries[0]?.sql).not.toContain('"module_code" = ?');
+  });
+
+  it("isModuleEnabled と同じ施設条件・期間条件を組む", async () => {
+    const now = new Date("2026-08-12T00:00:00.000Z");
+    const fake = createFakeD1();
+    await listEnabledModules(createFakeEnv(fake), tenantContext({ now }), PROPERTY);
+
+    const query = fake.queries[0];
+    expect(query?.sql).toContain('"property_id" is null or');
+    expect(query?.sql).toContain('"is_enabled" = ?');
+    expect(query?.sql).toContain('"valid_from" is null');
+    expect(query?.sql).toContain('"valid_until" is null');
+    expect(query?.params).toContain(PROPERTY);
+    expect(query?.params.filter((param) => param === now.getTime())).toHaveLength(2);
+  });
+
+  it("施設スコープロールでも property_id IN (...) を立てない", async () => {
+    const fake = createFakeD1();
+    await listEnabledModules(
+      createFakeEnv(fake),
+      tenantContext({ role: "CLEANER", allowedPropertyIds: [PROPERTY] }),
+      PROPERTY,
+    );
+    expect(fake.queries[0]?.sql).not.toContain("in (");
+  });
+
+  it("別組織の施設 ID は DB へ行く前に落とす", async () => {
+    const fake = createFakeD1();
+
+    await expect(
+      listEnabledModules(createFakeEnv(fake), tenantContext(), "zz9zz9__prop_other"),
+    ).rejects.toThrow();
+    expect(fake.queries).toHaveLength(0);
   });
 });

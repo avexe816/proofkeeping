@@ -22,7 +22,7 @@
  * 「組織単位の行を消して施設単位で列挙する」運用にすること。
  */
 
-import { and, eq, gt, isNull, lte, or } from "drizzle-orm";
+import { and, eq, gt, isNull, lte, or, type SQL } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant } from "../id.js";
@@ -30,6 +30,28 @@ import { getTenantDb, type TenantContext } from "../router.js";
 import { moduleEntitlement, type ModuleCode } from "../schema/billing.js";
 
 import { NO_PROPERTY_SCOPE, withTenantScope } from "./base.js";
+
+/**
+ * 施設の条件。`propertyId` が `null` なら組織全体の行だけ、
+ * 値があれば「組織全体の行 または その施設の行」。
+ *
+ * `isModuleEnabled()` と `listEnabledModules()` で同じ形にするために切り出す。
+ * **片方だけ条件が変わると、判定と表示が食い違う**（グレー表示なのに 402 が
+ * 出ない、あるいはその逆）。
+ */
+function propertyCondition(propertyId: string | null): SQL | undefined {
+  return propertyId === null
+    ? isNull(moduleEntitlement.propertyId)
+    : or(isNull(moduleEntitlement.propertyId), eq(moduleEntitlement.propertyId, propertyId));
+}
+
+/** 期間。`validFrom` が null なら開始済み、`validUntil` が null なら無期限。 */
+function validityCondition(now: Date): SQL | undefined {
+  return and(
+    or(isNull(moduleEntitlement.validFrom), lte(moduleEntitlement.validFrom, now)),
+    or(isNull(moduleEntitlement.validUntil), gt(moduleEntitlement.validUntil, now)),
+  );
+}
 
 /**
  * モジュールが使えるか。
@@ -58,18 +80,6 @@ export async function isModuleEnabled(
 ): Promise<boolean> {
   if (propertyId !== null) assertIdBelongsToTenant(propertyId, ctx);
 
-  const propertyCondition =
-    propertyId === null
-      ? isNull(moduleEntitlement.propertyId)
-      : or(isNull(moduleEntitlement.propertyId), eq(moduleEntitlement.propertyId, propertyId));
-
-  // 期間。`validFrom` が null なら開始済み、`validUntil` が null なら無期限。
-  // トライアル終了後も真を返し続ける実装にしないこと（PK-SPEC-P7 §2.5）。
-  const validityCondition = and(
-    or(isNull(moduleEntitlement.validFrom), lte(moduleEntitlement.validFrom, ctx.now)),
-    or(isNull(moduleEntitlement.validUntil), gt(moduleEntitlement.validUntil, ctx.now)),
-  );
-
   const db = await getTenantDb(env, ctx);
   const rows = await db
     .select({ id: moduleEntitlement.id })
@@ -81,11 +91,58 @@ export async function isModuleEnabled(
         NO_PROPERTY_SCOPE,
         eq(moduleEntitlement.moduleCode, moduleCode),
         eq(moduleEntitlement.isEnabled, true),
-        propertyCondition,
-        validityCondition,
+        propertyCondition(propertyId),
+        // トライアル終了後も真を返し続ける実装にしないこと（PK-SPEC-P7 §2.5）。
+        validityCondition(ctx.now),
       ),
     )
     .limit(1);
 
   return rows.length > 0;
+}
+
+/**
+ * 契約済みモジュールの一覧。**画面の出し分け専用の読み取り。**
+ *
+ * task: docs/tasks/P0-14.md（未購入モジュールのグレー表示）
+ *
+ * ── なぜ `isModuleEnabled()` を画面から呼ばないのか ──────
+ * ナビゲーションは 10 項目以上あり、1 項目ずつ判定を呼ぶと D1 の往復が
+ * 項目数だけ増える。**それ以上に**、画面が `isModuleEnabled()` を直接持つと
+ * 「判定を呼ばずに表示する」書き方が型で通ってしまう。一覧を 1 回引いて
+ * 集合として渡す形なら、出し分けの入力が 1 つに定まる。
+ *
+ * ── これは権限判定ではない ──────────────────────────────
+ * 返すのは「組織が何を買ったか」。**誰がその機能に到達してよいかは
+ * `assertPermission()` が別に判定する。** そして画面での出し分けは
+ * どちらの代わりにもならない（security.md §1）。API ハンドラは
+ * `assertPermission()` → `assertEntitlement()` の順で必ず両方を通すこと。
+ *
+ * @param propertyId 施設の画面ならその施設 ID。組織全体の画面は `null`。
+ */
+export async function listEnabledModules(
+  env: Env,
+  ctx: TenantContext,
+  propertyId: string | null,
+): Promise<ModuleCode[]> {
+  if (propertyId !== null) assertIdBelongsToTenant(propertyId, ctx);
+
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({ moduleCode: moduleEntitlement.moduleCode })
+    .from(moduleEntitlement)
+    .where(
+      withTenantScope(
+        moduleEntitlement,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(moduleEntitlement.isEnabled, true),
+        propertyCondition(propertyId),
+        validityCondition(ctx.now),
+      ),
+    );
+
+  // 組織全体の行と施設単位の行が同じモジュールで両方立ちうる（判定は OR）。
+  // 重複を畳んで返す。
+  return [...new Set(rows.map((row) => row.moduleCode))];
 }

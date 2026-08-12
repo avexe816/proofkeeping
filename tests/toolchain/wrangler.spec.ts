@@ -65,6 +65,7 @@ interface QueueProducerEntry {
 
 interface EnvSection {
   name?: string;
+  assets?: { directory?: string };
   vars?: Record<string, string>;
   d1_databases?: D1Entry[];
   r2_buckets?: R2Entry[];
@@ -174,6 +175,12 @@ describe("P0-02 wrangler.toml の構成", () => {
     it("Queue producer 7 本が揃う", () => {
       const bindings = (section.queues?.producers ?? []).map((entry) => entry.binding);
       expect(bindings.sort()).toEqual([...QUEUE_BINDINGS].sort());
+    });
+
+    it("静的アセットの配信先が宣言されている（P0-14）", () => {
+      // [env.*] は top-level を継承しない。1 環境でも欠けると、その環境だけ
+      // クライアントの JS / CSS が 404 になり、画面が素の HTML で出る。
+      expect(section.assets?.directory, label).toBe("build/client");
     });
 
     it("vars に secret 名が混ざっていない", () => {

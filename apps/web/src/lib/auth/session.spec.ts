@@ -11,6 +11,7 @@ import {
   createSession,
   deleteSession,
   readSession,
+  setSelectedPropertyId,
   type SessionRecord,
 } from "./session.js";
 import { createFakeKv, type FakeKv } from "./test-support/fake-kv.js";
@@ -162,6 +163,116 @@ describe("読み出し", () => {
     kv.seed(key, raw);
     await expect(readSession(env, created.cookieValue, NOW)).resolves.toBeNull();
     expect(kv.store.has(key)).toBe(false);
+  });
+});
+
+describe("表示中の施設（P0-14）", () => {
+  const PROPERTY_A = "a1b2c3__prop_01JBXQ3ZK8N4P2VYR60000";
+  const PROPERTY_B = "a1b2c3__prop_01JBXQ3ZK8N4P2VYR60001";
+
+  it("記録した施設が読み出しで戻る", async () => {
+    const { env } = setup();
+    const created = await createSession(env, INPUT);
+
+    await setSelectedPropertyId(env, created.cookieValue, PROPERTY_A, NOW);
+
+    const record = await readSession(env, created.cookieValue, NOW);
+    expect(record?.selectedPropertyId).toBe(PROPERTY_A);
+  });
+
+  it("上書きできる", async () => {
+    const { env } = setup();
+    const created = await createSession(env, INPUT);
+
+    await setSelectedPropertyId(env, created.cookieValue, PROPERTY_A, NOW);
+    await setSelectedPropertyId(env, created.cookieValue, PROPERTY_B, NOW);
+
+    expect((await readSession(env, created.cookieValue, NOW))?.selectedPropertyId).toBe(PROPERTY_B);
+  });
+
+  it("null を渡すと選択が消える", async () => {
+    const { env } = setup();
+    const created = await createSession(env, INPUT);
+    await setSelectedPropertyId(env, created.cookieValue, PROPERTY_A, NOW);
+
+    await setSelectedPropertyId(env, created.cookieValue, null, NOW);
+
+    expect((await readSession(env, created.cookieValue, NOW))?.selectedPropertyId).toBeUndefined();
+  });
+
+  it("フィールドを持たない既存レコードは「未選択」として読める", async () => {
+    // 省略可能な列の追加は後方互換（architecture.md §6）。`v` を上げていない。
+    const { env, kv } = setup();
+    const created = await createSession(env, INPUT);
+    const key = onlyEntry(kv).key;
+    kv.seed(
+      key,
+      '{"v":1,"userId":"u","organizationId":"o","orgShortId":"a1b2c3","membershipId":"m","authMethod":"PASSWORD","issuedAt":0,"expiresAt":9999999999999}',
+    );
+
+    const record = await readSession(env, created.cookieValue, NOW);
+    expect(record).not.toBeNull();
+    expect(record?.selectedPropertyId).toBeUndefined();
+  });
+
+  it("空文字は未選択として捨てる", async () => {
+    const { env, kv } = setup();
+    const created = await createSession(env, INPUT);
+    const key = onlyEntry(kv).key;
+    kv.seed(
+      key,
+      '{"v":1,"userId":"u","organizationId":"o","orgShortId":"a1b2c3","membershipId":"m","authMethod":"PASSWORD","issuedAt":0,"expiresAt":9999999999999,"selectedPropertyId":""}',
+    );
+
+    expect((await readSession(env, created.cookieValue, NOW))?.selectedPropertyId).toBeUndefined();
+  });
+
+  it("期限を延長しない（残り時間だけを TTL にする）", async () => {
+    // DECISIONS #020。切り替えるたびに延びると「12 時間 / 1 勤務」が崩れる。
+    const { env, kv } = setup();
+    const created = await createSession(env, INPUT);
+    const expiresAt = onlyEntry(kv).record.expiresAt;
+    const fourHoursLater = new Date(NOW.getTime() + 4 * 60 * 60 * 1000);
+
+    await setSelectedPropertyId(env, created.cookieValue, PROPERTY_A, fourHoursLater);
+
+    const entries = [...kv.store.values()];
+    expect(entries[0]?.expirationTtl).toBe(8 * 60 * 60);
+    // 絶対期限そのものも動かない。
+    expect(onlyEntry(kv).record.expiresAt).toBe(expiresAt);
+  });
+
+  it("期限切れのセッションには書かない", async () => {
+    const { env, kv } = setup();
+    const created = await createSession(env, INPUT);
+    const afterExpiry = new Date(NOW.getTime() + SESSION_TTL_SECONDS.PASSWORD * 1000);
+
+    const result = await setSelectedPropertyId(env, created.cookieValue, PROPERTY_A, afterExpiry);
+
+    expect(result).toBeNull();
+    // 読み出しが期限切れとして掃除したまま。復活させない。
+    expect(kv.store.size).toBe(0);
+  });
+
+  it("破棄済みのセッションを復活させない", async () => {
+    const { env, kv } = setup();
+    const created = await createSession(env, INPUT);
+    await deleteSession(env, created.cookieValue);
+
+    const result = await setSelectedPropertyId(env, created.cookieValue, PROPERTY_A, NOW);
+
+    expect(result).toBeNull();
+    expect(kv.store.size).toBe(0);
+  });
+
+  it("署名が合わない値では何も書かない", async () => {
+    const { env, kv } = setup();
+    const created = await createSession(env, INPUT);
+
+    const result = await setSelectedPropertyId(env, `x${created.cookieValue}`, PROPERTY_A, NOW);
+
+    expect(result).toBeNull();
+    expect(onlyEntry(kv).record.selectedPropertyId).toBeUndefined();
   });
 });
 

@@ -28,7 +28,7 @@ export {
   type RecordAuditInput,
 } from "./audit.js";
 
-export { isModuleEnabled } from "./entitlement.js";
+export { isModuleEnabled, listEnabledModules } from "./entitlement.js";
 
 export { findOrganization, findTaxProfile } from "./organization.js";
 

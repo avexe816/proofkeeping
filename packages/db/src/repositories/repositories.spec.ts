@@ -115,6 +115,12 @@ const INVOCATIONS: Invocation[] = [
     crossTenant: (env, ctx) => entitlementRepo.isModuleEnabled(env, ctx, "AUDIT", OTHER_ID.property),
   },
   {
+    name: "entitlement.listEnabledModules",
+    kind: "tenant",
+    run: (env, ctx) => entitlementRepo.listEnabledModules(env, ctx, null),
+    crossTenant: (env, ctx) => entitlementRepo.listEnabledModules(env, ctx, OTHER_ID.property),
+  },
+  {
     name: "organization.findOrganization",
     kind: "tenant",
     run: (env, ctx) => organizationRepo.findOrganization(env, ctx),

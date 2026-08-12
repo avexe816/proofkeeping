@@ -59,6 +59,19 @@ export interface SessionRecord {
   issuedAt: number;
   /** epoch ミリ秒。絶対期限。 */
   expiresAt: number;
+  /**
+   * 表示中の施設（PK-SPEC-P0 §23.4 / P0-14）。**認可情報ではない。**
+   *
+   * 「どの施設を見ているか」であって「どの施設を見てよいか」ではない。
+   * 後者は `allowedPropertyIds` で、こちらは焼き込まない（DECISIONS #020）。
+   * **この値は毎リクエスト `allowedPropertyIds` と突き合わせて検証する**
+   * （`lib/property/selection.ts`）。権限から外れていれば既定施設へ落とす。
+   *
+   * 省略可能なまま `v` を上げていないのは、フィールドを持たない既存レコードが
+   * 「未選択」として正しく読めるため（後方互換 / architecture.md §6）。
+   * **`"ALL"`（全社サマリー）は P0-21 が足す。** ここでは施設 ID のみ。
+   */
+  selectedPropertyId?: string;
 }
 
 /** `createSession()` の入力。 */
@@ -149,6 +162,11 @@ function parseSessionRecord(raw: string): SessionRecord | null {
   for (const key of ["issuedAt", "expiresAt"]) {
     if (typeof candidate[key] !== "number" || !Number.isFinite(candidate[key])) return null;
   }
+  // 省略可能。**空文字は未選択として捨てる**（`""` が施設 ID として
+  // 一致することは無いが、判定を後段に持ち越さない）。
+  const selected = candidate["selectedPropertyId"];
+  const selectedPropertyId = typeof selected === "string" && selected !== "" ? selected : undefined;
+
   return {
     v: 1,
     userId: candidate["userId"] as string,
@@ -158,6 +176,7 @@ function parseSessionRecord(raw: string): SessionRecord | null {
     authMethod,
     issuedAt: candidate["issuedAt"] as number,
     expiresAt: candidate["expiresAt"] as number,
+    ...(selectedPropertyId === undefined ? {} : { selectedPropertyId }),
   };
 }
 
@@ -192,6 +211,54 @@ export async function readSession(
     return null;
   }
   return record;
+}
+
+/**
+ * 表示中の施設を記録する（PK-SPEC-P0 §23.4 / P0-14）。
+ *
+ * **期限を延長しない。** 残り時間を `expiresAt - now` から計算して
+ * そのまま `expirationTtl` にする。ここで `SESSION_TTL_SECONDS` を使い直すと
+ * 施設を切り替えるたびにセッションが延び、「12 時間 / 1 勤務」の絶対期限が
+ * 崩れる（DECISIONS #020）。
+ *
+ * **無効なセッションには書かない。** `readSession()` が `null` を返す
+ * （署名不正・期限切れ・破棄済み）ときに put すると、破棄したはずの
+ * セッションが復活する。
+ *
+ * 施設の切替は監査ログに残さない（§23.4 — 頻度が高くノイズになる）。
+ * ただし `"ALL"` への切替は記録する。**`"ALL"` の実装は P0-21。**
+ *
+ * @param propertyId `null` を渡すと選択を消す（既定施設に戻る）。
+ *   **担当施設かどうかはここでは見ない。** 呼ぶ側が資源から解決してから渡す
+ *   （`lib/property/selection.ts` の `switchProperty()`）。
+ * @returns 書き込めたら更新後のレコード。セッションが無効なら `null`。
+ */
+export async function setSelectedPropertyId(
+  env: Env,
+  cookieValue: string,
+  propertyId: string | null,
+  now: Date,
+): Promise<SessionRecord | null> {
+  const sessionId = await verifySignedSessionId(cookieValue, env.SESSION_SECRET);
+  if (sessionId === null) return null;
+
+  const current = await readSession(env, cookieValue, now);
+  if (current === null) return null;
+
+  const updated: SessionRecord = { ...current };
+  if (propertyId === null) delete updated.selectedPropertyId;
+  else updated.selectedPropertyId = propertyId;
+
+  // KV の `expirationTtl` は 60 秒が下限。残りがそれを下回る場合だけ
+  // 実体の掃除が最大 1 分遅れるが、`expiresAt` による読み出し時の判定
+  // （二重の期限のうち 2 つ目）が先に効くので、使えるセッションは増えない。
+  const remainingMs = updated.expiresAt - now.getTime();
+  const ttlSeconds = Math.max(60, Math.ceil(remainingMs / 1000));
+
+  await env.SESSION.put(KEY_PREFIX + sessionId, JSON.stringify(updated), {
+    expirationTtl: ttlSeconds,
+  });
+  return updated;
 }
 
 /** セッションを破棄する。署名が合わない値では何もしない。 */

@@ -1,0 +1,187 @@
+import { MODULE_CODES, type ModuleCode, type Role, type TenantContext } from "@pk/db";
+import { describe, expect, it } from "vitest";
+
+import { PERMISSION_ACTION_LIST } from "../lib/auth/permission.js";
+import { ja } from "../locales/ja.js";
+
+import { NAV_ITEMS, NAV_SECTIONS, NAV_SECTION_LABEL, buildNavigation } from "./navigation.js";
+
+/**
+ * ナビゲーションの出し分け（P0-14）。
+ *
+ * **ここで守っているのは security.md §1 の「絶対に守る境界」の見え方。**
+ * 実際の到達可否は `assertPermission()`（P0-10）が別に判定する。
+ * 画面の非表示は権限制御ではないが、**存在を示唆しない**ことは画面側の責任。
+ */
+
+const PROPERTY_ID = "o7k2m9__prop_01JBXQ3ZK8N4P2VYR60000";
+
+const ALL_MODULES: readonly ModuleCode[] = MODULE_CODES;
+
+function ctxFor(role: Role, allowedPropertyIds: readonly string[] = [PROPERTY_ID]): TenantContext {
+  return {
+    organizationId: "org_test_alpha",
+    orgShortId: "o7k2m9",
+    role,
+    // 組織全体ロールは空配列（`tenant.ts` と同じ形）。
+    allowedPropertyIds:
+      role === "OWNER" || role === "ORG_ADMIN" || role === "AUDITOR" ? [] : allowedPropertyIds,
+    now: new Date("2026-08-12T00:00:00.000Z"),
+  };
+}
+
+function keysFor(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES): string[] {
+  return buildNavigation(ctxFor(role), {
+    selectedPropertyId: PROPERTY_ID,
+    enabledModules,
+  }).flatMap((group) => group.items.map((entry) => entry.item.key));
+}
+
+describe("登録簿の不変条件", () => {
+  it("全項目の action が PERMISSION_ACTIONS にある", () => {
+    // 存在しない操作を書くと権限判定が黙って通る（`can()` が引けない）。
+    for (const item of NAV_ITEMS) {
+      expect(PERMISSION_ACTION_LIST, item.key).toContain(item.action);
+    }
+  });
+
+  it("全項目の文言キーが ja に存在する", () => {
+    for (const item of NAV_ITEMS) {
+      expect(Object.keys(ja), item.key).toContain(item.key);
+    }
+    for (const section of NAV_SECTIONS) {
+      expect(Object.keys(ja)).toContain(NAV_SECTION_LABEL[section]);
+    }
+  });
+
+  it("READY の項目だけが href を持つ", () => {
+    for (const item of NAV_ITEMS) {
+      if (item.status === "READY") expect(item.href, item.key).toMatch(/^\/app\//);
+      else expect(item).not.toHaveProperty("href");
+    }
+  });
+
+  it("P0-14 で実在する画面はダッシュボードだけ", () => {
+    // 到達先の無いリンクを作らない。画面を作る task が READY に変える。
+    expect(NAV_ITEMS.filter((item) => item.status === "READY").map((item) => item.key)).toEqual([
+      "nav.dashboard",
+    ]);
+  });
+
+  it("項目のキーが重複しない", () => {
+    const keys = NAV_ITEMS.map((item) => item.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe("権限による非表示（security.md §1 の絶対境界）", () => {
+  it("CLEANER に差異レポートの項目を出さない", () => {
+    // 404 を返す境界。**グレー表示にもしない**（「契約すれば見られる」と読める）。
+    const keys = keysFor("CLEANER");
+    expect(keys).not.toContain("nav.findings");
+    expect(keys).not.toContain("nav.findingDetail");
+  });
+
+  it("INSPECTOR に差異レポートの項目を出さない", () => {
+    const keys = keysFor("INSPECTOR");
+    expect(keys).not.toContain("nav.findings");
+    expect(keys).not.toContain("nav.findingDetail");
+  });
+
+  it("INSPECTOR に請求の項目を出さない", () => {
+    expect(keysFor("INSPECTOR")).not.toContain("nav.billing");
+  });
+
+  it("CLEANER に請求の項目を出さない", () => {
+    expect(keysFor("CLEANER")).not.toContain("nav.billing");
+  });
+
+  it("AUDITOR に書き込みの項目を出さない", () => {
+    const keys = keysFor("AUDITOR");
+    expect(keys).not.toContain("nav.propertySettings");
+    expect(keys).not.toContain("nav.permission");
+  });
+
+  it("VENDOR_ADMIN は担当外の施設が選ばれていると施設の項目が出ない", () => {
+    const ctx = ctxFor("VENDOR_ADMIN", ["o7k2m9__prop_other"]);
+    const keys = buildNavigation(ctx, {
+      selectedPropertyId: PROPERTY_ID,
+      enabledModules: ALL_MODULES,
+    }).flatMap((group) => group.items.map((entry) => entry.item.key));
+
+    expect(keys).not.toContain("nav.dashboard");
+  });
+
+  it("表示できる施設が無ければ施設スコープの項目が出ない", () => {
+    const keys = buildNavigation(ctxFor("PROPERTY_MANAGER"), {
+      selectedPropertyId: null,
+      enabledModules: ALL_MODULES,
+    }).flatMap((group) => group.items.map((entry) => entry.item.key));
+
+    expect(keys).not.toContain("nav.dashboard");
+  });
+
+  it("OWNER には全項目が出る", () => {
+    expect(keysFor("OWNER")).toHaveLength(NAV_ITEMS.length);
+  });
+});
+
+describe("契約によるグレー表示", () => {
+  it("契約していないモジュールの項目は locked になる（消えない）", () => {
+    const groups = buildNavigation(ctxFor("OWNER"), {
+      selectedPropertyId: PROPERTY_ID,
+      // AUDIT を外す。差異レポートは「買えば使える」ので存在は見せる。
+      enabledModules: MODULE_CODES.filter((code) => code !== "AUDIT"),
+    });
+    const entries = groups.flatMap((group) => group.items);
+
+    const findings = entries.find((entry) => entry.item.key === "nav.findings");
+    expect(findings).toBeDefined();
+    expect(findings?.locked).toBe(true);
+
+    const dashboard = entries.find((entry) => entry.item.key === "nav.dashboard");
+    expect(dashboard?.locked).toBe(false);
+  });
+
+  it("契約が 1 つも無ければ全項目が locked", () => {
+    const entries = buildNavigation(ctxFor("OWNER"), {
+      selectedPropertyId: PROPERTY_ID,
+      enabledModules: [],
+    }).flatMap((group) => group.items);
+
+    expect(entries).not.toHaveLength(0);
+    expect(entries.every((entry) => entry.locked)).toBe(true);
+  });
+
+  it("権限が無い項目は、契約があっても現れない", () => {
+    // 判定の順序（権限 → 契約）。逆にすると 402 が資源の存在を示唆する。
+    const entries = buildNavigation(ctxFor("CLEANER"), {
+      selectedPropertyId: PROPERTY_ID,
+      enabledModules: ALL_MODULES,
+    }).flatMap((group) => group.items);
+
+    expect(entries.map((entry) => entry.item.key)).not.toContain("nav.findings");
+  });
+});
+
+describe("セクション", () => {
+  it("プロトタイプの順序（日次運用 → 記録の確認 → 資材と分析 → 設定）を保つ", () => {
+    const sections = buildNavigation(ctxFor("OWNER"), {
+      selectedPropertyId: PROPERTY_ID,
+      enabledModules: ALL_MODULES,
+    }).map((group) => group.section);
+
+    expect(sections).toEqual([...NAV_SECTIONS]);
+  });
+
+  it("項目が 1 つも残らないセクションは出さない", () => {
+    // CLEANER からは「記録の確認」の差異 2 件が消えるが、清掃記録・検査は残る。
+    // 設定は 2 件とも消えるのでセクションごと消える。
+    const sections = buildNavigation(ctxFor("CLEANER"), {
+      selectedPropertyId: PROPERTY_ID,
+      enabledModules: ALL_MODULES,
+    }).map((group) => group.section);
+
+    expect(sections).not.toContain("settings");
+  });
+});

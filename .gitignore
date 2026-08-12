@@ -2,6 +2,8 @@ node_modules/
 dist/
 build/
 .next/
+# React Router の型生成物（P0-14）。ビルドのたびに作り直される。
+.react-router/
 .wrangler/
 .dev.vars
 .env

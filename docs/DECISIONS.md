@@ -676,3 +676,90 @@
     `vitest run tests/tenant-isolation` にした。`--dir` は `include` の
     基準ディレクトリを移すため、ルート基準の `tests/**/*.spec.ts` と噛み合わず
     **1 件も拾えないまま `--passWithNoTests` で緑になっていた。**
+
+## #026 UI フレームワークを React Router v8 の framework mode にする
+- 日付: 2026-08-12
+- 状態: 採用
+- 背景: OPEN_QUESTIONS #001 と DECISIONS #005 が P0-14 まで保留していた決定。
+  `docs/PK-SPEC-P0.md` §20 は「Remix on Workers か Next.js + OpenNext を
+  1 週間の技術検証で決める」としていたが、**人間の判断で Remix 系に確定し、
+  技術検証は不要**とされた。残る問いは「Remix をどのパッケージで実装するか」。
+- 選択肢:
+  1. Remix v2（`@remix-run/cloudflare` 2.17.5 / `@remix-run/dev`）
+  2. **React Router v8 framework mode（`react-router` 8.3.x / `@react-router/dev`）**
+  3. React Router v7 系（7.18.x）
+- 決定: 2 を採用。あわせて `@cloudflare/vite-plugin` を使い、
+  `wrangler.toml` の `main` を Worker のエントリとして vite に読ませる。
+- 理由:
+  - **Remix v2 は 2025 年以降メンテナンスのみ**（nightly は 2025-07 で停止、
+    2.17.5 が 2026-06）。Remix の直系の後継が React Router の framework mode で、
+    ファイル規約・`loader` / `action`・`Form` の書き方はそのまま引き継がれている。
+    「Remix on Workers」という仕様の指示に最も忠実な**現行の**実装がこれ。
+  - Workers 対応は `@cloudflare/vite-plugin` 側が第一級で扱っており、
+    binding・`wrangler.toml`・ローカルの miniflare がそのまま `vite dev` で動く。
+  - 3 は v8 の初期変動を避けられるが、新規プロジェクトで 1 世代古い系を選ぶ理由が
+    P0 時点では無い（v8 は 2026-06 リリース、8.3.0 まで進んでいる）。
+- 影響:
+  - `apps/web` は **1 つの Worker に API（Hono）と画面（React Router）が同居**する。
+    `src/index.ts` の catch-all が `/api/**` 以外を `createRequestHandler()` へ渡す。
+    **既存の API の応答形は変えていない。**
+  - `apps/web/tsconfig.json` に `jsx: "react-jsx"` と `src/**/*.tsx` を入れた。
+    これで `pk/no-literal-string` / `pk/no-forbidden-words` が実ファイルに当たる。
+  - `pnpm dev` の実体が `wrangler dev` から `vite dev` に変わった。
+    `pnpm --filter @pk/web build` を追加（DECISIONS #004 — 実体のある script だけ定義する）。
+  - `wrangler.toml` の 4 環境すべてに `[assets] directory = "build/client"` を追加。
+  - ルートは `src/routes.ts` に明示列挙する。ファイル規約は使わない。
+  - loader / action は `throw redirect(...)` を使うため、`apps/web/src/routes/**` と
+    `src/lib/ui/**` に限って `@typescript-eslint/only-throw-error` の
+    `Response` を許可した。**それ以外の値を投げる余地は残していない。**
+
+## #027 表示中の施設をセッションレコードの省略可能フィールドとして持つ
+- 日付: 2026-08-12
+- 状態: 採用
+- 背景: PK-SPEC-P0 §23.4 が「選択した施設をセッション（KV）に保存する」と定める。
+  一方 DECISIONS #020 は「セッションに認可情報を焼き込まない」と定めており、
+  `SessionRecord` の doc は「ここに認可情報を足さないこと」と書いてある。
+- 選択肢:
+  1. `SessionRecord` に `selectedPropertyId?` を足す（`v` は 1 のまま）
+  2. `SESSION` namespace に `sel:{sessionId}` という別キーを置く
+  3. 形式の版を `v: 2` へ上げて必須フィールドとして足す
+- 決定: 1 を採用。
+- 理由:
+  - **選択施設は認可情報ではない。**「どの施設を見ているか」であって
+    「どの施設を見てよいか」ではない。後者（`allowedPropertyIds`）は
+    従来どおり毎リクエスト DB から組み立てる。§23.4 の MUST に従い、
+    保存された施設は毎回 `allowedPropertyIds` と突き合わせ、
+    外れていれば既定施設へ落とす（`lib/property/selection.ts`）。
+  - 2 は `session.ts` の「`SESSION` namespace には認証セッション以外を置かない」に反する。
+    キーが 2 つに分かれると期限も 2 つになり、片方だけ残る状態を作れてしまう。
+  - 3 は既存のセッションを一斉に無効化する。**省略可能な列の追加は後方互換**
+    （architecture.md §6）で、フィールドを持たない古いレコードは「未選択」として
+    正しく読める。版を上げる理由が無い。
+- 影響:
+  - `setSelectedPropertyId()` は**期限を延長しない。** 残り時間を `expiresAt` から
+    計算して `expirationTtl` にする。切り替えのたびに延びると「12 時間 / 1 勤務」が崩れる。
+  - 無効なセッション（期限切れ・破棄済み・署名不正）には書かない。
+    書くと破棄したはずのセッションが KV に復活する。
+  - 施設の切替は監査ログに残さない（§23.4）。**`"ALL"` への切替は記録が要る。
+    実装する P0-21 が `recordAudit()` を足すこと。**
+
+## #028 P0-14 の CSS は素の CSS トークンにとどめ、Tailwind を導入しない
+- 日付: 2026-08-12
+- 状態: 採用
+- 背景: CLAUDE.md §2 は UI スタックを「Tailwind CSS + shadcn/ui」と定めている。
+  P0-14 は最初の画面を作る task なので、ここで導入するかを決める必要があった。
+- 選択肢:
+  1. P0-14 で Tailwind + shadcn/ui を導入する
+  2. **v3 レイアウト標準の寸法とトークンだけを素の CSS で置く**
+- 決定: 2 を採用。
+- 理由:
+  - P0-14 の完了条件は「レイアウト・ナビ・施設切替」であって、部品の見た目ではない。
+    確かめたいのは **58px / 214px という寸法と、topbar・sidebar・content の階層**
+    （PK-SPEC-UI-A01 §1）が仕様どおりに出ることだけ。
+  - shadcn/ui は部品をリポジトリへコピーして育てる方式で、**使う画面が無い状態で
+    入れると、誰も参照しない部品が先に溜まる。**
+  - Tailwind の導入自体は後から非破壊で足せる（クラス名の付け替えで済む）。
+- 影響: `apps/web/src/styles/app.css` は v3 のトークン（`--brand` / `--brandTop` /
+  `--ok` / `--warn` / `--danger` …）と shell の骨格のみを持つ。
+  **ここに部品のスタイルを増やしていかないこと。**
+  最初に本格的な画面を作る task が Tailwind を導入し、この CSS を置き換える。

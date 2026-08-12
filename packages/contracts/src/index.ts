@@ -24,6 +24,15 @@ export {
   type PinLoginResponse,
 } from "./auth.js";
 
+// 表示中の施設の切り替え（P0-14）。`"ALL"` を足すのは P0-21。
+export {
+  propertyIdSchema,
+  switchPropertyRequestSchema,
+  switchPropertyResponseSchema,
+  type SwitchPropertyRequest,
+  type SwitchPropertyResponse,
+} from "./session.js";
+
 // middleware 共通のエラー応答（P0-10）。**403 を足さないこと**（INV-31）。
 export {
   API_ERROR_CODES,

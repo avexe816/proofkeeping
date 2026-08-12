@@ -1,0 +1,381 @@
+/*
+ * v3 レイアウト標準の骨格（PK-SPEC-UI-A01 §1）。
+ *
+ * task: docs/tasks/P0-14.md
+ * 参照: ui-prototypes/pk-v3-layout-standard.html（:root のトークンをそのまま採る）
+ *
+ * ── ここはデザインシステムではない ──────────────────────
+ * CLAUDE.md §2 の UI スタックは Tailwind CSS + shadcn/ui。P0-14 は
+ * **寸法（58px / 214px）と色のトークンが仕様どおりであることを確かめる**
+ * ためだけの最小の CSS を置く。導入は画面を作る task（DECISIONS #026）。
+ * ここに部品のスタイルを増やしていかないこと。
+ */
+
+:root {
+  /* ブランド */
+  --brand: #123c32;
+  --brand2: #1b5140;
+  --brandTop: #0e3229;
+  --accent: #b8893b;
+  --accent2: #c09b4f;
+
+  /* 面 */
+  --bg: #f5f4ef;
+  --surf: #fff;
+  --surf2: #faf9f4;
+  --surf3: #f1efe7;
+  --line: #ddd9cb;
+  --line2: #eae7dc;
+
+  /* 文字 */
+  --ink: #16211c;
+  --ink2: #4a544e;
+  --muted: #7a8480;
+
+  /* 状態 */
+  --ok: #2e7d5b;
+  --okbg: #dfede6;
+  --warn: #c56a28;
+  --warnbg: #f9e7d8;
+  --info: #3a5c8f;
+  --infobg: #e5ebf5;
+  --danger: #9c3b32;
+  --dangerbg: #f7e2df;
+
+  --sh: 0 1px 3px rgb(20 30 25 / 6%);
+
+  /* A01 §1.1 の寸法。**この 2 つは同じ値であること**（縦ラインを通す）。 */
+  --topbarHeight: 58px;
+  --sidebarWidth: 214px;
+  --brandWidth: 214px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── shell ────────────────────────────────────────────── */
+
+.pk-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.pk-shell__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── topbar ───────────────────────────────────────────── */
+
+.pk-topbar {
+  display: flex;
+  flex-shrink: 0;
+  gap: 12px;
+  align-items: center;
+  height: var(--topbarHeight);
+  padding-right: 16px;
+  color: #fff;
+  background: var(--brandTop);
+}
+
+.pk-topbar__brand {
+  flex-shrink: 0;
+  width: var(--brandWidth);
+  padding-left: 18px;
+  font-size: 15.5px;
+  font-weight: 800;
+}
+
+.pk-topbar__right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+}
+
+/* ── 施設セレクタ ─────────────────────────────────────── */
+
+.pk-property {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.pk-property__label {
+  color: #a9c6b7;
+}
+
+.pk-property__select {
+  padding: 7px 10px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.pk-property--empty {
+  color: #a9c6b7;
+}
+
+/* ── ユーザー ─────────────────────────────────────────── */
+
+.pk-user {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.pk-user__identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.35;
+}
+
+.pk-user__name {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* A01 §3.3 の必須項目。役割と閲覧範囲を常に見せる。 */
+.pk-user__badge {
+  font-size: 10px;
+  color: #a9c6b7;
+}
+
+/* ── sidebar ──────────────────────────────────────────── */
+
+.pk-sidebar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: var(--sidebarWidth);
+  color: #c6d9ce;
+  background: var(--brand);
+}
+
+.pk-sidebar__nav {
+  flex: 1;
+  padding: 10px 0;
+  overflow-y: auto;
+}
+
+.pk-sidebar__heading {
+  padding: 12px 15px 5px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #7da391;
+  letter-spacing: 0.06em;
+}
+
+.pk-sidebar__foot {
+  padding: 12px 15px;
+  font-size: 10px;
+  color: #8fb3a2;
+  border-top: 1px solid rgb(255 255 255 / 11%);
+}
+
+.pk-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 15px;
+  font-size: 12.5px;
+  color: #c6d9ce;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+}
+
+a.pk-nav:hover {
+  background: rgb(255 255 255 / 5%);
+}
+
+.pk-nav--active {
+  font-weight: 700;
+  color: #fff;
+  background: rgb(255 255 255 / 10%);
+  border-left-color: var(--accent);
+}
+
+/* 未契約（402 の世界）と未実装。**権限が無い項目はそもそも描画されない。** */
+.pk-nav--locked,
+.pk-nav--planned {
+  color: #7c8a84;
+  cursor: default;
+}
+
+.pk-nav__note {
+  margin-left: auto;
+  font-size: 9.5px;
+}
+
+/* ── main ─────────────────────────────────────────────── */
+
+.pk-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pk-pagehead {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 13px 22px;
+  background: var(--surf);
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-pagehead__title {
+  font-size: 16.5px;
+  font-weight: 800;
+}
+
+.pk-content {
+  flex: 1;
+  padding: 20px 22px 30px;
+  overflow-y: auto;
+}
+
+.pk-muted {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── ログイン ─────────────────────────────────────────── */
+
+.pk-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.pk-login__panel {
+  width: 100%;
+  max-width: 380px;
+  padding: 28px 26px;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--sh);
+}
+
+.pk-login__brand {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--brand);
+}
+
+.pk-login__title {
+  margin-top: 14px;
+  font-size: 18px;
+}
+
+.pk-login__subtitle {
+  margin-bottom: 18px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.pk-login__notice {
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--danger);
+  background: var(--dangerbg);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+}
+
+.pk-login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pk-login__foot {
+  margin-top: 18px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.pk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pk-field__label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+
+/* 現場の端末を含むため 16px 未満にしない（iOS が拡大する / ui-writing.md §3）。 */
+.pk-field__input {
+  padding: 11px 12px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.pk-field__hint {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+/* ── 部品 ─────────────────────────────────────────────── */
+
+.pk-button {
+  padding: 9px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink2);
+  cursor: pointer;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.pk-button--primary {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #fff;
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.pk-button--onBrand {
+  color: #fff;
+  background: rgb(255 255 255 / 9%);
+  border-color: rgb(255 255 255 / 16%);
+}
+
+.pk-message {
+  padding: 40px 22px;
+  font-size: 13px;
+  color: var(--ink2);
+  text-align: center;
+}
