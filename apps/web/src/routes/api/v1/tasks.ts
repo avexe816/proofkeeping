@@ -3,6 +3,7 @@
  *
  * ```
  * GET    /api/v1/tasks?propertyId=&businessDate=&assignee=me
+ * GET    /api/v1/tasks/my-day?businessDate=          1 日の動線（§19.6）
  * GET    /api/v1/tasks/:taskId/checklist
  * POST   /api/v1/tasks/:taskId/checklist
  * GET    /api/v1/tasks/:taskId/photos
@@ -67,6 +68,7 @@ import { businessDateOf } from "../../../lib/businessDate.js";
 import { uploadPhoto } from "../../../lib/photo/upload.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { generateTasksForProperty } from "../../../lib/task/generate.js";
+import { buildMyDayResponse } from "../../../lib/task/myDay.js";
 import { runTransition } from "../../../lib/task/transition.js";
 import { getNow, getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
 
@@ -111,6 +113,45 @@ tasks.get("/", async (c) => {
     businessDate,
     data: await toSummaries(c.env, ctx, rows),
   };
+  return c.json(body);
+});
+
+/**
+ * 1 日の動線（§19.6）。**清掃員のモバイル画面はこれを使う。**
+ *
+ * ```
+ * GET /api/v1/tasks/my-day?businessDate=2026-08-10
+ * ```
+ *
+ * ── 担当者を受け取らない ────────────────────────────────
+ * セッションの `membershipId` で絞る。**クエリで担当者を指定させない。**
+ * 指定できると、施設責任者の権限で他人の 1 日を再構成できてしまう（INV-07）。
+ *
+ * ── 権限は担当施設ぶんだけ ──────────────────────────────
+ * 自分に割り当たったタスクしか返らないので、判定は組織スコープの
+ * `task.read` で足りる（`GET /` の `assignee=me` と同じ扱い）。
+ * リポジトリ層の `scopeToProperties()` が担当外施設を落とす。
+ *
+ * ── `/:taskId/:action` より前に登録すること ─────────────
+ * Hono は登録順に照合する。冒頭の「登録の順序が意味を持つ」を参照。
+ * `my-day` は 1 区間なので `/:taskId/:action`（2 区間）とは衝突しないが、
+ * `GET /:taskId` を将来足すと吸われる。**静的な区間を先に置く。**
+ */
+tasks.get("/my-day", async (c) => {
+  const ctx = getTenant(c);
+  const now = getNow(c);
+  const businessDate = c.req.query("businessDate") ?? businessDateOf(now);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) return c.json(invalidRequest(), 400);
+
+  assertPermission(ctx, "task.read", propertyTarget(ctx.allowedPropertyIds));
+
+  const body = await buildMyDayResponse(
+    c.env,
+    ctx,
+    getSession(c).membershipId,
+    businessDate,
+    now,
+  );
   return c.json(body);
 });
 

@@ -105,6 +105,21 @@ export {
   type OwnWorkTask,
 } from "./ownWork.js";
 
+// 1 日の動線（P1-21 / 同 §19.3・§19.5・§19.6）。
+// **`dailyRoute` が未登録でも動く**（§19.5 MUST）。
+export {
+  MY_DAY_FILTERS,
+  buildMyDay,
+  filterMyDay,
+  type MyDay,
+  type MyDayFilter,
+  type MyDayGroup,
+  type MyDayProperty,
+  type MyDaySummary,
+  type MyDayTask,
+  type RouteLeg,
+} from "./myDay.js";
+
 // チェックリスト（P1-06 / 同 §6）。
 export {
   CHECKLIST_VALUE_VALUES,

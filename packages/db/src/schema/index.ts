@@ -62,6 +62,8 @@ export {
   TIME_EVENTS,
   cleaningTask,
   dailyRoomPlan,
+  // 当日の施設訪問順（P1-21 / §19.5）。**未登録でも一覧は動く。**
+  dailyRoute,
   standardTime,
   taskPhoto,
   taskTimeLog,

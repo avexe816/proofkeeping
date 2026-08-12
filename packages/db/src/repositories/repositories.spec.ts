@@ -34,6 +34,7 @@ import {
 import * as auditRepo from "./audit.js";
 import * as checklistRepo from "./checklist.js";
 import * as cleaningTaskRepo from "./cleaningTask.js";
+import * as dailyRouteRepo from "./dailyRoute.js";
 import * as entitlementRepo from "./entitlement.js";
 import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
@@ -41,6 +42,7 @@ import * as rollupRepo from "./rollup.js";
 import * as roomRepo from "./room.js";
 import * as roomPlanRepo from "./roomPlan.js";
 import * as standardTimeRepo from "./standardTime.js";
+import * as taskPhotoRepo from "./taskPhoto.js";
 import * as userRepo from "./user.js";
 
 /** 検証対象のリポジトリモジュール。**新しいファイルを足したらここに追加する。** */
@@ -48,6 +50,11 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   audit: auditRepo,
   checklist: checklistRepo,
   cleaningTask: cleaningTaskRepo,
+  // P1-21 が登録した 2 モジュール。`taskPhoto` は P1-11 / P1-15 が足した
+  // 関数がここに載っておらず、組織条件の自動検査を受けていなかった
+  // （P1-14〜P1-18 の申し送り 1）。
+  dailyRoute: dailyRouteRepo,
+  taskPhoto: taskPhotoRepo,
   entitlement: entitlementRepo,
   organization: organizationRepo,
   property: propertyRepo,
@@ -68,6 +75,7 @@ const OWN_ID = {
   task: generateId(TEST_ORG.orgShortId, "task"),
   template: generateId(TEST_ORG.orgShortId, "ctpl"),
   item: generateId(TEST_ORG.orgShortId, "citm"),
+  photo: generateId(TEST_ORG.orgShortId, "photo"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -83,6 +91,7 @@ const OTHER_ID = {
   task: generateId(OTHER_ORG.orgShortId, "task"),
   template: generateId(OTHER_ORG.orgShortId, "ctpl"),
   item: generateId(OTHER_ORG.orgShortId, "citm"),
+  photo: generateId(OTHER_ORG.orgShortId, "photo"),
 } as const;
 
 /**
@@ -99,6 +108,14 @@ interface Invocation {
   kind: "tenant" | "bootstrap";
   run: (env: Env, ctx: TenantContext) => Promise<unknown>;
   crossTenant?: (env: Env, ctx: TenantContext) => Promise<unknown>;
+  /**
+   * SQL を発行しない関数（ID の採番など）。**組織条件の検査から外す。**
+   *
+   * 外すのは検査であって登録ではない。**登録の網羅からは外さない**ので、
+   * リポジトリに増えた関数がここを黙って素通りすることはない。
+   * `true` を付けるのは「DB へ行かないことがその関数の仕様」のときだけ。
+   */
+  pure?: boolean;
 }
 
 /**
@@ -563,7 +580,94 @@ const INVOCATIONS: Invocation[] = [
     crossTenant: (env, ctx) =>
       roomPlanRepo.upsertRoomPlans(env, ctx, OTHER_ID.property, "2026-08-12", [], "CSV"),
   },
+  // ── 当日の施設訪問順（P1-21 / §19.5）──────────────────
+  {
+    name: "dailyRoute.listDailyRoute",
+    kind: "tenant",
+    run: (env, ctx) => dailyRouteRepo.listDailyRoute(env, ctx, OWN_ID.membership, "2026-08-12"),
+    // 他人の動線を引く経路を作らない。別組織の membership は 404。
+    crossTenant: (env, ctx) =>
+      dailyRouteRepo.listDailyRoute(env, ctx, OTHER_ID.membership, "2026-08-12"),
+  },
+  // ── 写真（P1-11 / P1-15。P1-21 が検査表へ登録した）────
+  {
+    name: "taskPhoto.listTaskPhotos",
+    kind: "tenant",
+    run: (env, ctx) => taskPhotoRepo.listTaskPhotos(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => taskPhotoRepo.listTaskPhotos(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "taskPhoto.countTaskPhotos",
+    kind: "tenant",
+    run: (env, ctx) => taskPhotoRepo.countTaskPhotos(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => taskPhotoRepo.countTaskPhotos(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "taskPhoto.countPhotosByTask",
+    kind: "tenant",
+    run: (env, ctx) => taskPhotoRepo.countPhotosByTask(env, ctx, [OWN_ID.task]),
+    crossTenant: (env, ctx) => taskPhotoRepo.countPhotosByTask(env, ctx, [OTHER_ID.task]),
+  },
+  {
+    name: "taskPhoto.findTaskPhotoByClientId",
+    kind: "tenant",
+    run: (env, ctx) => taskPhotoRepo.findTaskPhotoByClientId(env, ctx, "client-uuid"),
+  },
+  {
+    name: "taskPhoto.findTaskPhotoById",
+    kind: "tenant",
+    run: (env, ctx) => taskPhotoRepo.findTaskPhotoById(env, ctx, OWN_ID.photo),
+    crossTenant: (env, ctx) => taskPhotoRepo.findTaskPhotoById(env, ctx, OTHER_ID.photo),
+  },
+  {
+    name: "taskPhoto.listPhotosForChecklistItem",
+    kind: "tenant",
+    run: (env, ctx) => taskPhotoRepo.listPhotosForChecklistItem(env, ctx, OWN_ID.task, OWN_ID.item),
+    crossTenant: (env, ctx) =>
+      taskPhotoRepo.listPhotosForChecklistItem(env, ctx, OTHER_ID.task, OWN_ID.item),
+  },
+  {
+    name: "taskPhoto.createTaskPhoto",
+    kind: "tenant",
+    run: (env, ctx) =>
+      taskPhotoRepo.createTaskPhoto(env, ctx, {
+        taskId: OWN_ID.task,
+        propertyId: OWN_ID.property,
+        kind: "AFTER",
+        storageKey: `photos/x/${OWN_ID.photo}.jpg`,
+        photoId: OWN_ID.photo,
+        width: 1600,
+        height: 1200,
+        fileSize: 400_000,
+        clientId: "client-uuid",
+        uploadedById: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      taskPhotoRepo.createTaskPhoto(env, ctx, {
+        taskId: OTHER_ID.task,
+        propertyId: OTHER_ID.property,
+        kind: "AFTER",
+        storageKey: `photos/x/${OTHER_ID.photo}.jpg`,
+        photoId: OTHER_ID.photo,
+        width: 1600,
+        height: 1200,
+        fileSize: 400_000,
+        clientId: "client-uuid",
+        uploadedById: OWN_ID.membership,
+      }),
+  },
+  {
+    // SQL を発行しない採番関数。**組織条件の検査対象にならない**が、
+    // 登録の網羅（全 export が載っていること）のためにここへ置く。
+    name: "taskPhoto.newPhotoId",
+    kind: "tenant",
+    pure: true,
+    run: (_env, ctx) => Promise.resolve(taskPhotoRepo.newPhotoId(ctx)),
+  },
 ];
+
+/** 組織条件を検査する対象。**`pure` の関数だけを外す。** */
+const SQL_INVOCATIONS = INVOCATIONS.filter((invocation) => invocation.pure !== true);
 
 /**
  * リポジトリの実ソース（spec を除く）。**コメント行は落とす。**
@@ -618,7 +722,7 @@ describe("登録漏れの検出", () => {
 });
 
 describe("organizationId の強制注入", () => {
-  it.each(INVOCATIONS)("$name は organization_id 条件つきの SQL を発行する", async (invocation) => {
+  it.each(SQL_INVOCATIONS)("$name は organization_id 条件つきの SQL を発行する", async (invocation) => {
     const fake = createFakeD1();
     await invocation.run(createFakeEnv(fake), tenantContext());
 
@@ -633,7 +737,7 @@ describe("organizationId の強制注入", () => {
     }
   });
 
-  it.each(INVOCATIONS)(
+  it.each(SQL_INVOCATIONS)(
     "$name は施設スコープロールでも organization_id 条件を落とさない",
     async (invocation) => {
       const fake = createFakeD1();

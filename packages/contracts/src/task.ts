@@ -306,3 +306,73 @@ export const standardTimeListResponseSchema = z.object({
 });
 
 export type StandardTimeListResponse = z.infer<typeof standardTimeListResponseSchema>;
+
+// ────────────────────────────────────────────────────────────
+// 1 日の動線（P1-21 / §19.6）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 施設。**清掃員の画面に出るのは名前だけ。**
+ *
+ * `code` は M-01 のログイン案内カードと同じ 4 文字（PK-SPEC-P7 §2.4）で、
+ * 現場が施設を口頭で言い合うときに使う。住所・電話は載せない
+ * （現場の一覧に要らない情報を運ぶと、キャッシュの中身が重くなる）。
+ */
+export const myDayPropertySchema = z.object({
+  propertyId: z.string(),
+  code: z.string(),
+  name: z.string(),
+});
+
+export type MyDayProperty = z.infer<typeof myDayPropertySchema>;
+
+/** 施設 1 つぶんのまとまり（§19.6 の `groups[]`）。 */
+export const myDayGroupSchema = z.object({
+  /** 訪問順 1, 2, 3...。**一覧内の連番**で、`dailyRoute.sequence` そのものではない。 */
+  sequence: z.number().int().positive(),
+  property: myDayPropertySchema,
+  /** `"09:00"`。施設のローカル時刻。未設定なら `null`。 */
+  plannedStartAt: z.string().nullable(),
+  plannedEndAt: z.string().nullable(),
+  /** 次の施設への移動時間（分）。最後の施設・未設定なら `null`。 */
+  travelMinutesToNext: z.number().int().min(0).nullable(),
+  taskCount: z.number().int().min(0),
+  tasks: z.array(taskSummarySchema),
+  /** 全件完了。画面の**初期**の折りたたみ状態に使う（§19.3）。 */
+  allDone: z.boolean(),
+});
+
+export type MyDayGroup = z.infer<typeof myDayGroupSchema>;
+
+/** 5 段カウンタ（§19.6 の `summary`）。**絞り込みで変わらない。** */
+export const myDaySummarySchema = z.object({
+  todo: z.number().int().min(0),
+  inProgress: z.number().int().min(0),
+  rework: z.number().int().min(0),
+  blocked: z.number().int().min(0),
+  done: z.number().int().min(0),
+});
+
+export type MyDaySummary = z.infer<typeof myDaySummarySchema>;
+
+/**
+ * `GET /api/v1/tasks/my-day` の応答（§19.6）。
+ *
+ * **1 リクエストで全施設分を返す**（§19.6 MUST）。施設ごとに呼ばせない。
+ * 担当者はセッションから解決する。**クエリで担当者を指定させない**
+ * （他人の 1 日が読める口を作らない / INV-07）。
+ *
+ * `fetchedAt` はサーバーが応答を作った時刻（epoch ミリ秒）。
+ * オフライン時に「いつ取った一覧か」を画面上部へ出すのに使う（§19.7 MUST）。
+ * **端末の時計を信用しない**ので、サーバーが載せる。
+ */
+export const myDayResponseSchema = z.object({
+  businessDate: businessDateSchema,
+  fetchedAt: z.number().int().positive(),
+  propertyCount: z.number().int().min(0),
+  totalTasks: z.number().int().min(0),
+  summary: myDaySummarySchema,
+  groups: z.array(myDayGroupSchema),
+});
+
+export type MyDayResponse = z.infer<typeof myDayResponseSchema>;

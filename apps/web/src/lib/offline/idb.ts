@@ -6,8 +6,12 @@
  *
  * ── 永続ストアとして扱わない ────────────────────────────
  * iOS Safari のタブは 7 日で storage を落とす（§8.1）。ここに置くのは
- * **1 勤務のあいだの送信バッファだけ。** 一覧のキャッシュや設定を
- * 足さないこと。消えても業務が壊れないものしか置かない。
+ * **消えても業務が壊れないものだけ。** 設定・マスタ・認証情報を置かない。
+ *
+ * P1-12 の時点では「1 勤務のあいだの送信バッファだけ」と書いていたが、
+ * §19.7 MUST が `my-day` の応答のキャッシュを要求するため P1-21 が
+ * `CACHE_STORE` を足した。**読み取りキャッシュは消えても復帰できる**
+ * （オンラインになれば取り直す）ので、この方針とは矛盾しない。
  *
  * ── ライブラリを入れていない ────────────────────────────
  * `idb` の類を足すと Worker のバンドルにも載る。使う API は
@@ -15,13 +19,28 @@
  */
 
 const DB_NAME = "pk-offline";
-const DB_VERSION = 1;
+
+/**
+ * スキーマ版。**`CACHE_STORE` を足したので 1 → 2。**
+ *
+ * `onupgradeneeded` は「無い store だけ作る」形なので、既存の
+ * `queue` / `blob` の中身は保たれる。**送信待ちを消さないこと。**
+ */
+const DB_VERSION = 2;
 
 /** 送信待ちのリクエスト。キーは `QueuedRequest.id`。 */
 export const QUEUE_STORE = "queue";
 
 /** 写真の実体。キーは `blobRef`。**送信できるまで消さない**（INV-27）。 */
 export const BLOB_STORE = "blob";
+
+/**
+ * 読み取りキャッシュ（§19.7）。キーは用途ごとの固定文字列。
+ *
+ * **1 日単位で 1 件。** 施設ごとに分けない（§19.7 MUST）。分けると
+ * 「施設 A は取れているが B は古い」という、現場に説明できない状態ができる。
+ */
+export const CACHE_STORE = "cache";
 
 /** IndexedDB が使えるか。SSR とプライベートブラウズの両方で false になりうる。 */
 export function isIdbAvailable(): boolean {
@@ -35,6 +54,7 @@ function openDb(): Promise<IDBDatabase> {
       const db = request.result;
       if (!db.objectStoreNames.contains(QUEUE_STORE)) db.createObjectStore(QUEUE_STORE);
       if (!db.objectStoreNames.contains(BLOB_STORE)) db.createObjectStore(BLOB_STORE);
+      if (!db.objectStoreNames.contains(CACHE_STORE)) db.createObjectStore(CACHE_STORE);
     };
     request.onsuccess = () => {
       resolve(request.result);

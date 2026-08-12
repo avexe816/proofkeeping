@@ -1,7 +1,6 @@
 {
   "app.brand": "ProofKeeping",
   "app.title": "ProofKeeping",
-
   "login.title": "Sign in",
   "login.orgShortId": "Organization ID",
   "login.orgShortId.hint": "6 alphanumeric characters",
@@ -11,11 +10,9 @@
   "login.rejected": "The organization ID, staff number, or password does not match.",
   "login.rateLimited": "Please wait a moment and try again.",
   "login.invalid": "Please check the format of your entries.",
-
   "user.menu": "Account",
   "user.logout": "Sign out",
   "user.language": "Language",
-
   "role.OWNER": "Owner",
   "role.ORG_ADMIN": "Administrator",
   "role.PROPERTY_MANAGER": "Property manager",
@@ -23,14 +20,11 @@
   "role.CLEANER": "Cleaning staff",
   "role.VENDOR_ADMIN": "Vendor administrator",
   "role.AUDITOR": "Auditor",
-
   "property.current": "Current property",
   "property.switch": "Switch property",
   "property.roomCount": "rooms",
   "property.none": "No properties are available. Please contact your administrator.",
-
   "staff.nameHidden": "Not shown",
-
   "board.title": "Room board",
   "board.noFloor": "No floor set",
   "board.nonSellable": "Service areas",
@@ -55,7 +49,6 @@
   "board.override.submit": "Change the state",
   "board.override.reasonRequired": "Please enter the reason for the change.",
   "board.override.done": "The state has been changed.",
-
   "m.login.title": "Sign in",
   "m.login.subtitle": "Enter your organization ID, staff number and PIN",
   "m.login.orgShortId": "Organization ID",
@@ -71,7 +64,6 @@
   "m.login.invalid": "Please check the format of your entries.",
   "m.login.offline": "Signing in needs a connection. Please try where there is signal.",
   "m.login.help": "If you do not know your PIN, please ask your supervisor",
-
   "m.today.title": "Today's tasks",
   "m.today.refresh": "Refresh",
   "m.today.updated": "Last updated",
@@ -85,7 +77,6 @@
   "m.today.empty": "There are no tasks today",
   "m.today.allDone": "All of today's tasks are done",
   "m.today.thanks": "Thank you for your work",
-
   "m.task.start": "Start",
   "m.task.resume": "Continue",
   "m.task.open": "Open",
@@ -111,13 +102,11 @@
   "m.task.complete.blockedByChecklist": "Some items have not been recorded yet",
   "m.task.complete.blockedByPhoto": "Some items still need a photo",
   "m.task.rejected": "This cannot be done in the current state. Please refresh the screen.",
-
   "m.taskType.CHECKOUT": "Checkout clean",
   "m.taskType.STAYOVER": "Stayover clean",
   "m.taskType.DEEP": "Deep clean",
   "m.taskType.COMMON_AREA": "Common area",
   "m.taskType.RECHECK": "Vacant check",
-
   "m.status.CREATED": "Not started",
   "m.status.ASSIGNED": "Not started",
   "m.status.IN_PROGRESS": "In progress",
@@ -127,14 +116,12 @@
   "m.status.COMPLETED": "Done",
   "m.status.BLOCKED": "Cannot enter",
   "m.status.CANCELLED": "Cancelled",
-
   "m.reason.DND": "Do not disturb sign",
   "m.reason.OCCUPIED": "The guest is in the room",
   "m.reason.LOCKED": "The room is locked",
   "m.reason.SUPPLY_SHORTAGE": "Not enough supplies",
   "m.reason.BREAK": "Break",
   "m.reason.OTHER": "Other",
-
   "m.checklist.title": "Checklist",
   "m.checklist.back": "Back to the task",
   "m.checklist.required": "Required",
@@ -146,7 +133,6 @@
   "m.checklist.empty": "This clean has no checklist",
   "m.checklist.hint": "Please record one item at a time",
   "m.checklist.japaneseOnly": "Japanese only",
-
   "m.photo.title": "Photos",
   "m.photo.add": "Take a photo",
   "m.photo.limit": "Up to 20 photos per clean",
@@ -155,7 +141,6 @@
   "m.photo.unsupported": "This image format is not accepted. Please take it again.",
   "m.photo.limitReached": "No more can be added.",
   "m.photo.pending": "Waiting to send",
-
   "m.offline.bar": "Offline",
   "m.offline.pending": "Records waiting to send",
   "m.offline.send": "Send now",
@@ -163,16 +148,13 @@
   "m.offline.manualRetry": "Some records have not been sent. Tap to send them again.",
   "m.offline.stale": "Records from more than a day ago are still here. Please tap where there is signal.",
   "m.offline.savedOnDevice": "Saved on this device",
-
   "m.install.title": "Adding this to your home screen makes it steadier to use",
   "m.install.steps": "Share button → \"Add to Home Screen\"",
   "m.install.optional": "You can keep using it without adding",
   "m.install.dismiss": "Close",
-
   "m.tab.tasks": "Tasks",
   "m.tab.board": "Rooms",
   "m.tab.me": "My record",
-
   "m.me.title": "My record",
   "m.me.today": "Today",
   "m.me.thisWeek": "This week",
@@ -189,7 +171,18 @@
   "m.me.language": "Language",
   "m.locale.ja": "日本語",
   "m.locale.en": "English",
-
   "page.notFound": "The page you are looking for was not found.",
-  "page.unexpected": "The page could not be displayed. Please try again later."
+  "page.unexpected": "The page could not be displayed. Please try again later.",
+  "m.today.filter.todo": "To do",
+  "m.today.filter.done": "Done",
+  "m.today.properties": "properties today",
+  "m.today.unit.count": "tasks",
+  "m.today.travel": "Travel",
+  "m.today.travel.minutes": "min",
+  "m.today.group.collapse": "Collapse",
+  "m.today.group.expand": "Open",
+  "m.today.group.done": "Done",
+  "m.today.cached": "You are offline. Showing the saved list.",
+  "m.today.fetchedAt": "Updated",
+  "m.today.filtered.empty": "No tasks match this filter"
 }

@@ -36,6 +36,13 @@
       "when": 1786543641463,
       "tag": "0004_p1_16_room_status",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786546811190,
+      "tag": "0005_p1_21_daily_route",
+      "breakpoints": true
     }
   ]
 }

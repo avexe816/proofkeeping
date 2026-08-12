@@ -303,3 +303,64 @@ export const dailyRoomPlan = sqliteTable(
     ),
   ],
 );
+
+/**
+ * 当日の施設訪問順と移動時間（PK-SPEC-P1 §19.5）。
+ *
+ * task: docs/tasks/P1-21.md
+ *
+ * ── 無くても一覧が動くこと（§19.5 MUST）────────────────
+ * この表は**あれば動線が読める**というだけの補助。未登録の担当者は
+ * 施設名の昇順でグループ化し、移動ブロックを出さない。
+ * `my-day` がこの表を必須にすると、シフトを入力していない組織で
+ * 現場の一覧が空になる。**join ではなく突き合わせで使うこと。**
+ *
+ * ── 粒度は「担当者 × 業務日 × 順番」───────────────────
+ * 施設ではなく担当者に紐づく。同じ施設を 2 人が別の順番で回る。
+ * `propertyId` を持つのは移動先を示すためで、スコープの主体ではない。
+ *
+ * ── 予定時刻は文字列、実績は時刻 ────────────────────────
+ * `plannedStartAt` は `"09:00"`（施設のローカル時刻）。日付を持たせない。
+ * 実績（`actualStartAt` / `actualEndAt`）は epoch ミリ秒。仕様 §19.5 は
+ * `mode: "timestamp"`（秒）と書くが、**他の全列が `timestamp_ms` で
+ * 揃っている。** 秒と ミリ秒が同じスキーマに混ざるほうが事故を呼ぶ。
+ *
+ * ── P1 では誰も書かない ─────────────────────────────────
+ * 入力画面はシフト管理（P8 Workforce）の担当で、P1-21 の やること にも
+ * 無い。読み取りだけを置く。**書き込み関数を「あとで要るから」で
+ * 足さないこと**（CLAUDE.md §1-4）。
+ */
+export const dailyRoute = sqliteTable(
+  "daily_route",
+  {
+    ...primaryId,
+    ...tenantColumn,
+    /** `membership.id`。**`user.id` ではない**（`cleaningTask.assigneeId` と同じ）。 */
+    membershipId: text("membership_id").notNull(),
+    /** 業務日 `YYYY-MM-DD`（architecture.md §7）。 */
+    businessDate: text("business_date").notNull(),
+    /** 訪問順 1, 2, 3...。 */
+    sequence: integer("sequence").notNull(),
+    propertyId: text("property_id").notNull(),
+    /** 予定開始 `"09:00"`。施設のローカル時刻。 */
+    plannedStartAt: text("planned_start_at"),
+    /** 予定終了 `"13:00"`。 */
+    plannedEndAt: text("planned_end_at"),
+    /** **次の**施設への移動時間（分）。最後の施設では null。 */
+    travelMinutes: integer("travel_minutes"),
+    actualStartAt: integer("actual_start_at", { mode: "timestamp_ms" }),
+    actualEndAt: integer("actual_end_at", { mode: "timestamp_ms" }),
+    ...timestamps,
+  },
+  (t) => [
+    // 仕様 §19.5 の `uq_route` に `organization_id` を先頭で足した形。
+    // テナントスコープの index は必ず組織から始める（`schema.spec.ts`）。
+    uniqueIndex("uq_daily_route_member_date_seq").on(
+      t.organizationId,
+      t.membershipId,
+      t.businessDate,
+      t.sequence,
+    ),
+    index("idx_daily_route_date").on(t.organizationId, t.businessDate),
+  ],
+);

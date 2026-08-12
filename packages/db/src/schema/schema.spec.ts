@@ -67,7 +67,7 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("25 テーブルを定義している", () => {
+  it("26 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       "auditLog",
       "building",
@@ -79,6 +79,8 @@ describe("P0-06 スキーマ", () => {
       "dailyPropertyRollup",
       // P1-01。当日の客室状況（P1 は PMS 連携が無いため施設側が入力する）。
       "dailyRoomPlan",
+      // P1-21。当日の施設訪問順（§19.5）。**未登録でも一覧は動く。**
+      "dailyRoute",
       "documentSequence",
       // P0-22。**定義のみ。読み書きは P6**（§24.4）。
       "externalMapping",
