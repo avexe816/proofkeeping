@@ -101,6 +101,9 @@ export {
   type RoomPlanInput,
 } from "./roomPlan.js";
 
+// 当日の施設訪問順（P1-21 / §19.5）。**読み取りのみ。未登録でも一覧は動く。**
+export { listDailyRoute } from "./dailyRoute.js";
+
 export {
   findOrganization,
   findTaxProfile,

@@ -73,6 +73,8 @@ const TENANT_TABLES = [
   "checklist_template",
   "checklist_item",
   "task_checklist_result",
+  // P1-21。当日の施設訪問順（PK-SPEC-P1 §19.5）。
+  "daily_route",
 ] as const;
 
 /**

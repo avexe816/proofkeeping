@@ -99,6 +99,113 @@
   margin-left: auto;
 }
 
+/* ── 施設グループ（§19.3 / P1-21）───────────────────── */
+
+.pk-m-head__properties {
+  margin-top: 8px;
+  padding: 8px 12px;
+  font-size: 15px;
+  background: rgb(255 255 255 / 12%);
+  border-radius: 10px;
+}
+
+/* オフラインで保存された一覧を出しているときだけ（§19.7 MUST）。
+   赤は使わない。障害ではなく「いつの一覧か」の告知（INV-05 の趣旨）。 */
+.pk-m-head__cached {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #f4e6c8;
+}
+
+/* フィルタ（すべて / 未着手 / 完了）。全施設をまたいで適用する。 */
+.pk-m-filters {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  background: var(--surf);
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-m-filters__item {
+  flex: 1 0 auto;
+  /* 手袋でのタップ（ui-writing.md §3「最小 48×48px」）。 */
+  min-height: 48px;
+  padding: 0 16px;
+  font-size: 15px;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surf3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.pk-m-filters__item--on {
+  color: #fff;
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.pk-m-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 濃色の帯（§19.3 MUST）。施設名と件数を必ず並べる。 */
+.pk-m-group__head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  background: var(--brand2);
+  border: none;
+  border-radius: 10px;
+}
+
+.pk-m-group__name {
+  flex: 1 1 auto;
+}
+
+.pk-m-group__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-m-group__planned {
+  margin: -4px 4px 0;
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+/* 施設間の移動ブロック（§19.3）。時間が未設定なら描かない。 */
+.pk-m-travel {
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--ink2);
+  background: var(--surf3);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+
+/* 施設が変わるタスクの開始確認（§19.8 MUST）。**施設名を必ず含める。** */
+.pk-m-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pk-m-confirm__text {
+  font-size: 15px;
+  font-weight: 700;
+}
+
 /* ── 5 段カウンタ（§9.2）─────────────────────────────── */
 
 .pk-m-counts {
