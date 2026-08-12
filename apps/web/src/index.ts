@@ -12,6 +12,7 @@ import {
 import { runNightlyGeneration } from "./lib/task/nightly.js";
 import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
+import dev from "./routes/api/v1/dev.js";
 import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
 import files from "./routes/api/v1/files.js";
 import organization from "./routes/api/v1/organization.js";
@@ -55,6 +56,10 @@ app.notFound(apiNotFoundHandler());
 // ヘルスチェック（P0-20）。**認証を要求しない唯一の API。**
 // セッション middleware より前段に置く。監視はセッションを持てない。
 app.route("/api/health", health);
+
+// 認証不要の dev 経路（シード投入）。本番では 404。
+// **`app` 側（認証 middleware の前）に置く。** 初期データが無いとログインできないため。
+app.route("/api/v1/dev", dev);
 
 // 認証だけはセッション middleware（P0-10）より前段に置く。
 // セッションを作る経路がセッションを要求すると入口が無くなる。
