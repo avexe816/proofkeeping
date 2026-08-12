@@ -99,8 +99,12 @@ export {
 // M-11 自分の実績（P1-17 / 同 §9.6）。**比較対象を引数に取らない。**
 export {
   MINIMUM_TASKS_FOR_AVERAGE,
+  monthRangeOf,
   summarizeOwnWork,
+  summarizeOwnWorkByProperty,
   weekRangeOf,
+  type OwnWorkByPropertyTask,
+  type OwnWorkPropertyRow,
   type OwnWorkSummary,
   type OwnWorkTask,
 } from "./ownWork.js";
@@ -111,6 +115,7 @@ export {
   MY_DAY_FILTERS,
   buildMyDay,
   filterMyDay,
+  lastWorkedPropertyId,
   type MyDay,
   type MyDayFilter,
   type MyDayGroup,
@@ -118,7 +123,17 @@ export {
   type MyDaySummary,
   type MyDayTask,
   type RouteLeg,
+  type WorkedTask,
 } from "./myDay.js";
+
+// 施設選択画面（P1-22 / 同 §19.4）。**閾値と比べるのは当日の担当施設数。**
+export {
+  buildPropertyPicker,
+  needsPropertyPicker,
+  type PickerEntry,
+  type PickerSummary,
+  type PropertyPicker,
+} from "./propertyPicker.js";
 
 // チェックリスト（P1-06 / 同 §6）。
 export {

@@ -27,6 +27,9 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  *   /m/task/:taskId           M-03 タスク詳細（写真もここ）
  *   /m/task/:taskId/checklist M-04 チェックリスト
  *
+ * ── P1-22 が足した画面 ──────────────────────────────────
+ *   /m/select-property        施設選択（担当が 4 施設以上のときだけ通る）
+ *
  * ── P1-14〜P1-18 が足した画面 ───────────────────────────
  *   /app/p/:propertyId/tasks  W-04 タスク管理・人員配分
  *   /m/board                  M-10 客室ボード（W-03 と同じ盤面）
@@ -43,6 +46,7 @@ export default [
   route("m/login", "routes/m/login.tsx"),
   layout("routes/m/layout.tsx", [
     route("m/today", "routes/m/today.tsx"),
+    route("m/select-property", "routes/m/selectProperty.tsx"),
     route("m/task/:taskId", "routes/m/task.tsx"),
     route("m/task/:taskId/checklist", "routes/m/checklist.tsx"),
     route("m/board", "routes/m/board.tsx"),

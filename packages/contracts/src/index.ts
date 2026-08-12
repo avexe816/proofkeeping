@@ -39,6 +39,16 @@ export {
   type SwitchPropertyResponse,
 } from "./session.js";
 
+// 組織設定（P1-22）。施設選択画面を挟む閾値だけ（§19.4）。
+export {
+  PROPERTY_SELECTION_THRESHOLD,
+  organizationSettingsResponseSchema,
+  organizationSettingsUpdateSchema,
+  propertySelectionThresholdSchema,
+  type OrganizationSettingsResponse,
+  type OrganizationSettingsUpdate,
+} from "./organization.js";
+
 // 施設サマリー（P0-21）。rollup テーブルからのみ組み立てる（§26 の絶対ルール）。
 export {
   SEAL_IMAGE,

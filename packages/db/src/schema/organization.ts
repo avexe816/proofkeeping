@@ -38,6 +38,18 @@ export const organization = sqliteTable(
     timezone: text("timezone").notNull().default("Asia/Tokyo"),
     /** 管理画面の言語。ブラウザ設定は参照しない（.claude/rules/ui-writing.md §1）。 */
     locale: text("locale").notNull().default("ja"),
+    /**
+     * 施設選択画面（M-12）を挟む担当施設数（PK-SPEC-P1 §19.4）。
+     *
+     * 当日の担当施設がこの数以上なら、起動時に 1 回だけ選択画面を出す。
+     * **既定 4・範囲 2〜10。** 範囲の検証は `packages/contracts` の
+     * `propertySelectionThresholdSchema`（DB の既定値と二重に持たない）。
+     *
+     * 施設ごとではなく組織の設定にしてあるのは、この値が「1 画面に何施設
+     * まで並べてよいか」という**現場端末の見やすさ**の話で、施設の属性では
+     * ないため（§19.4 の閾値は組織設定と明記されている）。
+     */
+    propertySelectionThreshold: integer("property_selection_threshold").notNull().default(4),
     ...activeFlag,
     ...timestamps,
   },

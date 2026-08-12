@@ -14,6 +14,7 @@ import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
 import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
 import files from "./routes/api/v1/files.js";
+import organization from "./routes/api/v1/organization.js";
 import properties from "./routes/api/v1/properties.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import session from "./routes/api/v1/session.js";
@@ -90,6 +91,8 @@ api.route("/room-plans", roomPlans);
 api.route("/standard-times", standardTimes);
 // チェックリスト定義（P1-06 / W-16）。3 階層の継承はタスク生成時に解決する。
 api.route("/checklist-templates", checklistTemplates);
+// 組織設定（P1-22 / §19.4）。施設選択画面を挟む閾値だけ。
+api.route("/organization", organization);
 app.route("/api/v1", api);
 
 /**

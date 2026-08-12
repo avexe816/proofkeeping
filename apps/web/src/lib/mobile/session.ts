@@ -23,6 +23,9 @@ export const MOBILE_LOGIN_PATH = "/m/login";
 /** ログイン後に開く画面（M-02）。 */
 export const MOBILE_HOME_PATH = "/m/today";
 
+/** 施設選択画面（§19.4 / P1-22）。**4 施設以上のときだけ通る。** */
+export const SELECT_PROPERTY_PATH = "/m/select-property";
+
 /** 現場画面が受け取る文脈。 */
 export interface MobileContext extends AppContext {
   tenant: TenantContext;
@@ -31,7 +34,17 @@ export interface MobileContext extends AppContext {
   locale: Locale;
   /** 表示名（M-02 の見出し）。ユーザーが消えていれば空。 */
   displayName: string;
+  /**
+   * 施設選択画面を挟む担当施設数（PK-SPEC-P1 §19.4 / P1-22）。
+   *
+   * 組織を引くのは言語の解決で既に行っているので、**ここに載せて
+   * クエリを増やさない。** 組織が引けない場合は既定の 4。
+   */
+  propertySelectionThreshold: number;
 }
+
+/** 施設選択画面を挟む担当施設数の既定（§19.4）。 */
+const DEFAULT_PROPERTY_SELECTION_THRESHOLD = 4;
 
 /**
  * `next` を安全なパスへ正規化する（`/m/*` 限定）。
@@ -96,5 +109,7 @@ export async function requireMobileContext(
     t: createTranslator(locale),
     locale,
     displayName: user?.displayName ?? "",
+    propertySelectionThreshold:
+      organization?.propertySelectionThreshold ?? DEFAULT_PROPERTY_SELECTION_THRESHOLD,
   };
 }

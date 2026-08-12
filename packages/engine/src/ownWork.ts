@@ -95,6 +95,62 @@ export function weekRangeOf(businessDate: string): { from: string; to: string } 
   return { from: toBusinessDate(monday), to: toBusinessDate(sunday) };
 }
 
+/**
+ * 業務日の属する月の範囲を返す（§19.9 の「施設別（今月）」）。
+ *
+ * `weekRangeOf()` と同じく **UTC の正午**を基準に組み立てる。
+ */
+export function monthRangeOf(businessDate: string): { from: string; to: string } {
+  const base = new Date(`${businessDate}T12:00:00.000Z`);
+  const year = base.getUTCFullYear();
+  const month = base.getUTCMonth();
+  const first = new Date(Date.UTC(year, month, 1, 12));
+  // 翌月 0 日 ＝ 当月末日。月ごとの日数を持たない。
+  const last = new Date(Date.UTC(year, month + 1, 0, 12));
+  return { from: toBusinessDate(first), to: toBusinessDate(last) };
+}
+
+/** 施設別の集計に渡す 1 件。**担当者 ID も客室も要らない。** */
+export interface OwnWorkByPropertyTask {
+  propertyId: string;
+  status: TaskStatusValue;
+}
+
+/** 施設 1 つぶんの内訳（§19.9）。 */
+export interface OwnWorkPropertyRow {
+  propertyId: string;
+  /** 完了した件数。**検査待ちも含む**（`summarizeOwnWork()` と同じ扱い）。 */
+  completed: number;
+}
+
+/**
+ * 施設別の完了件数（PK-SPEC-P1 §19.9）。**自分のぶんだけ。**
+ *
+ * ── 出すのは件数だけ ────────────────────────────────────
+ * 平均も所要時間も返さない。§19.9 が求めるのは「どの施設で何件やったか」で、
+ * それは**事実**（docs/DECISIONS.md #035 の区別）。施設ごとの平均を出すと、
+ * 母数の小さい施設で意味の無い数字が並び、しかも施設間の比較に読める。
+ *
+ * **他人の行が混ざらないのは呼び出し側の責任**（`listTasks({ assigneeId: 自分 })`）。
+ * この関数は担当者 ID を受け取らないので、比較表を作るには形を変えるしかない
+ * （§9.6 MUST / INV-02 — `summarizeOwnWork()` と同じ設計）。
+ *
+ * @returns 完了件数の降順。同数なら `propertyId` の昇順（並びを安定させる）。
+ *   **0 件の施設は返さない。**
+ */
+export function summarizeOwnWorkByProperty(
+  tasks: readonly OwnWorkByPropertyTask[],
+): OwnWorkPropertyRow[] {
+  const completedByProperty = new Map<string, number>();
+  for (const task of tasks) {
+    if (task.status !== "COMPLETED" && task.status !== "AWAITING_INSPECTION") continue;
+    completedByProperty.set(task.propertyId, (completedByProperty.get(task.propertyId) ?? 0) + 1);
+  }
+  return [...completedByProperty.entries()]
+    .map(([propertyId, completed]) => ({ propertyId, completed }))
+    .sort((a, b) => b.completed - a.completed || (a.propertyId < b.propertyId ? -1 : 1));
+}
+
 function toBusinessDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }

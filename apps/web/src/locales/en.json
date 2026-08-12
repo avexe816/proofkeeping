@@ -184,5 +184,21 @@
   "m.today.group.done": "Done",
   "m.today.cached": "You are offline. Showing the saved list.",
   "m.today.fetchedAt": "Updated",
-  "m.today.filtered.empty": "No tasks match this filter"
+  "m.today.filtered.empty": "No tasks match this filter",
+  "m.pick.title": "Which property will you start from?",
+  "m.pick.today": "Today",
+  "m.pick.upcoming": "From tomorrow (view only)",
+  "m.pick.here": "You are here",
+  "m.pick.from": "onward",
+  "m.pick.noSchedule": "No set time",
+  "m.pick.metric.properties": "Properties",
+  "m.pick.metric.tasks": "Rooms",
+  "m.pick.metric.rework": "Re-clean",
+  "m.pick.hint": "Choosing a property shows only that property. You can move to another one any time from \"🏢\" at the top.",
+  "m.pick.submit": "Start at the selected property",
+  "m.pick.all": "Show all properties together",
+  "m.today.futureReadOnly": "This is for a later day. View only — it cannot be started.",
+  "m.task.propertyChange": "You are changing property",
+  "m.me.byProperty": "By property (this month)",
+  "m.me.total": "Total"
 }

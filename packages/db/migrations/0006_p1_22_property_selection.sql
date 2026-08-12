@@ -1,0 +1,1 @@
+ALTER TABLE `organization` ADD `property_selection_threshold` integer DEFAULT 4 NOT NULL;

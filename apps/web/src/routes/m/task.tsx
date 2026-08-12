@@ -246,6 +246,11 @@ export default function TaskDetailRoute(): React.ReactElement {
   return (
     <>
       <header className="pk-m-head">
+        {/* §19.8 MUST。**施設名を常時表示する。部屋番号だけを出さない。**
+            複数施設のタスクが 1 画面に並ぶため、この画面まで来て初めて
+            「別の施設の部屋だった」と気づける状態にしておく。
+            見出しの上に置くのは、部屋番号より先に目に入る位置だから。 */}
+        <p className="pk-m-head__property">{`🏨 ${data.propertyName}`}</p>
         <div className="pk-m-head__row">
           <Link className="pk-m-head__back" to="/m/today" aria-label={t("m.checklist.back")}>
             ←
@@ -253,7 +258,7 @@ export default function TaskDetailRoute(): React.ReactElement {
           <h1 className="pk-m-head__title">{data.roomNumber}</h1>
         </div>
         <p className="pk-m-head__sub">
-          {data.propertyName} · {t(`m.taskType.${data.taskType}` as MessageKey)} ·{" "}
+          {t(`m.taskType.${data.taskType}` as MessageKey)} ·{" "}
           {t(`m.status.${status}` as MessageKey)}
         </p>
       </header>

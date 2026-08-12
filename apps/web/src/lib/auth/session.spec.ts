@@ -11,6 +11,7 @@ import {
   createSession,
   deleteSession,
   readSession,
+  setMobilePick,
   setSelectedPropertyId,
   type SessionRecord,
 } from "./session.js";
@@ -273,6 +274,87 @@ describe("表示中の施設（P0-14）", () => {
 
     expect(result).toBeNull();
     expect(onlyEntry(kv).record.selectedPropertyId).toBeUndefined();
+  });
+});
+
+describe("現場画面の施設選択（P1-22 / §19.4）", () => {
+  const PICK = {
+    propertyId: "a1b2c3__prop_01JBXQ3ZK8N4P2VYR60000",
+    businessDate: "2026-08-11",
+    pickedOn: "2026-08-11",
+  } as const;
+
+  it("選択が KV に残る", async () => {
+    const { env, kv } = setup();
+    const created = await createSession(env, INPUT);
+
+    await setMobilePick(env, created.cookieValue, PICK, NOW);
+
+    expect(onlyEntry(kv).record.mobilePick).toEqual(PICK);
+  });
+
+  it("読み出せる", async () => {
+    const { env } = setup();
+    const created = await createSession(env, INPUT);
+    await setMobilePick(env, created.cookieValue, PICK, NOW);
+
+    expect((await readSession(env, created.cookieValue, NOW))?.mobilePick).toEqual(PICK);
+  });
+
+  it("null を渡すと消える（次の起動で選択画面が出る）", async () => {
+    const { env } = setup();
+    const created = await createSession(env, INPUT);
+    await setMobilePick(env, created.cookieValue, PICK, NOW);
+
+    await setMobilePick(env, created.cookieValue, null, NOW);
+
+    expect((await readSession(env, created.cookieValue, NOW))?.mobilePick).toBeUndefined();
+  });
+
+  it("管理画面の表示中の施設（`selectedPropertyId`）と混ざらない", async () => {
+    const { env } = setup();
+    const created = await createSession(env, INPUT);
+
+    const otherProperty = "a1b2c3__prop_01JBXQ3ZK8N4P2VYR60001";
+    await setSelectedPropertyId(env, created.cookieValue, otherProperty, NOW);
+    await setMobilePick(env, created.cookieValue, PICK, NOW);
+
+    const record = await readSession(env, created.cookieValue, NOW);
+    expect(record?.selectedPropertyId).toBe(otherProperty);
+    expect(record?.mobilePick?.propertyId).toBe(PICK.propertyId);
+  });
+
+  it("期限を延長しない", async () => {
+    const { env, kv } = setup();
+    const created = await createSession(env, INPUT);
+    const expiresAt = onlyEntry(kv).record.expiresAt;
+    const fourHoursLater = new Date(NOW.getTime() + 4 * 60 * 60 * 1000);
+
+    await setMobilePick(env, created.cookieValue, PICK, fourHoursLater);
+
+    expect([...kv.store.values()][0]?.expirationTtl).toBe(8 * 60 * 60);
+    expect(onlyEntry(kv).record.expiresAt).toBe(expiresAt);
+  });
+
+  it("形の壊れた選択は未選択として読む", async () => {
+    const { env, kv } = setup();
+    const created = await createSession(env, INPUT);
+    const { key, record } = onlyEntry(kv);
+    await env.SESSION.put(
+      key,
+      JSON.stringify({ ...record, mobilePick: { propertyId: "p", businessDate: "8/11" } }),
+    );
+
+    expect((await readSession(env, created.cookieValue, NOW))?.mobilePick).toBeUndefined();
+  });
+
+  it("破棄済みのセッションを復活させない", async () => {
+    const { env, kv } = setup();
+    const created = await createSession(env, INPUT);
+    await deleteSession(env, created.cookieValue);
+
+    expect(await setMobilePick(env, created.cookieValue, PICK, NOW)).toBeNull();
+    expect(kv.store.size).toBe(0);
   });
 });
 

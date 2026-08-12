@@ -166,6 +166,13 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => organizationRepo.findTaxProfile(env, ctx),
   },
   {
+    // P1-22。施設選択画面の閾値（§19.4）。**組織条件が載ること**を見る。
+    name: "organization.updateOrganizationSettings",
+    kind: "tenant",
+    run: (env, ctx) =>
+      organizationRepo.updateOrganizationSettings(env, ctx, { propertySelectionThreshold: 4 }),
+  },
+  {
     name: "organization.updateTaxProfile",
     kind: "tenant",
     run: (env, ctx) =>
