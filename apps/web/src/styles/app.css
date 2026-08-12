@@ -660,3 +660,67 @@ a.pk-nav:hover {
   border: 1px solid var(--line);
   border-radius: 7px;
 }
+
+/* ── W-05 / W-16 / W-17（P1-02・P1-04・P1-06 の未達分）──────
+ *
+ * 冒頭の「ここに部品のスタイルを増やしていかないこと」は生きている。
+ * ここへ足したのは**表とテンプレートの箱が読めるだけの定義**で、
+ * 汎用の部品ではない。Tailwind + shadcn/ui は DECISIONS #026 のまま未着手。
+ */
+
+.pk-grid {
+  width: 100%;
+  margin: 12px 0;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+
+.pk-grid th,
+.pk-grid td {
+  padding: 5px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-grid thead th {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pk-grid input[type="text"],
+.pk-grid input:not([type]) {
+  width: 4.5em;
+  min-height: 30px;
+  padding: 3px 6px;
+  font-family: inherit;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+/* 3 階層の区切り。**入れ子の見た目で階層を表さない**（浅い順に並ぶだけ）。 */
+.pk-tier {
+  margin: 16px 0;
+}
+
+.pk-template {
+  padding: 12px 14px;
+  margin: 10px 0;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.pk-items {
+  padding: 8px 10px;
+  overflow-x: auto;
+  font-size: 12px;
+  background: var(--surf2);
+  border-radius: 7px;
+}
+
+.pk-inline {
+  display: inline;
+  margin-left: 8px;
+}

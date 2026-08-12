@@ -205,6 +205,12 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => propertyRepo.createProperty(env, ctx, { code: "HTLA", name: "テスト施設" }),
   },
   {
+    name: "property.listRoomTypes",
+    kind: "tenant",
+    run: (env, ctx) => propertyRepo.listRoomTypes(env, ctx, OWN_ID.property),
+    crossTenant: (env, ctx) => propertyRepo.listRoomTypes(env, ctx, OTHER_ID.property),
+  },
+  {
     name: "room.listRooms",
     kind: "tenant",
     run: (env, ctx) => roomRepo.listRooms(env, ctx, { isSellable: true }),
