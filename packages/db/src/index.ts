@@ -51,6 +51,17 @@ export {
   type ShardHealth,
 } from "./health.js";
 
+// シードデータ（P0-18）。ハッシュ化は注入で受ける（apps/web が渡す）。
+export {
+  SEED_CLEANER_COUNT,
+  SEED_ORG_SHORT_ID,
+  SEED_OWNER_STAFF_NUMBER,
+  seed,
+  type SeedCredentials,
+  type SeedDeps,
+  type SeedResult,
+} from "./seed.js";
+
 // 監査ログのマスク（P0-11）。`recordAudit()` が内側で使う。
 // 呼び出し側が事前にマスクする必要は無いが、ログ出力など別経路でも使える。
 export { MASKED, maskSensitive, serializeAuditPayload } from "./mask.js";
