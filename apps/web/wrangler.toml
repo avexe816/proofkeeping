@@ -110,15 +110,15 @@ bucket_name = "pk-archive-local"
 # binding ごとに違う値にしないと 5 つの namespace が 1 つのストアに混ざる。
 [[kv_namespaces]]
 binding = "SESSION"
-id = "TODO-P0-02-未作成-SESSION"
+id = "06a09cc856fa4701bf34335f411eec8a"
 
 [[kv_namespaces]]
 binding = "RATELIMIT"
-id = "TODO-P0-02-未作成-RATELIMIT"
+id = "3d7eb0eb7d6b490c82416c2938b0af4f"
 
 [[kv_namespaces]]
 binding = "CONFIG"
-id = "TODO-P0-02-未作成-CONFIG"
+id = "efbfa39534634153870f4b264599d90a"
 
 # シャードの明示マッピング（shard:{organizationId}）専用。architecture.md §1 の MUST:
 # TTL を設定してはならない。失効すると resolveShard() が無警告で fnv1a32 の
@@ -126,13 +126,13 @@ id = "TODO-P0-02-未作成-CONFIG"
 # 一括更新・一括削除の対象になる CONFIG と同居させない（DECISIONS.md #004）。
 [[kv_namespaces]]
 binding = "SHARD_MAP"
-id = "TODO-P0-02-未作成-SHARD_MAP"
+id = "e742a31b29bb4d459e0265b506684f07"
 
 # 外部連携の資格情報は暗号化してここに置き、DB からは credentialRef で参照する
 # （security.md §7）。
 [[kv_namespaces]]
 binding = "CREDENTIALS"
-id = "TODO-P0-02-未作成-CREDENTIALS"
+id = "b3fa902ae37448c5ae738a18f88d0ee2"
 
 # --- Queues（producer のみ）---------------------------------------------------
 # 用途は architecture.md §5 / PK-SPEC-P0 §19.10。
