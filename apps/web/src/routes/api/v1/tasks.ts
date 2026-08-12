@@ -5,14 +5,24 @@
  * GET    /api/v1/tasks?propertyId=&businessDate=&assignee=me
  * GET    /api/v1/tasks/:taskId/checklist
  * POST   /api/v1/tasks/:taskId/checklist
- * POST   /api/v1/tasks/:taskId/:action     assign|start|pause|resume|complete|block|unblock|cancel
+ * GET    /api/v1/tasks/:taskId/photos
+ * POST   /api/v1/tasks/:taskId/photos       multipart/form-data
+ * POST   /api/v1/tasks/:taskId/:action      assign|start|pause|resume|complete|block|unblock|cancel
  * POST   /api/v1/tasks/generate
  * ```
  *
- * task: docs/tasks/P1-03.md / docs/tasks/P1-05.md / docs/tasks/P1-06.md
+ * task: docs/tasks/P1-03.md / docs/tasks/P1-05.md / docs/tasks/P1-06.md /
+ *       docs/tasks/P1-11.md（写真）
  *
- * ── 画面はここに無い ────────────────────────────────────
- * M-02 / M-03 / M-04 / W-03 / W-04 は P1-07 以降。この task は API だけを置く。
+ * ── 登録の順序が意味を持つ ──────────────────────────────
+ * **`/:taskId/:action` は最後に登録すること。** Hono は登録順に照合し、
+ * 静的な区間を優先しない。`/:taskId/:action` を先に置くと
+ * `POST /tasks/{id}/checklist` が `action = "checklist"` として吸われ、
+ * `taskActionSchema` が弾いて 404 になる（P1-06 の配線はこれで
+ * 届いていなかった。P1-10 が画面を作るにあたり順序を入れ替えて直した）。
+ *
+ * ── 画面は `routes/m/*` にある ──────────────────────────
+ * M-02 / M-03 / M-04 は P1-08〜P1-10。W-03 / W-04 は P1-14 / P1-15。
  *
  * ── `Idempotency-Key` ───────────────────────────────────
  * 状態変更 API は必ずヘッダを読む（CLAUDE.md §5）。オフラインキューは
@@ -21,20 +31,27 @@
  */
 
 import {
+  MAX_PHOTOS_PER_TASK,
   checklistResultUpdateRequestSchema,
+  photoUploadMetaSchema,
   taskActionSchema,
   taskGenerateRequestSchema,
   taskTransitionRequestSchema,
+  type PhotoError,
   type TaskChecklistResponse,
   type TaskError,
   type TaskGenerateResponse,
   type TaskListResponse,
+  type TaskPhoto,
+  type TaskPhotoListResponse,
+  type TaskPhotoUploadResponse,
   type TaskSummary,
 } from "@pk/contracts";
 import {
   findTaskById,
   listChecklistResults,
   listRooms,
+  listTaskPhotos,
   listTasks,
   listTemplateItems,
   countPhotosByChecklistItem,
@@ -47,6 +64,8 @@ import { Hono } from "hono";
 
 import { assertPermission, propertyTarget } from "../../../lib/auth/permission.js";
 import { businessDateOf } from "../../../lib/businessDate.js";
+import { uploadPhoto } from "../../../lib/photo/upload.js";
+import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { generateTasksForProperty } from "../../../lib/task/generate.js";
 import { runTransition } from "../../../lib/task/transition.js";
 import { getNow, getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
@@ -93,62 +112,6 @@ tasks.get("/", async (c) => {
     data: await toSummaries(c.env, ctx, rows),
   };
   return c.json(body);
-});
-
-/**
- * タスクの状態変更（§5.3）。
- *
- * **操作は URL の末尾で表す。** ボディに `action` を入れると、
- * ルート単位でのレート制限や監査の切り分けができなくなる。
- */
-tasks.post("/:taskId/:action", async (c) => {
-  const action = taskActionSchema.safeParse(c.req.param("action"));
-  if (!action.success) return c.notFound();
-
-  const parsed = await readJson(c.req.raw);
-  if (parsed === null) return c.json(invalidRequest(), 400);
-
-  const body = taskTransitionRequestSchema.safeParse(parsed);
-  if (!body.success) return c.json(invalidRequest(), 400);
-
-  const ctx = getTenant(c);
-  const outcome = await runTransition(c.env, ctx, {
-    taskId: c.req.param("taskId"),
-    action: action.data,
-    actorId: getSession(c).membershipId,
-    reasonCode: body.data.reasonCode,
-    assigneeId: body.data.assigneeId,
-    clientTs: body.data.clientTs,
-    note: body.data.note,
-    idempotencyKey: c.req.header("Idempotency-Key"),
-    ip: c.req.header("CF-Connecting-IP"),
-  });
-
-  if (outcome.kind === "REJECTED") {
-    const error: TaskError = {
-      error: outcome.error,
-      ...(outcome.incompleteItemIds === undefined && outcome.missingPhotoItemIds === undefined
-        ? {}
-        : {
-            details: {
-              ...(outcome.incompleteItemIds === undefined
-                ? {}
-                : { incompleteItemIds: outcome.incompleteItemIds }),
-              ...(outcome.missingPhotoItemIds === undefined
-                ? {}
-                : { missingPhotoItemIds: outcome.missingPhotoItemIds }),
-            },
-          }),
-    };
-    return c.json(error, 409);
-  }
-
-  const task = await findTaskById(c.env, ctx, outcome.taskId);
-  if (task === undefined) return c.notFound();
-  const [summary] = await toSummaries(c.env, ctx, [task]);
-  if (summary === undefined) return c.notFound();
-
-  return c.json({ data: summary, unchanged: outcome.unchanged });
 });
 
 /** タスク生成（§3.2 の「随時 施設責任者が手動で再生成」）。 */
@@ -212,6 +175,192 @@ tasks.post("/:taskId/checklist", async (c) => {
 
   return c.json(await buildChecklistResponse(c.env, ctx, taskId));
 });
+
+/** タスクの写真一覧（M-03 / §7.4）。**署名付き URL を都度発行する。** */
+tasks.get("/:taskId/photos", async (c) => {
+  const ctx = getTenant(c);
+  const taskId = c.req.param("taskId");
+  const task = await findTaskById(c.env, ctx, taskId);
+  if (task === undefined) return c.notFound();
+  assertPermission(ctx, "task.read", propertyTarget([task.propertyId]));
+
+  const rows = await listTaskPhotos(c.env, ctx, taskId);
+  const body: TaskPhotoListResponse = {
+    taskId,
+    count: rows.length,
+    limit: MAX_PHOTOS_PER_TASK,
+    data: await Promise.all(
+      rows.map(async (row) => toPhoto(row, await signObjectUrl(c.env.SESSION_SECRET, row.storageKey, getNow(c)))),
+    ),
+  };
+  return c.json(body);
+});
+
+/**
+ * 写真のアップロード（§7）。**`multipart/form-data`。**
+ *
+ * `clientId` が冪等鍵（§7.5）。同じ鍵の 2 回目は R2 へ書かずに既存を返す。
+ * EXIF の除去は `uploadPhoto()` の中（サーバー側の 2 重目 / INV-11）。
+ */
+tasks.post("/:taskId/photos", async (c) => {
+  const ctx = getTenant(c);
+
+  let form: FormData;
+  try {
+    form = await c.req.formData();
+  } catch {
+    return c.json({ error: "INVALID_REQUEST" } satisfies PhotoError, 400);
+  }
+
+  const meta = photoUploadMetaSchema.safeParse({
+    clientId: form.get("clientId"),
+    kind: form.get("kind") ?? undefined,
+    checklistItemId: form.get("checklistItemId") ?? undefined,
+  });
+  if (!meta.success) return c.json({ error: "INVALID_REQUEST" } satisfies PhotoError, 400);
+
+  const file = form.get("file");
+  if (!(file instanceof File)) {
+    return c.json({ error: "INVALID_REQUEST" } satisfies PhotoError, 400);
+  }
+
+  const outcome = await uploadPhoto(c.env, ctx, {
+    taskId: c.req.param("taskId"),
+    clientId: meta.data.clientId,
+    kind: meta.data.kind,
+    checklistItemId: meta.data.checklistItemId,
+    bytes: new Uint8Array(await file.arrayBuffer()),
+    uploadedById: getSession(c).membershipId,
+  });
+
+  if (outcome.kind === "REJECTED") {
+    // タスクが無い場合は `INVALID_REQUEST` で返ってくる。**404 に写す**
+    // （資源の存在を推測させない / INV-31）。
+    if (outcome.error === "INVALID_REQUEST") return c.notFound();
+    return c.json({ error: outcome.error } satisfies PhotoError, PHOTO_ERROR_STATUS[outcome.error]);
+  }
+
+  const body: TaskPhotoUploadResponse = {
+    data: toPhoto(
+      {
+        id: outcome.photo.photoId,
+        taskId: outcome.photo.taskId,
+        kind: outcome.photo.photoKind,
+        checklistItemId: outcome.photo.checklistItemId,
+        width: outcome.photo.width,
+        height: outcome.photo.height,
+        fileSize: outcome.photo.fileSize,
+        capturedAt: outcome.photo.capturedAt,
+        uploadedAt: outcome.photo.uploadedAt,
+      },
+      await signObjectUrl(c.env.SESSION_SECRET, outcome.photo.storageKey, getNow(c)),
+    ),
+    unchanged: outcome.unchanged,
+  };
+  return c.json(body);
+});
+
+/**
+ * タスクの状態変更（§5.3）。
+ *
+ * **操作は URL の末尾で表す。** ボディに `action` を入れると、
+ * ルート単位でのレート制限や監査の切り分けができなくなる。
+ *
+ * **この登録はこのファイルの最後に置くこと**（冒頭の「登録の順序」）。
+ */
+tasks.post("/:taskId/:action", async (c) => {
+  const action = taskActionSchema.safeParse(c.req.param("action"));
+  if (!action.success) return c.notFound();
+
+  const parsed = await readJson(c.req.raw);
+  if (parsed === null) return c.json(invalidRequest(), 400);
+
+  const body = taskTransitionRequestSchema.safeParse(parsed);
+  if (!body.success) return c.json(invalidRequest(), 400);
+
+  const ctx = getTenant(c);
+  const outcome = await runTransition(c.env, ctx, {
+    taskId: c.req.param("taskId"),
+    action: action.data,
+    actorId: getSession(c).membershipId,
+    reasonCode: body.data.reasonCode,
+    assigneeId: body.data.assigneeId,
+    clientTs: body.data.clientTs,
+    note: body.data.note,
+    idempotencyKey: c.req.header("Idempotency-Key"),
+    ip: c.req.header("CF-Connecting-IP"),
+  });
+
+  if (outcome.kind === "REJECTED") {
+    const error: TaskError = {
+      error: outcome.error,
+      ...(outcome.incompleteItemIds === undefined && outcome.missingPhotoItemIds === undefined
+        ? {}
+        : {
+            details: {
+              ...(outcome.incompleteItemIds === undefined
+                ? {}
+                : { incompleteItemIds: outcome.incompleteItemIds }),
+              ...(outcome.missingPhotoItemIds === undefined
+                ? {}
+                : { missingPhotoItemIds: outcome.missingPhotoItemIds }),
+            },
+          }),
+    };
+    return c.json(error, 409);
+  }
+
+  const task = await findTaskById(c.env, ctx, outcome.taskId);
+  if (task === undefined) return c.notFound();
+  const [summary] = await toSummaries(c.env, ctx, [task]);
+  if (summary === undefined) return c.notFound();
+
+  return c.json({ data: summary, unchanged: outcome.unchanged });
+});
+
+/**
+ * 写真のエラーに対する HTTP ステータス。
+ *
+ * 413 / 415 を使うのは、撮り直しで直るのか（大きすぎ・形式違い）、
+ * 何枚か消してもらう必要があるのか（409）を画面が区別するため。
+ */
+const PHOTO_ERROR_STATUS = {
+  INVALID_REQUEST: 400,
+  PHOTO_LIMIT_EXCEEDED: 409,
+  PHOTO_TOO_LARGE: 413,
+  UNSUPPORTED_IMAGE: 415,
+} as const satisfies Record<string, 400 | 409 | 413 | 415>;
+
+/** 写真の行 + 署名付き URL を応答へ写す。**`storageKey` を出さない。** */
+function toPhoto(
+  row: {
+    id: string;
+    taskId: string;
+    kind: TaskPhoto["kind"];
+    checklistItemId: string | null;
+    width: number;
+    height: number;
+    fileSize: number;
+    capturedAt: Date | number | null;
+    uploadedAt: Date | number;
+  },
+  url: string,
+): TaskPhoto {
+  const toMillis = (value: Date | number): number =>
+    typeof value === "number" ? value : value.getTime();
+  return {
+    photoId: row.id,
+    taskId: row.taskId,
+    kind: row.kind,
+    checklistItemId: row.checklistItemId,
+    width: row.width,
+    height: row.height,
+    fileSize: row.fileSize,
+    capturedAt: row.capturedAt === null ? null : toMillis(row.capturedAt),
+    uploadedAt: toMillis(row.uploadedAt),
+    url,
+  };
+}
 
 /** チェックリストの応答を組み立てる。 */
 async function buildChecklistResponse(

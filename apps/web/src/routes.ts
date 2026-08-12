@@ -20,11 +20,27 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  * ── P0-21 が足した画面 ──────────────────────────────────
  *   /app/p/:propertyId/board  施設 1 件（URL を正としてセッションを更新）
  *   /app/org/dashboard        全社サマリー（全社ビューを持つロールのみ）
+ *
+ * ── P1-07〜P1-13 が足した現場画面（`/m/*`）───────────────
+ *   /m/login                  M-01 PIN ログイン（シェルの外。未認証で開く）
+ *   /m/today                  M-02 本日のタスク
+ *   /m/task/:taskId           M-03 タスク詳細（写真もここ）
+ *   /m/task/:taskId/checklist M-04 チェックリスト
+ *
+ * `/m/*` は `/app/*` と別のシェルを持つ（topbar も sidebar も無い）。
+ * **同じ layout に相乗りさせないこと。** 現場の画面は片手・手袋・暗所が
+ * 前提で、管理画面と共有できる部品がほとんど無い（ui-writing.md §3）。
  */
 export default [
   index("routes/home.ts"),
   route("login", "routes/login.tsx"),
   route("logout", "routes/logout.ts"),
+  route("m/login", "routes/m/login.tsx"),
+  layout("routes/m/layout.tsx", [
+    route("m/today", "routes/m/today.tsx"),
+    route("m/task/:taskId", "routes/m/task.tsx"),
+    route("m/task/:taskId/checklist", "routes/m/checklist.tsx"),
+  ]),
   layout("routes/app/layout.tsx", [
     route("app/dashboard", "routes/app/dashboard.tsx"),
     route("app/p/:propertyId/board", "routes/app/propertyBoard.tsx"),

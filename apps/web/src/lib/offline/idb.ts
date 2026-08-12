@@ -1,0 +1,90 @@
+/**
+ * IndexedDB の薄い包み（PK-SPEC-P1 §8.1）。**ブラウザでのみ動く。**
+ *
+ * task:  docs/tasks/P1-12.md
+ * ルール: .claude/rules/ui-writing.md §5
+ *
+ * ── 永続ストアとして扱わない ────────────────────────────
+ * iOS Safari のタブは 7 日で storage を落とす（§8.1）。ここに置くのは
+ * **1 勤務のあいだの送信バッファだけ。** 一覧のキャッシュや設定を
+ * 足さないこと。消えても業務が壊れないものしか置かない。
+ *
+ * ── ライブラリを入れていない ────────────────────────────
+ * `idb` の類を足すと Worker のバンドルにも載る。使う API は
+ * `put` / `getAll` / `delete` の 3 つで、素の IndexedDB で足りる。
+ */
+
+const DB_NAME = "pk-offline";
+const DB_VERSION = 1;
+
+/** 送信待ちのリクエスト。キーは `QueuedRequest.id`。 */
+export const QUEUE_STORE = "queue";
+
+/** 写真の実体。キーは `blobRef`。**送信できるまで消さない**（INV-27）。 */
+export const BLOB_STORE = "blob";
+
+/** IndexedDB が使えるか。SSR とプライベートブラウズの両方で false になりうる。 */
+export function isIdbAvailable(): boolean {
+  return typeof indexedDB !== "undefined";
+}
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(QUEUE_STORE)) db.createObjectStore(QUEUE_STORE);
+      if (!db.objectStoreNames.contains(BLOB_STORE)) db.createObjectStore(BLOB_STORE);
+    };
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      reject(request.error ?? new Error("IDB_OPEN_FAILED"));
+    };
+  });
+}
+
+function promisify<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      reject(request.error ?? new Error("IDB_REQUEST_FAILED"));
+    };
+  });
+}
+
+async function withStore<T>(
+  store: string,
+  mode: IDBTransactionMode,
+  run: (store: IDBObjectStore) => IDBRequest<T>,
+): Promise<T> {
+  const db = await openDb();
+  try {
+    return await promisify(run(db.transaction(store, mode).objectStore(store)));
+  } finally {
+    db.close();
+  }
+}
+
+/** 1 件書く（上書き）。 */
+export async function idbPut(store: string, key: string, value: unknown): Promise<void> {
+  await withStore(store, "readwrite", (s) => s.put(value, key));
+}
+
+/** 1 件読む。無ければ `undefined`。 */
+export async function idbGet<T>(store: string, key: string): Promise<T | undefined> {
+  return withStore<T | undefined>(store, "readonly", (s) => s.get(key) as IDBRequest<T | undefined>);
+}
+
+/** 全件読む。 */
+export async function idbGetAll<T>(store: string): Promise<T[]> {
+  return withStore<T[]>(store, "readonly", (s) => s.getAll() as IDBRequest<T[]>);
+}
+
+/** 1 件消す。**送信が終わったものだけ**（INV-27）。 */
+export async function idbDelete(store: string, key: string): Promise<void> {
+  await withStore(store, "readwrite", (s) => s.delete(key));
+}

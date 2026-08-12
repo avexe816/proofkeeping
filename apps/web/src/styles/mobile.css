@@ -1,0 +1,641 @@
+/*
+ * 現場画面（`/m/*`）の CSS。
+ *
+ * task:  docs/tasks/P1-07.md 〜 P1-13
+ * ルール: .claude/rules/ui-writing.md §3（現場向け UI の MUST）
+ * 参照:  ui-prototypes/mobile/pk-01 / pk-02 / pk-05 / pk-08
+ *
+ * ── 数字は守る値であって好みではない ────────────────────
+ *   タップ領域   最小 48px（INV-25）。主要ボタンは 56px 以上
+ *   フォント     最小 16px
+ *   コントラスト 4.5:1 以上
+ * これらを下げる変更を通さないこと。手袋・暗所・屋外が前提にある。
+ *
+ * ── 色のトークンは app.css の :root を使う ──────────────
+ * ここで色を作り直さない。**超過表示にオレンジとグレーだけを使い、
+ * 赤（--danger）を使わない**（INV-05 / §9.3）。
+ */
+
+.pk-m {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  font-size: 16px;
+  background: var(--bg);
+}
+
+/* ── オフラインバー（§8.2 / §9.2）────────────────────── */
+
+.pk-m-offline {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  text-align: left;
+  background: var(--warn);
+  border: none;
+}
+
+/* 24 時間以上残っている場合だけ赤（§8.1）。**経過時間の赤とは別物。** */
+.pk-m-offline--stale,
+.pk-m-offline--manual {
+  background: var(--danger);
+}
+
+.pk-m-offline__count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── ヘッダ ───────────────────────────────────────────── */
+
+.pk-m-head {
+  padding: 14px 16px 12px;
+  color: #fff;
+  background: var(--brand);
+}
+
+.pk-m-head__row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.pk-m-head__title {
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.pk-m-head__sub {
+  margin-top: 4px;
+  font-size: 14px;
+  color: #cbdcd2;
+}
+
+.pk-m-head__back,
+.pk-m-head__refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
+  font-size: 18px;
+  color: #fff;
+  cursor: pointer;
+  background: rgb(255 255 255 / 12%);
+  border: none;
+  border-radius: 12px;
+}
+
+.pk-m-head__refresh {
+  margin-left: auto;
+}
+
+/* ── 5 段カウンタ（§9.2）─────────────────────────────── */
+
+.pk-m-counts {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: var(--surf);
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-m-counts__cell {
+  padding: 10px 2px;
+  text-align: center;
+  border-right: 1px solid var(--line2);
+}
+
+.pk-m-counts__cell:last-child {
+  border-right: none;
+}
+
+.pk-m-counts__value {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-m-counts__label {
+  font-size: 12px;
+  color: var(--ink2);
+}
+
+/* ── タスク一覧 ───────────────────────────────────────── */
+
+.pk-m-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.pk-m-card {
+  padding: 12px 14px 14px;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--sh);
+}
+
+.pk-m-card--IN_PROGRESS {
+  border-left-color: var(--warn);
+}
+
+.pk-m-card--REWORK {
+  border-left-color: var(--info);
+}
+
+.pk-m-card--BLOCKED {
+  border-left-color: var(--muted);
+}
+
+.pk-m-card--DONE {
+  background: var(--surf2);
+  border-left-color: var(--ok);
+}
+
+.pk-m-card__row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.pk-m-card__room {
+  font-size: 24px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-m-card__tag {
+  padding: 4px 10px;
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink2);
+  background: var(--surf3);
+  border-radius: 999px;
+}
+
+.pk-m-card__meta {
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--ink2);
+}
+
+/* ── ボタン ───────────────────────────────────────────── */
+
+.pk-m-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 14px 16px;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  cursor: pointer;
+  background: var(--brand);
+  border: none;
+  border-radius: 12px;
+}
+
+.pk-m-button--secondary {
+  color: var(--ink);
+  background: var(--surf);
+  border: 2px solid var(--line);
+}
+
+.pk-m-button--quiet {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.pk-m-button[disabled] {
+  color: var(--ink2);
+  cursor: not-allowed;
+  background: var(--surf3);
+  border: 2px solid var(--line);
+}
+
+.pk-m-button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.pk-m-card .pk-m-button {
+  margin-top: 12px;
+}
+
+/* ── タスク詳細（§9.3）───────────────────────────────── */
+
+.pk-m-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 12px 28px;
+}
+
+.pk-m-timer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 14px 10px;
+  text-align: center;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.pk-m-timer__value {
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-m-timer__label {
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+/* 超過は**オレンジ**、大きく超えたら**グレー**。赤にしない（INV-05）。 */
+.pk-m-timer__value--OVER {
+  color: var(--warn);
+}
+
+.pk-m-timer__value--FAR_OVER {
+  color: var(--muted);
+}
+
+.pk-m-section {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+
+.pk-m-section__count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-m-panel {
+  padding: 12px 14px;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.pk-m-link {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.pk-m-link__count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-m-note {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink2);
+}
+
+.pk-m-notice {
+  padding: 10px 12px;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--warnbg);
+  border: 1px solid var(--warn);
+  border-radius: 10px;
+}
+
+.pk-m-memo {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--surf);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+}
+
+/* ── 写真（§7）───────────────────────────────────────── */
+
+.pk-m-photos {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.pk-m-photos__cell {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--surf3);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.pk-m-photos__cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pk-m-photos__pending {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: #fff;
+  background: var(--warn);
+  border-radius: 6px;
+}
+
+.pk-m-photos__add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--brand);
+  cursor: pointer;
+  background: var(--surf);
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+}
+
+/* ── チェックリスト（§9.4）───────────────────────────── */
+
+.pk-m-check {
+  overflow: hidden;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.pk-m-check__header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  background: var(--surf2);
+  border: none;
+}
+
+.pk-m-check__item {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--line2);
+}
+
+.pk-m-check__label {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.pk-m-check__values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pk-m-check__value {
+  min-height: 48px;
+  padding: 8px 4px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink2);
+  cursor: pointer;
+  background: var(--surf);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+}
+
+.pk-m-check__value[aria-pressed="true"] {
+  color: #fff;
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.pk-m-check__badge {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--warn);
+}
+
+/* ── PIN ログイン（§9.1）─────────────────────────────── */
+
+.pk-m-login {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: center;
+  padding: 20px 18px 32px;
+}
+
+.pk-m-login__brand {
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.pk-m-login__sub {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink2);
+  text-align: center;
+}
+
+.pk-m-field {
+  display: block;
+}
+
+.pk-m-field__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+
+.pk-m-field__input {
+  width: 100%;
+  min-height: 56px;
+  padding: 14px;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: center;
+  letter-spacing: 3px;
+  background: var(--surf);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+}
+
+.pk-m-field__hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pk-m-pin {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  min-height: 56px;
+  padding: 12px;
+  background: var(--surf);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+}
+
+.pk-m-pin__dot {
+  width: 18px;
+  height: 18px;
+  background: var(--line);
+  border-radius: 50%;
+}
+
+.pk-m-pin__dot--on {
+  background: var(--brand);
+}
+
+.pk-m-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.pk-m-keypad__key {
+  min-height: 60px;
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surf);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+}
+
+.pk-m-keypad__key--function {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+
+.pk-m-alert {
+  padding: 12px 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--danger);
+  background: var(--dangerbg);
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+}
+
+/* ── ホーム画面追加の案内（§8.5）─────────────────────── */
+
+.pk-m-install {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  margin: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  background: var(--infobg);
+  border: 1px solid var(--info);
+  border-radius: 12px;
+}
+
+.pk-m-install__body {
+  flex: 1;
+}
+
+.pk-m-install__optional {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+.pk-m-install__close {
+  min-width: 48px;
+  min-height: 48px;
+  font-family: inherit;
+  font-size: 18px;
+  color: var(--ink2);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+/* ── 空の状態 ─────────────────────────────────────────── */
+
+.pk-m-empty {
+  padding: 48px 24px;
+  font-size: 17px;
+  line-height: 1.8;
+  color: var(--ink2);
+  text-align: center;
+}
+
+.pk-m-login__title {
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.pk-m-note--center {
+  text-align: center;
+}

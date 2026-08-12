@@ -267,3 +267,168 @@ describe("POST /api/v1/tasks/:taskId/:action", () => {
     expect(await res.json()).toEqual({ error: "INVALID_REQUEST" });
   });
 });
+
+describe("POST /api/v1/tasks/:taskId/checklist（P1-10 の前提）", () => {
+  /**
+   * **`/:taskId/:action` に吸われていないこと。**
+   *
+   * Hono は登録順に照合し、静的な区間を優先しない。`/:taskId/:action` を
+   * 先に登録すると `action = "checklist"` として扱われ、
+   * `taskActionSchema` が弾いて 404 になる（記録が 1 件も残らない）。
+   * ここは「チェックリストのハンドラまで届いたか」を、
+   * `task_checklist_result` への UPDATE が出たことで見る。
+   */
+  it("チェックリストのハンドラへ届く（:action に吸われない）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    ctx.d1.enqueueRows([taskRow("IN_PROGRESS")]); // findTaskById
+
+    await post(
+      ctx,
+      `/api/v1/tasks/${TASK_ID}/checklist`,
+      { itemId: `${ORG_SHORT_ID}__citm_01JBXQ3ZK8N4P2VYR6ABCDEFGH`, value: "DONE" },
+      cookie,
+    );
+
+    expect(
+      ctx.d1.queries.some((query) => query.sql.includes("task_checklist_result")),
+    ).toBe(true);
+  });
+
+  it("値が 3 値のいずれかでなければ 400（INV-22）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+
+    const res = await post(
+      ctx,
+      `/api/v1/tasks/${TASK_ID}/checklist`,
+      { itemId: `${ORG_SHORT_ID}__citm_01JBXQ3ZK8N4P2VYR6ABCDEFGH`, value: "YES" },
+      cookie,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "INVALID_REQUEST" });
+  });
+});
+
+describe("POST /api/v1/tasks/:taskId/photos（P1-11）", () => {
+  const CLIENT_ID = "0b3a1f2c-7c9e-4e6a-9a2c-1d5f6b7c8d90";
+
+  /** multipart で送る。**`file` は Blob。** */
+  async function postPhoto(
+    ctx: ReturnType<typeof setup>,
+    path: string,
+    form: FormData,
+    cookie: string | null,
+  ): Promise<Response> {
+    return ctx.app.request(
+      path,
+      {
+        method: "POST",
+        headers: cookie === null ? {} : { Cookie: cookie },
+        body: form,
+      },
+      ctx.env,
+    );
+  }
+
+  function formWith(bytes: number[]): FormData {
+    const form = new FormData();
+    form.append("clientId", CLIENT_ID);
+    form.append("kind", "AFTER");
+    form.append("file", new Blob([new Uint8Array(bytes)]), "photo.jpg");
+    return form;
+  }
+
+  it("セッションが無ければ 401", async () => {
+    const ctx = setup();
+
+    const res = await postPhoto(ctx, `/api/v1/tasks/${TASK_ID}/photos`, formWith([0xff, 0xd8]), null);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("他組織の taskId は 404 で、DB に触れない（§14.5 / INV-31）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+
+    const res = await postPhoto(
+      ctx,
+      `/api/v1/tasks/${OTHER_ORG_TASK_ID}/photos`,
+      formWith([0xff, 0xd8]),
+      cookie,
+    );
+
+    expect(res.status).toBe(404);
+    expect(ctx.d1.queries.filter((query) => query.sql.includes("task_photo"))).toEqual([]);
+  });
+
+  it("clientId が uuid でなければ 400（冪等鍵にならない）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    const form = new FormData();
+    form.append("clientId", "not-a-uuid");
+    form.append("file", new Blob([new Uint8Array([0xff, 0xd8])]), "photo.jpg");
+
+    const res = await postPhoto(ctx, `/api/v1/tasks/${TASK_ID}/photos`, form, cookie);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "INVALID_REQUEST" });
+  });
+
+  it("file が無ければ 400", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    const form = new FormData();
+    form.append("clientId", CLIENT_ID);
+
+    const res = await postPhoto(ctx, `/api/v1/tasks/${TASK_ID}/photos`, form, cookie);
+
+    expect(res.status).toBe(400);
+  });
+
+  it("画像として読めないバイト列は 415（EXIF を落とせないものを保存しない）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    ctx.d1.enqueueRows([taskRow("IN_PROGRESS")]); // findTaskById
+    ctx.d1.enqueueRows([]); // findTaskPhotoByClientId
+    ctx.d1.enqueueRows([[0]]); // countTaskPhotos
+
+    const res = await postPhoto(
+      ctx,
+      `/api/v1/tasks/${TASK_ID}/photos`,
+      formWith([0x00, 0x01, 0x02, 0x03]),
+      cookie,
+    );
+
+    expect(res.status).toBe(415);
+    expect(await res.json()).toEqual({ error: "UNSUPPORTED_IMAGE" });
+  });
+
+  it("500KB を超える写真は 413（§7.3）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    ctx.d1.enqueueRows([taskRow("IN_PROGRESS")]); // findTaskById
+    ctx.d1.enqueueRows([]); // findTaskPhotoByClientId
+
+    const oversize = new Array<number>(500 * 1024 + 1).fill(0xff);
+
+    const res = await postPhoto(ctx, `/api/v1/tasks/${TASK_ID}/photos`, formWith(oversize), cookie);
+
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: "PHOTO_TOO_LARGE" });
+  });
+
+  it("1 タスク 20 枚を超えたら 409（§7.3）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    ctx.d1.enqueueRows([taskRow("IN_PROGRESS")]); // findTaskById
+    ctx.d1.enqueueRows([]); // findTaskPhotoByClientId
+    ctx.d1.enqueueRows([[20]]); // countTaskPhotos
+
+    const res = await postPhoto(ctx, `/api/v1/tasks/${TASK_ID}/photos`, formWith([0xff, 0xd8]), cookie);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "PHOTO_LIMIT_EXCEEDED" });
+  });
+});

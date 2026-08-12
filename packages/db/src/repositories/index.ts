@@ -72,6 +72,19 @@ export {
   type RecordChecklistResultInput,
 } from "./checklist.js";
 
+// 清掃写真のメタデータ（P1-11）。実体は R2。位置情報の列を持たない（INV-11）。
+export {
+  countTaskPhotos,
+  createTaskPhoto,
+  findTaskPhotoByClientId,
+  findTaskPhotoById,
+  listPhotosForChecklistItem,
+  listTaskPhotos,
+  newPhotoId,
+  type CreateTaskPhotoInput,
+  type CreateTaskPhotoResult,
+} from "./taskPhoto.js";
+
 // 標準時間マスタ（P1-02）。
 export {
   listStandardTimes,
