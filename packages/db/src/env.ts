@@ -100,6 +100,17 @@ export interface QueueBindings {
   QUEUE_ARCHIVE_RESTORE: Queue;
 }
 
+/**
+ * Durable Objects。用途は architecture.md §4 / PK-SPEC-P0 §19.9 の 4 つに限る。
+ *
+ * **汎用のデータストアとして使わない。** 実装済みのものだけをここへ足すこと。
+ * binding だけ先に宣言すると、クラスの無いまま wrangler が起動しなくなる。
+ */
+export interface DurableObjectBindings {
+  /** 請求書・領収書・日報の連番採番（P0-17）。粒度は 組織 × 文書種別 × 年度。 */
+  DOCUMENT_SEQUENCER: DurableObjectNamespace;
+}
+
 /** wrangler.toml の `[vars]`。値はすべて文字列で渡る。 */
 export interface EnvVars {
   ENVIRONMENT: "local" | "preview" | "staging" | "production";
@@ -126,4 +137,10 @@ export interface EnvSecrets {
 
 /** Worker が受け取る env の全体。 */
 export interface Env
-  extends ShardBindings, BucketBindings, KvBindings, QueueBindings, EnvVars, EnvSecrets {}
+  extends ShardBindings,
+    BucketBindings,
+    KvBindings,
+    QueueBindings,
+    DurableObjectBindings,
+    EnvVars,
+    EnvSecrets {}

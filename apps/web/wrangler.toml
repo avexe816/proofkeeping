@@ -35,10 +35,12 @@
 #                             （P2-10 / P3-09 / P4-14 / P5-06 / P6-04 / P7-09）
 #                             が自分の分を追記する。
 #
-#   [[durable_objects.bindings]]
-#   [[migrations]]            DO クラスが未実装。同上。P0-17（DocumentSequencer）
-#                             が最初に追加する。InspectionLock / PropertyBoard /
-#                             ReconciliationLock も同様。
+#   InspectionLock            DO クラスが未実装。同上。P0-17 で
+#   PropertyBoard             DocumentSequencer だけを宣言した。残り 3 つは
+#   ReconciliationLock        実装する task（P2 / P1 / P4）が
+#                             [[durable_objects.bindings]] と
+#                             [[migrations]] の新しいタグを同時に足す。
+#                             **既存の tag = "v1" を書き換えないこと。**
 #
 #   [triggers]（Cron）        P0-02 の作業範囲外。
 #
@@ -162,6 +164,20 @@ queue = "pk-notification-local"
 binding = "QUEUE_ARCHIVE_RESTORE"
 queue = "pk-archive-restore-local"
 
+# --- Durable Objects（P0-17）------------------------------------------------
+# architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
+# ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
+# 起動しない。クラスは apps/web/src/index.ts が export する。
+[[durable_objects.bindings]]
+name = "DOCUMENT_SEQUENCER"
+class_name = "DocumentSequencer"
+
+# DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
+# クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DocumentSequencer"]
+
 # ==============================================================================
 # preview — PR ごと（§9.2: pk-pr-{n} / 1 シャード）
 # ==============================================================================
@@ -250,6 +266,20 @@ queue = "pk-notification-preview"
 [[env.preview.queues.producers]]
 binding = "QUEUE_ARCHIVE_RESTORE"
 queue = "pk-archive-restore-preview"
+
+# --- Durable Objects（P0-17）------------------------------------------------
+# architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
+# ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
+# 起動しない。クラスは apps/web/src/index.ts が export する。
+[[env.preview.durable_objects.bindings]]
+name = "DOCUMENT_SEQUENCER"
+class_name = "DocumentSequencer"
+
+# DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
+# クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
+[[env.preview.migrations]]
+tag = "v1"
+new_sqlite_classes = ["DocumentSequencer"]
 
 # ==============================================================================
 # staging — main マージで自動デプロイ（§9.2: pk-staging / 2 シャード）
@@ -346,6 +376,20 @@ queue = "pk-notification-staging"
 [[env.staging.queues.producers]]
 binding = "QUEUE_ARCHIVE_RESTORE"
 queue = "pk-archive-restore-staging"
+
+# --- Durable Objects（P0-17）------------------------------------------------
+# architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
+# ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
+# 起動しない。クラスは apps/web/src/index.ts が export する。
+[[env.staging.durable_objects.bindings]]
+name = "DOCUMENT_SEQUENCER"
+class_name = "DocumentSequencer"
+
+# DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
+# クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
+[[env.staging.migrations]]
+tag = "v1"
+new_sqlite_classes = ["DocumentSequencer"]
 
 # ==============================================================================
 # production — 手動デプロイ（§9.2: pk-prod / 16 シャード）
@@ -516,3 +560,17 @@ queue = "pk-notification"
 [[env.production.queues.producers]]
 binding = "QUEUE_ARCHIVE_RESTORE"
 queue = "pk-archive-restore"
+
+# --- Durable Objects（P0-17）------------------------------------------------
+# architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
+# ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
+# 起動しない。クラスは apps/web/src/index.ts が export する。
+[[env.production.durable_objects.bindings]]
+name = "DOCUMENT_SEQUENCER"
+class_name = "DocumentSequencer"
+
+# DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
+# クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
+[[env.production.migrations]]
+tag = "v1"
+new_sqlite_classes = ["DocumentSequencer"]

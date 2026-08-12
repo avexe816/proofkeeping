@@ -53,6 +53,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@pk/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@pk/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

@@ -18,6 +18,7 @@ import session from "./routes/api/v1/session.js";
  * - 認証 API（/api/v1/auth）: P0-08 / P0-09
  * - middleware（session / tenant / resourceGuard）: P0-10
  * - UI シェル（React Router）: P0-14
+ * - DocumentSequencer（Durable Object）: P0-17
  * - /health: P0-20
  *
  * ── 経路の分かれ方 ──────────────────────────────────────
@@ -85,5 +86,14 @@ app.all("*", async (c) => {
   context.set(cloudflareContext, { env: c.env, ctx: c.executionCtx });
   return handleUiRequest(c.req.raw, context);
 });
+
+/**
+ * Durable Object クラスの公開。**wrangler.toml の `class_name` と対応する。**
+ *
+ * ここに現れないクラスは binding から到達できない。逆に、wrangler.toml へ
+ * binding だけ足してここへ export を足さないと wrangler が起動しない。
+ * 実装した task が両方を同時に足すこと（architecture.md §4 の 4 用途のみ）。
+ */
+export { DocumentSequencer } from "./durable/DocumentSequencer.js";
 
 export default app;
