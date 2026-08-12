@@ -90,6 +90,15 @@ export const ENTITY_PREFIXES = [
   "audit",
   // P0-08 が決めたもの（docs/DECISIONS.md #018）
   "pwh",
+  // P1-01 が決めたもの（docs/DECISIONS.md #032）。
+  // `task` は既に上にある（PK-SPEC-P0 §19.4）。ここは P1-01 が足す 7 表ぶん。
+  "tlog", // taskTimeLog
+  "ctpl", // checklistTemplate
+  "citm", // checklistItem
+  "cres", // taskChecklistResult
+  "photo", // taskPhoto
+  "stdt", // standardTime
+  "plan", // dailyRoomPlan
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

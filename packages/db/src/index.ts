@@ -62,6 +62,13 @@ export {
   type SeedResult,
 } from "./seed.js";
 
+// 既定のチェックリストテンプレート 2 種（P1-06 / PK-SPEC-P1 §6.2）。
+export {
+  SEED_CHECKLIST_TEMPLATES,
+  type SeedChecklistItem,
+  type SeedChecklistTemplate,
+} from "./seedChecklists.js";
+
 // 監査ログのマスク（P0-11）。`recordAudit()` が内側で使う。
 // 呼び出し側が事前にマスクする必要は無いが、ログ出力など別経路でも使える。
 export { MASKED, maskSensitive, serializeAuditPayload } from "./mask.js";
@@ -74,8 +81,10 @@ export { schemaVersion } from "./schema/meta.js";
 // orgShortId の全局レジストリ（P0-06）。組織作成の手順は orgDirectory.ts の冒頭を読むこと。
 export {
   createOrgShortIdTaken,
+  listOrganizationDirectory,
   lookupOrganizationId,
   reserveOrgShortId,
+  type OrganizationDirectoryEntry,
   type ReserveOrgShortIdInput,
 } from "./orgDirectory.js";
 

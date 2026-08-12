@@ -183,6 +183,62 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 
 ---
 
+### #032 タスクの語彙が実装契約書と仕様書で食い違う
+- 提起: 2026-08-12 / P1-01 実装中
+- 内容: `docs/PK-IMPL-CONTRACT.md` §2.1 は `taskType` を
+  `CHECKOUT_CLEAN` / `STAY_CLEAN` / `INSPECTION` / `REWORK`、`status` を
+  `TODO` / `IN_PROGRESS` / `PAUSED` / `ON_HOLD` / `COMPLETED` / `REWORK_REQUIRED`
+  と定める。一方 `docs/PK-SPEC-P1.md` §2.1 は `CHECKOUT` / `STAYOVER` /
+  `DEEP` / `COMMON_AREA` / `RECHECK` と、9 状態（`CREATED` / `ASSIGNED` /
+  `AWAITING_INSPECTION` / `CANCELLED` を含む）を定める。
+  同 §2.4 と §2.1 のチェックリストも食い違う（契約は 3 値 `value`、
+  仕様は `isChecked: Boolean`）。CLAUDE.md §7 は実装契約書を優先すると
+  定めるが、契約書の 6 状態では §5.1 の状態機械を表現できない。
+  **#011（`role` の語彙）と同じ性質の食い違いで、そちらは未回答のまま。**
+- 影響: P1-01（実装済み）、P1-02〜P1-23、P2 の検査フロー、P4 の照合、P5 の請求。
+  **語彙は永続データなので後から変えられない。**
+- 暫定対応: 項目ごとに**表現力の広い側**を採った（`docs/DECISIONS.md` #031）。
+  `taskType` / `status` は仕様書、チェックリストの実施結果は
+  実装契約書の 3 値（INV-22 が不変条件として明示しているため）。
+  人間が裁定したら、**負けたほうの文書を直すこと。** どちらの語彙も
+  ID や enum として保存済みになる前に決めるほど傷が浅い。
+
+### #033 Cron（`scheduled`）が使うテナント文脈のロールが仕様に無い
+- 提起: 2026-08-12 / P1-03 実装中
+- 内容: `TenantContext` は `role` を必須で持ち、`scopeToProperties()` が
+  組織全体か施設スコープかを決めるのに使う（architecture.md §2 第 1 層）。
+  日次バッチ（PK-SPEC-P1 §3.2）はセッションを持たないため、
+  **バッチが名乗るロールが決まっていない。**
+  加えて、組織の一覧を得る手段が SHARD_00 の `org_directory` しかない。
+- 影響: P1-03（実装済み）、および今後の Queue コンシューマ全般
+  （P2-10 / P3-09 / P4-14 / P5-06 / P6-04 / P7-09）。**同じ問いに全部が当たる。**
+- 暫定対応: `listOrganizationDirectory()`（SHARD_00 の 1 表を読むだけ。
+  全シャード走査ではない）を足し、バッチは組織ごとに
+  `role: "ORG_ADMIN"` の文脈を組み立てる。**`ROLES` に `SYSTEM` を
+  足していない**（7 ロールは security.md §1 の語彙で、増やすと権限
+  マトリクスの全セルが動く）。バッチは `assertPermission()` を一度も
+  呼ばないのでロールが認可に効くことはないが、**監査ログを書く
+  コンシューマが出てきたら「誰が操作したか」が説明できなくなる。**
+  そのときまでに、システム操作者の表し方を決めること。
+
+### #034 `room.housekeepingStatus` を持つ表が無い
+- 提起: 2026-08-12 / P1-01 実装中
+- 内容: `docs/PK-SPEC-P1.md` §11.1 はタスクの状態変化に応じて
+  `Room.housekeepingStatus` を `DIRTY` / `IN_PROGRESS` / `READY` /
+  `INSPECTING` / `BLOCKED` へ動かすと定めるが、**その列は
+  `docs/tasks/P1-01.md` の やること（8 表）に無く、`room` にも無い。**
+  客室ステータス同期は `docs/tasks/P1-16.md` の担当。
+- 影響: P1-16、P1-15（W-03 / M-10 の客室ボード）、
+  および OPEN_QUESTIONS #029（rollup の列と客室状態の対応）。
+- 暫定対応: **列を足していない**（task に書かれていないことを実装しない /
+  CLAUDE.md §1-4）。P1-05 の状態遷移は `cleaningTask.status` だけを動かす。
+  P1-16 が `room` に列を追加し、`applyTransition()` の呼び出し側で
+  同期させること。**列の追加は後方互換なので順序の問題は無い**
+  （architecture.md §6）。同期を実装するとき、#029 の
+  「rollup の列と客室状態の対応」も一緒に決められる。
+
+---
+
 ## 解決済
 
 ### #001 フロントエンドフレームワーク

@@ -35,9 +35,12 @@ import type { Env } from "./env.js";
 import { createUlidFactory } from "./id.js";
 import { reserveOrgShortId } from "./orgDirectory.js";
 import { getTenantDb, type ShardContext } from "./router.js";
+import { checklistItem, checklistTemplate } from "./schema/checklist.js";
 import { organization, organizationTaxProfile } from "./schema/organization.js";
 import { building, floor, property, room, roomType } from "./schema/property.js";
+import { standardTime } from "./schema/task.js";
 import { membership, propertyAssignment, user } from "./schema/user.js";
+import { SEED_CHECKLIST_TEMPLATES } from "./seedChecklists.js";
 
 /** シードが使う組織。**本番に存在しない値**であることが分かる名前にする。 */
 export const SEED_ORG_SHORT_ID = "seed01";
@@ -106,6 +109,8 @@ export interface SeedResult {
   properties: number;
   rooms: number;
   cleaners: number;
+  /** 既定のチェックリストテンプレート数（P1-06 / §6.2 の 2 種）。 */
+  checklistTemplates: number;
 }
 
 /**
@@ -221,6 +226,29 @@ export async function seed(
           ...stamps,
         })
         .onConflictDoNothing();
+
+      // 標準時間（P1-02）。**清掃専用の場所には作らない。**
+      // 値は PK-SPEC-P1 §3.1 の既定分数と同じにしてある（シードで
+      // 既定と違う値が入っていると、生成結果の説明がつかなくなる）。
+      if (type.sellable) {
+        for (const [taskType, minutes] of [
+          ["CHECKOUT", 40],
+          ["STAYOVER", 20],
+        ] as const) {
+          await db
+            .insert(standardTime)
+            .values({
+              id: id("stdt"),
+              organizationId,
+              propertyId,
+              roomTypeId,
+              taskType,
+              minutes,
+              ...stamps,
+            })
+            .onConflictDoNothing();
+        }
+      }
     }
 
     // 階は部屋番号の百の位から作る（101 → 1F）。
@@ -282,6 +310,43 @@ export async function seed(
         ...stamps,
       })
       .onConflictDoNothing();
+  }
+
+  // ── 既定のチェックリストテンプレート 2 種（P1-06 / §6.2）─────
+  // **組織共通**（propertyId = null / roomTypeId = null）。テンプレートを
+  // 1 つも作っていない組織でも、タスクにチェックリストが付く。
+  for (const template of SEED_CHECKLIST_TEMPLATES) {
+    const templateId = id("ctpl");
+    await db
+      .insert(checklistTemplate)
+      .values({
+        id: templateId,
+        organizationId,
+        propertyId: null,
+        roomTypeId: null,
+        taskType: template.taskType,
+        name: template.name,
+        version: 1,
+        ...stamps,
+      })
+      .onConflictDoNothing();
+
+    for (const [itemIndex, entry] of template.items.entries()) {
+      await db
+        .insert(checklistItem)
+        .values({
+          id: id("citm"),
+          organizationId,
+          templateId,
+          section: entry.section,
+          labels: entry.labels,
+          isRequired: entry.isRequired,
+          photoRequired: entry.photoRequired,
+          sortOrder: itemIndex,
+          ...stamps,
+        })
+        .onConflictDoNothing();
+    }
   }
 
   // ── 管理者 1 名 ──────────────────────────────────────
@@ -352,5 +417,6 @@ export async function seed(
     properties: SEED_PROPERTIES.length,
     rooms: roomCount,
     cleaners: SEED_CLEANER_COUNT,
+    checklistTemplates: SEED_CHECKLIST_TEMPLATES.length,
   };
 }

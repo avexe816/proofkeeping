@@ -30,6 +30,62 @@ export {
 
 export { isModuleEnabled, listEnabledModules } from "./entitlement.js";
 
+// 清掃タスク（P1-01 / P1-03 / P1-05）。
+export {
+  appendTimeLog,
+  applyTransition,
+  assignTasks,
+  cancelPlannedTasks,
+  countPhotosByChecklistItem,
+  countTasksByStatus,
+  createTasks,
+  findTaskById,
+  findTaskByShortId,
+  findTimeLogByIdempotencyKey,
+  listShortIds,
+  listTasks,
+  listTimeLogs,
+  reviveCancelledTasks,
+  updatePlannedTasks,
+  type AppendTimeLogInput,
+  type ApplyTransitionInput,
+  type CreateTaskInput,
+  type CreateTasksResult,
+  type TaskFilter,
+  type UpdatePlanInput,
+} from "./cleaningTask.js";
+
+// チェックリスト（P1-06）。
+export {
+  createTemplate,
+  deactivateTemplate,
+  expandChecklist,
+  listChecklistResults,
+  listTemplateItems,
+  listTemplates,
+  listTemplatesForProperty,
+  recordChecklistResult,
+  replaceTemplateItems,
+  type CreateChecklistItemInput,
+  type CreateTemplateInput,
+  type ExpandChecklistInput,
+  type RecordChecklistResultInput,
+} from "./checklist.js";
+
+// 標準時間マスタ（P1-02）。
+export {
+  listStandardTimes,
+  upsertStandardTimes,
+  type StandardTimeInput,
+} from "./standardTime.js";
+
+// 当日の客室状況（P1-04）。
+export {
+  listRoomPlans,
+  upsertRoomPlans,
+  type RoomPlanInput,
+} from "./roomPlan.js";
+
 export {
   findOrganization,
   findTaxProfile,

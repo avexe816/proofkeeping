@@ -14,6 +14,7 @@
     "@pk/billing": "workspace:*",
     "@pk/contracts": "workspace:*",
     "@pk/db": "workspace:*",
+    "@pk/engine": "workspace:*",
     "hono": "^4.6.0",
     "isbot": "^5.1.0",
     "react": "^19.2.7",

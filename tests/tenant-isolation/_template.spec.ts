@@ -64,6 +64,15 @@ const TENANT_TABLES = [
   "external_mapping",
   "subscription",
   "user",
+  // P1-01。清掃タスクとその周辺（PK-SPEC-P1 §2.1）。
+  "cleaning_task",
+  "task_time_log",
+  "task_photo",
+  "standard_time",
+  "daily_room_plan",
+  "checklist_template",
+  "checklist_item",
+  "task_checklist_result",
 ] as const;
 
 /**
