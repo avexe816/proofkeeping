@@ -256,6 +256,36 @@ export async function getTenantDb(
   return drizzle(await getShardBinding(env, ctx.organizationId), { schema: tenantSchema });
 }
 
+/**
+ * 宣言されているシャードの binding を、番号の昇順で列挙する。
+ *
+ * **用途はヘルスチェック（P0-20）だけ。** テナントデータの読み書きに使わない。
+ * 返る配列は「どの組織か」を持たないので、ここから引いたクエリには
+ * `organizationId` 条件が載らない。**リポジトリ層の代わりにしないこと。**
+ *
+ * `SHARD_COUNT` に対して binding が足りない場合は落とさず、
+ * **足りない旨を呼び出し側が数えられる形**で返す。ヘルスチェックが
+ * 例外で落ちると「どこが欠けているか」を報告できなくなる。
+ *
+ * この関数がここに在るのは `env.SHARD_XX` へ触れてよいのが
+ * `router.ts` だけだから（architecture.md §1 / ESLint allowlist）。
+ * **シャード番号を返り値に含めない。** 添字は配列の位置として持ち、
+ * 呼び出し側が外へ出すのは件数だけ（同 §1「番号を露出しない」）。
+ */
+export function listShardDatabases(env: Env): {
+  expected: number;
+  declared: readonly D1Database[];
+} {
+  const expected = readShardCount(env);
+  const declared: D1Database[] = [];
+  for (let idx = 0; idx < expected; idx++) {
+    const key = `SHARD_${String(idx).padStart(2, "0")}` as keyof Env;
+    const db = env[key] as D1Database | undefined;
+    if (db) declared.push(db);
+  }
+  return { expected, declared };
+}
+
 /** 全局テーブルを置くシャード。仕様 §19.2 の「開発・検証は SHARD_00 のみ」と揃う。 */
 const GLOBAL_SHARD_INDEX = 0;
 

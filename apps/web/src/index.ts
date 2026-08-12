@@ -8,6 +8,7 @@ import {
   useTenantMiddleware,
   type AppEnv,
 } from "./middleware/index.js";
+import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
 import session from "./routes/api/v1/session.js";
 
@@ -19,7 +20,7 @@ import session from "./routes/api/v1/session.js";
  * - middleware（session / tenant / resourceGuard）: P0-10
  * - UI シェル（React Router）: P0-14
  * - DocumentSequencer（Durable Object）: P0-17
- * - /health: P0-20
+ * - /api/health: P0-20
  *
  * ── 経路の分かれ方 ──────────────────────────────────────
  *   /api/**   Hono。JSON を返す。応答の形は `packages/contracts` が定義する
@@ -41,6 +42,10 @@ const app = new Hono<AppEnv>();
  */
 app.onError(apiErrorHandler());
 app.notFound(apiNotFoundHandler());
+
+// ヘルスチェック（P0-20）。**認証を要求しない唯一の API。**
+// セッション middleware より前段に置く。監視はセッションを持てない。
+app.route("/api/health", health);
 
 // 認証だけはセッション middleware（P0-10）より前段に置く。
 // セッションを作る経路がセッションを要求すると入口が無くなる。
