@@ -1,94 +1,85 @@
 # 実装進捗
 
-最終更新: 2026-08-12（P0-14 完了）
+最終更新: 2026-08-12（P0-15〜P0-22 完了。**P0 は P0-02 を残すのみ**）
 
 ## 現在のセッション
 
 ```
-task: P0-14 UI シェル
-状態: 完了。**シェルだけ。各画面の中身は後続 task。**
-      OPEN_QUESTIONS #001 を解決（DECISIONS #026）。**UI は React Router v8 の
-      framework mode**（Remix の直系後継）+ @cloudflare/vite-plugin。
-      apps/web は **API（Hono）と画面（React Router）が 1 つの Worker に同居**する。
-      src/index.ts の catch-all が /api/** 以外を createRequestHandler() へ渡す。
-      **既存 API の応答形は 1 つも変えていない。**
+task: P0-15 i18n / P0-16 事業者税務 / P0-17 DocumentSequencer / P0-18 seed /
+      P0-19 CI/CD / P0-20 ヘルスチェック / P0-21 施設セレクタ / P0-22 客室マスタ
+状態: 8 task 完了。**P0-23 は存在しない**（P0 は P0-22 まで。docs/tasks/ の
+      P0〜P7 は 137 件で、P0 の最終番号は 22）。
+      これで **P0 の残りは P0-02（Cloudflare リソース作成）だけ**になった。
 
-      P0-04 からの申し送り（tsconfig の jsx と include）を消化した。
-      `jsx: "react-jsx"` / `src/**/*.tsx` を入れ、**pk/no-literal-string と
-      pk/no-forbidden-words が実ファイルに当たることを確認した**（実際に日本語を
-      直書きした .tsx で検出されることを確かめた）。設定が外れると
-      tests/toolchain/workspace.spec.ts が落ちる。
+      P0-15: 文言を locales/{ja,en}.json へ。MessageKey は ja.json のキーから
+             導き、en は部分集合でよい（欠けたキーは ja へ落ちる）。
+             **ESLint は .json を解析しない**ため、禁止語の検査を
+             locales.spec.ts へ二重化した（語彙表は
+             rules/forbidden-words-list.js が唯一の出どころ）。
+      P0-16: W-11 = /app/settings/tax。角印は R2 + 15 分の署名付き URL
+             （R2 binding に presign が無いので HMAC を自前で作る）。
+      P0-17: DO の粒度は 組織 × 文書種別 × 年度。**年度が名前に入っていることが
+             「会計年度でリセット」の実装。** カウンタは同期で進めてから永続化する
+             （逆順は重複を生む）。500 並列で欠番・重複ゼロを検証済み。
+      P0-18: packages/db/src/seed.ts。**pinSchema → hashPin の順を必ず通す。**
+             冪等性は決定的 ID と onConflictDoNothing の両方で担保。
+      P0-19: 8 ジョブを独立させた。e2e は接続先が無い間は未実施で緑、
+             E2E_BASE_URL を渡すと落ちる（素通しを防ぐため）。
+      P0-20: **GET /api/health の 1 経路のみ。** 件数と真偽だけを返す。
+      P0-21: dailyPropertyRollup を追加。summary は 60 秒 KV キャッシュ。
+             `"ALL"` の拒否だけ 403（DECISIONS #029）。
+      P0-22: 範囲一括登録・CSV 取込。externalMapping は定義のみ。
+次: **P0-02 Cloudflare リソース作成。** 下の申し送りのうち、実機確認・
+    preview・db:seed・16 シャード適用は**すべて P0-02 の完了待ち**で詰まっている。
+    P0-02 が終われば P1 へ進める。
 
-      作った画面: /login（3 フィールド最小）/ /logout / /app のシェル /
-      /app/dashboard（空の器）/ /app/switch-property（action のみ）。
-      API に POST /api/v1/auth/switch-property を追加（画面と同じ関数を呼ぶ）。
-      施設の選択は SessionRecord の省略可能フィールド（DECISIONS #027）。
-      未購入モジュールはグレー＋案内、権限が無い項目は**非表示**（存在を示唆しない）。
+--- P0-15〜P0-22 からの申し送り ---
+申し送り 1: **`P0-23` は存在しない。** 指示に P0-23 が含まれていたが、
+            docs/tasks/ の P0 は P0-22 が最後（CLAUDE.md §7 の「137 件」と一致）。
+            P0-23 の task ファイルは作っていない。
 
-      テスト 42 件を追加し、pnpm check（lint + typecheck + test 754 件 / skip 2）が通る。
-      さらにローカル（SHARD_COUNT=1）の実 D1 + KV に手作業のデータを入れ、
-      **ログイン → シェル表示 → 施設切替 → リロードで維持 → ログアウト**を
-      実際に通した（下の「実機の状況」）。
-次: P0-15 i18n 基盤。**P0-02 は依然として未完。**
-申し送り a: **完了条件「iPhone Safari と Android Chrome でログインできる」は未達。**
-            実機の確認ができていない（この環境にブラウザが無い）。ローカルでは
-            上記の一連の操作が通っている。**実機確認は P0-02（実リソース）と
-            P0-18（seed）の完了後に、誰かが端末で行うこと。**
-申し送り b: **t() は文言カタログの引き当てだけ。** apps/web/src/lib/i18n.ts と
-            src/locales/ja.ts。**言語の選択・en の雛形・ユーザー属性での保持は
-            P0-15 が実装する。** ja.ts をそのまま JSON へ移せる形にしてある
-            （キーは画面ごとの接頭辞つき）。ブラウザ言語は参照していない。
-申し送り c: **施設セレクタは select 1 つ。** v3 標準（PK-SPEC-UI-A01 §2）が
-            要求する**状態サマリーの 3 数字・全社サマリー・8 施設超の検索は P0-21。**
-            どれも dailyPropertyRollup と GET /api/v1/properties/summary を前提に
-            していて、まだ無い。数字の入らないミニバッジを先に置いていない。
-申し送り d: **`"ALL"`（全社サマリー）を受け付ける口を開けていない。** P0-21 が
-            packages/contracts/src/session.ts の schema を union へ広げ、
-            全社ビューを持つロールの判定（PROPERTY_MANAGER は 403）と
-            **`"ALL"` への切替の監査ログ**（§23.4）を同時に足すこと。
-申し送り e: **URL に施設 ID を含めていない。** PK-SPEC-P0 §23.5 の
-            `/app/p/{propertyId}/board` と「URL を正としてセッションを更新」は P0-21。
-            P0-14 は /app/dashboard だけを実在させた。
-申し送り f: **ナビの action は暫定。** P0-10 が「各画面の権限はその画面を作る task が
-            PERMISSION_ACTIONS に 1 行足す」と定めており、画面固有の行はまだ無い。
-            PLANNED の項目には**到達の前提として最低限必要な操作**（property.read など）を
-            置いてある。**各画面の task が自分の行を足して差し替えること。**
-            navigation.spec.ts が「全項目の action が実在すること」を固定している。
-申し送り g: **通知（topbar 右の鈴）を置いていない。** A01 §3.2 はバッジの規定を
-            定めるが、数える対象が P0 に無い。0 件ならバッジを出さない規定に従うと
-            常に空になる。**通知を作る task が topbar のユーザーの左隣に足す。**
-申し送り h: **ユーザーメニューの項目はログアウトのみ。** A01 §3.3 の 5 項目のうち
-            実体があるのはこれだけ（言語は P0-15、通知は P2 以降、
-            アカウント設定は P0 に task が無い）。押しても何も起きない項目を置かない。
-申し送り i: **Tailwind / shadcn を導入していない**（DECISIONS #028）。
-            src/styles/app.css は v3 の寸法（58px / 214px）とトークンだけ。
-            **ここに部品のスタイルを増やさないこと。** 最初に本格的な画面を作る
-            task が Tailwind を入れて置き換える。
-申し送り j: **switch-property に Idempotency-Key を要求していない。** CLAUDE.md §5 は
-            状態変更 API に対応を求めるが、この操作は同じ入力を何度送っても
-            結果が同じで、採番も課金も伴わない。**キーの記録という別の状態を
-            増やさない判断。** 採番や金額を伴う API では必ず対応すること。
-```
+申し送り 2: **`main` への直接 push の禁止（P0-19 の完了条件）は未達。**
+            branch protection はリポジトリ設定であってワークフローでは表せない。
+            GitHub 側で以下を有効にすること（人間の操作）。
+              - Require a pull request before merging
+              - Require status checks: lint / typecheck / test / test-isolation /
+                migrate / forbidden-words / e2e / build
 
-## 実機の状況（P0-14 時点）
+申し送り 3: **`pnpm db:seed` を配線していない**（OPEN_QUESTIONS #031）。
+            シードの実体と入口（`runSeed()`）はあるが、node から直接呼べず、
+            bindings も無い。P0-02 の完了後に `wrangler dev` から呼べる
+            入口を足すこと。
 
-```
-確認済み（ローカル / vite dev / SHARD_COUNT=1 / 実 D1・KV）:
-  GET  /                    → 302 /login
-  GET  /app/dashboard       → 302 /login?next=%2Fapp%2Fdashboard
-  POST /login               → 302 /app/dashboard + pk_session（Max-Age 43200 = 12 時間）
-  GET  /app/dashboard       → 200。topbar（ブランド・施設セレクタ・氏名・
-                              「オーナー · 全施設」バッジ）、sidebar（4 セクション、
-                              未契約モジュールは「ご契約に含まれていません」、
-                              未実装は「準備中」）、フッター「閲覧範囲：組織全体」
-  POST /app/switch-property → 302。**リロード後も切替後の施設が選択されている**
-  POST /api/v1/auth/switch-property → 200 / 別組織の ID は 404
-  POST /logout              → 302 /login。以後 /app/* は /login へ戻る
-  GET  /api/v1/auth/login（不正な本体） → 400 INVALID_REQUEST（JSON のまま）
+申し送り 4: **Playwright を入れていない**（P0-19）。`pnpm test:e2e` は
+            `E2E_BASE_URL` が無ければ未実施で 0、あればシナリオ不在で 1。
+            preview が用意できた時点で必ず気付く形にしてある。
 
-未確認:
-  - iPhone Safari / Android Chrome（実機。申し送り a）
-  - preview / staging / production（P0-02 が未完で実リソースが無い）
+申し送り 5: **`schema_version` 不一致で書き込み系 API を 503 にする middleware が
+            未実装**（§19.8 / P0-20 の完了条件）。毎リクエストで 16 シャードを
+            引けないのでキャッシュ設計が要る。判定の実体（`checkHealth()`）はある。
+
+申し送り 6: **Sentry を入れていない**（OPEN_QUESTIONS #030）。採用可否が
+            PK-SPEC-P0 §20 で未決。決まったら `apiErrorHandler()` の 1 か所に
+            足すこと。**各所に散らさない。**
+
+申し送り 7: **施設サマリーの 3 数字は rollup の列名のまま返している**
+            （OPEN_QUESTIONS #029 / DECISIONS #030）。§23.3 の
+            `ready` / `inProgress` / `dirty` は客室状態の数で、rollup が持つのは
+            タスクの数。対応が仕様に無い。**客室ステータスを持つ P1 が決めること。**
+            P0 の間 rollup は常に空なので表示は変わらない。
+
+申し送り 8: **客室の無効化時に「未完了タスクが N 件あります」を出していない**
+            （§24.5 / P0-22 の完了条件）。`cleaningTask` が P1 の表で、
+            数える対象が無い。タスクを作る task が足すこと。
+
+申し送り 9: **`"ALL"` の拒否だけ 403 を返す**（DECISIONS #029）。
+            語彙は `SCOPE_ERROR_CODES` に閉じてあり、共通の
+            `API_ERROR_CODES` には足していない。**この例外を施設 ID へ
+            広げないこと。** 施設 ID の拒否は今までどおり 404（INV-31）。
+
+申し送り 10: **署名付き URL で読めるのは `seals/` だけ**（`storage/prefix.ts`）。
+            清掃写真をここへ載せないこと。写真は別のキー体系と保持期間を持つ
+            （security.md §4）。載せる task が判定と経路を自分で足すこと。
 ```
 
 --- P0-11 / P0-12 / P0-13 からの申し送り（継続）---
@@ -412,14 +403,52 @@ task: P0-07 リポジトリ層の雛形
   - t() は文言カタログの引き当てだけ。**言語の選択と en は P0-15。**
   - 完了条件のうち**実機（iPhone Safari / Android Chrome）は未確認。**
     ローカルではログイン〜施設切替〜ログアウトを通してある。
-- [ ] P0-15 i18n 基盤
-- [ ] P0-16 事業者・税務マスタ画面
-- [ ] P0-17 DocumentSequencer（Durable Object）
-- [ ] P0-18 seed データ
-- [ ] P0-19 CI/CD
-- [ ] P0-20 ヘルスチェックと監視
-- [ ] P0-21 施設セレクタ
-- [ ] P0-22 客室マスタ 方式A
+- [x] P0-15 i18n 基盤
+  - 文言は `locales/{ja,en}.json`。`MessageKey` は ja.json のキーから導く。
+    **en は部分集合でよい**（欠けたキーは ja へ落ちる。キー名は返さない）。
+  - `resolveLocale()` はユーザー属性 → 組織既定 → ja の 3 段のみ。
+  - **補間を実装していない。** 7 言語で語順が変わるため（i18n.ts の注記）。
+  - 契約 §7.1 の残り 5 言語は `LOCALES` に載せていない。翻訳が揃ってから足す。
+- [x] P0-16 事業者・税務マスタ画面
+  - `/app/settings/tax`。登録番号は `T` + 数字 13 桁。**検算はしない。**
+  - 未設定は誤りではない。入力を強制せず事実として述べるだけ。
+  - 角印は R2 + 15 分の署名付き URL。**署名で読めるのは `seals/` だけ。**
+- [x] P0-17 DocumentSequencer（Durable Object）
+  - 粒度は 組織 × 文書種別 × 年度。**リセット API は作らない**（年度が
+    インスタンス名に入っていることがリセットの実装そのもの）。
+  - **カウンタは同期で進めてから永続化する。** 欠番は許し、重複は許さない。
+  - 番号を戻す API を作らない。500 並列で欠番・重複ゼロを検証済み。
+  - wrangler.toml の `[[migrations]] tag = "v1"` を**書き換えないこと。**
+- [x] P0-18 seed データ
+  - 3 施設 120 室 + 清掃専用 3 室、清掃スタッフ 15 名、管理者 1 名。
+  - **PIN は pinSchema → hashPin の順。** ハッシュ化は注入で受ける。
+  - 冪等性は決定的 ID と onConflictDoNothing の**両方**で担保。
+  - **`pnpm db:seed` は未配線**（OPEN_QUESTIONS #031 / P0-02 待ち）。
+- [x] P0-19 CI/CD
+  - 8 ジョブを独立させた。`migrate` は drizzle-kit check（実 D1 へ接続しない）。
+  - **`main` への直接 push の禁止は未達。** branch protection は人間の操作。
+  - preview デプロイは secrets が無ければ何もせず抜ける（P0-02 待ち）。
+  - **Playwright は未導入。** e2e は接続先が無い間は未実施で緑。
+- [x] P0-20 ヘルスチェックと監視
+  - **`GET /api/health` の 1 経路のみ。** 認証を要求しない。
+  - 返すのは件数と真偽だけ。**シャード番号を出さない**（spec で押さえてある）。
+  - **未達: `schema_version` 不一致での書き込み 503（§19.8）と Sentry。**
+    後者は採用可否が未決（OPEN_QUESTIONS #030）。
+- [x] P0-21 施設セレクタ
+  - `dailyPropertyRollup` を追加。**施設サマリーはここからのみ取る。**
+    客室数だけは客室マスタから数える（rollup に室数の列が無い）。
+  - 60 秒キャッシュは CONFIG KV。**キーにロールと担当施設を含める。**
+  - `"ALL"` は全社ビューを持たないロールに **403**（DECISIONS #029）。
+    施設 ID の拒否は 404 のまま。切替の監査ログは `"ALL"` のみ。
+  - URL を正としてセッションを更新する。権限外の propertyId は 404。
+  - **3 数字は rollup の列名のまま**（OPEN_QUESTIONS #029）。P1 が決める。
+- [x] P0-22 客室マスタ 方式A
+  - `Room` の 3 カラムは P0-06 の CREATE TABLE に既に入っていた（ALTER 不要）。
+  - 範囲一括登録と CSV 取込は純粋関数。**重複判定を持ち込まない**
+    （リポジトリ層の onConflictDoNothing が唯一の判定）。
+  - 欠番除外は**利用者が明示した番号だけ。** 4 を自動で飛ばさない。
+  - `externalMapping` は**定義のみ**（読み書きは P6）。
+  - **未達: 無効化時の未完了タスク件数の提示**（§24.5）。P1 待ち。
 
 ## Phase 1 — 清掃現場の最小成立（M2–M3）
 
