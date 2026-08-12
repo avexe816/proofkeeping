@@ -71,6 +71,9 @@ export const AUDIT_ACTIONS = {
   "room.statusOverridden": { requiresReason: true },
   // 観察記録の事後修正（**理由必須**。事後の書き換えは理由なしに残さない）
   "observation.amended": { requiresReason: true },
+  // 表示スコープを全社サマリーへ切り替えた（PK-SPEC-P0 §23.4）。
+  // **施設どうしの切替は記録しない。** 頻度が高くノイズになる。
+  "session.scopeSwitchedToAll": { requiresReason: false },
   // 差異レポートのステータス変更
   "finding.statusChanged": { requiresReason: false },
   // 帳票の発行・訂正・送付

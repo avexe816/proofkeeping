@@ -35,6 +35,7 @@ import * as auditRepo from "./audit.js";
 import * as entitlementRepo from "./entitlement.js";
 import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
+import * as rollupRepo from "./rollup.js";
 import * as roomRepo from "./room.js";
 import * as userRepo from "./user.js";
 
@@ -44,6 +45,7 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   entitlement: entitlementRepo,
   organization: organizationRepo,
   property: propertyRepo,
+  rollup: rollupRepo,
   room: roomRepo,
   user: userRepo,
 };
@@ -131,6 +133,17 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => organizationRepo.findTaxProfile(env, ctx),
   },
   {
+    name: "organization.updateTaxProfile",
+    kind: "tenant",
+    run: (env, ctx) =>
+      organizationRepo.updateTaxProfile(env, ctx, {
+        legalName: "サンプル運営株式会社",
+        invoiceRegistrationNumber: null,
+        defaultTaxRoundingMode: "ROUND",
+        fiscalYearStartMonth: 4,
+      }),
+  },
+  {
     name: "property.listProperties",
     kind: "tenant",
     run: (env, ctx) => propertyRepo.listProperties(env, ctx, { isActive: true }),
@@ -161,6 +174,33 @@ const INVOCATIONS: Invocation[] = [
     kind: "tenant",
     run: (env, ctx) => roomRepo.findRoomById(env, ctx, OWN_ID.room),
     crossTenant: (env, ctx) => roomRepo.findRoomById(env, ctx, OTHER_ID.room),
+  },
+  {
+    name: "room.countSellableRoomsByProperty",
+    kind: "tenant",
+    run: (env, ctx) => roomRepo.countSellableRoomsByProperty(env, ctx),
+  },
+  {
+    name: "room.createRooms",
+    kind: "tenant",
+    run: (env, ctx) =>
+      roomRepo.createRooms(env, ctx, [{ propertyId: OWN_ID.property, roomNumber: "301" }]),
+  },
+  {
+    name: "room.updateRoom",
+    kind: "tenant",
+    run: (env, ctx) => roomRepo.updateRoom(env, ctx, OWN_ID.room, { note: "メモ" }),
+    crossTenant: (env, ctx) => roomRepo.updateRoom(env, ctx, OTHER_ID.room, { note: "メモ" }),
+  },
+  {
+    name: "rollup.listPropertyRollups",
+    kind: "tenant",
+    run: (env, ctx) => rollupRepo.listPropertyRollups(env, ctx, "2026-08-12"),
+  },
+  {
+    name: "rollup.findPropertyRollup",
+    kind: "tenant",
+    run: (env, ctx) => rollupRepo.findPropertyRollup(env, ctx, OWN_ID.property, "2026-08-12"),
   },
   {
     name: "user.listUsers",

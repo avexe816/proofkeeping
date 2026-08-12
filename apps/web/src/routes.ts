@@ -17,14 +17,21 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  *   /app/dashboard        レイアウト確認用の空の画面
  *   /app/switch-property  施設の切替（action のみ）
  *
- * 各画面の中身は後続 task。**URL に施設 ID を含める形
- * （`/app/p/{propertyId}/board` — PK-SPEC-P0 §23.5）は P0-21 が入れる。**
+ * ── P0-21 が足した画面 ──────────────────────────────────
+ *   /app/p/:propertyId/board  施設 1 件（URL を正としてセッションを更新）
+ *   /app/org/dashboard        全社サマリー（全社ビューを持つロールのみ）
  */
 export default [
   index("routes/home.ts"),
   route("login", "routes/login.tsx"),
   route("logout", "routes/logout.ts"),
-  layout("routes/app/layout.tsx", [route("app/dashboard", "routes/app/dashboard.tsx")]),
+  layout("routes/app/layout.tsx", [
+    route("app/dashboard", "routes/app/dashboard.tsx"),
+    route("app/p/:propertyId/board", "routes/app/propertyBoard.tsx"),
+    route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
+    route("app/settings/rooms", "routes/app/rooms.tsx"),
+    route("app/settings/tax", "routes/app/taxProfile.tsx"),
+  ]),
   // シェルの外に置く。POST のたびにシェルの loader を動かす必要が無い
   // （切替後のリダイレクトで、どのみち loader は動き直す）。
   route("app/switch-property", "routes/app/switchProperty.ts"),

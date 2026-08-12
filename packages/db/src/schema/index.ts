@@ -47,3 +47,9 @@ export {
 } from "./billing.js";
 
 export { auditLog } from "./audit.js";
+
+// 日次の施設別集計（P0-21）。施設サマリーはここだけを読む（§26 の絶対ルール）。
+export { dailyPropertyRollup } from "./rollup.js";
+
+// 外部システムとの ID 対応（P0-22 は定義のみ。使用は P6）。
+export { EXTERNAL_ENTITY_TYPES, externalMapping } from "./integration.js";

@@ -24,14 +24,34 @@ export {
   type PinLoginResponse,
 } from "./auth.js";
 
-// 表示中の施設の切り替え（P0-14）。`"ALL"` を足すのは P0-21。
+// 表示中の施設の切り替え（P0-14 / P0-21 で `"ALL"` を追加）。
 export {
+  ALL_PROPERTIES,
+  SCOPE_ERROR_CODES,
   propertyIdSchema,
+  propertyScopeSchema,
+  scopeErrorSchema,
   switchPropertyRequestSchema,
   switchPropertyResponseSchema,
+  type PropertyScopeValue,
+  type ScopeErrorCode,
   type SwitchPropertyRequest,
   type SwitchPropertyResponse,
 } from "./session.js";
+
+// 施設サマリー（P0-21）。rollup テーブルからのみ組み立てる（§26 の絶対ルール）。
+export {
+  SEAL_IMAGE,
+  TAX_ROUNDING_MODES,
+  businessDateSchema,
+  invoiceRegistrationNumberSchema,
+  propertySummaryResponseSchema,
+  propertySummarySchema,
+  taxProfileUpdateSchema,
+  type PropertySummary,
+  type PropertySummaryResponse,
+  type TaxProfileUpdate,
+} from "./property.js";
 
 // middleware 共通のエラー応答（P0-10）。**403 を足さないこと**（INV-31）。
 export {

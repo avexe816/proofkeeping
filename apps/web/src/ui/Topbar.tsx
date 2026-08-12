@@ -3,6 +3,8 @@ import type { Role } from "@pk/db";
 import { t } from "../lib/i18n.js";
 import type { SelectableProperty } from "../lib/property/selection.js";
 
+import type { PropertySummary } from "@pk/contracts";
+
 import { PropertySwitcher } from "./PropertySwitcher.js";
 import { UserMenu } from "./UserMenu.js";
 
@@ -28,6 +30,12 @@ export function Topbar(props: {
   isOrgWide: boolean;
   properties: readonly SelectableProperty[];
   selectedPropertyId: string | null;
+  /** `"ALL"`（全社サマリー）を選んでいるか（P0-21）。 */
+  isOrgScope: boolean;
+  /** 全社サマリーを持つロールか。**非表示だけで済ませない**（§23.1）。 */
+  canViewOrgWide: boolean;
+  /** ミニバッジの元（§23.3）。読めていなければ空。 */
+  summaries: readonly PropertySummary[];
 }) {
   return (
     <header className="pk-topbar">
@@ -35,6 +43,9 @@ export function Topbar(props: {
       <PropertySwitcher
         properties={props.properties}
         selectedPropertyId={props.selectedPropertyId}
+        isOrgScope={props.isOrgScope}
+        canViewOrgWide={props.canViewOrgWide}
+        summaries={props.summaries}
       />
       <div className="pk-topbar__right">
         <UserMenu displayName={props.displayName} role={props.role} isOrgWide={props.isOrgWide} />

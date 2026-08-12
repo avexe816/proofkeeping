@@ -10,6 +10,8 @@ import {
 } from "./middleware/index.js";
 import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
+import files from "./routes/api/v1/files.js";
+import properties from "./routes/api/v1/properties.js";
 import session from "./routes/api/v1/session.js";
 
 /**
@@ -68,6 +70,10 @@ useTenantMiddleware(api);
 // 認証済みでなければ意味が無いので、上の `auth`（未認証で通る側）ではなく
 // こちらへ載せる。
 api.route("/auth", session);
+// 施設サマリー（P0-21）。rollup からのみ組み立て、60 秒 KV キャッシュ。
+api.route("/properties", properties);
+// 署名付き URL の受け口（P0-16）。角印だけ。**写真をここへ載せない。**
+api.route("/files", files);
 app.route("/api/v1", api);
 
 /**
