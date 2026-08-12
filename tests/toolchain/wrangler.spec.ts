@@ -219,19 +219,40 @@ describe("P0-02 wrangler.toml の構成", () => {
     }
   });
 
-  it("未作成リソースのプレースホルダがパス安全で一意に識別できる", () => {
+  it("リソース ID が実 ID かプレースホルダのどちらかで、パス安全である", () => {
     // miniflare は KV の id と D1 の database_id を .wrangler/state 配下の
     // ディレクトリ名に使う。空白・コロン・引用符が入るとローカル起動が壊れる。
+    //
+    // ── 実 ID の本数を数えないこと ──────────────────────
+    // **P0-02 は ID を順次埋めていく task。** かつてここは
+    // 「実 ID は shard-00 の 2 本だけ」と件数で固定していたが、
+    // それだと P0-02 が 1 本埋めるたびにこのテストが落ちる。
+    // **守るべき作業そのもので落ちる検査は、検査になっていない。**
+    // 見るのは「その値が何であるか」だけにする。
+    //
+    //   実 ID          … Cloudflare の識別子の形（32 桁の 16 進 / UUID）
+    //   プレースホルダ … `TODO-P0-02-...`（`grep TODO-P0-02` で全件拾える）
+    //
+    // 推測した UUID を書くと**実 ID の形をしているので通ってしまう。**
+    // そこは形式では防げない。デプロイが失敗することで気付く。
+    const CLOUDFLARE_ID = /^[0-9a-f]{32}$/;
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
     const ids = ENVIRONMENTS.flatMap(({ section }) => [
       ...(section.d1_databases ?? []).map((entry) => entry.database_id),
       ...(section.kv_namespaces ?? []).map((entry) => entry.id),
     ]);
-    const placeholders = ids.filter((id) => id.startsWith("TODO"));
+    expect(ids.length).toBeGreaterThan(0);
 
-    // 実 ID が入っているのは shard-00 の 2 本だけ。残りはすべて未作成。
-    expect(placeholders).toHaveLength(ids.length - 2);
-    for (const placeholder of placeholders) {
-      expect(placeholder).toMatch(/^TODO-P0-02-[^\s:"]+$/);
+    for (const id of ids) {
+      // 空白・コロン・引用符を含まない（プレースホルダも実 ID も共通）。
+      expect(id, id).toMatch(/^[^\s:"]+$/);
+
+      if (id.startsWith("TODO")) {
+        expect(id, id).toMatch(/^TODO-P0-02-[^\s:"]+$/);
+      } else {
+        expect(CLOUDFLARE_ID.test(id) || UUID.test(id), id).toBe(true);
+      }
     }
   });
 
