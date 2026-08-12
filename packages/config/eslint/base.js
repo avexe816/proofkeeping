@@ -25,6 +25,8 @@ export default tseslint.config(
       "**/build/**",
       "**/coverage/**",
       "**/.wrangler/**",
+      // React Router の型生成物（P0-14）。生成コードは検査しない。
+      "**/.react-router/**",
       "ui-prototypes/**",
     ],
   },
@@ -50,10 +52,24 @@ export default tseslint.config(
   },
   {
     // ui-writing.md §1: UI 文字列を JSX に直書きしない。
-    // 現時点で .tsx は 1 件も無い（UI フレームワーク未決 / OPEN_QUESTIONS #001）。
+    // P0-14 で apps/web に .tsx が入り、このルールが実ファイルに当たるようになった
+    // （tsconfig の jsx / include — OPEN_QUESTIONS #001）。
     files: ["**/*.tsx"],
     rules: {
       "pk/no-literal-string": "error",
+    },
+  },
+  {
+    // React Router（P0-14）は loader / action からの `throw redirect(...)` を
+    // 制御の手段として使う。redirect() が返すのは `Response` で `Error` ではない。
+    // **`Error` 以外を投げてよいのはこの形だけ。** 文字列やオブジェクトを
+    // 投げる余地は残さない。
+    files: ["apps/web/src/routes/**/*.{ts,tsx}", "apps/web/src/lib/ui/**/*.ts"],
+    rules: {
+      "@typescript-eslint/only-throw-error": [
+        "error",
+        { allow: [{ from: "package", package: "@cloudflare/workers-types", name: "Response" }] },
+      ],
     },
   },
   {

@@ -1,5 +1,7 @@
 import { Hono } from "hono";
+import { createRequestHandler, RouterContextProvider } from "react-router";
 
+import { cloudflareContext } from "./lib/ui/cloudflare.js";
 import {
   apiErrorHandler,
   apiNotFoundHandler,
@@ -7,14 +9,23 @@ import {
   type AppEnv,
 } from "./middleware/index.js";
 import auth from "./routes/api/v1/auth.js";
+import session from "./routes/api/v1/session.js";
 
 /**
- * Workers のエントリポイント。
+ * Workers のエントリポイント。**API（Hono）と画面（React Router）が同居する。**
  *
  * - wrangler.toml と bindings: P0-02（完了。binding の型は `Env`）
  * - 認証 API（/api/v1/auth）: P0-08 / P0-09
  * - middleware（session / tenant / resourceGuard）: P0-10
+ * - UI シェル（React Router）: P0-14
  * - /health: P0-20
+ *
+ * ── 経路の分かれ方 ──────────────────────────────────────
+ *   /api/**   Hono。JSON を返す。応答の形は `packages/contracts` が定義する
+ *   それ以外   React Router。HTML と、その画面が使う loader / action
+ *
+ * 静的アセット（クライアント側の JS / CSS）は Worker より前に
+ * `[assets]`（wrangler.toml）が返す。ここには来ない。
  */
 const app = new Hono<AppEnv>();
 
@@ -32,6 +43,10 @@ app.notFound(apiNotFoundHandler());
 
 // 認証だけはセッション middleware（P0-10）より前段に置く。
 // セッションを作る経路がセッションを要求すると入口が無くなる。
+//
+// **この行が下の `app.route("/api/v1", api)` より前にあることが効いている。**
+// Hono は登録順に照合するため、先に載せた `/api/v1/auth/login` は
+// 後から `/api/v1/*` に付く middleware を通らない。順番を入れ替えないこと。
 app.route("/api/v1/auth", auth);
 
 /**
@@ -43,6 +58,32 @@ app.route("/api/v1/auth", auth);
  */
 const api = new Hono<AppEnv>();
 useTenantMiddleware(api);
+// 施設の切替（P0-14）。**パスは `/api/v1/auth/switch-property`**（§23.4）だが、
+// 認証済みでなければ意味が無いので、上の `auth`（未認証で通る側）ではなく
+// こちらへ載せる。
+api.route("/auth", session);
 app.route("/api/v1", api);
+
+/**
+ * 画面（React Router）。**API に一致しなかったものだけが来る。**
+ *
+ * `virtual:react-router/server-build` は Vite が組み立てるサーバービルド。
+ * `import()` を関数で包んでいるのは、ビルドの読み込みを最初のリクエストまで
+ * 遅らせるため（Worker の起動時間に載せない）。
+ */
+const handleUiRequest = createRequestHandler(
+  () => import("virtual:react-router/server-build"),
+  import.meta.env.MODE,
+);
+
+app.all("*", async (c) => {
+  // API の未定義経路は JSON の 404 のまま。**HTML を返さない**
+  // （API の利用者が HTML を受け取ると、原因の切り分けが難しくなる）。
+  if (c.req.path.startsWith("/api/")) return c.notFound();
+
+  const context = new RouterContextProvider();
+  context.set(cloudflareContext, { env: c.env, ctx: c.executionCtx });
+  return handleUiRequest(c.req.raw, context);
+});
 
 export default app;

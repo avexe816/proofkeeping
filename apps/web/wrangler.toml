@@ -56,6 +56,16 @@ account_id = "6c8b5b6228c4021c651755d1c5fb53d6"
 # workers.dev のサブドメインに露出させない。独自ドメインのみで公開する。
 workers_dev = false
 
+# --- 静的アセット（P0-14）-----------------------------------------------------
+# React Router のクライアントビルド（JS / CSS）。**Worker より前に返る。**
+# ここに来た時点で `src/index.ts` は動かないので、アセットの配信に
+# 認証は掛からない。**アセットに秘密を含めないこと。**
+#
+# ディレクトリは vite（React Router）の既定の出力先。`pnpm --filter @pk/web build`
+# を実行するまで存在しない。
+[assets]
+directory = "build/client"
+
 # ==============================================================================
 # local — `wrangler dev`（miniflare）
 # ==============================================================================
@@ -162,6 +172,10 @@ queue = "pk-archive-restore-local"
 [env.preview]
 name = "pk-preview"
 
+# 静的アセット（P0-14）。[env.*] は top-level を継承しないため環境ごとに書く。
+[env.preview.assets]
+directory = "build/client"
+
 [env.preview.vars]
 ENVIRONMENT = "preview"
 SHARD_COUNT = "1"
@@ -247,6 +261,10 @@ queue = "pk-archive-restore-preview"
 
 [env.staging]
 name = "pk-staging"
+
+# 静的アセット（P0-14）。[env.*] は top-level を継承しないため環境ごとに書く。
+[env.staging.assets]
+directory = "build/client"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
@@ -344,6 +362,10 @@ queue = "pk-archive-restore-staging"
 
 [env.production]
 name = "pk-prod"
+
+# 静的アセット（P0-14）。[env.*] は top-level を継承しないため環境ごとに書く。
+[env.production.assets]
+directory = "build/client"
 
 [env.production.vars]
 ENVIRONMENT = "production"

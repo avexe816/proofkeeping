@@ -16,22 +16,6 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 
 ## 未回答
 
-### #001 フロントエンドフレームワーク
-- 提起: 未着手 / P0-01
-- 内容: Remix on Workers とするか、Next.js を OpenNext で載せるか。
-- 影響: P0-01, P0-14, 以降の全 UI タスク
-- 暫定対応: 1 週間の技術検証で決める
-- 補足（2026-08-11 / P0-04 実装中）: **`.tsx` は現在 ESLint で検査できない。**
-  `apps/web/tsconfig.json` の `include` が `src/**/*.ts` のみで、`jsx`
-  コンパイラオプションもどの tsconfig にも無いため、`.tsx` を置くと
-  ルール実行前に parse error になる（`was not found by the project service`）。
-  `jsx` の値（`react-jsx` / `preact` / Hono JSX）はフレームワークの決定に
-  依存するため P0-04 では決めていない。**最初の `.tsx` を作る P0-14 が、
-  tsconfig の `include` と `jsx` を同時に設定すること。** 設定を忘れた場合は
-  parse error として即座に現れるので、検査が黙って素通りすることはない。
-  `pk/no-literal-string` の検出能力は
-  `packages/config/eslint/rules/no-literal-string.spec.js` で担保してある。
-
 ### #002 最初に実接続する PMS
 - 提起: 未着手 / P6-06
 - 内容: 導入顧客が利用している PMS を調査してから決める。想定で作らない。
@@ -200,6 +184,33 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 ---
 
 ## 解決済
+
+### #001 フロントエンドフレームワーク
+- 提起: 未着手 / P0-01
+- 回答: 2026-08-12 / P0-14 で実装
+- 内容: Remix on Workers とするか、Next.js を OpenNext で載せるか。
+  あわせて **`.tsx` が ESLint で検査できない**問題（`apps/web/tsconfig.json` の
+  `include` が `src/**/*.ts` のみで、`jsx` がどの tsconfig にも無い）を
+  P0-14 が同時に解く約束になっていた（P0-04 からの申し送り）。
+- 決定: **React Router v8 の framework mode**（`react-router` 8.3.x +
+  `@react-router/dev` + `@cloudflare/vite-plugin`）。技術検証は行わない
+  （人間の判断）。Remix v2（`@remix-run/*`）は 2025 年以降メンテナンスのみで、
+  **Remix の直系の後継が React Router の framework mode** である。
+  ファイル規約・`loader` / `action` の書き方は Remix と同じ。
+  `tsconfig` は `jsx: "react-jsx"` / `jsxImportSource: "react"`。
+  詳細は `docs/DECISIONS.md` #026。
+- 影響: P0-14 以降の全 UI タスク。
+  - `apps/web` は **API（Hono）と画面（React Router）が 1 つの Worker に同居**する。
+    `src/index.ts` の catch-all が `/api/**` 以外を React Router へ渡す。
+  - `.tsx` が `tsc` と ESLint の対象になった。`pk/no-literal-string` と
+    `pk/no-forbidden-words` が実ファイルに当たることを確認済み。
+    設定が外れると `tests/toolchain/workspace.spec.ts` が落ちる。
+  - `pnpm dev` / `pnpm --filter @pk/web build` の実体は vite。
+  - ルートは `src/routes.ts` に**明示列挙**する。ファイル規約にすると
+    `src/routes/api/v1/*.ts`（Hono のハンドラ）が UI ルートとして拾われる。
+- 残る注意: **UI スタックの Tailwind CSS + shadcn/ui は未導入**（CLAUDE.md §2）。
+  P0-14 は v3 レイアウト標準の寸法とトークンを確かめる最小の CSS だけを置いた。
+  導入は画面を作る task（DECISIONS #028）。
 
 ### #016 施設列を持たない表を施設スコープロールがどこまで見てよいか
 - 提起: 2026-08-11 / P0-07 実装中
