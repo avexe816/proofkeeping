@@ -76,7 +76,12 @@ export default tseslint.config(
     // ui-writing.md §2 / PK-IMPL-CONTRACT §5.1 の禁止語。
     // 全 TS に当てない。§5.1 は「エラー」「失敗」を含むため、
     // 通常のエラーハンドリングまで落ちる。対象は UI 文言を持つファイルだけ。
-    files: ["**/*.tsx", "**/locales/**/*.{ts,tsx,json}", "packages/pdf/**/*.{ts,tsx}"],
+    // **.json を対象に含めない。** ESLint は既定で JSON を解析せず、
+    // 含めると TS パーサが JSON を式として読んで parse error になる。
+    // P0-15 で文言が locales/*.json へ移ったぶんは
+    // apps/web/src/locales/locales.spec.ts が同じ語彙表で検査する
+    // （rules/forbidden-words-list.js が両者の唯一の出どころ）。
+    files: ["**/*.tsx", "**/locales/**/*.{ts,tsx}", "packages/pdf/**/*.{ts,tsx}"],
     rules: {
       "pk/no-forbidden-words": "error",
     },

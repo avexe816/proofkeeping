@@ -2,7 +2,7 @@ import { MODULE_CODES, type ModuleCode, type Role, type TenantContext } from "@p
 import { describe, expect, it } from "vitest";
 
 import { PERMISSION_ACTION_LIST } from "../lib/auth/permission.js";
-import { ja } from "../locales/ja.js";
+import { ja } from "../locales/index.js";
 
 import { NAV_ITEMS, NAV_SECTIONS, NAV_SECTION_LABEL, buildNavigation } from "./navigation.js";
 

@@ -1,0 +1,34 @@
+{
+  "app.brand": "ProofKeeping",
+  "app.title": "ProofKeeping",
+
+  "login.title": "Sign in",
+  "login.orgShortId": "Organization ID",
+  "login.orgShortId.hint": "6 alphanumeric characters",
+  "login.staffNumber": "Staff number",
+  "login.password": "Password",
+  "login.submit": "Sign in",
+  "login.rejected": "The organization ID, staff number, or password does not match.",
+  "login.rateLimited": "Please wait a moment and try again.",
+  "login.invalid": "Please check the format of your entries.",
+
+  "user.menu": "Account",
+  "user.logout": "Sign out",
+  "user.language": "Language",
+
+  "role.OWNER": "Owner",
+  "role.ORG_ADMIN": "Administrator",
+  "role.PROPERTY_MANAGER": "Property manager",
+  "role.INSPECTOR": "Inspector",
+  "role.CLEANER": "Cleaning staff",
+  "role.VENDOR_ADMIN": "Vendor administrator",
+  "role.AUDITOR": "Auditor",
+
+  "property.current": "Current property",
+  "property.switch": "Switch property",
+  "property.roomCount": "rooms",
+  "property.none": "No properties are available. Please contact your administrator.",
+
+  "page.notFound": "The page you are looking for was not found.",
+  "page.unexpected": "The page could not be displayed. Please try again later."
+}
