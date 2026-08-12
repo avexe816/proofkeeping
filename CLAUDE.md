@@ -112,6 +112,7 @@ docs/                     仕様・task・進捗
 
 | ファイル | 内容 | 読むべきとき |
 |---|---|---|
+| `.claude/rules/workflow.md` | **セッション自走・PR 作成・CI 監視・マージ・停止条件** | **すべてのセッション開始時に必読** |
 | `.claude/rules/architecture.md` | シャード・テナント分離・ID 採番 | DB・API を触るとき |
 | `.claude/rules/security.md` | 権限・個人情報・認証 | 認証認可・写真・ログを触るとき |
 | `.claude/rules/ui-writing.md` | UI 文言・現場 UX・i18n | 画面を作るとき |
