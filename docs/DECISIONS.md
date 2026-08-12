@@ -612,3 +612,67 @@
     招待 API は「招待と施設割当を同時に行う」形にすること。
   - P1-14 が担当施設のスタッフだけを出す必要に迫られたら、**リポジトリ層ではなく
     その画面の絞り込みとして実装する**か、改めてここを見直すこと。
+
+## #024 エンタイトルメント不足だけは 404 に潰さず 402 を返す
+- 日付: 2026-08-12
+- 状態: 採用（P0-12）
+- 背景: DECISIONS #022 で「認可の拒否は一律 404、403 相当を作らない」と決めた直後に、
+  P0-12 の完了条件が「未購入モジュールの API が **402** を返す」を要求する
+  （`docs/tasks/P0-12.md` / `packages/db/src/schema/billing.ts` の P0-06 コメント）。
+  402 も「その機能は存在するが、あなたには返さない」を伝える点では 403 に似ており、
+  #022 の趣旨に反しないかを判断する必要があった。
+- 選択肢:
+  1. エンタイトルメント不足も 404 に潰し、#022 の一律性を保つ
+  2. **402 を別コードとして持ち、権限（404）の判定を先に置く**
+- 決定: **2 を採用。** `PaymentRequiredError` を `packages/db/src/errors.ts` に置き、
+  `apiErrorHandler()` が 402 へ写す。`API_ERROR_CODES` に `PAYMENT_REQUIRED` を追加した。
+  **403 相当は引き続き作っていない。**
+- 理由:
+  - #022 が守っているのは**他テナント・他施設のデータの秘匿**であり、
+    404 に潰す価値があるのは「その資源が存在するか」が秘密である場合に限る。
+    エンタイトルメントが漏らすのは「ProofKeeping にその機能がある」ことだけで、
+    これは製品説明に書いてある。自組織の契約内容は利用者本人が知ってよい
+    （知らなければ購入もできない）。
+  - 1 を採ると、契約すれば使える機能と、権限が無くて一生見えない機能が
+    同じ 404 になる。**購入導線を作れない**うえ、サポートが
+    「契約が無い」のか「権限が無い」のかを問い合わせから判別できない。
+- 影響:
+  - **判定の順序が不変条件になる。** `assertPermission()`（404）を先に、
+    `assertEntitlement()`（402）を後に呼ぶ。逆にすると担当外施設に対して
+    「契約していない」と答えることになり、402 が施設の存在を示唆する経路になる。
+    `apiErrorHandler()` でも `NotFoundError` を先に見ている。
+  - 402 の本体に不足モジュール名を載せない。購入導線は画面が
+    組織の契約内容から組み立てる。
+  - **`API_ERROR_CODES` に足してよいのはここまで。** 403 相当を追加しないこと。
+
+## #025 越境テストを Workers 型の別プログラムとして検査する
+- 日付: 2026-08-12
+- 状態: 採用（P0-13）
+- 背景: ルートの tsconfig は `tests/**` を `types: ["node"]` で検査し、
+  `apps/**` と `packages/db/**` を除外している。@types/node と
+  @cloudflare/workers-types はグローバル（`fetch` / `Response`）が衝突するためで、
+  `typecheck` は 3 パスに分かれていた。**越境テストは `@pk/db` を引く**ので
+  この構成のままでは `D1Database` が解決できない。
+- 選択肢:
+  1. 代役（fake-d1）と越境テストを `packages/db/src` の下へ寄せる
+  2. **`tests/tenant-isolation/` に専用 tsconfig を置き、4 本目のパスにする**
+- 決定: **2 を採用。** `tests/tenant-isolation/tsconfig.json`（worker.json 継承、
+  `types` に node を併記）を追加し、ルートの `exclude` にこのディレクトリを足した。
+  `@pk/db` の `exports` に `./test-support` を開け、fake-d1 を渡せるようにした。
+- 理由:
+  - `.claude/rules/testing.md` §2 と `docs/tasks/P0-13.md` は
+    `tests/tenant-isolation/{table}.spec.ts` と `tests/fixtures/shard-pairs.ts` を
+    パスごと指定している。1 は仕様の指すパスから実体を動かすことになる。
+  - 越境テストは「テナント分離が破れていないこと」の最終防衛線で、
+    **CI のジョブとしても独立している**（`pnpm test:isolation`）。
+    プログラムとして独立させるほうが構成と役割が一致する。
+- 影響:
+  - `tests/fixtures/shard-pairs.ts` は **import を持たない素のデータにする。**
+    `@pk/db` を引いた瞬間に node 側のプログラムで壊れる。
+    同一シャードに落ちることの検証は `tests/tenant-isolation/_template.spec.ts` が行う。
+  - node 型との併記は**このディレクトリに限る。** `apps/web` / `packages/db` へ
+    持ち込むと、Workers に無い Node API が型で通るようになる。
+  - `pnpm test:isolation` は `vitest run --dir` をやめて
+    `vitest run tests/tenant-isolation` にした。`--dir` は `include` の
+    基準ディレクトリを移すため、ルート基準の `tests/**/*.spec.ts` と噛み合わず
+    **1 件も拾えないまま `--passWithNoTests` で緑になっていた。**

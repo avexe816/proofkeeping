@@ -1,0 +1,170 @@
+/**
+ * 越境テストの雛形と、カバー範囲のレジストリ。
+ *
+ * task:  docs/tasks/P0-13.md
+ * ルール: .claude/rules/testing.md §2
+ *
+ * ── 表を 1 つ足すときの手順 ─────────────────────────────
+ * ① `{table}.spec.ts` を作り、`describeTenantIsolation()` を 1 回呼ぶ
+ *
+ *     import { listTasks, findTaskById } from "@pk/db";
+ *     import { describeTenantIsolation } from "./isolation-suite.js";
+ *
+ *     describeTenantIsolation({
+ *       table: "task",
+ *       list: (env, ctx) => listTasks(env, ctx, {}),
+ *       findById: (env, ctx, id) => findTaskById(env, ctx, id),
+ *       entityPrefix: "task",
+ *       propertyColumn: "property_id",   // 施設の次元が無ければ null
+ *     });
+ *
+ * ② 下の `UNCOVERED_TABLES` からその表の名前を消す
+ *
+ * **②を忘れても落ちない。**逆に、表を足したのに spec を書かないと
+ * このファイルの「全テナント表がカバー済みか宣言されている」テストが落ちる。
+ * 未カバーのまま進めたい場合は `UNCOVERED_TABLES` に理由付きで載せること。
+ * 黙って抜ける経路を作らないのが目的で、リストに載せる行為そのものが
+ * 「この表は越境テストがまだ無い」というレビュー可能な記録になる。
+ */
+
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
+import { shardIndexOf } from "@pk/db";
+import { describe, expect, it } from "vitest";
+
+import {
+  OTHER_SHARD_ORG,
+  PRODUCTION_SHARD_COUNT,
+  SAME_SHARD_INDEX,
+  SAME_SHARD_ORG_PAIR,
+} from "../fixtures/shard-pairs.js";
+
+/**
+ * `packages/db/src/schema/index.ts` が公開するテナント表。
+ *
+ * 全局テーブル（`org_directory`）とメタ表（`schema_version`）は
+ * テナント文脈から引けないので対象外（`getGlobalDb()` 経由のみ）。
+ */
+const TENANT_TABLES = [
+  "audit_log",
+  "building",
+  "document_sequence",
+  "floor",
+  "membership",
+  "module_entitlement",
+  "organization",
+  "organization_tax_profile",
+  "password_history",
+  "property",
+  "property_assignment",
+  "room",
+  "room_type",
+  "subscription",
+  "user",
+] as const;
+
+/**
+ * **越境テストがまだ無い表。** P0-13 は枠組みを作る task で、
+ * 実体のあるリポジトリ関数が無い表は書けない。
+ *
+ * ここに載っている表は、**その表を読み書きする task が spec を足して
+ * この行を消す。** 一覧が空になったら testing.md §2 の
+ * 「全テーブルについて 4 パターン」が満たされる。
+ */
+const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> = {
+  audit_log: "P0-11 は書き込みのみ。読み取り関数を作る task が足す",
+  building: "リポジトリ関数がまだ無い（P0-22）",
+  document_sequence: "採番は DocumentSequencer 経由（P0-17）。表を直接引かない",
+  floor: "リポジトリ関数がまだ無い（P0-22）",
+  membership: "認証ブートストラップ専用の 2 関数のみ（P0-07 の申し送り）",
+  module_entitlement: "P0-12 は判定のみ。一覧を返す関数が無い",
+  password_history: "認証内部でのみ使う。ID を取る一覧関数が無い（P0-08）",
+  property_assignment: "認証ブートストラップ専用（P0-07 の申し送り）",
+  room_type: "リポジトリ関数がまだ無い（P0-22）",
+  subscription: "リポジトリ関数がまだ無い（P7-04）",
+  user: "listUsers / findUserById はあるが、施設の次元を持たない。P0-14 以降で足す",
+};
+
+describe("同一シャードの組織ペア（fixtures/shard-pairs.ts）", () => {
+  it("2 組織が同じシャードに落ちる", () => {
+    // **これが崩れたら第 3 パターンは何も検査していない。**
+    // 別シャードでは物理的に到達不能で、組織条件を消しても緑のままになる。
+    const a = shardIndexOf(SAME_SHARD_ORG_PAIR.a.organizationId, PRODUCTION_SHARD_COUNT);
+    const b = shardIndexOf(SAME_SHARD_ORG_PAIR.b.organizationId, PRODUCTION_SHARD_COUNT);
+    expect(a).toBe(b);
+  });
+
+  it("落ちるシャードは注釈どおり", () => {
+    expect(shardIndexOf(SAME_SHARD_ORG_PAIR.a.organizationId, PRODUCTION_SHARD_COUNT)).toBe(
+      SAME_SHARD_INDEX,
+    );
+  });
+
+  it("対照群は別のシャードに落ちる", () => {
+    // 「同じシャード」に意味があることを言うには、そうでない例が要る。
+    expect(shardIndexOf(OTHER_SHARD_ORG.organizationId, PRODUCTION_SHARD_COUNT)).not.toBe(
+      SAME_SHARD_INDEX,
+    );
+  });
+
+  it("2 組織は別の組織である", () => {
+    expect(SAME_SHARD_ORG_PAIR.a.organizationId).not.toBe(SAME_SHARD_ORG_PAIR.b.organizationId);
+    expect(SAME_SHARD_ORG_PAIR.a.orgShortId).not.toBe(SAME_SHARD_ORG_PAIR.b.orgShortId);
+  });
+
+  it("SHARD_COUNT=1 では同居が自明なので、ペアの意味は 16 本でのみ成り立つ", () => {
+    // ローカル・preview は SHARD_COUNT=1（architecture.md §1）。
+    // そこでは全組織が同居するため、このペアは何も追加で保証しない。
+    expect(shardIndexOf(SAME_SHARD_ORG_PAIR.a.organizationId, 1)).toBe(0);
+    expect(shardIndexOf(OTHER_SHARD_ORG.organizationId, 1)).toBe(0);
+  });
+});
+
+describe("カバー範囲", () => {
+  /**
+   * spec が `describeTenantIsolation({ table: "..." })` で宣言した表。
+   *
+   * **ファイル名ではなく中身を見る。** 1 ファイルが複数の表を持つことがある
+   * （`organization.spec.ts` は `organization` と `organization_tax_profile`）。
+   */
+  function coveredTables(): string[] {
+    const directory = import.meta.dirname;
+    const tables: string[] = [];
+    for (const file of readdirSync(directory)) {
+      if (!file.endsWith(".spec.ts") || file.startsWith("_")) continue;
+      const code = readFileSync(join(directory, file), "utf8");
+      for (const matched of code.matchAll(/^\s*table:\s*"([a-z_]+)"/gm)) {
+        const table = matched[1];
+        if (table !== undefined) tables.push(table);
+      }
+    }
+    return tables;
+  }
+
+  it("全テナント表がカバー済みか、未カバーとして理由付きで宣言されている", () => {
+    // 表を足したのに spec も宣言も無い、という状態を作らせない。
+    const covered = new Set(coveredTables());
+    const undeclared = TENANT_TABLES.filter(
+      (table) => !covered.has(table) && UNCOVERED_TABLES[table] === undefined,
+    );
+    expect(undeclared).toEqual([]);
+  });
+
+  it("UNCOVERED_TABLES に実在しない表が残っていない", () => {
+    const known = new Set<string>(TENANT_TABLES);
+    expect(Object.keys(UNCOVERED_TABLES).filter((table) => !known.has(table))).toEqual([]);
+  });
+
+  it("カバー済みの表が未カバー宣言に二重登録されていない", () => {
+    // spec を書いたら UNCOVERED_TABLES から消すこと。
+    const covered = coveredTables();
+    expect(covered.filter((table) => table in UNCOVERED_TABLES)).toEqual([]);
+  });
+
+  it("spec が宣言する表はすべて TENANT_TABLES に載っている", () => {
+    // 綴り違い（`rooms` / `room`）で「カバーしたつもり」を作らせない。
+    const known = new Set<string>(TENANT_TABLES);
+    expect(coveredTables().filter((table) => !known.has(table))).toEqual([]);
+  });
+});

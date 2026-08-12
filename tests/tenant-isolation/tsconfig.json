@@ -1,0 +1,24 @@
+{
+  // テナント越境テスト（P0-13）。
+  //
+  // ルートの tsconfig は `tests/**` を `types: ["node"]` で検査するが、
+  // ここは `@pk/db` を引くため Workers ランタイム型（D1Database / KVNamespace）が
+  // 要る。@types/node と @cloudflare/workers-types はグローバル（fetch / Response）が
+  // 衝突するため同居させられない（ルート tsconfig の注記と同じ理由）。
+  // よってこのディレクトリだけ別プログラムとして検査する。
+  // ルート package.json の `typecheck` に 4 本目のパスとして登録してある。
+  //
+  // `tests/fixtures/shard-pairs.ts` は import 経由でこのプログラムに入る。
+  // あちらは import を持たないので node 側の検査でも通る。
+  //
+  // `types` に node を足しているのは `_template.spec.ts` が
+  // `node:fs` でカバー範囲を走査するため。`skipLibCheck` が効いているので
+  // グローバルの重複宣言は問題にならない。**アプリケーション側
+  // （apps/web・packages/db）へこの併記を持ち込まないこと。**
+  // あちらで node の型が見えると、Workers に無い API が書けてしまう。
+  "extends": "@pk/config/tsconfig/worker.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types", "node"]
+  },
+  "include": ["**/*.ts"]
+}
