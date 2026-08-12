@@ -379,3 +379,284 @@ a.pk-nav:hover {
   color: var(--ink2);
   text-align: center;
 }
+
+/* ── 客室ボードと人員配分（P1-14 / P1-15）─────────────── */
+
+/*
+ * 冒頭の「ここに部品のスタイルを増やしていかないこと」は生きている。
+ * ここへ足したのは**仕様が色そのものを要求している 4 状態**（§9.5 の凡例）と、
+ * それを読むのに要る最低限の箱だけ。Tailwind + shadcn/ui の導入は
+ * DECISIONS #026 のとおり別途行う。
+ */
+
+.pk-page {
+  padding: 18px 22px;
+}
+
+.pk-notice {
+  padding: 10px 12px;
+  margin: 10px 0;
+  font-size: 13px;
+  color: var(--ink2);
+  background: var(--surf2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* 警告はオレンジまで。**赤にしない**（INV-05 / 契約 §11.2）。 */
+.pk-notice--warn {
+  color: var(--warn);
+  background: var(--warnbg);
+  border-color: var(--warn);
+}
+
+.pk-toolbar,
+.pk-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.pk-select {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.pk-badge {
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 5px;
+}
+
+.pk-badge--hidden {
+  color: var(--muted);
+  background: var(--surf3);
+}
+
+.pk-badge--warn {
+  color: var(--warn);
+  background: var(--warnbg);
+}
+
+/* ── W-04 人員配分 ───────────────────────────────────── */
+
+.pk-assign {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+}
+
+.pk-assign th,
+.pk-assign td {
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-assign__row--over {
+  background: var(--warnbg);
+}
+
+.pk-assign__load {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink2);
+}
+
+.pk-assign__bar {
+  display: block;
+  width: 140px;
+  height: 6px;
+  margin: 4px 0;
+  overflow: hidden;
+  background: var(--surf3);
+  border-radius: 3px;
+}
+
+.pk-assign__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--brand2);
+}
+
+.pk-assign__row--over .pk-assign__bar-fill {
+  background: var(--warn);
+}
+
+.pk-assign__note {
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.pk-chip {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 5px 9px;
+  margin: 0 6px 6px 0;
+  font-size: 13px;
+  cursor: grab;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+/* 作業中の部屋。引き継ぎには確認が要る（§4.2）ので見分けが付くようにする。 */
+.pk-chip--active {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.pk-preview {
+  padding: 12px;
+  margin: 12px 0;
+  background: var(--surf2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.pk-preview__title {
+  font-size: 14px;
+}
+
+.pk-preview__list {
+  margin: 8px 0 12px 18px;
+  font-size: 13px;
+}
+
+/* ── W-03 / M-10 客室ボード ──────────────────────────── */
+
+.pk-board__counts {
+  margin: 8px 0;
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+.pk-board__floor {
+  margin-top: 14px;
+}
+
+.pk-board__floorName {
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pk-board__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pk-board__slot {
+  position: relative;
+}
+
+.pk-board__legend {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/*
+ * 4 状態の色（§9.5 の凡例）。**入室不可は青**（契約 §11.2
+ * 「保留（入室不可）を赤で表示 → 青。清掃の遅れではない」）。
+ * ここを赤にする変更を通さないこと。
+ */
+.pk-room {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  width: 82px;
+  min-height: 66px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.pk-room__mark {
+  font-size: 15px;
+}
+
+.pk-room__status {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--ink2);
+}
+
+.pk-room--READY {
+  background: var(--okbg);
+  border-color: var(--ok);
+}
+
+.pk-room--IN_PROGRESS {
+  background: #f6efdf;
+  border-color: var(--accent);
+}
+
+.pk-room--DIRTY {
+  background: var(--surf3);
+  border-color: var(--line);
+}
+
+.pk-room--BLOCKED {
+  background: var(--infobg);
+  border-color: var(--info);
+}
+
+.pk-room__detail {
+  position: absolute;
+  z-index: 5;
+  width: 240px;
+  padding: 10px;
+  font-size: 12px;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: var(--sh);
+}
+
+.pk-room__detail dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+}
+
+.pk-room__detail dt {
+  color: var(--muted);
+}
+
+.pk-override {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.pk-override input {
+  min-height: 30px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}

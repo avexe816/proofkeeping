@@ -28,6 +28,7 @@ import {
   listTimeLogs,
   NotFoundError,
   recordAudit,
+  setHousekeepingStatus,
   type Env,
   type TenantContext,
 } from "@pk/db";
@@ -35,6 +36,7 @@ import {
   actualMinutesOf,
   checkCompletion,
   evaluateTransition,
+  housekeepingStatusFor,
   requiresReasonCode,
   summarizeTimeLogs,
   timeEventOf,
@@ -167,6 +169,14 @@ export async function runTransition(
     // **時間ログは既に書かれている。** 消さない（INV-27 と同じ考え方で、
     // 記録は残す）。呼び出し側には「変わらなかった」として返す。
     return { kind: "OK", taskId: task.id, status: task.status, unchanged: true };
+  }
+
+  // 客室ステータスの同期（§11.1 / P1-16）。**状態を進めたあとに行う。**
+  // 先に客室を動かすと、楽観的排他に負けた操作が客室だけ書き換える。
+  // 自動同期は `AuditLog` に残さない（元の操作が既に残っている）。
+  const roomStatus = housekeepingStatusFor(input.action, property?.inspectionRequired ?? false);
+  if (roomStatus !== null) {
+    await setHousekeepingStatus(env, ctx, [task.roomId], roomStatus);
   }
 
   await recordTransitionAudit(env, ctx, input, task.propertyId, task.status, decision.to);

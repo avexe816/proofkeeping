@@ -1,32 +1,46 @@
-import type { LoaderFunctionArgs } from "react-router";
-import { NotFoundError } from "@pk/db";
-import { useLoaderData } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { HOUSEKEEPING_STATUSES, NotFoundError, type HousekeepingStatus } from "@pk/db";
+import type { BoardSection, RoomBoardGroup } from "@pk/engine";
+import { Form, useActionData, useLoaderData } from "react-router";
 
-import { t } from "../../lib/i18n.js";
+import { businessDateOf } from "../../lib/businessDate.js";
+import { t, type MessageKey } from "../../lib/i18n.js";
 import { switchProperty } from "../../lib/property/selection.js";
+import { loadRoomBoard, type BoardStaff } from "../../lib/room/board.js";
+import { overrideRoomStatus } from "../../lib/room/status.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
+import { RoomBoard } from "../../ui/RoomBoard.js";
 
 /**
- * 施設 1 件の客室ボード（PK-SPEC-P0 §23.5）。
+ * W-03 客室ボード（PK-SPEC-P1 §9.5 / §10.1）。
  *
  *   /app/p/{propertyId}/board
  *
- * task: docs/tasks/P0-21.md
+ * task: docs/tasks/P0-21.md（URL と選択状態）→ docs/tasks/P1-15.md（盤面）
  *
  * ── URL を正とする ──────────────────────────────────────
- * §23.5 MUST。URL の `propertyId` とセッションの選択が違えば **URL 側へ
- * セッションを寄せる。** ブックマークと共有が成立するのはこの向きだけ。
+ * PK-SPEC-P0 §23.5 MUST。URL の `propertyId` とセッションの選択が違えば
+ * **URL 側へセッションを寄せる。** ブックマークと共有が成立するのは
+ * この向きだけ。P0-21 が置いたこの性質は変えない。
  *
- * ── 権限外は 404 ────────────────────────────────────────
- * `switchProperty()` が `NotFoundError` を投げる。**403 にしない**
- * （INV-31 / architecture.md §2 第 2 層）。
- *
- * ── 中身はまだ無い ──────────────────────────────────────
- * 客室ボードの実体（客室の一覧・状態・リアルタイム配信）は P1。
- * P0-21 が持つのは **URL と選択状態の対応だけ。**
+ * ── 手動上書きは理由必須 ────────────────────────────────
+ * §11.2。理由を書かずに送ると `REASON_REQUIRED` で戻る。
+ * 成功した上書きは `AuditLog` に `room.statusOverridden` として残り、
+ * **P4 の検出ルール R010 が使う。**
  */
-export async function loader({ request, params, context }: LoaderFunctionArgs) {
+
+interface BoardData {
+  propertyId: string;
+  propertyName: string;
+  businessDate: string;
+  counts: Record<RoomBoardGroup, number>;
+  sections: readonly BoardSection[];
+  staff: readonly BoardStaff[];
+  canOverride: boolean;
+}
+
+export async function loader({ request, params, context }: LoaderFunctionArgs): Promise<BoardData> {
   const env = getEnv(context);
   const now = new Date();
   const { session, tenant, cookieValue } = await requireAppContext(env, request, now);
@@ -34,21 +48,114 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const propertyId = params["propertyId"];
   if (propertyId === undefined) throw new NotFoundError();
 
-  // URL を正としてセッションを更新する。到達できない施設なら NotFoundError
-  // （middleware / ErrorBoundary が 404 に写す）。
+  // 到達できない施設なら `NotFoundError`（middleware が 404 に写す / INV-31）。
   await switchProperty(env, tenant, cookieValue, propertyId, now, session.membershipId);
 
-  return { propertyId };
+  const businessDate = new URL(request.url).searchParams.get("date") ?? businessDateOf(now);
+  const board = await loadRoomBoard(env, tenant, propertyId, businessDate, now);
+  return {
+    propertyId: board.propertyId,
+    propertyName: board.propertyName,
+    businessDate: board.businessDate,
+    counts: board.counts,
+    sections: board.sections,
+    staff: board.staff,
+    canOverride: board.canOverride,
+  };
 }
 
-export default function PropertyBoard() {
-  const data = useLoaderData<{ propertyId: string }>();
+interface BoardActionResult {
+  overridden?: boolean;
+  reasonRequired?: boolean;
+  invalid?: boolean;
+}
+
+export async function action({
+  request,
+  context,
+}: ActionFunctionArgs): Promise<BoardActionResult> {
+  const env = getEnv(context);
+  const now = new Date();
+  const { session, tenant } = await requireAppContext(env, request, now);
+
+  const form = await request.formData();
+  const roomId = form.get("roomId");
+  const status = form.get("status");
+  const reason = form.get("reason");
+  if (typeof roomId !== "string" || typeof status !== "string" || typeof reason !== "string") {
+    return { invalid: true };
+  }
+  if (!(HOUSEKEEPING_STATUSES as readonly string[]).includes(status)) return { invalid: true };
+
+  const outcome = await overrideRoomStatus(env, tenant, {
+    roomId,
+    status: status as HousekeepingStatus,
+    reason,
+    actorId: session.membershipId,
+    ip: request.headers.get("CF-Connecting-IP") ?? undefined,
+  });
+  if (outcome.kind === "REJECTED") return { reasonRequired: true };
+  return { overridden: true };
+}
+
+export default function PropertyBoard(): React.ReactElement {
+  const data = useLoaderData<BoardData>();
+  const result = useActionData<BoardActionResult>();
+
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("nav.board")}</h1>
-      <p className="pk-page__lead" data-property-id={data.propertyId}>
-        {t("dashboard.placeholder")}
+      <div className="pk-pagehead">
+        <h1 className="pk-pagehead__title">{t("nav.board")}</h1>
+        <p className="pk-muted">{`${data.propertyName} · ${data.businessDate}`}</p>
+      </div>
+
+      <p className="pk-board__counts">
+        {`${t("board.status.READY")} ${String(data.counts.READY)} · ` +
+          `${t("board.status.IN_PROGRESS")} ${String(data.counts.IN_PROGRESS)} · ` +
+          `${t("board.status.DIRTY")} ${String(data.counts.DIRTY)} · ` +
+          `${t("board.status.BLOCKED")} ${String(data.counts.BLOCKED)}`}
       </p>
+
+      {result?.reasonRequired === true ? (
+        <p className="pk-notice pk-notice--warn">{t("board.override.reasonRequired")}</p>
+      ) : null}
+      {result?.overridden === true ? (
+        <p className="pk-notice">{t("board.override.done")}</p>
+      ) : null}
+
+      <RoomBoard
+        sections={data.sections}
+        staff={data.staff}
+        t={t}
+        renderDetailExtra={
+          data.canOverride
+            ? (cell) => (
+                <Form method="post" className="pk-override">
+                  <input type="hidden" name="roomId" value={cell.roomId} />
+                  <label htmlFor={`status-${cell.roomId}`}>{t("board.override.status")}</label>
+                  <select
+                    id={`status-${cell.roomId}`}
+                    name="status"
+                    className="pk-select"
+                    defaultValue={cell.housekeepingStatus}
+                  >
+                    {HOUSEKEEPING_STATUSES.map((value) => (
+                      <option key={value} value={value}>
+                        {t(`board.housekeeping.${value}` as MessageKey)}
+                      </option>
+                    ))}
+                  </select>
+                  {/* §11.2 MUST。**理由の入力を必須にする。** */}
+                  <label htmlFor={`reason-${cell.roomId}`}>{t("board.override.reason")}</label>
+                  <input id={`reason-${cell.roomId}`} name="reason" required />
+                  <button className="pk-button" type="submit">
+                    {t("board.override.submit")}
+                  </button>
+                </Form>
+              )
+            : undefined
+        }
+      />
     </section>
   );
 }

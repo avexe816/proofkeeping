@@ -10,12 +10,12 @@
  * **画面が何を出すかは呼び出し側が `filter` で決める。**
  */
 
-import { count, eq } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
-import { room } from "../schema/property.js";
+import { floor, room, type HousekeepingStatus } from "../schema/property.js";
 
 import { withTenantScope } from "./base.js";
 
@@ -94,6 +94,54 @@ export async function countSellableRoomsByProperty(
     )
     .groupBy(room.propertyId);
   return new Map(rows.map((row) => [row.propertyId, row.count]));
+}
+
+/**
+ * 階の一覧（客室ボードの見出し / PK-SPEC-P1 §9.5）。
+ *
+ * task: docs/tasks/P1-15.md
+ *
+ * **客室ごとに引かない。** 施設 1 件ぶんを 1 回で引いて突き合わせる
+ * （§13 の応答時間。100 室の盤面で 100 クエリになる）。
+ */
+export async function listFloors(env: Env, ctx: TenantContext, propertyId: string) {
+  assertIdBelongsToTenant(propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select()
+    .from(floor)
+    .where(withTenantScope(floor, ctx, floor.propertyId, eq(floor.propertyId, propertyId)))
+    .orderBy(floor.sortOrder, floor.name);
+}
+
+/**
+ * 客室の清掃ステータスを書き換える（PK-SPEC-P1 §11）。
+ *
+ * task: docs/tasks/P1-16.md
+ *
+ * ── 監査ログはここで書かない ────────────────────────────
+ * 自動同期（§11.1）は記録しない。タスクの状態変化に従属した結果で、
+ * 元の操作（`task.completed` 等）が既に `AuditLog` に残っている。
+ * **手動上書き（§11.2）は必ず `room.statusOverridden` を残すこと。**
+ * 呼び出し側（`routes/api/v1/rooms.ts`）の責務（P0-07 の方針）。
+ *
+ * @returns 書き換えた行数。0 は「その客室が無い（または担当外）」。
+ */
+export async function setHousekeepingStatus(
+  env: Env,
+  ctx: TenantContext,
+  roomIds: readonly string[],
+  status: HousekeepingStatus,
+): Promise<number> {
+  for (const roomId of roomIds) assertIdBelongsToTenant(roomId, ctx);
+  if (roomIds.length === 0) return 0;
+
+  const db = await getTenantDb(env, ctx);
+  const result = await db
+    .update(room)
+    .set({ housekeepingStatus: status, updatedAt: ctx.now })
+    .where(withTenantScope(room, ctx, room.propertyId, inArray(room.id, [...roomIds])));
+  return result.meta.changes;
 }
 
 /** `createRooms()` の 1 行ぶん。ID・組織・時刻は受け取らない。 */

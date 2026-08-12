@@ -70,11 +70,14 @@ export interface SortableTask {
 /**
  * 客室番号の比較。**文字列としてではなく、数字は数値として比べる。**
  *
+ * 並び順を持つのは M-02 だけではない（W-04 の配分・W-03 の客室ボードも
+ * 同じ順で並べる）。**同じ比較を各所で書き直さないこと。**
+ *
  * `"302"` と `"1002"` を辞書順で並べると 1002 が先に来る。現場の動線は
  * フロア順なので、数字の桁を跨ぐ施設で並びが崩れる。数字で始まらない
  * 番号（`"LOBBY"` のような共用部）は数字の後ろへ回す。
  */
-function compareRoomNumber(a: string, b: string): number {
+export function compareRoomNumber(a: string, b: string): number {
   const numA = /^\d+/.exec(a)?.[0];
   const numB = /^\d+/.exec(b)?.[0];
   if (numA !== undefined && numB !== undefined && numA !== numB) {

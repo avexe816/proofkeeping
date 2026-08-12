@@ -14,20 +14,28 @@
  * └────────────────────────────┘
  * ```
  *
- * ── サイドバーもタブバーも置いていない ──────────────────
+ * ── タブバーは 3 つだけ ─────────────────────────────────
  * プロトタイプ（pk-02）は下部に 4 つのタブ（タスク・検査・実績・設定）を
- * 描くが、**その 3 画面はまだ無い**（検査は P2、実績は P1-17、設定は
- * P1-18）。押しても何も起きないタブを置かない。**画面が揃った task が
- * ここへタブバーを足すこと。**
+ * 描く。P1-17（M-11 実績）と P1-15（M-10 客室ボード）が揃ったので
+ * **タスク・客室・実績の 3 つを置いた。** 検査は P2（M-08 / M-09）なので
+ * まだ無い。**押しても何も起きないタブを置かないこと。**
+ * 設定は独立したタブにせず、実績の画面に言語切替を置いた（§12.3 が
+ * 「M-11 の設定画面から変更できる」と定めるため）。
  *
  * ── 送信キューはここで 1 つだけ動かす ───────────────────
  * `useOfflineQueue()` は購読と 30 秒ポーリングを始める。**画面ごとに
  * 呼ばない。** 2 つ動くと flush が二重に走り、写真を 2 回送る。
  */
 
-import { Outlet, useLoaderData, type LinksFunction, type LoaderFunctionArgs } from "react-router";
+import {
+  NavLink,
+  Outlet,
+  useLoaderData,
+  type LinksFunction,
+  type LoaderFunctionArgs,
+} from "react-router";
 
-import { createTranslator, type Locale } from "../../lib/i18n.js";
+import { createTranslator, type Locale, type MessageKey } from "../../lib/i18n.js";
 import { requireMobileContext } from "../../lib/mobile/session.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { InstallBanner } from "../../ui/mobile/InstallBanner.js";
@@ -57,6 +65,33 @@ export default function MobileShell(): React.ReactElement {
       <OfflineBar t={t} state={queue.state} offline={queue.offline} onSend={queue.sendNow} />
       <InstallBanner t={t} />
       <Outlet />
+
+      {/* タップ領域 48px 以上（INV-25）。CSS は mobile.css の `.pk-m-tabs`。 */}
+      <nav className="pk-m-tabs">
+        {MOBILE_TABS.map((tab) => (
+          <NavLink
+            key={tab.to}
+            to={tab.to}
+            className={({ isActive }) =>
+              isActive ? "pk-m-tabs__item pk-m-tabs__item--on" : "pk-m-tabs__item"
+            }
+          >
+            {t(tab.key)}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }
+
+/**
+ * 下部タブ（`ui-prototypes/mobile/pk-02-today-tasks.html`）。
+ *
+ * **検査（P2 の M-08 / M-09）はまだ無い。** 画面ができた task がここへ
+ * 1 行足すこと。到達先の無いタブを置かない。
+ */
+const MOBILE_TABS: readonly { to: string; key: MessageKey }[] = [
+  { to: "/m/today", key: "m.tab.tasks" },
+  { to: "/m/board", key: "m.tab.board" },
+  { to: "/m/me", key: "m.tab.me" },
+];

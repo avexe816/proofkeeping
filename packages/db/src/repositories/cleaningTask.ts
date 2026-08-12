@@ -14,7 +14,7 @@
  * `repositories/audit.ts` の注記を参照。
  */
 
-import { eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -36,6 +36,14 @@ export interface TaskFilter {
   /** **施設スコープの代わりにならない。** `withTenantScope()` と AND される。 */
   propertyId?: string | undefined;
   businessDate?: string | undefined;
+  /**
+   * 業務日の範囲（両端を含む）。M-11 の「今週」で使う（PK-SPEC-P1 §9.6）。
+   *
+   * **`businessDate` と併用しない。** 併用すると AND になって 1 日に絞られる。
+   * 業務日は `YYYY-MM-DD` の text なので辞書順の比較で日付順になる。
+   */
+  businessDateFrom?: string | undefined;
+  businessDateTo?: string | undefined;
   status?: readonly TaskStatus[] | undefined;
   /** 担当者（`membership.id`）。M-02（自分のタスク）で使う。 */
   assigneeId?: string | undefined;
@@ -58,6 +66,12 @@ export async function listTasks(env: Env, ctx: TenantContext, filter: TaskFilter
         filter.businessDate === undefined
           ? undefined
           : eq(cleaningTask.businessDate, filter.businessDate),
+        filter.businessDateFrom === undefined
+          ? undefined
+          : gte(cleaningTask.businessDate, filter.businessDateFrom),
+        filter.businessDateTo === undefined
+          ? undefined
+          : lte(cleaningTask.businessDate, filter.businessDateTo),
         filter.status === undefined || filter.status.length === 0
           ? undefined
           : inArray(cleaningTask.status, [...filter.status]),
@@ -494,12 +508,26 @@ export async function listShortIds(
   return new Set(rows.map((row) => row.shortId));
 }
 
+/** `assignTasks()` の追加条件。 */
+export interface AssignTasksOptions {
+  /**
+   * 作業中・中断中のタスクも担当を替える（§4.2 の「作業中の引き継ぎ」）。
+   *
+   * **既定は `false`。** 引き継ぎは現場の手を止めるので、画面が警告を
+   * 出して確認を取ったときだけ真になる。真のときも**状態は動かさない**
+   * （`IN_PROGRESS` のまま担当だけを替える）。`ASSIGNED` へ戻すと
+   * 開始時刻と時間ログの整合が崩れる。
+   */
+  includeActive?: boolean | undefined;
+}
+
 /** 担当者を変更する（§4.2 の一括変更）。**監査は呼び出し側。** */
 export async function assignTasks(
   env: Env,
   ctx: TenantContext,
   taskIds: readonly string[],
   assigneeId: string | null,
+  options: AssignTasksOptions = {},
 ): Promise<number> {
   for (const taskId of taskIds) assertIdBelongsToTenant(taskId, ctx);
   if (taskIds.length === 0) return 0;
@@ -522,7 +550,27 @@ export async function assignTasks(
         inArray(cleaningTask.status, ["CREATED", "ASSIGNED"]),
       ),
     );
-  return result.meta.changes;
+
+  if (options.includeActive !== true) return result.meta.changes;
+
+  // 作業中の引き継ぎ。**状態を含めずに担当だけを書く。**
+  const handover = await db
+    .update(cleaningTask)
+    .set({
+      assigneeId,
+      assignedAt: assigneeId === null ? null : ctx.now,
+      updatedAt: ctx.now,
+    })
+    .where(
+      withTenantScope(
+        cleaningTask,
+        ctx,
+        cleaningTask.propertyId,
+        inArray(cleaningTask.id, [...taskIds]),
+        inArray(cleaningTask.status, ["IN_PROGRESS", "PAUSED", "REWORK", "BLOCKED"]),
+      ),
+    );
+  return result.meta.changes + handover.meta.changes;
 }
 
 /** 1 タスクの写真枚数を項目ごとに数える（`complete` の写真必須判定）。 */

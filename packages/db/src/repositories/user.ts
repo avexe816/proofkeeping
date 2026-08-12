@@ -28,7 +28,7 @@ import { desc, eq, notInArray } from "drizzle-orm";
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { getTenantDb, type ShardContext, type TenantContext } from "../router.js";
-import { membership, passwordHistory, propertyAssignment, user } from "../schema/user.js";
+import { membership, passwordHistory, propertyAssignment, user, type Role } from "../schema/user.js";
 
 import { NO_PROPERTY_SCOPE, withOrganizationScope, withTenantScope } from "./base.js";
 
@@ -172,6 +172,91 @@ export async function listAssignedPropertyIds(
       ),
     );
   return rows.map((row) => row.propertyId);
+}
+
+/**
+ * 施設に割り当てられたスタッフ（W-04 人員配分 / PK-SPEC-P1 §4）。
+ *
+ * task: docs/tasks/P1-14.md
+ *
+ * ── 認証情報を返さない ──────────────────────────────────
+ * `passwordHash` / `pinHash` を選ばない（security.md §6）。**行をそのまま
+ * 返す他の関数と違い、ここは列を明示している。** 人員配分の画面は
+ * 一覧をそのままレスポンスへ載せるので、行を返すと認証情報が外へ出る。
+ *
+ * ── 誰を出すかは呼び出し側 ──────────────────────────────
+ * ロールで絞らずに返す。§4.1 の「出勤スタッフ」を表すデータ（シフト）は
+ * P8 の Workforce まで存在せず、ここで `CLEANER` だけに絞ると
+ * 施設責任者が自分で持つ客室を配分できない。**絞るなら画面が絞る。**
+ */
+export interface PropertyStaff {
+  membershipId: string;
+  userId: string;
+  role: Role;
+  staffNumber: string;
+  displayName: string;
+}
+
+export async function listPropertyStaff(
+  env: Env,
+  ctx: TenantContext,
+  propertyId: string,
+): Promise<PropertyStaff[]> {
+  assertIdBelongsToTenant(propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({
+      membershipId: membership.id,
+      userId: user.id,
+      role: membership.role,
+      staffNumber: user.staffNumber,
+      displayName: user.displayName,
+    })
+    .from(propertyAssignment)
+    .innerJoin(membership, eq(membership.id, propertyAssignment.membershipId))
+    .innerJoin(user, eq(user.id, membership.userId))
+    .where(
+      withTenantScope(
+        propertyAssignment,
+        ctx,
+        propertyAssignment.propertyId,
+        eq(propertyAssignment.propertyId, propertyId),
+        eq(propertyAssignment.isActive, true),
+        eq(membership.isActive, true),
+        eq(user.isActive, true),
+      ),
+    );
+
+  // スタッフ番号が未設定の行はログインできない（`findUserByStaffNumber` の
+  // 注記）。配分の対象にしても現場に届かないので落とす。
+  return rows.flatMap((row) =>
+    row.staffNumber === null
+      ? []
+      : [{ ...row, staffNumber: row.staffNumber }],
+  );
+}
+
+/**
+ * 表示言語を変える（PK-SPEC-P1 §12.3 / M-11 の設定）。
+ *
+ * task: docs/tasks/P1-18.md
+ *
+ * **ブラウザの言語設定は参照しない**（ui-writing.md §1）。共用端末で
+ * 誤動作するため、ユーザー属性として保存し、ログイン直後から適用する。
+ * 値が対応言語かの判定は呼び出し側（`isLocale()`）。
+ */
+export async function setUserLocale(
+  env: Env,
+  ctx: TenantContext,
+  userId: string,
+  locale: string,
+): Promise<void> {
+  assertIdBelongsToTenant(userId, ctx);
+  const db = await getTenantDb(env, ctx);
+  await db
+    .update(user)
+    .set({ locale, updatedAt: ctx.now })
+    .where(withTenantScope(user, ctx, NO_PROPERTY_SCOPE, eq(user.id, userId)));
 }
 
 /**

@@ -69,6 +69,13 @@ interface NavItemBase {
   scope: "ORGANIZATION" | "PROPERTY";
 }
 
+/**
+ * `href` は `{propertyId}` を含んでよい（PK-SPEC-P0 §23.5 の
+ * `/app/p/{propertyId}/board`）。差し替えは `buildNavigation()` が行い、
+ * **表示中の施設が無いときはその項目を出さない**（到達先が無いため）。
+ */
+export const PROPERTY_ID_PLACEHOLDER = "{propertyId}";
+
 export type NavItem =
   (NavItemBase & { status: "READY"; href: string }) | (NavItemBase & { status: "PLANNED" });
 
@@ -95,7 +102,19 @@ export const NAV_ITEMS: readonly NavItem[] = [
     moduleCode: "HOUSEKEEPING_CORE",
     action: "property.read",
     scope: "PROPERTY",
-    status: "PLANNED",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/board`,
+  },
+  // W-04（P1-14）。**`task.manage`。** 配分は施設責任者の判断で、
+  // 「盤面が見える人＝配れる人」ではない（§10.1 / §5.3）。
+  {
+    key: "nav.tasks",
+    section: "daily",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "task.manage",
+    scope: "PROPERTY",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/tasks`,
   },
   {
     key: "nav.findings",
@@ -179,6 +198,8 @@ export interface VisibleNavItem {
   item: NavItem;
   /** 契約に含まれていない。**権限が無いのではない。** */
   locked: boolean;
+  /** `{propertyId}` を解決したあとのリンク先。`PLANNED` は `null`。 */
+  href: string | null;
 }
 
 /** セクション単位にまとめた表示用の形。空のセクションは含めない。 */
@@ -217,7 +238,19 @@ export function buildNavigation(
     // 権限が無い項目は存在ごと消す。グレーにしない。
     if (!can(ctx, item.action, target)) continue;
 
-    visible.push({ item, locked: !enabled.has(item.moduleCode) });
+    let href: string | null = null;
+    if (item.status === "READY") {
+      if (item.href.includes(PROPERTY_ID_PLACEHOLDER)) {
+        // 表示中の施設が無いなら到達先が作れない。**項目ごと出さない。**
+        // 空の `propertyId` でリンクを作ると 404 へ誘導することになる。
+        if (input.selectedPropertyId === null) continue;
+        href = item.href.replace(PROPERTY_ID_PLACEHOLDER, input.selectedPropertyId);
+      } else {
+        href = item.href;
+      }
+    }
+
+    visible.push({ item, locked: !enabled.has(item.moduleCode), href });
   }
 
   return NAV_SECTIONS.map((section) => ({
