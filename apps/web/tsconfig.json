@@ -5,6 +5,20 @@
     // React Router（framework mode）は React 19 なので react-jsx。
     // **この 2 行が無いと .tsx は ESLint の parse error になり、
     // pk/no-literal-string と pk/no-forbidden-words が 1 件も動かない。**
+    //
+    // ── DOM を足したのは P1-07（現場画面）────────────────────
+    // `apps/web` は **Worker と ブラウザの両方**のコードを持つ。P0 までは
+    // 画面が SSR だけで済んでいたが、`/m/*` は IndexedDB・canvas・
+    // `visibilitychange` を使う（PK-SPEC-P1 §7・§8）。`lib` に DOM が無いと
+    // これらが型として存在しない。
+    //
+    // `@cloudflare/workers-types` と DOM の同居は**衝突しうる**組み合わせだが、
+    // 実際に出たのは `BufferSource` の分散に関する 1 件だけで、
+    // `lib/auth/pbkdf2.ts` 側に注記を残して解消した。
+    // **ブラウザ専用の API を Worker 側のコードで使わないこと。**
+    // 型が通るようになった分、`document` を Worker で触っても
+    // コンパイルは止まらない（実行時に落ちる）。
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "types": ["@cloudflare/workers-types", "vite/client"]

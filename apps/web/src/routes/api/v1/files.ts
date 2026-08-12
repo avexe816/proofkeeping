@@ -19,14 +19,22 @@
  * R2 を直に読む。**この HTTP 経路を経由しない**ので、認証を外す理由にならない。
  *
  * ── 置いてよいのは公開しても業務が壊れないものだけ ──────
- * P0 で扱うのは角印だけ。**清掃写真をここへ載せない**（security.md §4 は
- * 写真に別のキー体系と保持期間を定めている）。載せる task が
- * 判定と経路を自分で足すこと。
+ * P0 で扱うのは角印だけだった。**P1-11 が清掃写真を足した。**
+ * 写真は別のバケット（`PHOTOS`）・別のキー体系・別の保持期間を持つ
+ * （security.md §4）ので、接頭辞でバケットを選ぶ。
+ *
+ * ── 写真はテナントも照合する ────────────────────────────
+ * 写真のキーには組織 ID が入る（`photos/{orgId}/…`）。**署名が正しくても、
+ * 自分の組織のキーでなければ 404 にする。** 署名は「この鍵が発行した」しか
+ * 言わないので、別組織の URL が何かの拍子に渡ったときの最後の砦になる。
+ * 角印にこの照合が無いのは、キーに組織 ID が入っていて発行元が
+ * 組織スコープの画面しか無いため（P0-16 のまま）。
  */
 
 import { DOCUMENTS_PREFIX } from "../../../lib/storage/prefix.js";
+import { PHOTOS_PREFIX, isOwnPhotoKey } from "../../../lib/photo/upload.js";
 import { verifyObjectUrl } from "../../../lib/storage/signedUrl.js";
-import { getNow, type AppEnv } from "../../../middleware/index.js";
+import { getNow, getTenant, type AppEnv } from "../../../middleware/index.js";
 import { Hono } from "hono";
 
 const files = new Hono<AppEnv>();
@@ -35,7 +43,10 @@ files.get("/:key", async (c) => {
   const key = decodeURIComponent(c.req.param("key"));
 
   // 署名の対象を絞る。**任意のキーを読める口にしない。**
-  if (!key.startsWith(DOCUMENTS_PREFIX)) return c.notFound();
+  const isDocument = key.startsWith(DOCUMENTS_PREFIX);
+  const isPhoto = key.startsWith(PHOTOS_PREFIX);
+  if (!isDocument && !isPhoto) return c.notFound();
+  if (isPhoto && !isOwnPhotoKey(key, getTenant(c).organizationId)) return c.notFound();
 
   const valid = await verifyObjectUrl(
     c.env.SESSION_SECRET,
@@ -48,7 +59,7 @@ files.get("/:key", async (c) => {
   // 期限切れだけ 403 にすると、キーの存在が読める。
   if (!valid) return c.notFound();
 
-  const object = await c.env.DOCUMENTS.get(key);
+  const object = await (isPhoto ? c.env.PHOTOS : c.env.DOCUMENTS).get(key);
   if (object === null) return c.notFound();
 
   return new Response(object.body, {

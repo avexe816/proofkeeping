@@ -45,6 +45,21 @@ export {
   type TransitionResult,
 } from "./taskStatus.js";
 
+// M-02 / M-03 の並び順と経過時間の色（P1-08 / P1-09 / 同 §9.2・§9.3）。
+export {
+  ELAPSED_TONES,
+  FAR_OVER_RATIO,
+  TASK_GROUPS,
+  countByGroup,
+  elapsedToneOf,
+  remainingMinutes,
+  sortTasksForBoard,
+  taskGroupOf,
+  type ElapsedTone,
+  type SortableTask,
+  type TaskGroup,
+} from "./taskBoard.js";
+
 // チェックリスト（P1-06 / 同 §6）。
 export {
   CHECKLIST_VALUE_VALUES,

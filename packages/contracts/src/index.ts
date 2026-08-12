@@ -102,6 +102,31 @@ export {
   type TaskTypeValue,
 } from "./task.js";
 
+// 清掃写真（P1-11）。位置情報の受け口を作らない（INV-11）。
+export {
+  ACCEPTED_PHOTO_MIME,
+  MAX_PHOTOS_PER_TASK,
+  MAX_PHOTO_BYTES,
+  PHOTO_ERROR_CODES,
+  PHOTO_JPEG_QUALITY,
+  PHOTO_KINDS,
+  PHOTO_MAX_LONG_EDGE,
+  photoErrorSchema,
+  photoKindSchema,
+  photoUploadMetaSchema,
+  taskPhotoListResponseSchema,
+  taskPhotoSchema,
+  taskPhotoUploadResponseSchema,
+  type AcceptedPhotoMime,
+  type PhotoError,
+  type PhotoErrorCode,
+  type PhotoKindValue,
+  type PhotoUploadMeta,
+  type TaskPhoto,
+  type TaskPhotoListResponse,
+  type TaskPhotoUploadResponse,
+} from "./photo.js";
+
 // チェックリスト（P1-06）。実施結果は 3 値（INV-22）。
 export {
   CHECKLIST_LOCALES,

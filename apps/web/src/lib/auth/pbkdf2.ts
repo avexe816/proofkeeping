@@ -108,7 +108,11 @@ async function deriveKey(
     ["deriveBits"],
   );
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: SUBTLE_HASH, salt, iterations },
+    // `salt` を新しい `Uint8Array` に写しているのは型のため。DOM の
+    // `BufferSource` は `ArrayBuffer` 裏付けを要求し、`Uint8Array`
+    // （`ArrayBufferLike`）は `SharedArrayBuffer` の可能性を含んで代入できない。
+    // **値は変えていない。** P1-07 で tsconfig に DOM を足した副作用。
+    { name: "PBKDF2", hash: SUBTLE_HASH, salt: new Uint8Array(salt), iterations },
     key,
     keyBytes * 8,
   );

@@ -8,6 +8,8 @@
 import {
   countPhotosByChecklistItem,
   findTaskById,
+  findTaskPhotoById,
+  listTaskPhotos,
   listTasks,
   listTimeLogs,
   type TenantContext,
@@ -41,5 +43,15 @@ describeTenantIsolation({
   list: (env, ctx) => countPhotosByChecklistItem(env, ctx, ownId(ctx, "task")),
   findById: (env, ctx, id) => countPhotosByChecklistItem(env, ctx, id),
   entityPrefix: "task",
+  propertyColumn: "property_id",
+});
+
+// P1-11 が足した読み取り経路。**同じ表でも関数ごとに掛ける。**
+// 越境は「表に条件が載っているか」ではなく「その関数が載せているか」で決まる。
+describeTenantIsolation({
+  table: "task_photo",
+  list: (env, ctx) => listTaskPhotos(env, ctx, ownId(ctx, "task")),
+  findById: (env, ctx, id) => findTaskPhotoById(env, ctx, id),
+  entityPrefix: "photo",
   propertyColumn: "property_id",
 });
