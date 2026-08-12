@@ -32,6 +32,8 @@ export { isModuleEnabled, listEnabledModules } from "./entitlement.js";
 
 // 清掃タスク（P1-01 / P1-03 / P1-05）。
 export {
+  CLOSED_TASK_STATUSES,
+  OPEN_TASK_STATUSES,
   appendTimeLog,
   applyTransition,
   assignTasks,
@@ -117,6 +119,7 @@ export {
   findPropertyByCode,
   findPropertyById,
   listProperties,
+  listRoomTypes,
   type CreatePropertyInput,
   type PropertyFilter,
 } from "./property.js";

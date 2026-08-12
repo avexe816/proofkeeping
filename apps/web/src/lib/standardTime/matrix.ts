@@ -1,0 +1,134 @@
+/**
+ * W-17 標準時間設定の表の組み立て。**純粋関数。**
+ *
+ * task: docs/tasks/P1-02.md
+ * 仕様: docs/PK-SPEC-P1.md §3.1 / §10.1
+ *
+ * ── 未設定のセルを空欄にしない ──────────────────────────
+ * 設定が無い組み合わせは `DEFAULT_STANDARD_MINUTES`（§3.1 の既定分数）で
+ * タスクが生成される（`packages/engine` の `taskGeneration.ts`）。空欄にすると
+ * **いま現場で何分が使われているのかが画面から読めない。** 既定分数を
+ * 初期値として置き、`isDefault` で「まだ保存されていない」ことを示す。
+ *
+ * ── 既定値のままでも行は作らない ────────────────────────
+ * 触っていないセルを送り返さない（`toInputs()` が `isDefault` かつ値が
+ * 既定と同じ行を落とす）。全セルを保存すると、既定分数を後で変えたときに
+ * 「明示的に設定した値」と区別が付かなくなる。
+ */
+
+import { DEFAULT_STANDARD_MINUTES } from "@pk/engine";
+import type { StandardTimeInput } from "@pk/db";
+
+/**
+ * 画面が扱う清掃種別。
+ *
+ * §10.1 の W-17 は「客室タイプ×清掃種別」。P1 の生成が実際に立てるのは
+ * `CHECKOUT` と `STAYOVER` の 2 種（§3.2）。`DEEP` / `COMMON_AREA` /
+ * `RECHECK` は生成経路が P2 以降なので**表に出さない**（設定できる欄が
+ * あって効き先が無い状態を作らない）。
+ */
+export const EDITABLE_TASK_TYPES = ["CHECKOUT", "STAYOVER"] as const;
+
+export type EditableTaskType = (typeof EDITABLE_TASK_TYPES)[number];
+
+/** 入力できる範囲（分）。上限は 1 室 8 時間。 */
+export const MINUTES_MIN = 1;
+export const MINUTES_MAX = 480;
+
+/** 表の 1 セル。 */
+export interface MatrixCell {
+  taskType: EditableTaskType;
+  minutes: number;
+  /** 保存された行が無く、既定分数を表示しているか。 */
+  isDefault: boolean;
+}
+
+/** 表の 1 行（客室タイプ 1 件）。 */
+export interface MatrixRow {
+  roomTypeId: string;
+  code: string;
+  name: string;
+  cells: readonly MatrixCell[];
+}
+
+/** `buildMatrix()` の入力。 */
+export interface MatrixInput {
+  roomTypes: readonly { id: string; code: string; name: string }[];
+  saved: readonly { roomTypeId: string; taskType: string; minutes: number }[];
+}
+
+/**
+ * 客室タイプ × 清掃種別の表を組む。
+ *
+ * 行の順序は `roomTypes` の順序（呼び出し側が `sortOrder` で並べる）。
+ * 列の順序は `EDITABLE_TASK_TYPES` で固定する。
+ */
+export function buildMatrix(input: MatrixInput): readonly MatrixRow[] {
+  const savedByKey = new Map(
+    input.saved.map((row) => [cellKey(row.roomTypeId, row.taskType), row.minutes]),
+  );
+
+  return input.roomTypes.map((roomType) => ({
+    roomTypeId: roomType.id,
+    code: roomType.code,
+    name: roomType.name,
+    cells: EDITABLE_TASK_TYPES.map((taskType) => {
+      const minutes = savedByKey.get(cellKey(roomType.id, taskType));
+      return minutes === undefined
+        ? { taskType, minutes: DEFAULT_STANDARD_MINUTES[taskType], isDefault: true }
+        : { taskType, minutes, isDefault: false };
+    }),
+  }));
+}
+
+/** フォームの input 名。`roomTypeId` に `__` が入るので区切りは `--`。 */
+export function fieldName(roomTypeId: string, taskType: EditableTaskType): string {
+  return `minutes--${roomTypeId}--${taskType}`;
+}
+
+/** `toInputs()` の結果。**拒否した入力を黙って捨てない。** */
+export interface ParsedMatrix {
+  entries: StandardTimeInput[];
+  /** 範囲外・非数だったセルの `fieldName()`。画面が件数を出す。 */
+  rejected: string[];
+}
+
+/**
+ * フォームの値を `upsertStandardTimes()` の入力へ写す。
+ *
+ * @param read `fieldName()` の名前で値を読む関数（`FormData.get` の薄い包み）。
+ *
+ * 送られてこなかったセルは触らない。**既定分数のまま変えていないセルも
+ * 送らない**（`isDefault` かつ値が既定と同じ）。
+ */
+export function toInputs(
+  rows: readonly MatrixRow[],
+  read: (name: string) => string | null,
+): ParsedMatrix {
+  const entries: StandardTimeInput[] = [];
+  const rejected: string[] = [];
+
+  for (const row of rows) {
+    for (const cell of row.cells) {
+      const name = fieldName(row.roomTypeId, cell.taskType);
+      const raw = read(name);
+      if (raw === null || raw.trim() === "") continue;
+
+      const minutes = Number.parseInt(raw.trim(), 10);
+      if (!Number.isSafeInteger(minutes) || minutes < MINUTES_MIN || minutes > MINUTES_MAX) {
+        rejected.push(name);
+        continue;
+      }
+      // 既定分数を表示しているだけのセルを、触っていないのに保存しない。
+      if (cell.isDefault && minutes === DEFAULT_STANDARD_MINUTES[cell.taskType]) continue;
+
+      entries.push({ roomTypeId: row.roomTypeId, taskType: cell.taskType, minutes });
+    }
+  }
+
+  return { entries, rejected };
+}
+
+function cellKey(roomTypeId: string, taskType: string): string {
+  return `${roomTypeId} ${taskType}`;
+}

@@ -20,6 +20,7 @@ import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import {
+  TASK_STATUSES,
   cleaningTask,
   taskPhoto,
   taskTimeLog,
@@ -47,7 +48,36 @@ export interface TaskFilter {
   status?: readonly TaskStatus[] | undefined;
   /** 担当者（`membership.id`）。M-02（自分のタスク）で使う。 */
   assigneeId?: string | undefined;
+  /**
+   * 客室（`room.id`）。
+   *
+   * 客室を無効化するときに未完了タスクの件数を出すため（PK-SPEC-P0 §24.5）。
+   * **越境 ID の検査はここでは掛からない**（`listTasks()` は ID を
+   * 引数に取らない形で作られている）。呼び出し側が自施設の客室 ID を
+   * 渡すこと。渡した ID が他組織のものなら組織条件で 0 件になる。
+   */
+  roomId?: string | undefined;
 }
+
+/**
+ * 「まだ終わっていない」とみなす状態（PK-SPEC-P0 §24.5 の未完了タスク）。
+ *
+ * `COMPLETED` と `CANCELLED` は終わっている。それ以外はすべて未完了。
+ * **`AWAITING_INSPECTION` / `REWORK` / `BLOCKED` も未完了に数える。**
+ * 客室を無効化しても、検査待ち・再清掃・入室不可のタスクはその客室に
+ * 立ったまま残る。施設責任者に見せる必要がある。
+ *
+ * **`TASK_STATUSES` の補集合として書かない。** 状態が増えたときに
+ * 「未完了」へ自動で入るのは、件数が多く出る側＝安全側。列挙を
+ * 忘れて件数が 0 に見える形にはしない（`schema.spec.ts` が
+ * `TASK_STATUSES` の全件を走査してこの表の網羅を固定する）。
+ */
+export const CLOSED_TASK_STATUSES: readonly TaskStatus[] = ["COMPLETED", "CANCELLED"];
+
+/** 未完了とみなす状態（`CLOSED_TASK_STATUSES` の補集合）。 */
+export const OPEN_TASK_STATUSES: readonly TaskStatus[] = TASK_STATUSES.filter(
+  (status) => !CLOSED_TASK_STATUSES.includes(status),
+);
 
 /** 一覧。施設スコープロールには担当施設のタスクだけが返る。 */
 export async function listTasks(env: Env, ctx: TenantContext, filter: TaskFilter = {}) {
@@ -78,6 +108,7 @@ export async function listTasks(env: Env, ctx: TenantContext, filter: TaskFilter
         filter.assigneeId === undefined
           ? undefined
           : eq(cleaningTask.assigneeId, filter.assigneeId),
+        filter.roomId === undefined ? undefined : eq(cleaningTask.roomId, filter.roomId),
       ),
     );
 }

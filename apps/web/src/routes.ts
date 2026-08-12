@@ -35,6 +35,15 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  *   /m/board                  M-10 客室ボード（W-03 と同じ盤面）
  *   /m/me                     M-11 自分の実績・表示言語
  *
+ * ── P1-02 / P1-04 / P1-06 の未達分（PC 管理画面）─────────
+ *   /app/p/:propertyId/plan       W-05 当日の客室状況入力
+ *   /app/settings/checklists      W-16 チェックリスト定義
+ *   /app/settings/standard-times  W-17 標準時間設定
+ *
+ * 3 task はいずれも API だけを実装し、画面を「Batch 2/3 の担当」として
+ * 残していた。Batch 2/3（P1-07〜P1-18）は現場画面（`/m/*`）を作って
+ * 通り過ぎており、**§10.1 の PC 5 画面のうち W-03 / W-04 しか無かった。**
+ *
  * `/m/*` は `/app/*` と別のシェルを持つ（topbar も sidebar も無い）。
  * **同じ layout に相乗りさせないこと。** 現場の画面は片手・手袋・暗所が
  * 前提で、管理画面と共有できる部品がほとんど無い（ui-writing.md §3）。
@@ -56,8 +65,11 @@ export default [
     route("app/dashboard", "routes/app/dashboard.tsx"),
     route("app/p/:propertyId/board", "routes/app/propertyBoard.tsx"),
     route("app/p/:propertyId/tasks", "routes/app/propertyTasks.tsx"),
+    route("app/p/:propertyId/plan", "routes/app/propertyPlan.tsx"),
     route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
+    route("app/settings/checklists", "routes/app/checklists.tsx"),
+    route("app/settings/standard-times", "routes/app/standardTimes.tsx"),
     route("app/settings/tax", "routes/app/taxProfile.tsx"),
   ]),
   // シェルの外に置く。POST のたびにシェルの loader を動かす必要が無い

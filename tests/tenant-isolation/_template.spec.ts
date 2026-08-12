@@ -94,7 +94,6 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   module_entitlement: "P0-12 は判定のみ。一覧を返す関数が無い",
   password_history: "認証内部でのみ使う。ID を取る一覧関数が無い（P0-08）",
   property_assignment: "認証ブートストラップ専用（P0-07 の申し送り）",
-  room_type: "リポジトリ関数がまだ無い（P0-22）",
   external_mapping: "P0-22 は定義のみ。読み書きは P6（§24.4）",
   subscription: "リポジトリ関数がまだ無い（P7-04）",
   user: "listUsers / findUserById はあるが、施設の次元を持たない。P0-14 以降で足す",

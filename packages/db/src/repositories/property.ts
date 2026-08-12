@@ -15,7 +15,7 @@ import { eq } from "drizzle-orm";
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
-import { property } from "../schema/property.js";
+import { property, roomType } from "../schema/property.js";
 
 import { withTenantScope } from "./base.js";
 
@@ -72,6 +72,35 @@ export async function findPropertyByCode(env: Env, ctx: TenantContext, code: str
     .where(withTenantScope(property, ctx, property.id, eq(property.code, code)))
     .limit(1);
   return rows[0];
+}
+
+/**
+ * 施設の客室タイプ。`sortOrder` の昇順。
+ *
+ * W-05（部屋ごとのタイプ名）・W-16（客室タイプ別テンプレート）・
+ * W-17（客室タイプ × 清掃種別の表）が使う。**3 画面とも客室タイプを
+ * 名前で示す必要があるのに、列挙する関数が無かった。**
+ *
+ * 無効化済み（`isActive = false`）は返さない。過去のタスクは
+ * `standardMinutes` を自分で持っているので、設定の画面から消えても
+ * 実施済みの記録は変わらない（PK-SPEC-P0 §24.5）。
+ */
+export async function listRoomTypes(env: Env, ctx: TenantContext, propertyId: string) {
+  assertIdBelongsToTenant(propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select()
+    .from(roomType)
+    .where(
+      withTenantScope(
+        roomType,
+        ctx,
+        roomType.propertyId,
+        eq(roomType.propertyId, propertyId),
+        eq(roomType.isActive, true),
+      ),
+    )
+    .orderBy(roomType.sortOrder);
 }
 
 /** `createProperty()` の入力。ID・組織・時刻はここでは受け取らない。 */

@@ -116,6 +116,17 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/tasks`,
   },
+  // W-05（P1-04 の未達分）。**`roomPlan.write`。** 当日の客室状況は
+  // 入力する画面で、読むだけの人が辿る先ではない（§10.1 の `P_MANAGER 以上`）。
+  {
+    key: "nav.plan",
+    section: "daily",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "roomPlan.write",
+    scope: "PROPERTY",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/plan`,
+  },
   {
     key: "nav.findings",
     section: "daily",
@@ -175,6 +186,50 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "PLANNED",
   },
   // ── 設定 ──────────────────────────────────────────────
+  // ここまで `/app/settings/*` の 3 画面（客室マスタ・事業者税務・そして
+  // 今回の 2 つ）は**サイドバーに現れなかった。** ルートは実在するのに
+  // 到達経路が無く、URL を直に打つしか無い状態だった。
+  {
+    key: "nav.rooms",
+    section: "settings",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "property.write",
+    scope: "PROPERTY",
+    status: "READY",
+    href: "/app/settings/rooms",
+  },
+  // W-16 / W-17（P1-06 / P1-02 の未達分）。§10.1 の担当ロールは `ORG_ADMIN`。
+  // **`scope` は `ORGANIZATION`。** 権限マトリクスがこの 2 操作を組織単位で
+  // 定めており、施設スコープロールには項目ごと出ない。
+  {
+    key: "nav.checklists",
+    section: "settings",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "checklistTemplate.write",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/settings/checklists",
+  },
+  {
+    key: "nav.standardTimes",
+    section: "settings",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "standardTime.write",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/settings/standard-times",
+  },
+  // W-11 事業者・税務設定（P0-16）。**`PLATFORM`。** 登録番号の設定は
+  // 請求モジュールの契約が無くても要る（未設定でも画面は成立する / P0-16）。
+  {
+    key: "nav.taxProfile",
+    section: "settings",
+    moduleCode: "PLATFORM",
+    action: "taxProfile.write",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/settings/tax",
+  },
   {
     key: "nav.propertySettings",
     section: "settings",

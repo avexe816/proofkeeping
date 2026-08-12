@@ -69,6 +69,14 @@ describe("登録簿の不変条件", () => {
       "nav.dashboard",
       "nav.board",
       "nav.tasks",
+      // W-05（P1-04 の未達分）。
+      "nav.plan",
+      // `/app/settings/*` の 4 画面。客室マスタ（P0-22）と事業者税務（P0-16）は
+      // ルートが実在するのに**サイドバーに出ていなかった。**
+      "nav.rooms",
+      "nav.checklists",
+      "nav.standardTimes",
+      "nav.taxProfile",
     ]);
   });
 
@@ -80,6 +88,7 @@ describe("登録簿の不変条件", () => {
     }).flatMap((group) => group.items.map((entry) => entry.item.key));
     expect(keys).not.toContain("nav.board");
     expect(keys).not.toContain("nav.tasks");
+    expect(keys).not.toContain("nav.plan");
   });
 
   it("READY の項目は解決済みの href を持つ", () => {
@@ -131,6 +140,35 @@ describe("権限による非表示（security.md §1 の絶対境界）", () => 
     const keys = keysFor("AUDITOR");
     expect(keys).not.toContain("nav.propertySettings");
     expect(keys).not.toContain("nav.permission");
+    // 読取専用。設定の 4 画面はいずれも書き込みの操作を action に持つ。
+    expect(keys).not.toContain("nav.rooms");
+    expect(keys).not.toContain("nav.checklists");
+    expect(keys).not.toContain("nav.standardTimes");
+    expect(keys).not.toContain("nav.taxProfile");
+    expect(keys).not.toContain("nav.plan");
+  });
+
+  it("CLEANER / INSPECTOR に当日の客室状況を出さない（§10.1 は P_MANAGER 以上）", () => {
+    expect(keysFor("CLEANER")).not.toContain("nav.plan");
+    expect(keysFor("INSPECTOR")).not.toContain("nav.plan");
+  });
+
+  it("PROPERTY_MANAGER に当日の客室状況を出す", () => {
+    expect(keysFor("PROPERTY_MANAGER")).toContain("nav.plan");
+  });
+
+  it("PROPERTY_MANAGER に組織単位の設定 2 画面を出さない（§10.1 は ORG_ADMIN）", () => {
+    const keys = keysFor("PROPERTY_MANAGER");
+    expect(keys).not.toContain("nav.checklists");
+    expect(keys).not.toContain("nav.standardTimes");
+  });
+
+  it("ORG_ADMIN に設定の 4 画面すべてを出す", () => {
+    const keys = keysFor("ORG_ADMIN");
+    expect(keys).toContain("nav.rooms");
+    expect(keys).toContain("nav.checklists");
+    expect(keys).toContain("nav.standardTimes");
+    expect(keys).toContain("nav.taxProfile");
   });
 
   it("VENDOR_ADMIN は担当外の施設が選ばれていると施設の項目が出ない", () => {
@@ -207,7 +245,7 @@ describe("セクション", () => {
 
   it("項目が 1 つも残らないセクションは出さない", () => {
     // CLEANER からは「記録の確認」の差異 2 件が消えるが、清掃記録・検査は残る。
-    // 設定は 2 件とも消えるのでセクションごと消える。
+    // 設定は全件消えるのでセクションごと消える（書き込みの操作しか無い）。
     const sections = buildNavigation(ctxFor("CLEANER"), {
       selectedPropertyId: PROPERTY_ID,
       enabledModules: ALL_MODULES,

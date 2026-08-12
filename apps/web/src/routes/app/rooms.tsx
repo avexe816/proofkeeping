@@ -1,4 +1,12 @@
-import { NotFoundError, createRooms, listRooms, recordAudit, updateRoom } from "@pk/db";
+import {
+  NotFoundError,
+  OPEN_TASK_STATUSES,
+  createRooms,
+  listRooms,
+  listTasks,
+  recordAudit,
+  updateRoom,
+} from "@pk/db";
 import { Form, useActionData, useLoaderData, type ActionFunctionArgs, type LoaderFunctionArgs } from "react-router";
 
 import { t } from "../../lib/i18n.js";
@@ -29,6 +37,12 @@ import { requireAppContext } from "../../lib/ui/requireSession.js";
  * ── 部屋番号の変更は旧番号を監査ログへ ──────────────────
  * §24.5。`recordAudit()` の `before` に旧番号を入れる。
  * リポジトリ層は監査ログを書かないので、ここで書く（P0-07 の方針）。
+ *
+ * ── 無効化は未完了タスクの件数を先に見せる ──────────────
+ * §24.5 MUST。**未完了タスクを自動キャンセルしない。** 件数を提示して
+ * 明示操作を求めるところまでがこの画面の責務で、タスクをどうするかは
+ * W-04（`/app/p/:propertyId/tasks`）で決める。同じボタンに
+ * 「まとめて取消す」を足さないこと（P0-22 は P1 のタスク表を待っていた）。
  */
 
 /**
@@ -79,6 +93,12 @@ interface RoomsActionResult {
   skipped?: number;
   rejectedRows?: number;
   invalid?: boolean;
+  /**
+   * 無効化の確認待ち（§24.5）。未完了タスクを抱えた客室。
+   *
+   * **`0` を返さない。** 未完了が無ければ確認を挟まず無効化する。
+   */
+  confirmDeactivate?: { roomId: string; roomNumber: string; openTasks: number };
 }
 
 export async function action({ request, context }: ActionFunctionArgs): Promise<RoomsActionResult> {
@@ -175,6 +195,24 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
     const roomId = fieldOf(form, "roomId");
     if (roomId === "") return { invalid: true };
 
+    // §24.5 MUST: 未完了タスクがあることを先に伝える。**自動キャンセルしない。**
+    // `listTasks()` は業務日で絞らない（明日以降に立っているタスクも
+    // 客室が無効になれば行き先を失う）。
+    const openTasks = await listTasks(env, tenant, {
+      propertyId: property.id,
+      roomId,
+      status: OPEN_TASK_STATUSES,
+    });
+    if (openTasks.length > 0 && fieldOf(form, "confirm") !== "yes") {
+      return {
+        confirmDeactivate: {
+          roomId,
+          roomNumber: fieldOf(form, "roomNumber"),
+          openTasks: openTasks.length,
+        },
+      };
+    }
+
     await updateRoom(env, tenant, roomId, { isActive: false });
     await recordAudit(env, tenant, {
       actorId: session.membershipId,
@@ -182,6 +220,9 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
       targetType: "room",
       targetId: roomId,
       propertyId: property.id,
+      // 何件を抱えたまま無効化したかを残す。あとで「タスクが宙に浮いた」
+      // 事象を追えるようにするため。
+      after: { openTasks: openTasks.length },
     });
     return {};
   }
@@ -208,6 +249,28 @@ export default function Rooms() {
         <p className="pk-notice">
           {`${t("room.csv.invalidRows")}: ${String(result.rejectedRows)}`}
         </p>
+      )}
+
+      {/* §24.5: 件数を提示して明示操作を求める。タスクは取消さない。 */}
+      {result?.confirmDeactivate === undefined ? null : (
+        <div className="pk-notice pk-notice--warn">
+          <p>{t("room.deactivate.pendingTasks")}</p>
+          <p>
+            {`${result.confirmDeactivate.roomNumber} — ` +
+              `${t("room.deactivate.openTasks")}: ${String(result.confirmDeactivate.openTasks)}`}
+          </p>
+          <p>{t("room.deactivate.notice")}</p>
+          <p>{t("room.deactivate.confirm")}</p>
+          <Form method="post">
+            <input type="hidden" name="intent" value="deactivate" />
+            <input type="hidden" name="roomId" value={result.confirmDeactivate.roomId} />
+            <input type="hidden" name="roomNumber" value={result.confirmDeactivate.roomNumber} />
+            <input type="hidden" name="confirm" value="yes" />
+            <button className="pk-button" type="submit">
+              {t("room.deactivate.submit")}
+            </button>
+          </Form>
+        </div>
       )}
 
       <Form method="post" className="pk-form">
@@ -237,16 +300,40 @@ export default function Rooms() {
       <h2>{`${t("room.section.sellable")}（${t("room.count.sellable")}: ${String(data.sellable.length)}）`}</h2>
       <ul className="pk-room-list">
         {data.sellable.map((room) => (
-          <li key={room.id}>{room.roomNumber}</li>
+          <li key={room.id}>
+            {room.roomNumber}
+            <DeactivateButton roomId={room.id} roomNumber={room.roomNumber} />
+          </li>
         ))}
       </ul>
 
       <h2>{t("room.section.nonSellable")}</h2>
       <ul className="pk-room-list pk-room-list--nonSellable">
         {data.nonSellable.map((room) => (
-          <li key={room.id}>{room.roomNumber}</li>
+          <li key={room.id}>
+            {room.roomNumber}
+            <DeactivateButton roomId={room.id} roomNumber={room.roomNumber} />
+          </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * 無効化のボタン。**「削除」ではない**（§26 の絶対ルール）。
+ *
+ * 1 回目の送信では未完了タスクの件数を返しうる（§24.5）。
+ */
+function DeactivateButton({ roomId, roomNumber }: { roomId: string; roomNumber: string }) {
+  return (
+    <Form method="post" className="pk-inline">
+      <input type="hidden" name="intent" value="deactivate" />
+      <input type="hidden" name="roomId" value={roomId} />
+      <input type="hidden" name="roomNumber" value={roomNumber} />
+      <button className="pk-button" type="submit">
+        {t("room.deactivate")}
+      </button>
+    </Form>
   );
 }
