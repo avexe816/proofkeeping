@@ -66,10 +66,13 @@ export interface TodayData {
   day: MyDayResponse;
   /** 選択された施設。`null` は全施設（§19.4）。 */
   filterPropertyId: string | null;
-  /** 開始できるか。**翌日を選んでいる間は `false`**（§19.4）。 */
+  /**
+   * 開始できるか。**翌日を選んでいる間は `false`**（§19.4）。
+   *
+   * 見ている業務日そのものは `day.businessDate`（見出しに出る）。
+   * ここは「押せるか」だけを持つ。画面に日付の比較をさせない。
+   */
   startable: boolean;
-  /** 当日の業務日。翌日を見ているかの判定に使う。 */
-  today: string;
 }
 
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<TodayData> {
@@ -109,7 +112,6 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     day,
     filterPropertyId: decision.filterPropertyId,
     startable: decision.startable,
-    today,
   };
 }
 
