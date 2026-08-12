@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildMyDay,
   filterMyDay,
+  lastWorkedPropertyId,
   type MyDayProperty,
   type MyDayTask,
   type RouteLeg,
@@ -291,5 +292,53 @@ describe("filterMyDay: 全施設をまたぐ（§19.3 MUST）", () => {
     const before = JSON.stringify(day);
     filterMyDay(day, "DONE");
     expect(JSON.stringify(day)).toBe(before);
+  });
+});
+
+describe("lastWorkedPropertyId — 施設が変わる開始の判断（§19.8 / P1-23）", () => {
+  const started = (propertyId: string, startedAt: number | null) => ({ propertyId, startedAt });
+
+  it("開始時刻が最も新しいタスクの施設を返す", () => {
+    expect(
+      lastWorkedPropertyId([
+        started("p_tokyo", 1_000),
+        started("p_yoko", 3_000),
+        started("p_osaka", 2_000),
+      ]),
+    ).toBe("p_yoko");
+  });
+
+  it("1 件も始まっていなければ null（当日の初回は確認を出さない）", () => {
+    expect(lastWorkedPropertyId([started("p_tokyo", null), started("p_yoko", null)])).toBeNull();
+  });
+
+  it("空でも落ちない", () => {
+    expect(lastWorkedPropertyId([])).toBeNull();
+  });
+
+  it("同じ施設に戻ってきた場合、直前は別施設のまま（確認が出る）", () => {
+    // A館 → B館 → いま A館 のタスクを開始しようとしている。
+    expect(
+      lastWorkedPropertyId([started("p_tokyo", 1_000), started("p_yoko", 2_000)]),
+    ).toBe("p_yoko");
+  });
+
+  it("未着手が混ざっていても開始済みだけを見る", () => {
+    expect(
+      lastWorkedPropertyId([started("p_yoko", null), started("p_tokyo", 500)]),
+    ).toBe("p_tokyo");
+  });
+
+  it("同じ施設の連続作業では施設が変わらない（確認が出ない）", () => {
+    expect(
+      lastWorkedPropertyId([started("p_yoko", 1_000), started("p_yoko", 2_000)]),
+    ).toBe("p_yoko");
+  });
+
+  it("入力を書き換えない", () => {
+    const tasks = [started("p_tokyo", 1_000), started("p_yoko", 2_000)];
+    const before = JSON.stringify(tasks);
+    lastWorkedPropertyId(tasks);
+    expect(JSON.stringify(tasks)).toBe(before);
   });
 });

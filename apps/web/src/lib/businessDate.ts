@@ -62,6 +62,29 @@ function previousDate(date: string): string {
 }
 
 /**
+ * 業務日を 1 日進める（PK-SPEC-P1 §19.4 の「翌日以降」）。
+ *
+ * **業務日そのものの計算であって、暦日ではない。** 業務日は
+ * `YYYY-MM-DD` の連続した並びなので、日締め時刻を再度考える必要は無い。
+ */
+export function nextBusinessDate(businessDate: string): string {
+  const shifted = new Date(`${businessDate}T00:00:00.000Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + 1);
+  return shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * その瞬間の現地時刻 `HH:MM`（§19.4 の「現在ここ」の判定に使う）。
+ *
+ * **業務日ではなく時計。** 日締めの前（深夜 3 時）でも `03:00` を返す。
+ */
+export function localClockOf(now: Date, timezone: string = DEFAULT_TIMEZONE): string {
+  const { minutes } = localParts(now, timezone);
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
+}
+
+/**
  * 業務日を求める。
  *
  * 日締め時刻より前なら前日の業務日。

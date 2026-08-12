@@ -72,6 +72,29 @@ export interface SessionRecord {
    * **`"ALL"`（全社サマリー）は P0-21 が足す。** ここでは施設 ID のみ。
    */
   selectedPropertyId?: string;
+  /**
+   * 現場画面で選んだ施設（PK-SPEC-P1 §19.4 / P1-22）。**認可情報ではない。**
+   *
+   * `selectedPropertyId`（管理画面の表示スコープ）と分けてある。両者は
+   * 消える条件が違う — こちらは**業務日が変われば無効**（§19.4 の
+   * 「当日中は再表示しない」）で、あちらは日付を持たない。同じ欄に
+   * 入れると、PC で施設を切り替えた結果が現場の一覧を絞り込む。
+   *
+   * `propertyId` は `ALL_MOBILE_PROPERTIES` を取りうる（「すべての施設を
+   * まとめて表示」）。**この値も毎リクエスト一覧と突き合わせる**
+   * （`lib/mobile/pick.ts`）。一覧に無ければ絞り込みを掛けない。
+   */
+  mobilePick?: MobilePick;
+}
+
+/** 現場画面の施設選択（§19.4）。 */
+export interface MobilePick {
+  /** 選んだ施設。`"ALL"` は絞り込まない（プロトタイプ 03 Q2 の逃げ道）。 */
+  propertyId: string;
+  /** その施設のタスクを見る業務日。翌日を選ぶと未来日になる。 */
+  businessDate: string;
+  /** **選んだ日の業務日。** これが当日でなければ選択画面を出し直す。 */
+  pickedOn: string;
 }
 
 /** `createSession()` の入力。 */
@@ -166,6 +189,7 @@ function parseSessionRecord(raw: string): SessionRecord | null {
   // 一致することは無いが、判定を後段に持ち越さない）。
   const selected = candidate["selectedPropertyId"];
   const selectedPropertyId = typeof selected === "string" && selected !== "" ? selected : undefined;
+  const mobilePick = parseMobilePick(candidate["mobilePick"]);
 
   return {
     v: 1,
@@ -177,7 +201,24 @@ function parseSessionRecord(raw: string): SessionRecord | null {
     issuedAt: candidate["issuedAt"] as number,
     expiresAt: candidate["expiresAt"] as number,
     ...(selectedPropertyId === undefined ? {} : { selectedPropertyId }),
+    ...(mobilePick === undefined ? {} : { mobilePick }),
   };
+}
+
+/** 業務日の形（`YYYY-MM-DD`）。**壊れた値を後段へ持ち越さない。** */
+const BUSINESS_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 現場の施設選択を読む。**1 項目でも欠けていれば「未選択」。** */
+function parseMobilePick(value: unknown): MobilePick | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const candidate = value as Record<string, unknown>;
+  const propertyId = candidate["propertyId"];
+  const businessDate = candidate["businessDate"];
+  const pickedOn = candidate["pickedOn"];
+  if (typeof propertyId !== "string" || propertyId === "") return undefined;
+  if (typeof businessDate !== "string" || !BUSINESS_DATE.test(businessDate)) return undefined;
+  if (typeof pickedOn !== "string" || !BUSINESS_DATE.test(pickedOn)) return undefined;
+  return { propertyId, businessDate, pickedOn };
 }
 
 /**
@@ -249,16 +290,64 @@ export async function setSelectedPropertyId(
   if (propertyId === null) delete updated.selectedPropertyId;
   else updated.selectedPropertyId = propertyId;
 
-  // KV の `expirationTtl` は 60 秒が下限。残りがそれを下回る場合だけ
-  // 実体の掃除が最大 1 分遅れるが、`expiresAt` による読み出し時の判定
-  // （二重の期限のうち 2 つ目）が先に効くので、使えるセッションは増えない。
-  const remainingMs = updated.expiresAt - now.getTime();
-  const ttlSeconds = Math.max(60, Math.ceil(remainingMs / 1000));
+  await putSession(env, sessionId, updated, now);
+  return updated;
+}
 
-  await env.SESSION.put(KEY_PREFIX + sessionId, JSON.stringify(updated), {
+/**
+ * 現場画面で選んだ施設を記録する（PK-SPEC-P1 §19.4 / P1-22）。
+ *
+ * **`setSelectedPropertyId()` と同じ制約に従う。** 期限を延長しない。
+ * 無効なセッションには書かない。理由はそちらの注記を参照。
+ *
+ * **担当施設かどうかはここでは見ない。** 呼ぶ側が当日の一覧から解決してから
+ * 渡す（`lib/mobile/pick.ts`）。選択は絞り込みであって認可ではないので、
+ * 一覧に無い値が残っていても効かないだけで済む。
+ *
+ * @param pick `null` を渡すと選択を消す（次の起動で選択画面が出る）。
+ */
+export async function setMobilePick(
+  env: Env,
+  cookieValue: string,
+  pick: MobilePick | null,
+  now: Date,
+): Promise<SessionRecord | null> {
+  const sessionId = await verifySignedSessionId(cookieValue, env.SESSION_SECRET);
+  if (sessionId === null) return null;
+
+  const current = await readSession(env, cookieValue, now);
+  if (current === null) return null;
+
+  const updated: SessionRecord = { ...current };
+  if (pick === null) delete updated.mobilePick;
+  else updated.mobilePick = pick;
+
+  await putSession(env, sessionId, updated, now);
+  return updated;
+}
+
+/**
+ * 更新後のレコードを書き戻す。**期限を延ばさない。**
+ *
+ * 残り時間を `expiresAt - now` から計算してそのまま `expirationTtl` にする。
+ * ここで `SESSION_TTL_SECONDS` を使い直すと、施設を選ぶたびにセッションが
+ * 延び、「12 時間 / 1 勤務」の絶対期限が崩れる（DECISIONS #020）。
+ *
+ * KV の `expirationTtl` は 60 秒が下限。残りがそれを下回る場合だけ
+ * 実体の掃除が最大 1 分遅れるが、`expiresAt` による読み出し時の判定
+ * （二重の期限のうち 2 つ目）が先に効くので、使えるセッションは増えない。
+ */
+async function putSession(
+  env: Env,
+  sessionId: string,
+  record: SessionRecord,
+  now: Date,
+): Promise<void> {
+  const remainingMs = record.expiresAt - now.getTime();
+  const ttlSeconds = Math.max(60, Math.ceil(remainingMs / 1000));
+  await env.SESSION.put(KEY_PREFIX + sessionId, JSON.stringify(record), {
     expirationTtl: ttlSeconds,
   });
-  return updated;
 }
 
 /** セッションを破棄する。署名が合わない値では何もしない。 */

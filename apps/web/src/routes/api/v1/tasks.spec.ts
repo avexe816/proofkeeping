@@ -38,6 +38,8 @@ const PROPERTY_ID = `${ORG_SHORT_ID}__prop_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 const ROOM_ID = `${ORG_SHORT_ID}__room_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 const TASK_ID = `${ORG_SHORT_ID}__task_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 const OTHER_ORG_TASK_ID = `zz9zz9__task_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
+/** 同じ組織の、**担当外**の施設（P1-23 / §19.8）。 */
+const UNASSIGNED_PROPERTY_ID = `${ORG_SHORT_ID}__prop_01JBXQ3ZK8N4P2VYR6ZZZZZZ`;
 
 const DEPS: TenantDeps = {
   findMembershipByUserId: () =>
@@ -46,11 +48,11 @@ const DEPS: TenantDeps = {
 };
 
 /** `cleaning_task` の 1 行。**列の順序は schema/task.ts の宣言順。** */
-function taskRow(status: string): unknown[] {
+function taskRow(status: string, propertyId: string = PROPERTY_ID): unknown[] {
   return [
     TASK_ID,
     ORGANIZATION_ID,
-    PROPERTY_ID,
+    propertyId,
     ROOM_ID,
     "2026-08-12",
     "CHECKOUT",
@@ -247,6 +249,60 @@ describe("POST /api/v1/tasks/:taskId/:action", () => {
     // **状態を変える UPDATE も、時間ログの INSERT も出ていない。**
     expect(ctx.d1.queries.filter((query) => query.sql.startsWith("insert into"))).toEqual([]);
     expect(ctx.d1.queries.filter((query) => query.sql.startsWith("update"))).toEqual([]);
+  });
+
+  // ── 施設の検証（P1-23 / §19.8 MUST）─────────────────────
+  //
+  // 複数施設のタスクが 1 画面に並ぶため、別施設のタスクを開始する誤操作が
+  // 起きうる。UI の確認は**親切**であって安全ではない。ここが安全側。
+
+  it("担当外の施設のタスクを start すると 404（403 ではない）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    // タスクは存在するが、担当施設（`listAssignedPropertyIds`）に無い施設のもの。
+    ctx.d1.enqueueRows([taskRow("ASSIGNED", UNASSIGNED_PROPERTY_ID)]);
+
+    const res = await post(ctx, `/api/v1/tasks/${TASK_ID}/start`, {}, cookie);
+
+    // **404。** 403 は「あるが権限が無い」ことを示唆する（INV-31）。
+    expect(res.status).toBe(404);
+    // 状態は動いていない。
+    expect(ctx.d1.queries.filter((query) => query.sql.startsWith("update"))).toEqual([]);
+    expect(ctx.d1.queries.filter((query) => query.sql.startsWith("insert into"))).toEqual([]);
+  });
+
+  it("ボディの propertyId を信用しない（担当施設を名乗っても 404）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    ctx.d1.enqueueRows([taskRow("ASSIGNED", UNASSIGNED_PROPERTY_ID)]);
+
+    // クライアントが担当施設の ID を添えて送ってくる。**施設は資源から
+    // 解決する**ので、この値は判定に一切効かない（INV-32）。
+    const res = await post(
+      ctx,
+      `/api/v1/tasks/${TASK_ID}/start`,
+      { propertyId: PROPERTY_ID },
+      cookie,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it("担当施設のタスクは start できる（上の 404 が施設の判定であることの対）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    // 行を積むのは **select だけ**（`run()` は積んだ行を消費しない /
+    // `test-support/fake-d1.ts`）。INSERT / UPDATE のぶんを積まないこと。
+    ctx.d1.enqueueRows([taskRow("ASSIGNED")]); // findTaskById
+    ctx.d1.enqueueRows([]); // 時間ログ（idempotency 照合）
+    ctx.d1.enqueueRows([]); // 施設（検査の要否）
+    ctx.d1.enqueueRows([]); // listTimeLogs（追記後の読み直し）
+    ctx.d1.enqueueRows([taskRow("IN_PROGRESS")]); // 応答のための再取得
+    ctx.d1.enqueueRows([roomRow()]); // 部屋番号
+
+    const res = await post(ctx, `/api/v1/tasks/${TASK_ID}/start`, {}, cookie, "key-ok");
+
+    expect(res.status).toBe(200);
   });
 
   it("ボディが JSON でなければ 400", async () => {

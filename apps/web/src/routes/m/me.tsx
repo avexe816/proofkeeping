@@ -22,8 +22,14 @@
  * 共用端末では「いま使っている人」を表さないため。
  */
 
-import { listTasks, setUserLocale } from "@pk/db";
-import { summarizeOwnWork, weekRangeOf, MINIMUM_TASKS_FOR_AVERAGE } from "@pk/engine";
+import { listProperties, listTasks, setUserLocale } from "@pk/db";
+import {
+  monthRangeOf,
+  summarizeOwnWork,
+  summarizeOwnWorkByProperty,
+  weekRangeOf,
+  MINIMUM_TASKS_FOR_AVERAGE,
+} from "@pk/engine";
 import {
   Form,
   useLoaderData,
@@ -54,6 +60,15 @@ export interface OwnStatsData {
     completed: number;
     averageMinutes: number | null;
   };
+  /**
+   * 施設別の内訳（今月 / PK-SPEC-P1 §19.9）。**自分のぶんだけ。**
+   *
+   * 1 施設しか担当していない期間は空にする（画面側で節ごと落とす）。
+   * 内訳が 1 行だけの表は「今月」の再掲にしかならない。
+   */
+  byProperty: { propertyId: string; propertyName: string; completed: number }[];
+  /** 施設別の合計（§19.9 の「合計」行）。 */
+  byPropertyTotal: number;
   /** 平均を出すのに要る件数（画面が理由として示す）。 */
   minimumForAverage: number;
 }
@@ -69,13 +84,24 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
 
   const businessDate = businessDateOf(now);
   const week = weekRangeOf(businessDate);
+  const month = monthRangeOf(businessDate);
 
   // 今週ぶんを 1 回で引き、本日は手元で絞る。**2 回引かない**（§13）。
-  const rows = await listTasks(env, tenant, {
-    assigneeId: session.membershipId,
-    businessDateFrom: week.from,
-    businessDateTo: week.to,
-  });
+  // 施設別（§19.9）は「今月」で、週と範囲が違うので別に引く。
+  // **どちらも `assigneeId` は自分。** 他人を指定する口が無い（INV-07）。
+  const [rows, monthRows, properties] = await Promise.all([
+    listTasks(env, tenant, {
+      assigneeId: session.membershipId,
+      businessDateFrom: week.from,
+      businessDateTo: week.to,
+    }),
+    listTasks(env, tenant, {
+      assigneeId: session.membershipId,
+      businessDateFrom: month.from,
+      businessDateTo: month.to,
+    }),
+    listProperties(env, tenant, {}),
+  ]);
 
   const toInput = (task: (typeof rows)[number]) => ({
     status: task.status,
@@ -85,6 +111,19 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     rows.filter((task) => task.businessDate === businessDate).map(toInput),
   );
   const weekSummary = summarizeOwnWork(rows.map(toInput));
+
+  // §19.9 の「施設別（今月）」。**件数だけ。** 施設ごとの平均は出さない
+  // （母数の小さい施設で意味を持たず、施設間の比較にも読める）。
+  const nameById = new Map(properties.map((property) => [property.id, property.name]));
+  const byProperty = summarizeOwnWorkByProperty(
+    monthRows.map((task) => ({ propertyId: task.propertyId, status: task.status })),
+  ).map((row) => ({
+    propertyId: row.propertyId,
+    // 施設が引けない（無効化された等）場合も件数は出す。**行を落とさない。**
+    // 落とすと合計と内訳が合わなくなる。
+    propertyName: nameById.get(row.propertyId) ?? "",
+    completed: row.completed,
+  }));
 
   return {
     locale,
@@ -97,6 +136,8 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
       completed: weekSummary.completed,
       averageMinutes: weekSummary.averageMinutes,
     },
+    byProperty,
+    byPropertyTotal: byProperty.reduce((sum, row) => sum + row.completed, 0),
     minimumForAverage: MINIMUM_TASKS_FOR_AVERAGE,
   };
 }
@@ -161,6 +202,25 @@ export default function OwnStatsRoute(): React.ReactElement {
             }
           />
         </section>
+
+        {/* §19.9 の「施設別（今月）」。**自分の分のみ。**
+            1 施設しか担当していない期間は出さない（今月の再掲になる）。 */}
+        {data.byProperty.length < 2 ? null : (
+          <section className="pk-m-stats">
+            <h2 className="pk-m-stats__title">{t("m.me.byProperty")}</h2>
+            {data.byProperty.map((row) => (
+              <Stat
+                key={row.propertyId}
+                label={`🏨 ${row.propertyName}`}
+                value={`${String(row.completed)}${t("m.me.unit.count")}`}
+              />
+            ))}
+            <Stat
+              label={t("m.me.total")}
+              value={`${String(data.byPropertyTotal)}${t("m.me.unit.count")}`}
+            />
+          </section>
+        )}
 
         {/* security.md §5 / §9.6 MUST。**この 1 行を消さないこと。** */}
         <p className="pk-m-note">{t("m.me.noComparison")}</p>

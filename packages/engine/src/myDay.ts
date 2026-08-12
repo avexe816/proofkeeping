@@ -146,6 +146,41 @@ export function buildMyDay<T extends MyDayTask>(
   };
 }
 
+/** `lastWorkedPropertyId()` に渡す 1 件。並べ替え用の項目は要らない。 */
+export interface WorkedTask {
+  propertyId: string;
+  /** 作業を始めた時刻（epoch ミリ秒）。未着手なら `null`。 */
+  startedAt: number | null;
+}
+
+/**
+ * **直前に手を付けたタスクの施設**（PK-SPEC-P1 §19.8）。
+ *
+ * 施設が変わる開始で確認を出すかどうかの判断材料。
+ * プロトタイプ 04 の表がそのまま規則になる。
+ *
+ * | 状況 | 確認 |
+ * |---|---|
+ * | 直前のタスクと同一施設 | 出さない |
+ * | 直前のタスクと別施設 | 出す |
+ * | 当日の初回タスク | 出さない（ここが `null` を返す） |
+ * | 同じ施設に戻ってきた | 出す（A → B → A で B が直前になるため） |
+ *
+ * **一覧の並び順で判断しないこと。** 並びで見ると、2 つ目の施設のタスクは
+ * どれも「前のグループと違う」ままなので、同一施設の 2 件目以降にも
+ * 確認が出続ける（§19.8 の「1 回だけ」に反する）。
+ *
+ * @returns 開始時刻が最も新しいタスクの施設。1 件も始まっていなければ `null`。
+ */
+export function lastWorkedPropertyId(tasks: readonly WorkedTask[]): string | null {
+  let latest: WorkedTask | null = null;
+  for (const task of tasks) {
+    if (task.startedAt === null) continue;
+    if (latest === null || task.startedAt > (latest.startedAt ?? 0)) latest = task;
+  }
+  return latest?.propertyId ?? null;
+}
+
 /**
  * 施設の並び。**`dailyRoute` にある施設が先、無い施設は名前の昇順で後ろ。**
  *

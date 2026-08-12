@@ -107,6 +107,7 @@ export { listDailyRoute } from "./dailyRoute.js";
 export {
   findOrganization,
   findTaxProfile,
+  updateOrganizationSettings,
   updateTaxProfile,
   type UpdateTaxProfileInput,
 } from "./organization.js";

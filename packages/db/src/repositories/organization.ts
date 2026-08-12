@@ -46,6 +46,30 @@ export async function findTaxProfile(env: Env, ctx: TenantContext) {
   return rows[0];
 }
 
+/**
+ * 組織設定を更新する（PK-SPEC-P1 §19.4 / P1-22）。
+ *
+ * **無ければ作らない。** 組織そのものは登録の時点で存在する
+ * （`organization` が無い状態は「別組織のセッションで来た」等の異常で、
+ * ここで作ると壊れた行が増える）。存在の確認は呼び出し側が
+ * `findOrganization()` で行い、無ければ 404 に写す。
+ *
+ * 値の範囲（2〜10）は `packages/contracts` が検証する。ここは受け取った値を
+ * そのまま書く。**監査ログ（`organization.updated`）は呼び出し側が書く**
+ * （P0-07 の方針）。
+ */
+export async function updateOrganizationSettings(
+  env: Env,
+  ctx: TenantContext,
+  input: { propertySelectionThreshold: number },
+): Promise<void> {
+  const db = await getTenantDb(env, ctx);
+  await db
+    .update(organization)
+    .set({ propertySelectionThreshold: input.propertySelectionThreshold, updatedAt: ctx.now })
+    .where(withTenantScope(organization, ctx, NO_PROPERTY_SCOPE));
+}
+
 /** `updateTaxProfile()` の入力。ID・組織・時刻は受け取らない。 */
 export interface UpdateTaxProfileInput {
   legalName: string;
