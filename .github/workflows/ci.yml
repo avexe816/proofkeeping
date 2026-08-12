@@ -1,12 +1,29 @@
 name: CI
 
+# task:  docs/tasks/P0-19.md
+# ルール: .claude/rules/testing.md §1（必須 8 ジョブ）
+#
+# ジョブを 8 本に分けてあるのは、落ちた場所が一覧で分かるようにするため。
+# 1 本にまとめると `pnpm check` が最初の失敗で止まり、
+# 「lint も型も両方壊れている」のか「lint だけ」なのかが 1 回で分からない。
+#
+# main への直接 push の禁止（P0-19 の完了条件）は **リポジトリ設定**であって
+# ワークフローでは表せない。GitHub の branch protection で
+#   - Require a pull request before merging
+#   - Require status checks: 下の 8 ジョブ
+# を有効にすること。docs/PROGRESS.md の申し送りを参照。
+
 on:
   pull_request:
   push:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  check:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,10 +32,30 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
-  tenant-isolation:
+  # テナント越境（architecture.md §2 第 3 層）。**test と分ける。**
+  # 分離の失敗を他の失敗に埋もれさせない。
+  test-isolation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +65,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:isolation
 
+  # 未適用マイグレーションの検出。**実 D1 へは接続しない。**
+  # drizzle-kit check がスキーマと migrations/ の整合を見る。
+  # 16 シャードへの実適用は wrangler と実リソースが要る（P0-02 が未完）。
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:check
+
+  # 禁止語（ui-writing.md §2 / PK-IMPL-CONTRACT §5.1）。
+  # ESLint の pk/no-forbidden-words は UI 文言ファイルに単語単位で当てる。
+  # こちらは複合語を apps / packages 全体へ当てる。役割が違うので両方ある。
+  #
+  # **--include に *.js を足さないこと。** 語彙表そのもの
+  # （packages/config/eslint/rules/forbidden-words-list.js）が引っ掛かる。
   forbidden-words:
     runs-on: ubuntu-latest
     steps:
@@ -44,3 +100,67 @@ jobs:
             exit 1
           fi
           echo "OK"
+
+  # E2E。接続先（preview）が無い間は未実施として緑で抜ける。
+  # 実体と、なぜ今そうしているかは scripts/e2e.ts の冒頭に書いてある。
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:e2e
+        env:
+          E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pk/web build
+
+  # PR ごとの preview デプロイ（§9.2 の pk-pr-{n}）。
+  #
+  # **秘密が無ければ何もせずに抜ける。** fork からの PR には secrets が
+  # 渡らないので、ここで落とすと外部の PR が常に赤くなる。
+  # 必須ジョブ 8 本には含めない（testing.md §1 の一覧に preview は無い）。
+  #
+  # 実行できるようになる条件: P0-02 が preview の D1 / KV / R2 / Queue を作り、
+  # wrangler.toml の TODO-P0-02-* を実 ID へ差し替えること。
+  preview:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip when credentials are absent
+        id: guard
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "preview: CLOUDFLARE_API_TOKEN が未設定のため実施しません（P0-02 が未完）。"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: pnpm/action-setup@v4
+        if: steps.guard.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.ready == 'true'
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+        if: steps.guard.outputs.ready == 'true'
+      - run: pnpm --filter @pk/web build
+        if: steps.guard.outputs.ready == 'true'
+      # Worker 名に PR 番号を入れる（wrangler.toml の [env.preview] の注記）。
+      - run: pnpm exec wrangler deploy --env preview --name "pk-pr-${{ github.event.number }}"
+        if: steps.guard.outputs.ready == 'true'
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
