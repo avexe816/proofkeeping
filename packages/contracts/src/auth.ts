@@ -81,6 +81,65 @@ export const passwordSchema = z
   .regex(/[0-9]/);
 
 // ────────────────────────────────────────────────────────────
+// PIN（現場系 — CLEANER / INSPECTOR）
+// ────────────────────────────────────────────────────────────
+
+/** security.md §2 の PIN ポリシー。UI の説明文もこの値を使うこと。 */
+export const PIN_POLICY = {
+  length: 4,
+} as const;
+
+/** 4 桁の数字。**形だけ。** 連番・ゾロ目の判定は `pinSchema` が足す。 */
+const pinDigitsSchema = z.string().regex(/^[0-9]{4}$/);
+
+/**
+ * 桁を数値の配列にする。
+ *
+ * **スプレッドや `.split("")` を使わない。** ここへ来る値は
+ * `pinDigitsSchema` を通った ASCII 数字 4 桁だけだが、文字列の分解は
+ * サロゲートペアの扱いで壊れうる書き方なので、添字で読む形に寄せる
+ * （ESLint `@typescript-eslint/no-misused-spread`）。
+ */
+function toDigits(pin: string): number[] {
+  const digits: number[] = [];
+  for (let i = 0; i < pin.length; i++) digits.push(pin.charCodeAt(i) - 0x30);
+  return digits;
+}
+
+/** ゾロ目（0000 / 1111 …）。 */
+function isRepeatedDigits(pin: string): boolean {
+  const digits = toDigits(pin);
+  return digits.every((n) => n === digits[0]);
+}
+
+/**
+ * 連番（1234 / 4321 / 0123 / 9876 …）。昇順・降順の両方を弾く。
+ *
+ * **巡回（9012 や 3210 の 0→9 跨ぎ）は連番として扱わない。** 現場で口頭伝達される
+ * 値なので、拒否の理由が説明できる範囲に留める。ここを広げるほど
+ * 「なぜこの PIN が登録できないのか」が現場で伝わらなくなる。
+ */
+function isSequentialDigits(pin: string): boolean {
+  const digits = toDigits(pin);
+  const ascending = digits.every((n, i) => i === 0 || n === (digits[i - 1] ?? 0) + 1);
+  const descending = digits.every((n, i) => i === 0 || n === (digits[i - 1] ?? 0) - 1);
+  return ascending || descending;
+}
+
+/**
+ * **登録時**の PIN。連番・ゾロ目を拒否する（security.md §2）。
+ *
+ * ログインの検証には使わない（`pinLoginRequestSchema` の注記を読むこと）。
+ *
+ * ── 拒否の理由を細分化しない ────────────────────────────
+ * 「連番だから」「ゾロ目だから」を分けても、利用者は次に何を入れればよいか
+ * 分からない。UI は「続き番号・同じ数字の繰り返しは使えません」の 1 文で足りる。
+ */
+export const pinSchema = pinDigitsSchema
+  .refine((pin) => !isRepeatedDigits(pin))
+  .refine((pin) => !isSequentialDigits(pin));
+
+// ────────────────────────────────────────────────────────────
 // ログイン
 // ────────────────────────────────────────────────────────────
 
@@ -106,6 +165,47 @@ export const loginResponseSchema = z.object({
 });
 
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
+
+/**
+ * PIN ログインの入力（P0-09）。
+ *
+ * ── ここに `pinSchema` を使わない ───────────────────────
+ * ポリシー（連番・ゾロ目の拒否）を**ログインに掛けない。** 掛けると
+ *   1. ポリシー追加前に登録された PIN でログインできなくなる
+ *   2. 400（形が違う）と 401（認証失敗）の差から、その PIN が
+ *      ポリシー違反の値かどうかが読める
+ * が起きる。**ポリシーは登録時（`pinSchema`）にだけ掛ける。**
+ * パスワード側と同じ理由（このファイル冒頭の注記）。
+ */
+export const pinLoginRequestSchema = z.object({
+  orgShortId: orgShortIdSchema,
+  staffNumber: staffNumberSchema,
+  /** 形だけ検査する。理由は直上の注記。 */
+  pin: pinDigitsSchema,
+});
+
+export type PinLoginRequest = z.infer<typeof pinLoginRequestSchema>;
+
+/**
+ * PIN ログイン成功時の本体。
+ *
+ * `loginResponseSchema` と分けてあるのは `pinMustChange` のため。
+ * **セッション ID を含めない**のは共通（Cookie だけで運ぶ）。
+ */
+export const pinLoginResponseSchema = z.object({
+  /** セッションの絶対期限（ISO 8601）。現場系は 16 時間 = 1 勤務。 */
+  expiresAt: z.string(),
+  /**
+   * 初回変更の強制（security.md §2）。
+   *
+   * **P0-09 の時点でこのフラグを強制する画面が無い。** PIN 変更は P1 の担当で、
+   * ここでは「変更が要る状態か」を返すところまで。true を無視しても
+   * 業務は通ってしまう。docs/PROGRESS.md の申し送りを参照。
+   */
+  pinMustChange: z.boolean(),
+});
+
+export type PinLoginResponse = z.infer<typeof pinLoginResponseSchema>;
 
 /**
  * 認証エラーのコード。

@@ -1,9 +1,47 @@
 # 実装進捗
 
-最終更新: 2026-08-11（P0-08 完了）
+最終更新: 2026-08-12（P0-09 完了）
 
 ## 現在のセッション
 
+```
+task: P0-09 認証: PIN ログイン
+状態: 完了。**ただし完了条件 2 件が未達**（下の申し送り甲・乙）。
+      OPEN_QUESTIONS #017 を解決した。**bcryptjs は導入せず、PIN も PBKDF2-SHA256 に
+      揃え、反復回数だけ 50,000 へ下げた**（実測 9.6ms。パスワードは 210,000 回で 37.8ms）。
+      4 桁 PIN は候補が 10,000 通りしかなく、どちらの反復回数でも総当たりは現実的な
+      時間で終わる。KDF の強度差が防御の成否を分けない一方、反復回数は現場系ログインの
+      応答時間に直に乗る（DECISIONS #021）。security.md §2 の PIN 行を同じ PR で改訂した。
+      PBKDF2 の機構は password.ts から pbkdf2.ts へ抽出し、パスワードと PIN で共有する。
+      password.ts の公開名は 7 つとも不変で、password.spec.ts / login.spec.ts は無変更。
+      セッション 16 時間・Cookie 署名・レート制限 20 req/分/IP は P0-08 のものを
+      そのまま使い、session.ts / cookie.ts / rateLimit.ts は 1 行も変えていない。
+      テスト 106 件を追加し、pnpm check（lint + typecheck + test 527 件）が通る。
+次: P0-10 middleware（session / tenant / resourceGuard）。
+    セッションの authMethod で 12 時間 / 16 時間を判別できる。role は入っていない。
+申し送り甲: **PIN のロックアウト（5 回失敗で 15 分）は実装していない。** task の
+            完了条件だが今回のスコープ外。総当たりを止めているのは 20 req/分/IP のみ。
+            `failedLoginCount` 列を**パスワードと共有している**ため、中途半端に数えると
+            「PIN の失敗でパスワードがロックされる」が起きる。**実装するなら列を
+            分けるところから設計すること。** pinLogin.ts に理由付きのコメントを残した。
+            なお既に掛かっている lockedUntil は尊重する（管理者のロックを迂回させない）。
+申し送り乙: **PIN の初回変更強制も未達。** 変更画面が P1 以降で、強制する先が無い。
+            /auth/pin-login の応答に pinMustChange を載せるところまで。
+            **現時点では true を無視しても業務が通ってしまう。**
+申し送り丙: **hashPin() を直接呼ぶと pinSchema（連番・ゾロ目の拒否）を迂回できる。**
+            setPassword.ts に相当する setUserPin() を作っていない。PIN を書き込む
+            経路を追加するときは必ず pinSchema を先に通すこと。P0-18 の seed も同様。
+申し送り丁: **反復回数を引き上げるときは PIN_PBKDF2_PARAMS と pinLogin.ts の
+            DUMMY_PIN_HASH を同時に直す。** 片方だけだと、存在しない利用者への応答
+            だけが遅く（速く）なり、timing でアカウントの存在が読める。
+            login.ts の DUMMY_PASSWORD_HASH（210,000 回）と共用しないのも同じ理由。
+申し送り戊: **解析を許す反復回数の上限（MAX_PARSEABLE_ITERATIONS = 840,000）は
+            パスワードと PIN で共通。** 方式ごとに iterations × 4 にすると、
+            pin_hash に強いパラメータのハッシュが入った瞬間に「解析できない → 不一致」へ
+            倒れ、正しい PIN で締め出される。上限は CPU の安全弁であって方式の識別子ではない。
+```
+
+--- P0-08 からの申し送り（継続）---
 ```
 task: P0-08 認証: orgShortId + スタッフ番号 + パスワード
 状態: 完了。ログイン識別子を 3 フィールド（orgShortId + スタッフ番号 + 認証情報）に確定し、
@@ -138,12 +176,18 @@ task: P0-07 リポジトリ層の雛形
 - [x] P0-08 認証: orgShortId + スタッフ番号 + パスワード
   - ログイン識別子からメールを外した（DECISIONS #018 / OPEN_QUESTIONS #014 解決）。
     ハッシュは PBKDF2-SHA256 210,000 回（DECISIONS #019）。security.md §2 を改訂済み。
-  - 実装したのは管理系 5 ロールのパスワードのみ。現場系の PIN は P0-09。
+  - 実装したのは管理系 5 ロールのパスワードのみ。現場系の PIN は P0-09（完了）。
   - 失敗 5 回目の監査ログは P0-11 待ち。パスワード変更 API は P0 に task が無く未実装
     （関数 setUserPassword() として提供）。
-- [ ] P0-09 認証: PIN ログイン
-  - **着手前に OPEN_QUESTIONS #017（PIN のハッシュ方式）の判断が要る。**
-    security.md §2 の PIN 行は bcrypt cost 10 のまま据え置いてある。
+- [x] P0-09 認証: PIN ログイン
+  - OPEN_QUESTIONS #017 を解決。**bcryptjs は導入せず、PIN も PBKDF2-SHA256。
+    反復回数のみ 50,000 へ下げた**（DECISIONS #021）。security.md §2 を改訂済み。
+    PBKDF2 の機構は `apps/web/src/lib/auth/pbkdf2.ts` へ抽出し、パスワードと共有する。
+  - **完了条件 2 件が未達。** ① 5 回失敗で 15 分ロック（`failedLoginCount` 列を
+    パスワードと共有しているため、列を分けるところから設計が要る）
+    ② 初回変更の強制（変更画面が P1 以降。応答に `pinMustChange` を返すまで）。
+  - `setUserPin()` を作っていないため、`hashPin()` を直接呼ぶと `pinSchema`
+    （連番・ゾロ目の拒否）を迂回できる。PIN を書き込む経路は必ず先に検証すること。
 - [ ] P0-10 認可: 権限マトリクス
 - [ ] P0-11 監査ログ基盤
 - [ ] P0-12 エンタイトルメント基盤
