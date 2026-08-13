@@ -31,6 +31,7 @@ import tasks from "./routes/api/v1/tasks.js";
  * - middleware（session / tenant / resourceGuard）: P0-10
  * - UI シェル（React Router）: P0-14
  * - DocumentSequencer（Durable Object）: P0-17
+ * - InspectionLock（Durable Object）: P2-03
  * - /api/health: P0-20
  *
  * ── 経路の分かれ方 ──────────────────────────────────────
@@ -133,6 +134,8 @@ app.all("*", async (c) => {
  * 実装した task が両方を同時に足すこと（architecture.md §4 の 4 用途のみ）。
  */
 export { DocumentSequencer } from "./durable/DocumentSequencer.js";
+// 検査開始の排他制御（P2-03）。binding は wrangler.toml の `INSPECTION_LOCK`。
+export { InspectionLock } from "./durable/InspectionLock.js";
 
 /**
  * Workers の既定エクスポート。**`fetch` と `scheduled` の両方を持つ。**

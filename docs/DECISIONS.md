@@ -1365,3 +1365,88 @@
   放置すると P1-24 に限らず**以後すべての PR が赤いまま**になる。
 - 影響: spec 7 ファイル。production コードの変更なし。
   **`createSession()` を使う spec を新しく書く task は同じ 2 行を置くこと。**
+
+## #059 P2-01 の entityPrefix を 4 つ足した（ipol / ires / ipho / rwk）
+- 日付: 2026-08-13
+- 状態: 採用
+- 背景: PK-SPEC-P2 §3 が要求する 6 表のうち、`inspection`（`insp`）と
+  `evidenceSnapshot`（`evd`）は PK-SPEC-P0 §19.4 に接頭辞の定義がある。
+  残る 4 表は仕様書に記述が無い。
+- 決定:
+  | 表 | 接頭辞 |
+  |---|---|
+  | `propertyInspectionPolicy` | `ipol` |
+  | `inspectionItemResult` | `ires` |
+  | `inspectionPhoto` | `ipho` |
+  | `reworkCycle` | `rwk` |
+- 理由: `insp` で始まる 3 表（`insp` / `ires` / `ipho`）は、ID を見た人が
+  検査まわりだと分かる長さに揃えた。`photo`（`taskPhoto`）と `ipho` を
+  別にしてあるのは、**清掃の写真と検査の写真を混ぜないため**（証跡 ZIP も
+  `cleaning-*` と `inspection-*` に分かれる / §6.5）。
+- 影響: `packages/db/src/id.ts`。**一度使った接頭辞は変えられない**
+  （ID は永続データ）。
+
+## #060 検査・証跡の子表にも `organizationId` / `propertyId` を持たせた
+- 日付: 2026-08-13
+- 状態: 採用
+- 背景: PK-SPEC-P2 §3.3 の `InspectionItemResult` / `InspectionPhoto` は
+  親（`inspectionId` / `itemResultId`）しか持たない。Prisma を前提にした
+  記述で、リレーション経由の絞り込みができることが前提になっている。
+- 決定: 両表に `organizationId` と `propertyId` を足す。
+- 理由: `withTenantScope()` は**その表自身の `organization_id`** に
+  `eq()` を張る（`repositories/base.ts`）。親経由の JOIN で絞る形にすると、
+  第 1 層（強制注入）が掛からない表が生まれる。`schema.spec.ts` も
+  全テナント表に `organization_id` を要求している。`propertyId` は
+  施設スコープロールの絞り込み（`scopeToProperties()`）に要る。
+- 影響: 仕様書の schema 記述と列が食い違う。**仕様より列が多い方向**なので
+  記録できる情報は減らない。
+
+## #061 検査の要否は「清掃完了の瞬間」にだけ決める
+- 日付: 2026-08-13
+- 状態: 採用（PK-SPEC-P2 §2.2 の MUST をどう実装するか）
+- 背景: §2.2 は「抽出はタスク生成時ではなく、清掃完了時に決定する」
+  「ランダム抽出はサーバー側で行い、清掃担当者には清掃完了前に対象かどうかを
+  見せない」と定める。
+- 決定: `decideInspection()`（`packages/engine`）を呼ぶ経路を
+  `runTransition()` の `complete` 分岐 1 か所に限る。
+  `cleaningTask.inspectionRequired` は**完了するまで既定の `false` のまま**。
+- 理由: 「決めてあるが応答に載せない」形にすると、API を 1 つ足すたびに
+  「この列を出していないか」を確認し続けることになる。**決まっていない値は
+  漏れない。** 応答の設計ではなく、決定の時点で守る。
+- 影響: その日の抽出率を事前に確定できない（完了した順に決まる）。
+  `minDailySample` は「その日すでに検査対象になった件数」で数える
+  （`countInspectionSelected()`）。
+- 検証: `apps/web/src/routes/api/v1/tasks.spec.ts` の
+  「完了より前の操作では検査方式を引かない」。`start` の経路が
+  `property_inspection_policy` を 1 度も引かないことを SQL で見ている。
+
+## #062 抽選値は呼び出し側が作って `packages/engine` へ渡す
+- 日付: 2026-08-13
+- 状態: 採用
+- 背景: 抽出には乱数が要るが、`packages/engine` に `Math.random()` /
+  `Date.now()` を持ち込めない（CLAUDE.md §5）。
+- 決定: `decideInspection({ draw })` が `0 <= draw < 1` を引数で受け取る。
+  乱数は `apps/web/src/lib/task/inspectionDecision.ts` が
+  `crypto.getRandomValues()` で作る。
+- 理由: 境界値（抽出率 30% に対する 0.299 / 0.300）をテストへ直接書ける。
+  `Math.random()` を使わないのは `id.ts` と同じ理由で、予測できる抽選は
+  「今日は当たらない」を推測させる。
+- 補足: **範囲外の `draw` は 0（＝当たり）として扱う。** 壊れた乱数源が
+  「検査されない」方向へ倒れないようにする。
+
+## #063 `InspectionLock` はラウンド番号を保持する
+- 日付: 2026-08-13
+- 状態: 採用
+- 背景: PK-SPEC-P2 §4.2 は「他の検査者による同時開始を排他制御する」しか
+  定めていない。差戻し → 再清掃 → 再検査（§4.6）で同じタスクを何度も
+  検査するため、単純な真偽値のロックでは 2 回目の検査を開始できない。
+- 決定: 保持する状態を `{ round, inspectorId, startedAtMs }` にする。
+  - 同じラウンドの**別の**検査者は断る（409 → `INSPECTION_ALREADY_STARTED`）
+  - 同じ検査者の再要求は通す（再送・画面の再読み込み）
+  - `round` が進んだ要求は前の保持を奪う
+  - `round` が戻った要求は断る（遅れて届いた古い再送）
+- 理由: `release()` が呼ばれずに残った保持が次のラウンドを永久に塞ぐ状態を
+  作らない。**開始時刻は最初の保持のまま**にしてあるので、再送で検査時間が
+  短く見えることもない。
+- 補足: **`inspection` の一意制約 `(organizationId, taskId, round)` を
+  外さないこと。** DO は速い断り方であって唯一の防波堤ではない。

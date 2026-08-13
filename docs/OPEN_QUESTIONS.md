@@ -517,3 +517,38 @@ Claude Code はここに追記して作業を止める。人間が回答した�
   `routes/m/selectProperty.tsx` が当日と翌日の 2 回だけ `my-day` を組み立てる。
   範囲を広げるなら、日数ぶんクエリが増える形をやめて業務日の範囲で
   1 回引く形へ変えること（`listTasks` は `businessDateFrom/To` を持つ）。
+
+### #043 必須検査対象のうち 2 つに、参照する表・列がまだ無い
+- 提起: 2026-08-13 / P2-02 実装中
+- 内容: `docs/PK-SPEC-P2.md` §2.2 は SAMPLE の必須検査対象として 5 つを挙げる。
+  そのうち 2 つは、いま参照できるものが無い。
+  - **「設備不具合または忘れ物報告があるタスク」** — `IssueReport` /
+    `LostItem` の表は §3.5・§3.6 に定義があるが、作るのは P2-11 / P2-12。
+  - **「施設が『重点客室』として指定した客室」** — §2.2 に文言はあるが、
+    §3 のデータモデルに**対応する列が無い**（`room` にも
+    `PropertyInspectionPolicy` にも）。どこに持たせるかが決まっていない。
+- 影響: P2-02（いま）、P2-11 / P2-12（忘れ物・不具合）、
+  「重点客室」を設定する画面を作る task。
+- 暫定対応: **規則そのものは `packages/engine` に実装してテストしてある**
+  （`decideInspection()` の `hasReport` / `isPriorityRoom`）。
+  呼び出し側（`apps/web/src/lib/task/inspectionDecision.ts`）が `false` を
+  渡している。表と列ができた task がその 2 行を差し替える。
+  **規則を後から足すのではなく、材料を後から差すだけで済む形にしてある。**
+- 決める必要があること: 「重点客室」を `room` の列にするのか、
+  施設ごとの客室 ID 一覧（別表）にするのか。前者なら CSV 取込の列も増える。
+
+### #044 `property.inspectionRequired` と `propertyInspectionPolicy.mode` の二重管理
+- 提起: 2026-08-13 / P2-01 実装中
+- 内容: P1 は施設の検査要否を `property.inspectionRequired`（真偽）で持つ。
+  P2 は `propertyInspectionPolicy.mode`（ALL / SAMPLE / NONE）を足した。
+  **同じことを 2 か所で表せる状態になっている。**
+- 影響: P2-16（P1 暫定機能の移行・削除）。
+- 暫定対応: `propertyInspectionPolicy` の行が**無い**施設では
+  `property.inspectionRequired` から `ALL` / `NONE` を組み立てる
+  （`policyFromLegacyFlag()`）。行がある施設ではそちらが勝つ。
+  architecture.md §6 の「破壊的変更は 3 段階」に従い、旧列の削除は
+  移行を通した次リリースで行う。**いまは①新列追加の段階。**
+- 決める必要があること: P2-16 で旧列を落とすとき、既存施設の
+  `inspectionRequired` を `propertyInspectionPolicy` の行へ移すバッチが要る。
+  移行しないまま列を消すと、設定していない施設が既定（`ALL`）に落ちて
+  **全タスクが検査待ちで滞留する。**

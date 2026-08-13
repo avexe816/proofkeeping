@@ -67,7 +67,7 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("26 テーブルを定義している", () => {
+  it("32 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       "auditLog",
       "building",
@@ -82,9 +82,15 @@ describe("P0-06 スキーマ", () => {
       // P1-21。当日の施設訪問順（§19.5）。**未登録でも一覧は動く。**
       "dailyRoute",
       "documentSequence",
+      // P2-01。証跡スナップショット（PK-SPEC-P2 §3.7）。**INSERT のみ。**
+      "evidenceSnapshot",
       // P0-22。**定義のみ。読み書きは P6**（§24.4）。
       "externalMapping",
       "floor",
+      // P2-01。検査 1 回ぶんと、その項目別結果・写真（同 §3.2・§3.3）。
+      "inspection",
+      "inspectionItemResult",
+      "inspectionPhoto",
       "membership",
       "moduleEntitlement",
       "organization",
@@ -93,6 +99,10 @@ describe("P0-06 スキーマ", () => {
       "passwordHistory",
       "property",
       "propertyAssignment",
+      // P2-01。施設ごとの検査方式（同 §2.1）。
+      "propertyInspectionPolicy",
+      // P2-01。差戻しサイクル（同 §3.4）。
+      "reworkCycle",
       "room",
       "roomType",
       // P1-01 / P1-02。標準時間マスタ（客室タイプ × 清掃種別）。
@@ -133,6 +143,11 @@ describe("P0-06 スキーマ", () => {
       "photo",
       "stdt",
       "plan",
+      // P2-01（docs/DECISIONS.md #059）。`insp` / `evd` は P0-05 で登録済み。
+      "ipol",
+      "ires",
+      "ipho",
+      "rwk",
     ];
 
     for (const prefix of required) {

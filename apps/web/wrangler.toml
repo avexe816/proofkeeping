@@ -182,11 +182,20 @@ queue = "pk-archive-restore-local"
 name = "DOCUMENT_SEQUENCER"
 class_name = "DocumentSequencer"
 
+# 検査開始の排他制御（P2-03 / PK-SPEC-P2 §4.2）。粒度はタスク。
+[[durable_objects.bindings]]
+name = "INSPECTION_LOCK"
+class_name = "InspectionLock"
+
 # DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
 # クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["DocumentSequencer"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["InspectionLock"]
 
 # --- Cron Triggers（P1-03）---------------------------------------------------
 # PK-SPEC-P1 §3.2: 02:00 に全アクティブ施設の翌業務日のタスクを生成する。
@@ -295,11 +304,20 @@ queue = "pk-archive-restore-preview"
 name = "DOCUMENT_SEQUENCER"
 class_name = "DocumentSequencer"
 
+# 検査開始の排他制御（P2-03 / PK-SPEC-P2 §4.2）。粒度はタスク。
+[[env.preview.durable_objects.bindings]]
+name = "INSPECTION_LOCK"
+class_name = "InspectionLock"
+
 # DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
 # クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
 [[env.preview.migrations]]
 tag = "v1"
 new_sqlite_classes = ["DocumentSequencer"]
+
+[[env.preview.migrations]]
+tag = "v2"
+new_sqlite_classes = ["InspectionLock"]
 
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。
@@ -410,11 +428,20 @@ queue = "pk-archive-restore-staging"
 name = "DOCUMENT_SEQUENCER"
 class_name = "DocumentSequencer"
 
+# 検査開始の排他制御（P2-03 / PK-SPEC-P2 §4.2）。粒度はタスク。
+[[env.staging.durable_objects.bindings]]
+name = "INSPECTION_LOCK"
+class_name = "InspectionLock"
+
 # DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
 # クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
 [[env.staging.migrations]]
 tag = "v1"
 new_sqlite_classes = ["DocumentSequencer"]
+
+[[env.staging.migrations]]
+tag = "v2"
+new_sqlite_classes = ["InspectionLock"]
 
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。
@@ -599,11 +626,20 @@ queue = "pk-archive-restore"
 name = "DOCUMENT_SEQUENCER"
 class_name = "DocumentSequencer"
 
+# 検査開始の排他制御（P2-03 / PK-SPEC-P2 §4.2）。粒度はタスク。
+[[env.production.durable_objects.bindings]]
+name = "INSPECTION_LOCK"
+class_name = "InspectionLock"
+
 # DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
 # クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
 [[env.production.migrations]]
 tag = "v1"
 new_sqlite_classes = ["DocumentSequencer"]
+
+[[env.production.migrations]]
+tag = "v2"
+new_sqlite_classes = ["InspectionLock"]
 
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。

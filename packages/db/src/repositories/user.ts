@@ -373,3 +373,33 @@ export async function setPasswordHash(
     ),
   );
 }
+
+/**
+ * 所属の開始時刻（P2-02 / PK-SPEC-P2 §2.2 の「新人スタッフ」判定）。
+ *
+ * `acceptedAt`（招待を受けた時刻）が真の運用開始。未設定なら行の作成時刻で
+ * 代用する。**「30 日未満か」の判定そのものはここで行わない。**
+ * 現在時刻との比較は `packages/engine` の純粋関数側に置く（この層に
+ * `Date.now()` を持ち込まない）。
+ *
+ * ── 個人の指標として使わないこと ────────────────────────
+ * 戻り値は「検査対象に選ぶか」の入力にだけ使う。在籍日数を画面に出す・
+ * 評価に使うのは security.md §5 の禁止事項にあたる。
+ */
+export async function findMembershipStartedAt(
+  env: Env,
+  ctx: TenantContext,
+  membershipId: string,
+): Promise<Date | undefined> {
+  assertIdBelongsToTenant(membershipId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const [row] = await db
+    .select({ acceptedAt: membership.acceptedAt, createdAt: membership.createdAt })
+    .from(membership)
+    .where(
+      withTenantScope(membership, ctx, NO_PROPERTY_SCOPE, eq(membership.id, membershipId)),
+    )
+    .limit(1);
+  if (row === undefined) return undefined;
+  return row.acceptedAt ?? row.createdAt;
+}

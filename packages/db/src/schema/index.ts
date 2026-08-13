@@ -84,6 +84,32 @@ export {
   type ChecklistValue,
 } from "./checklist.js";
 
+// 検査・差戻し・証跡（P2-01 / PK-SPEC-P2 §2.1・§3.2〜§3.4・§3.7）。
+// **`evidenceSnapshot` は INSERT のみ。** 更新・削除の関数を作らない。
+export {
+  DEFECT_CODES,
+  EVIDENCE_SCHEMA_VERSION,
+  EVIDENCE_TYPES,
+  INSPECTION_ITEM_STATUSES,
+  INSPECTION_MODES,
+  INSPECTION_RESULTS,
+  INSPECTION_SKIP_REASONS,
+  REWORK_STATUSES,
+  evidenceSnapshot,
+  inspection,
+  inspectionItemResult,
+  inspectionPhoto,
+  propertyInspectionPolicy,
+  reworkCycle,
+  type DefectCode,
+  type EvidenceType,
+  type InspectionItemStatus,
+  type InspectionMode,
+  type InspectionResult,
+  type InspectionSkipReason,
+  type ReworkStatus,
+} from "./inspection.js";
+
 // 日次の施設別集計（P0-21）。施設サマリーはここだけを読む（§26 の絶対ルール）。
 export { dailyPropertyRollup } from "./rollup.js";
 

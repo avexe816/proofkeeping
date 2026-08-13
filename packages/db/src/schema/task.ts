@@ -26,6 +26,9 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 import { primaryId, tenantColumn, timestamps } from "./columns.js";
+// 検査の語彙は `inspection.ts` が持つ（P2-01）。**逆向きの import を作らないこと。**
+// `inspection.ts` は `task.ts` を参照しない（循環になる）。
+import { INSPECTION_RESULTS, INSPECTION_SKIP_REASONS } from "./inspection.js";
 
 /** 清掃種別（PK-SPEC-P1 §2.1 の `TaskType`）。 */
 export const TASK_TYPES = ["CHECKOUT", "STAYOVER", "DEEP", "COMMON_AREA", "RECHECK"] as const;
@@ -110,6 +113,26 @@ export const cleaningTask = sqliteTable(
     pauseCount: integer("pause_count").notNull().default(0),
     /** 差戻し回数。P2 の検査フローが増やす。P1 では 0 のまま。 */
     reworkCount: integer("rework_count").notNull().default(0),
+    /**
+     * 検査の要否（PK-SPEC-P2 §3.1）。**清掃完了時に確定する。**
+     *
+     * 施設の `inspectionMode` と必須検査条件から `packages/engine` の
+     * `decideInspection()` が決める。**完了前は既定の `false` のまま**で、
+     * 抽出対象かどうかを清掃担当者に見せない（§2.2 MUST）。
+     */
+    inspectionRequired: integer("inspection_required", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    /** 検査を省略した（§2.3）。**これを「検査合格」として集計しないこと。** */
+    inspectionSkipped: integer("inspection_skipped", { mode: "boolean" }).notNull().default(false),
+    inspectionSkipReason: text("inspection_skip_reason", { enum: INSPECTION_SKIP_REASONS }),
+    /** 最後に検査した `membership.id`。履歴は `inspection` 表にある。 */
+    inspectorId: text("inspector_id"),
+    inspectedAt: integer("inspected_at", { mode: "timestamp_ms" }),
+    /** 最新の判定。**省略とは別の列**（§2.3）。 */
+    inspectionResult: text("inspection_result", { enum: INSPECTION_RESULTS }),
+    /** 実施済みの検査ラウンド数。次の検査は `+ 1`（§4.2）。 */
+    currentInspectionRound: integer("current_inspection_round").notNull().default(0),
     sourceType: text("source_type", { enum: TASK_SOURCE_TYPES }).notNull().default("AUTO"),
     note: text("note"),
     blockedReason: text("blocked_reason"),

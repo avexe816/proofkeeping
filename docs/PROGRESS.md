@@ -1,33 +1,58 @@
 # 実装進捗
 
-最終更新: 2026-08-12（P1-24 客室タイプ管理。**`roomType` に書く経路ができた**）
+最終更新: 2026-08-13（P2-01〜P2-03。**検査の土台。画面はまだ無い**）
 
 ## 現在のセッション
 
 ```
-task: P1-24 施設設定：客室タイプ管理
-状態: 完了。W-25 `/app/settings/room-types` と `/api/v1/room-types`。
+task: P2-01 / P2-02 / P2-03（Batch: 検査の土台）
+状態: 完了。**画面はまだ無い。** 検査の表・要否の判定・開始の排他まで。
 
-      **着手の前提は満たされている。** P1-19 実機テスト / P1-20 現場検証
-      （★出荷判定）は**どちらも人間が実施し、通過した**（2026-08-13 報告）。
-      P1-24 の task ファイルの「着手は P1-20 の判定後」も満たしている。
-      **CLAUDE.md §9 の P2 着手条件は満たされた。**
+      P2-01 スキーマ
+           `packages/db/src/schema/inspection.ts` に 6 表。
+           `cleaningTask` に §3.1 の 7 列。migration 0007（**追加のみ**）。
+           `evidenceSnapshot` の UPDATE / DELETE が無いことを
+           `repositories.spec.ts` がソース走査で固定している。
+      P2-02 検査ポリシーと抽出ロジック
+           `decideInspection()`（engine・31 テスト）と
+           `propertyInspectionPolicy` のリポジトリ、`complete` への配線。
+           **判定は清掃完了の瞬間だけ**（DECISIONS #061）。
+      P2-03 InspectionLock
+           DO。ラウンド番号を保持する（#063）。50 並列で成功 1 件。
+           binding `INSPECTION_LOCK` を 4 環境 + migrations タグ `v2`。
 
-      W-25 `/app/settings/room-types`
-           施設ごとの客室タイプ一覧・追加・編集・無効化。**無効化のみで
-           物理削除の口が無い。** 無効化は割当客室数を提示して確認を挟む
-           （§24.5。`rooms.tsx` の confirmDeactivate と同じ形）。
-           `code` は編集できない（取込と P6 が突き合わせる鍵のため）。
-      `/app/settings/rooms`（P0-22 に追記）
-           客室ごとの客室タイプ付け替え。CSV の `room_type_code` を
-           マスタと突き合わせ、**未知のコードは未設定として取り込んで
-           コードを画面に返す**（1 行の誤りで全体を落とさない）。
-      `/api/v1/room-types`
-           GET / POST / PATCH。**DELETE は無い。**
-
-次: **P2-01 スキーマ: 検査・証跡から。** 依存は満たされている。
-    P2 は 17 task あり、P2-17 は現場検証（人間が実施）。
+次: **P2-04 検査 API。** 依存（P2-03）は満たされている。
+    `POST /tasks/:id/inspection/start` から。`InspectionLock` を使う口が
+    まだ 1 つも無いので、次の task がそれを繋ぐ。
 ```
+
+--- この Batch で入れていないもの（意図的）---
+- **検査そのものの API と画面は無い**（P2-04 / P2-05 / P2-06）。
+  `inspection` 表は作ったが読み書きするリポジトリ関数がまだ無い。
+- **`evidenceSnapshot` を書く経路も無い**（P2-08）。表と不変性の検査だけ。
+- 差戻し（`reworkCycle`）も同様（P2-07）。
+
+--- 検査の要否まわりの申し送り ---
+申し送り 1: **`property.inspectionRequired`（P1）と
+            `propertyInspectionPolicy.mode`（P2）が併存している。**
+            行が無い施設では前者から `ALL` / `NONE` を組み立てる。
+            **P2-16 で旧列を落とすときは移行バッチが要る**（OPEN_QUESTIONS
+            #044）。移行せずに消すと全施設が既定の `ALL` に落ち、
+            全タスクが検査待ちで滞留する。
+申し送り 2: **必須検査対象の 5 条件のうち 2 つが `false` 固定。**
+            「不具合・忘れ物の報告あり」は表が P2-11 / P2-12、
+            「重点客室」は §3 に列そのものが無い（OPEN_QUESTIONS #043）。
+            規則は engine に実装済みなので、材料を差すだけで効く。
+申し送り 3: **`cleaning_task` に 7 列増えた。** 代役の行を位置で組む spec
+            （`tasks.spec.ts` の `taskRow()`）は宣言順に合わせること。
+            いま該当するのは 1 ファイルだけ。
+申し送り 4: **`InspectionLock` を使う経路がまだ無い。** DO は宣言済みで
+            wrangler は起動するが、`env.INSPECTION_LOCK` を呼ぶコードは
+            P2-04 が書く。**一意制約 `(organizationId, taskId, round)` を
+            外さないこと**（DO は速い断り方であって唯一の防波堤ではない）。
+申し送り 5: **抽出率の分母は「その日すでに検査対象になった件数」。**
+            完了した順に決まるので、その日の総数に対する割合を事前に
+            確定できない。`minDailySample` はそのための下限。
 
 --- ローカルで通しの確認をした（P1-24）---
 `pnpm dev`（vite + miniflare）で以下を実機の画面として確認した。
@@ -677,9 +702,9 @@ task: P0-07 リポジトリ層の雛形
 
 ## Phase 2 — 検査と証跡（M4）
 
-- [ ] P2-01 スキーマ: 検査・証跡
-- [ ] P2-02 検査ポリシーと抽出ロジック
-- [ ] P2-03 InspectionLock（Durable Object）
+- [x] P2-01 スキーマ: 検査・証跡
+- [x] P2-02 検査ポリシーと抽出ロジック
+- [x] P2-03 InspectionLock（Durable Object）
 - [ ] P2-04 検査 API
 - [ ] P2-05 M-08 検査待ち一覧
 - [ ] P2-06 M-09 検査実施
