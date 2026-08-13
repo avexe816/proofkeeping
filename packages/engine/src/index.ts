@@ -302,3 +302,22 @@ export {
   type DailyReportSummary,
   type DailyReportTaskInput,
 } from "./dailyReport.js";
+
+// 施設向け指標（P2-15 / PK-SPEC-P2 §10.1）。**日報のサマリーとは別物。**
+// サマリーは件数（起きた事実）、こちらは率と平均（事実から作った指標）。
+// **集計単位は施設・作業種別・客室タイプだけ**（INV-03）。
+export {
+  PROPERTY_METRIC_KEYS,
+  computePropertyMetrics,
+  metricAverage,
+  metricRate,
+  type MetricAverage,
+  type MetricRate,
+  type PropertyMetricKey,
+  type PropertyMetrics,
+  type PropertyMetricsInput,
+  type PropertyMetricsInspectionInput,
+  type PropertyMetricsReworkInput,
+  type PropertyMetricsTaskInput,
+  type WorkMinutesGroup,
+} from "./metrics.js";
