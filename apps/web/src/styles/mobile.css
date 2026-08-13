@@ -1119,3 +1119,67 @@
   cursor: not-allowed;
   background: var(--surf3);
 }
+
+/*
+ * M-12 再清掃（§11.4 / P2-07）。
+ *
+ * **1 項目 = 1 カード。** 差し戻された項目だけが並ぶので、チェックリスト
+ * （`pk-m-check`）のような詰まった並びにしない。手袋で読める間隔を取る。
+ *
+ * **期限を赤にしない。** 帯は `--warn`（オレンジ）まで
+ * （ui-writing.md §3「経過時間超過の赤色表示」の禁止）。差戻しは
+ * 人の作業の遅さではなく、直す場所の提示。
+ */
+.pk-m-rework {
+  padding: 12px 14px 14px;
+  margin-bottom: 12px;
+  background: var(--surf);
+  border: 2px solid var(--line);
+  border-left: 4px solid var(--warn);
+  border-radius: 12px;
+}
+
+/* 「浴室 > 鏡」。**どこを直すか**が一番大きい。 */
+.pk-m-rework__where {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+/* 理由コード（「水滴跡」）。 */
+.pk-m-rework__code {
+  margin: 6px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+
+/* 検査者の指示。**そのまま出す**ので改行を保つ。 */
+.pk-m-rework__note {
+  margin: 8px 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.pk-m-rework__photos {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+/*
+ * 検査写真。**縮めすぎない。** 屋外の明るい場所で水滴跡が見える必要が
+ * あるので、一覧のサムネイルより大きく取る（ui-writing.md §3）。
+ */
+.pk-m-rework__photo {
+  flex: 0 0 auto;
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  background: var(--surf3);
+  border-radius: 10px;
+}

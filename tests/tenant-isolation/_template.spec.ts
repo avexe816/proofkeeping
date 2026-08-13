@@ -107,7 +107,7 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   // P2-01 は表と migration までの task。読み書きの関数はこの後の task が作る。
   // `inspection` / `inspection_item_result` / `inspection_photo` /
   // `rework_cycle` は P2-04 が関数を作り、inspection.spec.ts でカバーした。
-  evidence_snapshot: "証跡の生成は P2-08。**INSERT のみの表**で、読み取り関数もまだ無い",
+  // `evidence_snapshot` は P2-08 が読み取り関数を足し、同じ spec でカバーした。
 };
 
 describe("同一シャードの組織ペア（fixtures/shard-pairs.ts）", () => {

@@ -81,6 +81,13 @@ export const AUDIT_ACTIONS = {
   // security.md §1「緊急時の例外は理由必須＋監査ログ」がここに対応する。
   "inspection.selfApproved": { requiresReason: true },
   "task.reworkAssigned": { requiresReason: false },
+  // 再清掃の完了（PK-SPEC-P2 §4.6）。security.md §6 の「差戻し」に当たる。
+  // **`task.completed` と別に残す。** タスクの完了は「作業が終わった」で、
+  // これは「差し戻された項目が片付いた」。§10.1 の差戻し件数はこちらを数える。
+  "rework.resolved": { requiresReason: false },
+  // 免除（同 §4.7）。**理由必須。** §4.7 が「理由必須」と明記している。
+  // 関連する IssueReport は `after` に入れる（列は `waivedIssueId`）。
+  "rework.waived": { requiresReason: true },
   "task.bulkApproved": { requiresReason: false },
   // 客室ステータスの手動上書き（**理由必須**）
   "room.statusOverridden": { requiresReason: true },

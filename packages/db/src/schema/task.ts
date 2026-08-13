@@ -247,6 +247,16 @@ export const taskPhoto = sqliteTable(
     checklistItemId: text("checklist_item_id"),
     kind: text("kind", { enum: PHOTO_KINDS }).notNull().default("AFTER"),
     storageKey: text("storage_key").notNull(),
+    /**
+     * アップロード時にサーバーが計算したバイナリの SHA-256（PK-SPEC-P2 §6.3）。
+     *
+     * **nullable にしてある。** P1-11 の時点でこの列が無く、既存の行には
+     * 値が入らない（architecture.md §6「後方互換のみ」）。証跡の payload は
+     * `null` をそのまま載せる — **後から計算して埋めない。** 埋めると
+     * 「アップロード時に計算した値」ではなくなり、§6.3 の意味が変わる。
+     * `inspectionPhoto.sha256` は最初から必須（P2-01）。
+     */
+    sha256: text("sha256"),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
     fileSize: integer("file_size").notNull(),

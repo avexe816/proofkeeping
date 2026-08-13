@@ -36,6 +36,7 @@ import * as checklistRepo from "./checklist.js";
 import * as cleaningTaskRepo from "./cleaningTask.js";
 import * as dailyRouteRepo from "./dailyRoute.js";
 import * as entitlementRepo from "./entitlement.js";
+import * as evidenceRepo from "./evidence.js";
 import * as inspectionRepo from "./inspection.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
 import * as organizationRepo from "./organization.js";
@@ -58,6 +59,8 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   dailyRoute: dailyRouteRepo,
   taskPhoto: taskPhotoRepo,
   entitlement: entitlementRepo,
+  // P2-08 が登録した証跡。**INSERT と SELECT だけ**であることも下で検査する。
+  evidence: evidenceRepo,
   // P2-02 が登録した検査方式。P2-04 が検査そのもの。
   inspection: inspectionRepo,
   inspectionPolicy: inspectionPolicyRepo,
@@ -85,6 +88,9 @@ const OWN_ID = {
   inspection: generateId(TEST_ORG.orgShortId, "insp"),
   itemResult: generateId(TEST_ORG.orgShortId, "ires"),
   inspectionPhoto: generateId(TEST_ORG.orgShortId, "ipho"),
+  // P2-07 / P2-08。
+  reworkCycle: generateId(TEST_ORG.orgShortId, "rwk"),
+  snapshot: generateId(TEST_ORG.orgShortId, "evd"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -117,6 +123,9 @@ const OTHER_ID = {
   inspection: generateId(OTHER_ORG.orgShortId, "insp"),
   itemResult: generateId(OTHER_ORG.orgShortId, "ires"),
   inspectionPhoto: generateId(OTHER_ORG.orgShortId, "ipho"),
+  // P2-07 / P2-08。
+  reworkCycle: generateId(OTHER_ORG.orgShortId, "rwk"),
+  snapshot: generateId(OTHER_ORG.orgShortId, "evd"),
 } as const;
 
 /**
@@ -598,6 +607,92 @@ const INVOCATIONS: Invocation[] = [
     crossTenant: (env, ctx) => inspectionRepo.listReworkCyclesByTask(env, ctx, OTHER_ID.task),
   },
 
+  // ── P2-07: 差戻しの進行 ────────────────────────────────
+  {
+    name: "inspection.findReworkCycleById",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.findReworkCycleById(env, ctx, OWN_ID.reworkCycle),
+    crossTenant: (env, ctx) =>
+      inspectionRepo.findReworkCycleById(env, ctx, OTHER_ID.reworkCycle),
+  },
+  {
+    name: "inspection.findOpenReworkCycleByTask",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.findOpenReworkCycleByTask(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => inspectionRepo.findOpenReworkCycleByTask(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "inspection.advanceReworkCycle",
+    kind: "tenant",
+    run: (env, ctx) =>
+      inspectionRepo.advanceReworkCycle(env, ctx, OWN_ID.reworkCycle, {
+        from: "OPEN",
+        to: "IN_PROGRESS",
+        startedAt: ctx.now,
+      }),
+    crossTenant: (env, ctx) =>
+      inspectionRepo.advanceReworkCycle(env, ctx, OTHER_ID.reworkCycle, {
+        from: "OPEN",
+        to: "IN_PROGRESS",
+        startedAt: ctx.now,
+      }),
+  },
+
+  // ── P2-08: 証跡スナップショット ────────────────────────
+  {
+    name: "evidence.appendEvidenceSnapshot",
+    kind: "tenant",
+    run: (env, ctx) =>
+      evidenceRepo.appendEvidenceSnapshot(env, ctx, {
+        propertyId: OWN_ID.property,
+        taskId: OWN_ID.task,
+        businessDate: "2026-08-13",
+        evidenceType: "CLEANING_COMPLETION",
+        payload: '{"taskId":"x"}',
+        payloadSha256: "aa",
+        previousHash: null,
+        chainHash: "bb",
+      }),
+    crossTenant: (env, ctx) =>
+      evidenceRepo.appendEvidenceSnapshot(env, ctx, {
+        propertyId: OTHER_ID.property,
+        taskId: OTHER_ID.task,
+        businessDate: "2026-08-13",
+        evidenceType: "CLEANING_COMPLETION",
+        payload: '{"taskId":"x"}',
+        payloadSha256: "aa",
+        previousHash: null,
+        chainHash: "bb",
+      }),
+  },
+  {
+    name: "evidence.listEvidenceSnapshotsByTask",
+    kind: "tenant",
+    run: (env, ctx) => evidenceRepo.listEvidenceSnapshotsByTask(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => evidenceRepo.listEvidenceSnapshotsByTask(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "evidence.findLatestEvidenceSnapshotByTask",
+    kind: "tenant",
+    run: (env, ctx) => evidenceRepo.findLatestEvidenceSnapshotByTask(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) =>
+      evidenceRepo.findLatestEvidenceSnapshotByTask(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "evidence.findEvidenceSnapshotById",
+    kind: "tenant",
+    run: (env, ctx) => evidenceRepo.findEvidenceSnapshotById(env, ctx, OWN_ID.snapshot),
+    crossTenant: (env, ctx) => evidenceRepo.findEvidenceSnapshotById(env, ctx, OTHER_ID.snapshot),
+  },
+  {
+    name: "evidence.listEvidenceSnapshotsByDate",
+    kind: "tenant",
+    run: (env, ctx) =>
+      evidenceRepo.listEvidenceSnapshotsByDate(env, ctx, OWN_ID.property, "2026-08-13"),
+    crossTenant: (env, ctx) =>
+      evidenceRepo.listEvidenceSnapshotsByDate(env, ctx, OTHER_ID.property, "2026-08-13"),
+  },
+
   // ── P1-01 / P1-03 / P1-05: 清掃タスク ──────────────────
   {
     name: "cleaningTask.listTasks",
@@ -765,6 +860,12 @@ const INVOCATIONS: Invocation[] = [
     kind: "tenant",
     run: (env, ctx) => checklistRepo.listTemplateItems(env, ctx, [OWN_ID.template]),
     crossTenant: (env, ctx) => checklistRepo.listTemplateItems(env, ctx, [OTHER_ID.template]),
+  },
+  {
+    name: "checklist.listChecklistItemsByIds",
+    kind: "tenant",
+    run: (env, ctx) => checklistRepo.listChecklistItemsByIds(env, ctx, [OWN_ID.item]),
+    crossTenant: (env, ctx) => checklistRepo.listChecklistItemsByIds(env, ctx, [OTHER_ID.item]),
   },
   {
     name: "checklist.createTemplate",

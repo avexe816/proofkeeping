@@ -219,6 +219,51 @@ export {
   type InspectionWaitingResponse,
 } from "./inspection.js";
 
+// 差戻し・再清掃（P2-07 / 同 §4.5〜§4.7）。
+// **合格した項目を返す口を作らない**（§4.6「差戻し項目だけ」）。
+export {
+  REWORK_ERROR_CODES,
+  REWORK_STATUSES,
+  WAIVE_REASON_MAX_LENGTH,
+  WAIVE_REASON_MIN_LENGTH,
+  WAIVE_ROOM_OUTCOMES,
+  reworkActionRequestSchema,
+  reworkActionResponseSchema,
+  reworkDetailResponseSchema,
+  reworkErrorSchema,
+  reworkItemSchema,
+  reworkPhotoSchema,
+  reworkSchema,
+  reworkStatusSchema,
+  reworkWaiveRequestSchema,
+  waiveRoomOutcomeSchema,
+  type Rework,
+  type ReworkActionRequest,
+  type ReworkActionResponse,
+  type ReworkDetailResponse,
+  type ReworkError,
+  type ReworkErrorCode,
+  type ReworkItem,
+  type ReworkPhoto,
+  type ReworkStatusValue,
+  type ReworkWaiveRequest,
+  type WaiveRoomOutcomeValue,
+} from "./rework.js";
+
+// 証跡スナップショット（P2-08 / 同 §3.7・§6）。
+// **UPDATE / DELETE の口を作らない**（§3.7 MUST）。
+export {
+  EVIDENCE_TYPES,
+  evidenceSnapshotSchema,
+  evidenceTypeSchema,
+  evidenceVerifyResponseSchema,
+  snapshotVerificationSchema,
+  type EvidenceSnapshotSummary,
+  type EvidenceTypeValue,
+  type EvidenceVerifyResponse,
+  type SnapshotVerificationResult,
+} from "./evidence.js";
+
 // middleware 共通のエラー応答（P0-10）。**403 を足さないこと**（INV-31）。
 export {
   API_ERROR_CODES,

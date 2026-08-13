@@ -25,11 +25,15 @@
  * 検査を確定したあとに落ちた場合、タスクの状態は次の再送で反映される
  * （手順 3 が「確定済みだが未反映」を拾う）。
  *
- * ── 証跡は P2-08 ────────────────────────────────────────
- * §4.4 / §4.5 は `INSPECTION_PASS` / `INSPECTION_FAIL` の
- * `EvidenceSnapshot` を要求する。**この task では書かない。**
- * canonical JSON とハッシュ連鎖は P2-08 の担当で、そこがこの関数の
- * 手順 8 のあとへ 1 行足す。
+ * ── 証跡（§4.4 / §4.5）─────────────────────────────────
+ * `INSPECTION_PASS` / `INSPECTION_FAIL` の `EvidenceSnapshot` を、
+ * **手順 8 のあと**（差戻しサイクルを作ったあと）に 1 件書く（P2-08）。
+ * 順序が意味を持つ。証跡の payload に `reworkRequired` が入るので、
+ * 差戻しの生成より前に書くと「差し戻したのに証跡には残っていない」
+ * ラウンドができる余地がある。
+ *
+ * **証跡の失敗で検査を巻き戻さない。** 書けたかどうかは
+ * `recordEvidence()` の戻り値に出る（`lib/evidence/record.ts` の注記）。
  */
 
 import type { InspectionCompleteResponse, InspectionErrorCode } from "@pk/contracts";
@@ -55,6 +59,8 @@ import {
 } from "@pk/engine";
 
 import { assertPermission, propertyTarget } from "../auth/permission.js";
+import { buildInspectionEvidence } from "../evidence/payload.js";
+import { recordEvidence } from "../evidence/record.js";
 
 import { listInspectionItems, toEngineItems, toInspection } from "./detail.js";
 import { releaseInspectionLock } from "./lock.js";
@@ -196,6 +202,34 @@ export async function completeInspectionUseCase(
     });
     reworkCycleId = created?.id ?? null;
   }
+
+  // ── 証跡（§4.4 / §4.5）──────────────────────────────────
+  // **差戻しサイクルを作ったあと。** 検査を確定できた枝でだけ書く
+  // （`confirmed` が偽の枝は上で戻っている）。
+  await recordEvidence(env, ctx, {
+    propertyId: task.propertyId,
+    taskId: task.id,
+    businessDate: task.businessDate,
+    evidenceType: result === "PASS" ? "INSPECTION_PASS" : "INSPECTION_FAIL",
+    payload: () =>
+      buildInspectionEvidence(
+        env,
+        ctx,
+        { taskId: task.id, roomId: task.roomId, businessDate: task.businessDate },
+        {
+          inspectionId: row.id,
+          round: row.round,
+          inspectorId: row.inspectorId,
+          result,
+          startedAtMs: row.startedAt.getTime(),
+          completedAtMs: ctx.now.getTime(),
+          durationSeconds: durationSecondsOf(row.startedAt.getTime(), ctx.now.getTime()),
+          selfApproved: row.selfApproved,
+          generalNote: input.generalNote ?? row.generalNote,
+        },
+      ),
+    createdById: input.actorId,
+  });
 
   await recordCompletionAudit(env, ctx, {
     actorId: input.actorId,

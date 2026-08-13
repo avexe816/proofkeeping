@@ -20,7 +20,7 @@
  * （`repositories.spec.ts` がソースを走査して固定している）。
  */
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -33,6 +33,7 @@ import {
   type DefectCode,
   type InspectionItemStatus,
   type InspectionResult,
+  type ReworkStatus,
 } from "../schema/inspection.js";
 
 import { withTenantScope } from "./base.js";
@@ -554,4 +555,105 @@ export async function listReworkCyclesByTask(env: Env, ctx: TenantContext, taskI
     .from(reworkCycle)
     .where(withTenantScope(reworkCycle, ctx, reworkCycle.propertyId, eq(reworkCycle.taskId, taskId)))
     .orderBy(reworkCycle.round);
+}
+
+/** 差戻し 1 件。越境 ID は DB へ行く前に `NotFoundError`（→ 404）。 */
+export async function findReworkCycleById(env: Env, ctx: TenantContext, reworkCycleId: string) {
+  assertIdBelongsToTenant(reworkCycleId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select()
+    .from(reworkCycle)
+    .where(
+      withTenantScope(reworkCycle, ctx, reworkCycle.propertyId, eq(reworkCycle.id, reworkCycleId)),
+    )
+    .limit(1);
+  return rows[0];
+}
+
+/**
+ * そのタスクの、まだ決着していない差戻し（`OPEN` / `IN_PROGRESS`）。
+ *
+ * **M-12 は `taskId` で開く。** 清掃者は差戻しの ID を知らない（M-02 から
+ * 部屋を押して入る）。ラウンドで引かないのは `findOpenInspectionByTask()` と
+ * 同じ理由で、再読み込みや再送で「自分に来た差戻しに入れない」を作らないため。
+ *
+ * 一意制約 `(taskId, round)` があるので、未決着は最大 1 件になる
+ * （前のラウンドは再清掃完了時に `RESOLVED` へ動く）。**万一 2 件あれば
+ * ラウンドの大きいほうを返す**（新しい差戻しを先に片付ける）。
+ */
+export async function findOpenReworkCycleByTask(env: Env, ctx: TenantContext, taskId: string) {
+  assertIdBelongsToTenant(taskId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select()
+    .from(reworkCycle)
+    .where(
+      withTenantScope(
+        reworkCycle,
+        ctx,
+        reworkCycle.propertyId,
+        and(eq(reworkCycle.taskId, taskId), inArray(reworkCycle.status, ["OPEN", "IN_PROGRESS"])),
+      ),
+    )
+    .orderBy(desc(reworkCycle.round))
+    .limit(1);
+  return rows[0];
+}
+
+/** `advanceReworkCycle()` の入力。**状態は呼び出し側（engine）が決めた値。** */
+export interface AdvanceReworkCycleInput {
+  /** 遷移前の状態。**この状態の行にしか当たらない**（楽観的排他）。 */
+  from: ReworkStatus;
+  to: ReworkStatus;
+  /** `start` で入れる。 */
+  startedAt?: Date | null | undefined;
+  /** `complete` で入れる。 */
+  completedAt?: Date | null | undefined;
+  /** `waive` の 3 点（§4.7。**理由と関連 Issue は必須**）。 */
+  waivedById?: string | null | undefined;
+  waivedReason?: string | null | undefined;
+  waivedIssueId?: string | null | undefined;
+}
+
+/**
+ * 差戻しの状態を 1 段進める（§4.6 / §4.7）。
+ *
+ * **`status = from` の行にしか当たらない。** 同じ操作が 2 回届いても
+ * 2 回目は 0 行更新になり、呼び出し側は「既に進んでいた」として扱う
+ * （`completeInspection()` と同じ形）。
+ *
+ * 差戻しを**削除しない**。免除も `status = WAIVED` で表す
+ * （`schema/inspection.ts`「行を消さない。免除したという事実が証跡に要る」）。
+ *
+ * @returns 進めたら `true`。既に進んでいた・該当なしなら `false`。
+ */
+export async function advanceReworkCycle(
+  env: Env,
+  ctx: TenantContext,
+  reworkCycleId: string,
+  input: AdvanceReworkCycleInput,
+): Promise<boolean> {
+  assertIdBelongsToTenant(reworkCycleId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const updated = await db
+    .update(reworkCycle)
+    .set({
+      status: input.to,
+      ...(input.startedAt === undefined ? {} : { startedAt: input.startedAt }),
+      ...(input.completedAt === undefined ? {} : { completedAt: input.completedAt }),
+      ...(input.waivedById === undefined ? {} : { waivedById: input.waivedById }),
+      ...(input.waivedReason === undefined ? {} : { waivedReason: input.waivedReason }),
+      ...(input.waivedIssueId === undefined ? {} : { waivedIssueId: input.waivedIssueId }),
+      updatedAt: ctx.now,
+    })
+    .where(
+      withTenantScope(
+        reworkCycle,
+        ctx,
+        reworkCycle.propertyId,
+        and(eq(reworkCycle.id, reworkCycleId), eq(reworkCycle.status, input.from)),
+      ),
+    );
+  return updated.meta.changes > 0;
 }

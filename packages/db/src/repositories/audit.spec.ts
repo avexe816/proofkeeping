@@ -143,12 +143,14 @@ describe("AUDIT_ACTIONS", () => {
     // 加え、PK-SPEC-P1 §5.3 が理由を必須とする入室不可（P1-05）。
     // P2-04 が 1 つ足した: 清掃担当者本人による検査（PK-SPEC-P2 §4.2 の例外）。
     // security.md §1 が「緊急時の例外は理由必須＋監査ログ」と書いている。
+    // P2-07 が 1 つ足した: 差戻しの免除（同 §4.7 が「理由必須」と明記）。
     const required = Object.entries(AUDIT_ACTIONS)
       .filter(([, meta]) => meta.requiresReason)
       .map(([action]) => action);
     expect(required.sort()).toEqual([
       "inspection.selfApproved",
       "observation.amended",
+      "rework.waived",
       "room.statusOverridden",
       "task.blocked",
     ]);

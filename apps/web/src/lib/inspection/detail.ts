@@ -17,9 +17,9 @@
 import type { Inspection, InspectionItem } from "@pk/contracts";
 import {
   countInspectionPhotosByItem,
+  listChecklistItemsByIds,
   listChecklistResults,
   listInspectionItemResults,
-  listTemplateItems,
   type Env,
   type TenantContext,
 } from "@pk/db";
@@ -86,11 +86,12 @@ export async function listInspectionItems(
   ]);
 
   const recordedByItem = new Map(recorded.map((row) => [row.checklistItemId, row]));
-  const items = await listTemplateItems(
-    env,
-    ctx,
-    [...new Set(cleaningResults.map((row) => row.itemId))],
-  );
+  // **`listChecklistItemsByIds()`（項目 ID）を使う。** `listTemplateItems()` は
+  // `templateId` で絞るので、項目 ID を渡すと 0 件になり、section と labels が
+  // 黙って空欄になる（P2-04 / P2-06 の実装がそうなっていた）。
+  const items = await listChecklistItemsByIds(env, ctx, [
+    ...new Set(cleaningResults.map((row) => row.itemId)),
+  ]);
   const itemById = new Map(items.map((item) => [item.id, item]));
 
   return cleaningResults.map((row) => {

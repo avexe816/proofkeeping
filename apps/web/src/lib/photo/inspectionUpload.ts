@@ -34,6 +34,7 @@ import {
 } from "@pk/db";
 
 import { assertPermission, propertyTarget } from "../auth/permission.js";
+import { sha256Hex } from "../evidence/hash.js";
 
 import { sanitizeImage } from "./image.js";
 import { photoStorageKey } from "./upload.js";
@@ -67,14 +68,6 @@ export type UploadInspectionPhotoOutcome =
       };
     }
   | { kind: "REJECTED"; error: PhotoErrorCode };
-
-/** バイト列の SHA-256（小文字 16 進）。**証跡の照合に使う値。** */
-export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  // `BufferSource` として渡す。`Uint8Array` の `buffer` を直に渡すと
-  // 部分ビューのときに範囲外まで読む。
-  const digest = await crypto.subtle.digest("SHA-256", bytes as unknown as BufferSource);
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 
 /**
  * 検査写真を 1 枚受け取る。
