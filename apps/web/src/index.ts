@@ -2,6 +2,10 @@ import type { Env } from "@pk/db";
 import { Hono } from "hono";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 
+import {
+  missingSecretNames,
+  missingSecretsMessage,
+} from "./lib/config/requiredSecrets.js";
 import { cloudflareContext } from "./lib/ui/cloudflare.js";
 import {
   apiErrorHandler,
@@ -56,6 +60,33 @@ const app = new Hono<AppEnv>();
  */
 app.onError(apiErrorHandler());
 app.notFound(apiNotFoundHandler());
+
+/**
+ * 必須 secret の検査。**いちばん前に置く。**
+ *
+ * `.dev.vars` を作らずに起動すると `SESSION_SECRET` が空文字になり、
+ * ログインが `INTERNAL_ERROR`（500）で落ちる（空鍵は
+ * `crypto.subtle.importKey()` が弾く）。**応答からは原因が読めない**ので、
+ * ここで名前を挙げて 503 を返す（`lib/config/requiredSecrets.ts`）。
+ *
+ * ── ヘルスチェックより前 ────────────────────────────────
+ * `/api/health` も通す。設定が欠けた Worker を「正常」と答えさせない。
+ *
+ * ── 値を出さない ────────────────────────────────────────
+ * 応答にもログにも**名前だけ**を出す（architecture.md §1 と同じ方針）。
+ */
+app.use("*", async (c, next) => {
+  const missing = missingSecretNames(c.env);
+  if (missing.length === 0) return next();
+
+  console.error(`configuration-incomplete missing=${missing.join(",")}`);
+  const message = missingSecretsMessage(missing);
+  // API は JSON、画面はそのまま読める本文。**どちらも 503**（設定が入れば直る）。
+  if (c.req.path.startsWith("/api/")) {
+    return c.json({ error: "CONFIGURATION_INCOMPLETE", missing }, 503);
+  }
+  return c.text(message, 503);
+});
 
 // ヘルスチェック（P0-20）。**認証を要求しない唯一の API。**
 // セッション middleware より前段に置く。監視はセッションを持てない。
