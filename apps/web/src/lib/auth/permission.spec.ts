@@ -87,6 +87,10 @@ const EXPECTED: Record<PermissionAction, string> = {
   "rework.read": "OOAAAAO",
   "rework.write": "OOA-AA-",
   "rework.waive": "OOA----",
+  // P2-10。証跡 ZIP の持ち出し（§6.5）。**閲覧は `task.read` のまま。**
+  // `AUDITOR` の `-` は security.md §1「書き込み操作を一切できない」に
+  // 沿った既定（OPEN_QUESTIONS #048）。
+  "evidence.export": "OOA----",
 };
 
 const SYMBOL_TO_SCOPE: Record<string, PermissionScope> = {

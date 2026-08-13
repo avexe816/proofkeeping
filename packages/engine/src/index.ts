@@ -237,3 +237,16 @@ export {
   type SnapshotVerification,
   type SnapshotVerificationInput,
 } from "./evidence.js";
+
+// 証跡タイムライン（P2-09 / 同 §12.3）。**証跡の payload からは組まない。**
+// 業務の記録（`taskTimeLog` / `inspection` / `reworkCycle`）から組む。
+export {
+  TIMELINE_KINDS,
+  buildEvidenceTimeline,
+  type EvidenceTimelineInput,
+  type TimelineEntry,
+  type TimelineInspectionInput,
+  type TimelineKind,
+  type TimelineReworkInput,
+  type TimelineTimeLogInput,
+} from "./evidenceTimeline.js";

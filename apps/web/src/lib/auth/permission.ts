@@ -183,6 +183,21 @@ export const PERMISSION_ACTIONS = {
    * 検査そのものが意味を失う）。
    */
   "rework.waive": { write: true },
+  /**
+   * 証跡 ZIP の出力（§6.5 / W-07）。**閲覧は `task.read` のまま。**
+   *
+   * 証跡そのものの閲覧に別のアクションを足していない理由は
+   * `routes/api/v1/tasks.ts` の `/evidence/verify` の注記（P2-08）。
+   * **持ち出しだけを分けてある。** ZIP は組織の外へ出ていく写しで、
+   * security.md §6 が監査対象に挙げているのもこの操作
+   * （「データエクスポート・証跡 ZIP 出力」）。
+   *
+   * `AUDITOR` を `DENY` にしてある。security.md §1 の「書き込み操作を
+   * 一切できない」に沿った既定で、**§16.2 の運用と合うかは確かめていない**
+   * （監査閲覧が証跡を持ち出せないのは不便かもしれない /
+   * OPEN_QUESTIONS #048）。広げるなら根拠を持つ task が動かすこと。
+   */
+  "evidence.export": { write: true },
 } as const satisfies Record<string, { write: boolean }>;
 
 /** `PERMISSION_ACTIONS` に載っている操作だけを許す型。 */
@@ -541,6 +556,20 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
   },
   // §4.7「PROPERTY_MANAGER 以上」。**`VENDOR_ADMIN` に広げない。**
   "rework.waive": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // 証跡 ZIP の持ち出し（§6.5）。**現場ロールは DENY。**
+  // `INSPECTOR` / `CLEANER` は自分の作業の記録を M-09 / M-11 で見られるが、
+  // 書庫として組織の外へ出す操作は運営側のもの。`VENDOR_ADMIN` も DENY
+  // （受託した清掃会社が施設の証跡一式を持ち出せる形にしない）。
+  // `AUDITOR` の DENY は上の注記（OPEN_QUESTIONS #048）。
+  "evidence.export": {
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "ASSIGNED",

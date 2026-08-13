@@ -29,8 +29,15 @@
  * 言わないので、別組織の URL が何かの拍子に渡ったときの最後の砦になる。
  * 角印にこの照合が無いのは、キーに組織 ID が入っていて発行元が
  * 組織スコープの画面しか無いため（P0-16 のまま）。
+ *
+ * ── P2-10 が証跡 ZIP を足した ───────────────────────────
+ * 3 つめのバケット（`EVIDENCE`）。キーは `bundles/{orgId}/{taskId}.zip` で、
+ * 写真と同じく**組織 ID を含むので同じ照合を掛ける。** 書庫の中身は
+ * その施設の証跡一式なので、**写真より漏れたときの範囲が広い。**
+ * 発行するのは `evidence.export` を持つロールだけ（`routes/api/v1/evidence.ts`）。
  */
 
+import { EVIDENCE_BUNDLE_PREFIX } from "../../../consumers/evidenceExport.js";
 import { DOCUMENTS_PREFIX } from "../../../lib/storage/prefix.js";
 import { PHOTOS_PREFIX, isOwnPhotoKey } from "../../../lib/photo/upload.js";
 import { verifyObjectUrl } from "../../../lib/storage/signedUrl.js";
@@ -45,8 +52,15 @@ files.get("/:key", async (c) => {
   // 署名の対象を絞る。**任意のキーを読める口にしない。**
   const isDocument = key.startsWith(DOCUMENTS_PREFIX);
   const isPhoto = key.startsWith(PHOTOS_PREFIX);
-  if (!isDocument && !isPhoto) return c.notFound();
-  if (isPhoto && !isOwnPhotoKey(key, getTenant(c).organizationId)) return c.notFound();
+  const isBundle = key.startsWith(EVIDENCE_BUNDLE_PREFIX);
+  if (!isDocument && !isPhoto && !isBundle) return c.notFound();
+
+  const organizationId = getTenant(c).organizationId;
+  if (isPhoto && !isOwnPhotoKey(key, organizationId)) return c.notFound();
+  // 証跡 ZIP も同じ照合。**キーの 2 区間目が自組織であること。**
+  if (isBundle && !key.startsWith(`${EVIDENCE_BUNDLE_PREFIX}${organizationId}/`)) {
+    return c.notFound();
+  }
 
   const valid = await verifyObjectUrl(
     c.env.SESSION_SECRET,
@@ -59,12 +73,17 @@ files.get("/:key", async (c) => {
   // 期限切れだけ 403 にすると、キーの存在が読める。
   if (!valid) return c.notFound();
 
-  const object = await (isPhoto ? c.env.PHOTOS : c.env.DOCUMENTS).get(key);
+  const bucket = isPhoto ? c.env.PHOTOS : isBundle ? c.env.EVIDENCE : c.env.DOCUMENTS;
+  const object = await bucket.get(key);
   if (object === null) return c.notFound();
 
+  const disposition = object.httpMetadata?.contentDisposition;
   return new Response(object.body, {
     headers: {
       "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
+      // 書庫は保存させる。**ファイル名はコンシューマが付けた値**
+      // （`PK-20260910-HTLA-302.zip` / §6.5）。
+      ...(disposition === undefined ? {} : { "Content-Disposition": disposition }),
       // 署名の期限より長く持たせない。
       "Cache-Control": "private, max-age=300",
     },

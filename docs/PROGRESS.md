@@ -1,6 +1,6 @@
 # 実装進捗
 
-最終更新: 2026-08-13（P2-06 の実機確認で見つかった不具合を修正。D1 変数上限 + 必須 secret の落ち方）
+最終更新: 2026-08-13（P2-09 / P2-10 完了。証跡の画面と ZIP。最初の Queue コンシューマ）
 
 ## 現在のセッション
 
@@ -30,11 +30,60 @@ task: P2-07 / P2-08（Batch: 差戻しと証跡）
            `GET /api/v1/tasks/:taskId/evidence/verify`（§6.3）。
            **リポジトリは INSERT と SELECT だけ**（spec がソースで固定）。
 
-次: **P2-09 W-07 証跡詳細画面。** 依存（P2-08）は満たされている。
-    `verifyTaskEvidence()` と `listEvidenceSnapshotsByTask()` が揃っている。
-    §12.3 のタイムラインは `inspection` / `reworkCycle` / `taskTimeLog` から
-    組む（証跡の payload を parse して組み立てないこと）。
+次: **P2-11 忘れ物管理。** 依存（P2-01）は満たされている。
 ```
+
+--- 2026-08-13 追記: P2-09 / P2-10（Batch: 証跡の画面と持ち出し）---
+
+```
+task: P2-09 / P2-10
+状態: 完了。**証跡を人が読める形にし、書庫として外へ出せるようにした。**
+
+      P2-09 W-06 証跡一覧 / W-07 証跡詳細
+           engine `evidenceTimeline.ts`（17 テスト）が §12.3 のタイムライン。
+           **証跡の payload からは組まない**（DECISIONS #077）。材料は
+           `taskTimeLog` / `inspection` / `reworkCycle`。
+           `lib/evidence/photoIntegrity.ts` が §6.3 の**写真の実体照合**
+           （R2 のバイト列から取り直す。metadata を信用しない）。
+           画面 `/app/p/:id/evidence{,/:taskId}`。API は §14.2 の経路名。
+           サイドバーの `nav.cleaningRecords` を READY にして繋いだ。
+      P2-10 証跡 ZIP エクスポート
+           `lib/zip/store.ts`（18 テスト）が ZIP（STORE）の書き出し。
+           **依存を足していない**（DECISIONS #080）。ZIP64 は無い。
+           `lib/evidence/bundle.ts`（18 テスト）が §6.5 の構成。`verify.txt` は
+           **書庫へ入れた実体から**ハッシュを取る（DECISIONS #079）。
+           `consumers/evidenceExport.ts` が R2 と監査ログ（`export.evidenceZip`）。
+           **状態の表を作らず R2 の有無で表す**（DECISIONS #078）。
+```
+
+**最初の Queue コンシューマが動いた。** `src/index.ts` に `queue()` を足し、
+`wrangler.toml` の 4 環境へ `[[queues.consumers]]` を 1 本ずつ宣言した。
+**残り 6 キューは未実装のまま**（宣言すると wrangler が起動しない）。
+`tests/toolchain/wrangler.spec.ts` の `IMPLEMENTED_CONSUMERS` が
+宣言と実装の食い違いを押さえる。**足す task はここへ 1 行足すこと。**
+
+権限は `evidence.export`（`write: true`）を 1 つ足しただけ。**閲覧は
+`task.read` のまま**（P2-08 の判断を踏襲）。持ち出しだけを分けてある。
+
+--- この Batch で入れていないもの（意図的）---
+- **§12.2 の「清掃チェックリストと写真」の節が無い**（OPEN_QUESTIONS #049）。
+  写真はハッシュとしてのみ照合する。並べると担当者ごとの作業内容を
+  一覧する面ができる（§1.3）。
+- **§6.4 の訂正（`POST /api/v1/evidence/:id/corrections`）が無い**
+  （OPEN_QUESTIONS #050）。DB の列は P2-08 が用意済みで、足りないのは
+  経路と `ORG_ADMIN` の判定だけ。
+- **`AUDITOR` は ZIP を出せない**（OPEN_QUESTIONS #048）。security.md §1 の
+  「書き込み操作を一切できない」に沿った既定。運用と合うかは未確認。
+
+--- P2-09 / P2-10 からの申し送り ---
+申し送り 1: **`generatedAt` はメッセージが持つ時刻。** コンシューマ内で
+            `new Date()` を呼ぶと再送のたびに manifest が変わり、
+            testing.md §4 の冪等が崩れる。
+申し送り 2: **証跡が 0 件のタスクでも W-07 は開ける。** タイムラインは
+            業務の記録から組むので、証跡の書き込みに失敗していても
+            作業の流れは追える。
+申し送り 3: **写真の実体が無いときは書庫から飛ばす。** 欠けは manifest に
+            現れないが、証跡の payload 側に `{ id, sha256 }` が残る。
 
 --- 2026-08-13 追記: 通しで回らなかった原因を直した ---
 
@@ -57,13 +106,12 @@ M-08 / M-09 / M-12 のいずれにも到達できていなかった。
 清掃 → 検査 → 不合格 → 再清掃 → 再検査待ちが 1 周し、証跡 3 件の連鎖が
 検証を通り、payload の書き換えと行の抜き取りをそれぞれ検出できている。
 
---- この Batch で入れていないもの（意図的）---
-- **W-07 / W-06（証跡の画面）が無い**（P2-09）。API と検証関数はある。
-- **証跡 ZIP が無い**（P2-10）。`export.evidenceZip` の監査 action は P0 から
-  登録済み。
-- **写真の実体（R2）との照合をしていない。** `verifyTaskEvidence()` は
-  DB と payload の突き合わせだけ。§6.3 の「不一致時は Sentry と監査ログへ
-  記録する」も、実体照合を持つ P2-09 / P2-10 の担当。
+--- この Batch で入れていないもの（意図的）--- ※ 打ち消し線の項目は P2-09 / P2-10 で解消
+- ~~**W-07 / W-06（証跡の画面）が無い**（P2-09）~~ → P2-09 で実装。
+- ~~**証跡 ZIP が無い**（P2-10）~~ → P2-10 で実装。
+- ~~**写真の実体（R2）との照合をしていない。**~~ → P2-09 の
+  `lib/evidence/photoIntegrity.ts` が実装。不一致は `console.error`（Sentry の
+  取り込み先）と監査ログへ。**Sentry の SDK はまだ入っていない。**
 - **W-03 の検査 SLA オレンジ表示**（§5.2 の 1 行目）は PC 側なので手付かず。
   規則（`waitStateOf()`）は engine にあるので、W-03 を触る task が使える。
 
@@ -811,8 +859,8 @@ task: P0-07 リポジトリ層の雛形
 - [x] P2-06 M-09 検査実施
 - [x] P2-07 差戻しと再清掃
 - [x] P2-08 EvidenceSnapshot とハッシュ
-- [ ] P2-09 W-07 証跡詳細画面
-- [ ] P2-10 証跡 ZIP エクスポート
+- [x] P2-09 W-07 証跡詳細画面
+- [x] P2-10 証跡 ZIP エクスポート
 - [ ] P2-11 忘れ物管理
 - [ ] P2-12 設備不具合・修繕
 - [ ] P2-13 M-13 報告画面

@@ -2,6 +2,7 @@ import type { Env } from "@pk/db";
 import { Hono } from "hono";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 
+import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
 import {
   missingSecretNames,
   missingSecretsMessage,
@@ -18,6 +19,7 @@ import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
 import dev from "./routes/api/v1/dev.js";
 import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
+import evidence from "./routes/api/v1/evidence.js";
 import files from "./routes/api/v1/files.js";
 import inspections from "./routes/api/v1/inspections.js";
 import organization from "./routes/api/v1/organization.js";
@@ -132,6 +134,10 @@ api.route("/inspections", inspections);
 // 差戻し・再清掃（P2-07 / PK-SPEC-P2 §4.6・§4.7）。**一覧の口は無い。**
 // 差戻しはタスクから辿る（`routes/api/v1/reworks.ts` の注記）。
 api.route("/reworks", reworks);
+// 証跡（P2-09 / P2-10 / PK-SPEC-P2 §14.2）。**書き込みの口が無い。**
+// 証跡は業務操作の副産物としてサーバーが書く（`contracts/evidence.ts`）。
+// ここにあるのは一覧・詳細・整合性確認・ZIP 出力の 4 つ。
+api.route("/evidence", evidence);
 api.route("/room-plans", roomPlans);
 // 客室タイプ（P1-24 / W-25）。**物理削除の口が無い**（無効化のみ）。
 api.route("/room-types", roomTypes);
@@ -194,6 +200,25 @@ export { InspectionLock } from "./durable/InspectionLock.js";
  */
 export default {
   fetch: app.fetch,
+  /**
+   * Queue コンシューマ（P2-10 / architecture.md §5）。
+   *
+   * **キューごとにハンドラを分けられない。** Workers の `queue()` は
+   * 全 binding 共通の入口なので、`batch.queue`（キュー名）で振り分ける。
+   * 名前は環境ごとに接尾辞が付く（`pk-evidence-export-local` など /
+   * wrangler.toml）ので、**前方一致で見る。**
+   *
+   * コンシューマを足す task は、ここに 1 分岐と wrangler.toml の
+   * `[[queues.consumers]]`（4 環境ぶん）を同時に足すこと。
+   */
+  async queue(batch: MessageBatch, env: Env): Promise<void> {
+    if (batch.queue.startsWith("pk-evidence-export")) {
+      await handleEvidenceExportBatch(env, batch);
+      return;
+    }
+    // 知らないキュー。**ack も retry もしない**（既定の再送に任せる）。
+    console.error(`queue-unhandled queue=${batch.queue}`);
+  },
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
     const result = await runNightlyGeneration(env, new Date());
     console.log(
