@@ -75,6 +75,14 @@ function taskRow(status: string, propertyId: string = PROPERTY_ID): unknown[] {
     null, // actual_minutes
     0, // pause_count
     0, // rework_count
+    // P2-01 が足した 7 列（PK-SPEC-P2 §3.1）。**宣言順はここ。**
+    0, // inspection_required
+    0, // inspection_skipped
+    null, // inspection_skip_reason
+    null, // inspector_id
+    null, // inspected_at
+    null, // inspection_result
+    0, // current_inspection_round
     "AUTO",
     null, // note
     null, // blocked_reason
@@ -498,5 +506,136 @@ describe("POST /api/v1/tasks/:taskId/photos（P1-11）", () => {
 
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: "PHOTO_LIMIT_EXCEEDED" });
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 検査の要否（P2-02 / PK-SPEC-P2 §2.1〜§2.3）
+// ────────────────────────────────────────────────────────────
+
+/** `property` の 1 行。**列の順序は schema/property.ts の宣言順。** */
+function propertyRow(inspectionRequired: boolean): unknown[] {
+  return [
+    PROPERTY_ID,
+    ORGANIZATION_ID,
+    "HTLA",
+    "テスト施設",
+    null, // postal_code
+    null, // address
+    "Asia/Tokyo",
+    "05:00",
+    inspectionRequired ? 1 : 0,
+    0, // sort_order
+    1, // is_active
+    0,
+    0,
+  ];
+}
+
+/** `property_inspection_policy` の 1 行。**列の順序は schema/inspection.ts の宣言順。** */
+function policyRow(mode: "ALL" | "SAMPLE" | "NONE"): unknown[] {
+  return [
+    `${ORG_SHORT_ID}__ipol_01JBXQ3ZK8N4P2VYR6ABCDEFGH`,
+    ORGANIZATION_ID,
+    PROPERTY_ID,
+    mode,
+    100, // sample_rate
+    0, // min_daily_sample
+    1, // always_inspect_checkin
+    1, // always_inspect_rework
+    0, // self_inspection_allowed
+    1, // auto_assign_inspector
+    20, // inspection_sla_minutes
+    0,
+    0,
+  ];
+}
+
+/**
+ * `complete` が通るところまで代役の応答を積む。
+ *
+ * 積む順序は `runTransition()` の呼び出し順そのもの。**この並びが
+ * ドキュメントでもある**ので、経路を足す task はここを直すこと。
+ */
+function enqueueCompletion(
+  ctx: ReturnType<typeof setup>,
+  options: { policy?: unknown[][]; inspectionRequired?: boolean } = {},
+): void {
+  ctx.d1.enqueueRows([taskRow("IN_PROGRESS")]); // findTaskById
+  ctx.d1.enqueueRows([]); // findTimeLogByIdempotencyKey
+  ctx.d1.enqueueRows([propertyRow(options.inspectionRequired ?? false)]); // findPropertyById
+  ctx.d1.enqueueRows([]); // listChecklistResults（項目ゼロ＝完了できる）
+  ctx.d1.enqueueRows([]); // countPhotosByChecklistItem
+  ctx.d1.enqueueRows(options.policy ?? []); // findInspectionPolicy
+  ctx.d1.enqueueRows([]); // listTimeLogs（追記後の読み直し）
+  ctx.d1.enqueueRows([taskRow("IN_PROGRESS")]); // 応答のための再取得
+  ctx.d1.enqueueRows([roomRow()]); // 部屋番号
+}
+
+describe("清掃完了時の検査の要否（PK-SPEC-P2 §2）", () => {
+  it("検査方式 ALL は AWAITING_INSPECTION で止まり、検査対象として記録される", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    enqueueCompletion(ctx, { policy: [policyRow("ALL")] });
+
+    const res = await post(ctx, `/api/v1/tasks/${TASK_ID}/complete`, {}, cookie, "key-all");
+
+    expect(res.status).toBe(200);
+    const update = ctx.d1.queries.find((query) => query.sql.startsWith("update \"cleaning_task\""));
+    expect(update?.sql).toContain("inspection_required");
+    // 1 = 検査対象。0 = 省略。**省略理由は null。**
+    expect(update?.params).toContain("AWAITING_INSPECTION");
+  });
+
+  it("検査方式 NONE は COMPLETED まで進み、省略理由が残る", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    enqueueCompletion(ctx, { policy: [policyRow("NONE")] });
+
+    const res = await post(ctx, `/api/v1/tasks/${TASK_ID}/complete`, {}, cookie, "key-none");
+
+    expect(res.status).toBe(200);
+    const update = ctx.d1.queries.find((query) => query.sql.startsWith("update \"cleaning_task\""));
+    expect(update?.params).toContain("COMPLETED");
+    // §2.3: 「検査なし」を「検査合格」として集計しないため、
+    // 判定（`inspection_result`）ではなく省略理由に落とす。
+    expect(update?.params).toContain("POLICY_NONE");
+    expect(update?.sql).not.toContain("inspection_result");
+  });
+
+  it("検査方式が未設定なら P1 の inspectionRequired に従う", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    // 行が無い施設。**読み取りのついでに既定行を作らない**（P2-02 の設計）。
+    enqueueCompletion(ctx, { policy: [], inspectionRequired: true });
+
+    const res = await post(ctx, `/api/v1/tasks/${TASK_ID}/complete`, {}, cookie, "key-legacy");
+
+    expect(res.status).toBe(200);
+    const update = ctx.d1.queries.find((query) => query.sql.startsWith("update \"cleaning_task\""));
+    expect(update?.params).toContain("AWAITING_INSPECTION");
+    expect(ctx.d1.queries.some((query) => query.sql.includes("insert into \"property_inspection_policy\""))).toBe(
+      false,
+    );
+  });
+
+  it("完了より前の操作では検査方式を引かない（§2.2 MUST）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    ctx.d1.enqueueRows([taskRow("ASSIGNED")]); // findTaskById
+    ctx.d1.enqueueRows([]); // findTimeLogByIdempotencyKey
+    ctx.d1.enqueueRows([propertyRow(false)]); // findPropertyById
+    ctx.d1.enqueueRows([]); // listTimeLogs
+    ctx.d1.enqueueRows([taskRow("IN_PROGRESS")]); // 応答のための再取得
+    ctx.d1.enqueueRows([roomRow()]); // 部屋番号
+
+    const res = await post(ctx, `/api/v1/tasks/${TASK_ID}/start`, {}, cookie, "key-start");
+
+    expect(res.status).toBe(200);
+    // **抽出対象かどうかを決める材料に触れていない。**
+    // 決まっていない値は API からも画面からも漏れない。
+    expect(
+      ctx.d1.queries.filter((query) => query.sql.includes("property_inspection_policy")),
+    ).toEqual([]);
   });
 });

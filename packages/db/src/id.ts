@@ -99,6 +99,12 @@ export const ENTITY_PREFIXES = [
   "photo", // taskPhoto
   "stdt", // standardTime
   "plan", // dailyRoomPlan
+  // P2-01 が決めたもの（docs/DECISIONS.md #059）。
+  // `insp`（inspection）と `evd`（evidenceSnapshot）は既に上にある（PK-SPEC-P0 §19.4）。
+  "ipol", // propertyInspectionPolicy
+  "ires", // inspectionItemResult
+  "ipho", // inspectionPhoto
+  "rwk", // reworkCycle
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

@@ -147,3 +147,20 @@ export {
   type TemplateCandidate,
   type TemplateScope,
 } from "./checklist.js";
+
+// 検査の要否（P2-02 / PK-SPEC-P2 §2.1〜§2.3）。**清掃完了の瞬間に決める。**
+// 抽選値は呼び出し側が渡す（この層に乱数を持ち込まない）。
+export {
+  INSPECTION_MODE_VALUES,
+  NEW_STAFF_DAYS,
+  decideInspection,
+  isNewStaff,
+  policyFromLegacyFlag,
+  type InspectionDecision,
+  type InspectionDecisionInput,
+  type InspectionModeValue,
+  type InspectionPolicyInput,
+  type InspectionSelectionReason,
+  type InspectionSkipReasonValue,
+  type MandatoryInspectionSignals,
+} from "./inspectionSampling.js";

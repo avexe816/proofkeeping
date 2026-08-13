@@ -263,10 +263,10 @@ describe("P0-02 wrangler.toml の構成", () => {
     }
   });
 
-  // architecture.md §4 の 4 用途のうち、クラスが在るのは DocumentSequencer だけ
-  // （P0-17）。InspectionLock / PropertyBoard / ReconciliationLock を実装する
+  // architecture.md §4 の 4 用途のうち、クラスが在るのは DocumentSequencer（P0-17）と
+  // InspectionLock（P2-03）。PropertyBoard / ReconciliationLock を実装する
   // task がここへ 1 行足す。**足す前に apps/web/src/index.ts の export も足すこと。**
-  const IMPLEMENTED_DO_CLASSES = ["DocumentSequencer"] as const;
+  const IMPLEMENTED_DO_CLASSES = ["DocumentSequencer", "InspectionLock"] as const;
 
   it.each(ENVIRONMENTS)("$label: 実装済みの Durable Object だけを宣言する", ({ section }) => {
     const bindings = section.durable_objects?.bindings ?? [];
@@ -278,7 +278,7 @@ describe("P0-02 wrangler.toml の構成", () => {
 
   it.each(ENVIRONMENTS)("$label: DO binding 名が全環境で同じ", ({ section }) => {
     const names = (section.durable_objects?.bindings ?? []).map((entry) => entry.name);
-    expect(names).toEqual(["DOCUMENT_SEQUENCER"]);
+    expect(names).toEqual(["DOCUMENT_SEQUENCER", "INSPECTION_LOCK"]);
   });
 
   it.each(ENVIRONMENTS)("$label: migrations が宣言済みの DO クラスを覆う", ({ section }) => {

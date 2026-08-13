@@ -19,6 +19,7 @@ import { eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
+import type { InspectionSkipReason } from "../schema/inspection.js";
 import {
   TASK_STATUSES,
   cleaningTask,
@@ -352,6 +353,20 @@ export interface ApplyTransitionInput {
   pauseCount?: number | undefined;
   blockedReason?: string | null | undefined;
   note?: string | undefined;
+  /**
+   * 検査の要否（P2-02 / PK-SPEC-P2 §2.3）。**`complete` のときだけ渡す。**
+   *
+   * 要否と省略理由は必ず一組で書く。片方だけを更新できる形にすると、
+   * 「検査不要だが省略理由が無い」行が作れてしまい、§2.3 の
+   * 「検査なしを検査合格として集計しない」を後から言えなくなる。
+   */
+  inspection?:
+    | {
+        required: boolean;
+        skipped: boolean;
+        skipReason: InspectionSkipReason | null;
+      }
+    | undefined;
 }
 
 /**
@@ -385,6 +400,13 @@ export async function applyTransition(
       ...(input.pauseCount === undefined ? {} : { pauseCount: input.pauseCount }),
       ...(input.blockedReason === undefined ? {} : { blockedReason: input.blockedReason }),
       ...(input.note === undefined ? {} : { note: input.note }),
+      ...(input.inspection === undefined
+        ? {}
+        : {
+            inspectionRequired: input.inspection.required,
+            inspectionSkipped: input.inspection.skipped,
+            inspectionSkipReason: input.inspection.skipReason,
+          }),
       updatedAt: ctx.now,
     })
     .where(
@@ -510,6 +532,42 @@ export async function countTasksByStatus(
     )
     .groupBy(cleaningTask.status);
   return new Map(rows.map((row) => [row.status, row.count]));
+}
+
+/**
+ * その施設・その業務日で**既に検査対象に決まった件数**（P2-02 / §2.2）。
+ *
+ * `minDailySample`（抽出率が低くても検査を 0 件にしない）の判定に使う。
+ *
+ * ── 数えるのは「決まった」ものだけ ──────────────────────
+ * `inspectionRequired = true` は清掃完了時にしか立たない
+ * （`decideInspection()` の呼び出しは 1 か所）。したがってこの件数は
+ * **既に完了したタスクのうち検査に回った数**であり、これから完了する
+ * タスクを含まない。抽出対象かどうかを完了前に決めない設計の裏返しで、
+ * 「その日の総数に対する割合」を先に確定できないのは意図した制約。
+ */
+export async function countInspectionSelected(
+  env: Env,
+  ctx: TenantContext,
+  propertyId: string,
+  businessDate: string,
+): Promise<number> {
+  assertIdBelongsToTenant(propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(cleaningTask)
+    .where(
+      withTenantScope(
+        cleaningTask,
+        ctx,
+        cleaningTask.propertyId,
+        eq(cleaningTask.propertyId, propertyId),
+        eq(cleaningTask.businessDate, businessDate),
+        eq(cleaningTask.inspectionRequired, true),
+      ),
+    );
+  return row?.count ?? 0;
 }
 
 /**

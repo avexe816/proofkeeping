@@ -109,6 +109,8 @@ export interface QueueBindings {
 export interface DurableObjectBindings {
   /** 請求書・領収書・日報の連番採番（P0-17）。粒度は 組織 × 文書種別 × 年度。 */
   DOCUMENT_SEQUENCER: DurableObjectNamespace;
+  /** 検査開始の排他制御（P2-03 / PK-SPEC-P2 §4.2）。粒度はタスク。 */
+  INSPECTION_LOCK: DurableObjectNamespace;
 }
 
 /** wrangler.toml の `[vars]`。値はすべて文字列で渡る。 */

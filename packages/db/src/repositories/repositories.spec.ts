@@ -36,6 +36,7 @@ import * as checklistRepo from "./checklist.js";
 import * as cleaningTaskRepo from "./cleaningTask.js";
 import * as dailyRouteRepo from "./dailyRoute.js";
 import * as entitlementRepo from "./entitlement.js";
+import * as inspectionPolicyRepo from "./inspectionPolicy.js";
 import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
 import * as rollupRepo from "./rollup.js";
@@ -56,6 +57,8 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   dailyRoute: dailyRouteRepo,
   taskPhoto: taskPhotoRepo,
   entitlement: entitlementRepo,
+  // P2-02 が登録した検査方式。
+  inspectionPolicy: inspectionPolicyRepo,
   organization: organizationRepo,
   property: propertyRepo,
   rollup: rollupRepo,
@@ -80,6 +83,18 @@ const OWN_ID = {
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
 const FAKE_HASH = "pbkdf2$sha256$210000$c2FsdA$aGFzaA";
+
+/** 検査方式の設定値（P2-02 / PK-SPEC-P2 §2.1）。 */
+const INSPECTION_POLICY = {
+  mode: "SAMPLE",
+  sampleRate: 30,
+  minDailySample: 3,
+  alwaysInspectCheckin: true,
+  alwaysInspectRework: true,
+  selfInspectionAllowed: false,
+  autoAssignInspector: true,
+  inspectionSlaMinutes: 20,
+} as const;
 
 /** 別組織の ID。越境の検証に使う。 */
 const OTHER_ID = {
@@ -369,6 +384,35 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => userRepo.setUserLocale(env, ctx, OWN_ID.user, "en"),
     crossTenant: (env, ctx) => userRepo.setUserLocale(env, ctx, OTHER_ID.user, "en"),
   },
+  {
+    // P2-02: 新人スタッフ判定の材料。**在籍日数を画面に出す関数ではない。**
+    name: "user.findMembershipStartedAt",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.findMembershipStartedAt(env, ctx, OWN_ID.membership),
+    crossTenant: (env, ctx) => userRepo.findMembershipStartedAt(env, ctx, OTHER_ID.membership),
+  },
+
+  // ── P2-02: 施設ごとの検査方式 ──────────────────────────
+  {
+    name: "inspectionPolicy.findInspectionPolicy",
+    kind: "tenant",
+    run: (env, ctx) => inspectionPolicyRepo.findInspectionPolicy(env, ctx, OWN_ID.property),
+    crossTenant: (env, ctx) =>
+      inspectionPolicyRepo.findInspectionPolicy(env, ctx, OTHER_ID.property),
+  },
+  {
+    name: "inspectionPolicy.listInspectionPolicies",
+    kind: "tenant",
+    run: (env, ctx) => inspectionPolicyRepo.listInspectionPolicies(env, ctx),
+  },
+  {
+    name: "inspectionPolicy.upsertInspectionPolicy",
+    kind: "tenant",
+    run: (env, ctx) =>
+      inspectionPolicyRepo.upsertInspectionPolicy(env, ctx, OWN_ID.property, INSPECTION_POLICY),
+    crossTenant: (env, ctx) =>
+      inspectionPolicyRepo.upsertInspectionPolicy(env, ctx, OTHER_ID.property, INSPECTION_POLICY),
+  },
 
   // ── P1-01 / P1-03 / P1-05: 清掃タスク ──────────────────
   {
@@ -474,6 +518,15 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => cleaningTaskRepo.countTasksByStatus(env, ctx, OWN_ID.property, "2026-08-12"),
     crossTenant: (env, ctx) =>
       cleaningTaskRepo.countTasksByStatus(env, ctx, OTHER_ID.property, "2026-08-12"),
+  },
+  {
+    // P2-02: 最低抽出件数の判定に使う（PK-SPEC-P2 §2.2）。
+    name: "cleaningTask.countInspectionSelected",
+    kind: "tenant",
+    run: (env, ctx) =>
+      cleaningTaskRepo.countInspectionSelected(env, ctx, OWN_ID.property, "2026-08-12"),
+    crossTenant: (env, ctx) =>
+      cleaningTaskRepo.countInspectionSelected(env, ctx, OTHER_ID.property, "2026-08-12"),
   },
   {
     name: "cleaningTask.listShortIds",
@@ -822,6 +875,26 @@ describe("越境 ID", () => {
       expect(fake.queries).toEqual([]);
     },
   );
+});
+
+describe("証跡スナップショットの不変性", () => {
+  // P2-01 完了条件 / PK-SPEC-P2 §3.7 MUST / CLAUDE.md §4。
+  // **INSERT だけ。** 訂正は `correctsSnapshotId` を持つ新しい行を足す（§6.4）。
+  it("evidence_snapshot を UPDATE / DELETE するリポジトリ関数が無い", () => {
+    const offenders = repositorySources().filter(
+      ({ code }) =>
+        /\.update\(\s*evidenceSnapshot/.test(code) || /\.delete\(\s*evidenceSnapshot/.test(code),
+    );
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  it("evidence_snapshot を対象にした SQL の update / delete が無い", () => {
+    // drizzle の呼び出しを介さない生 SQL（`sql\`\``）でも同じこと。
+    const offenders = repositorySources().filter(({ code }) =>
+      /(update|delete\s+from)\s+["`']?evidence_snapshot/i.test(code),
+    );
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
 });
 
 describe("認証ブートストラップの範囲", () => {

@@ -9,10 +9,11 @@
  *   3. `Idempotency-Key` の照合（再送なら何もしない）
  *   4. 状態機械の判定（`packages/engine`）
  *   5. `complete` なら必須チェック・写真必須の検証（§5.3 の 2 つの MUST）
- *   6. 時間ログの追記 → 実作業時間の再計算 → 状態の更新
- *   7. `recordAudit()`
+ *   6. `complete` なら検査の要否を決める（PK-SPEC-P2 §2.2。**ここでだけ**）
+ *   7. 時間ログの追記 → 実作業時間の再計算 → 状態の更新
+ *   8. `recordAudit()`
  *
- * **5 を 6 より前に置くこと。** 順序を入れ替えると、拒否された完了操作の
+ * **5 を 7 より前に置くこと。** 順序を入れ替えると、拒否された完了操作の
  * 時間ログだけが残る。
  */
 
@@ -44,6 +45,8 @@ import {
 } from "@pk/engine";
 
 import { assertPermission, propertyTarget } from "../auth/permission.js";
+
+import { resolveInspectionDecision } from "./inspectionDecision.js";
 
 /** 遷移の入力。**`propertyId` を受け取らない**（資源から解決する / INV-32）。 */
 export interface TransitionInput {
@@ -107,24 +110,55 @@ export async function runTransition(
     }
   }
 
-  // **検査の要否は施設の設定**（§5.2）。タスクは持たない。
+  // **検査の要否は施設の設定**（§5.2 / PK-SPEC-P2 §2）。タスクは持たない。
   // 施設が引けない場合は検査不要として扱う（`complete` が滞留しない側へ倒す）。
   const property = await findPropertyById(env, ctx, task.propertyId);
-  const decision = evaluateTransition(
-    task.status,
-    input.action,
-    property?.inspectionRequired ?? false,
-  );
-  if (decision.kind === "REJECTED") {
+
+  // ── `evaluateTransition()` を 2 回呼ぶ ──────────────────────
+  // 拒否と再送（NOOP）の判定は**現在の状態だけ**で決まり、検査の要否に
+  // 依らない。先にそれを見てから抽出の判定へ進む。順序を逆にすると、
+  // オフラインキューが再送した `complete` のたびに抽選をやり直すことになる
+  // （結果は捨てるので害は無いが、DB を 3 回引く）。
+  const preliminary = evaluateTransition(task.status, input.action, false);
+  if (preliminary.kind === "REJECTED") {
     return { kind: "REJECTED", error: "INVALID_TRANSITION" };
   }
-  if (decision.kind === "NOOP") {
+  if (preliminary.kind === "NOOP") {
     return { kind: "OK", taskId: task.id, status: task.status, unchanged: true };
   }
 
+  // **必須チェック・写真必須の検証は抽出の判定より前**（冒頭の「呼ぶ順序」）。
+  // 拒否される完了で抽選を回すと、その日の抽出済み件数の数え方に効く条件を
+  // 検証の前に触ることになる。
   if (input.action === "complete") {
     const rejection = await verifyCompletion(env, ctx, task.id);
     if (rejection !== null) return rejection;
+  }
+
+  // ── 検査の要否は `complete` のときにだけ決める（PK-SPEC-P2 §2.2 MUST）──
+  // 他の操作では判定そのものを行わない。判定していない値は漏れない。
+  const inspection =
+    input.action === "complete"
+      ? await resolveInspectionDecision(
+          env,
+          ctx,
+          {
+            taskId: task.id,
+            propertyId: task.propertyId,
+            roomId: task.roomId,
+            businessDate: task.businessDate,
+            reworkCount: task.reworkCount,
+            cleanerId: task.assigneeId ?? input.actorId,
+          },
+          property?.inspectionRequired ?? false,
+        )
+      : null;
+
+  const inspectionRequired = inspection?.required ?? false;
+  const decision = evaluateTransition(task.status, input.action, inspectionRequired);
+  if (decision.kind !== "MOVE") {
+    // 1 回目が MOVE だった以上ここへは来ない。`to` を取り出すために書く。
+    return { kind: "OK", taskId: task.id, status: task.status, unchanged: true };
   }
 
   const event = timeEventOf(input.action);
@@ -160,6 +194,17 @@ export async function runTransition(
     ...(input.action === "block" ? { blockedReason: input.reasonCode ?? null } : {}),
     ...(input.action === "unblock" ? { blockedReason: null } : {}),
     ...(input.note === undefined ? {} : { note: input.note }),
+    // 要否と省略理由は必ず一組で書く（`ApplyTransitionInput` の注記）。
+    // **「検査なし」を「検査合格」にしない**ので `inspectionResult` は触らない。
+    ...(inspection === null
+      ? {}
+      : {
+          inspection: {
+            required: inspection.required,
+            skipped: !inspection.required,
+            skipReason: inspection.required ? null : inspection.skipReason,
+          },
+        }),
     actualMinutes: Math.floor(summary.workedMs / 60_000),
     pauseCount: summary.pauseCount,
   });
@@ -174,7 +219,9 @@ export async function runTransition(
   // 客室ステータスの同期（§11.1 / P1-16）。**状態を進めたあとに行う。**
   // 先に客室を動かすと、楽観的排他に負けた操作が客室だけ書き換える。
   // 自動同期は `AuditLog` に残さない（元の操作が既に残っている）。
-  const roomStatus = housekeepingStatusFor(input.action, property?.inspectionRequired ?? false);
+  // **検査の要否は施設の設定ではなく、いま決めた判定を渡す。** SAMPLE で
+  // 抽出されなかったタスクは検査を経ずに完了するので、客室も READY へ進む。
+  const roomStatus = housekeepingStatusFor(input.action, inspectionRequired);
   if (roomStatus !== null) {
     await setHousekeepingStatus(env, ctx, [task.roomId], roomStatus);
   }

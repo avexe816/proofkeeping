@@ -75,6 +75,13 @@ const TENANT_TABLES = [
   "task_checklist_result",
   // P1-21。当日の施設訪問順（PK-SPEC-P1 §19.5）。
   "daily_route",
+  // P2-01。検査・差戻し・証跡（PK-SPEC-P2 §2.1・§3.2〜§3.4・§3.7）。
+  "property_inspection_policy",
+  "inspection",
+  "inspection_item_result",
+  "inspection_photo",
+  "rework_cycle",
+  "evidence_snapshot",
 ] as const;
 
 /**
@@ -97,6 +104,12 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   external_mapping: "P0-22 は定義のみ。読み書きは P6（§24.4）",
   subscription: "リポジトリ関数がまだ無い（P7-04）",
   user: "listUsers / findUserById はあるが、施設の次元を持たない。P0-14 以降で足す",
+  // P2-01 は表と migration までの task。読み書きの関数はこの後の task が作る。
+  inspection: "検査 API は P2-04。リポジトリ関数がまだ無い",
+  inspection_item_result: "同上（P2-04）",
+  inspection_photo: "同上（P2-04）",
+  rework_cycle: "差戻し・再清掃は P2-07。リポジトリ関数がまだ無い",
+  evidence_snapshot: "証跡の生成は P2-08。**INSERT のみの表**で、読み取り関数もまだ無い",
 };
 
 describe("同一シャードの組織ペア（fixtures/shard-pairs.ts）", () => {

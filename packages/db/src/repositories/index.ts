@@ -39,6 +39,7 @@ export {
   assignTasks,
   cancelPlannedTasks,
   countPhotosByChecklistItem,
+  countInspectionSelected,
   countTasksByStatus,
   createTasks,
   findTaskById,
@@ -103,6 +104,15 @@ export {
   type RoomPlanInput,
 } from "./roomPlan.js";
 
+// 施設ごとの検査方式（P2-02 / PK-SPEC-P2 §2.1）。
+// **行が無いことに意味がある。** 読み取りのついでに既定行を作らない。
+export {
+  findInspectionPolicy,
+  listInspectionPolicies,
+  upsertInspectionPolicy,
+  type InspectionPolicyInput,
+} from "./inspectionPolicy.js";
+
 // 当日の施設訪問順（P1-21 / §19.5）。**読み取りのみ。未登録でも一覧は動く。**
 export { listDailyRoute } from "./dailyRoute.js";
 
@@ -152,6 +162,7 @@ export { findPropertyRollup, listPropertyRollups } from "./rollup.js";
 export {
   PASSWORD_HISTORY_GENERATIONS,
   findMembershipByUserId,
+  findMembershipStartedAt,
   findUserById,
   findUserByStaffNumber,
   listAssignedPropertyIds,
