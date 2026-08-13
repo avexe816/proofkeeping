@@ -91,6 +91,14 @@ const EXPECTED: Record<PermissionAction, string> = {
   // `AUDITOR` の `-` は security.md §1「書き込み操作を一切できない」に
   // 沿った既定（OPEN_QUESTIONS #048）。
   "evidence.export": "OOA----",
+  // P2-11 / P2-12。忘れ物（§7.4）と設備不具合（§8）。
+  // **`CLEANER` は登録と閲覧まで。** 状態の更新は運営側。
+  "lostItem.read": "OOAAAAO",
+  "lostItem.write": "OOAAAA-",
+  "lostItem.manage": "OOAA---",
+  "issue.read": "OOAAAAO",
+  "issue.write": "OOAAAA-",
+  "issue.manage": "OOA----",
 };
 
 const SYMBOL_TO_SCOPE: Record<string, PermissionScope> = {

@@ -65,6 +65,26 @@ export function createFakeD1(): FakeD1 {
   const takeChanges = (): number => pendingChanges.shift() ?? 1;
 
   const database = {
+    /**
+     * `db.batch([...])` の代役（P2-11 / P2-12 が使う）。
+     *
+     * drizzle は**束縛済みの文の配列**を渡してくる（`d1/session.js` の
+     * `batch()`）。束縛の時点で `prepare().bind()` を通っているので、
+     * **SQL はすでに `queries` に積まれている。** ここは結果の形だけを
+     * 返せばよい。
+     *
+     * **本物の D1 と違って原子性は無い。** 代役が見ているのは
+     * 「どんな SQL を送ったか」だけで、失敗時の巻き戻しは検証していない。
+     */
+    batch(statements: readonly unknown[]) {
+      return Promise.resolve(
+        statements.map(() => ({
+          results: takeRows(),
+          success: true,
+          meta: { changes: takeChanges() },
+        })),
+      );
+    },
     prepare(sql: string) {
       const statement = {
         bind(...params: unknown[]) {
@@ -81,8 +101,8 @@ export function createFakeD1(): FakeD1 {
     },
   };
 
-  // D1Database の全メソッド（batch / exec / dump / withSession）は drizzle の
-  // select / insert 経路では呼ばれない。実装しないまま型だけ合わせる。
+  // D1Database の残りのメソッド（exec / dump / withSession）は drizzle の
+  // select / insert / batch 経路では呼ばれない。実装しないまま型だけ合わせる。
   return {
     queries,
     database: database as unknown as D1Database,

@@ -250,3 +250,36 @@ export {
   type TimelineReworkInput,
   type TimelineTimeLogInput,
 } from "./evidenceTimeline.js";
+
+// 忘れ物の規則（P2-11 / PK-SPEC-P2 §7.2・§7.3）。
+// **期限から状態を導く関数を足さないこと**（§7.3 MUST「自動廃棄はしない」）。
+export {
+  DEFAULT_FOOD_RETENTION_DAYS,
+  DEFAULT_PROPERTY_RETENTION_DAYS,
+  LOST_ITEM_CATEGORY_VALUES,
+  LOST_ITEM_WARNING_LEVELS,
+  RETENTION_WARNING_DAYS,
+  lostItemManagementNo,
+  retentionDaysFor,
+  retentionDueAtMs,
+  warningLevelFor,
+  type LostItemCategoryValue,
+  type LostItemWarningLevel,
+} from "./lostItemRules.js";
+
+// 設備不具合の規則（P2-12 / 同 §8.2・§8.3）。
+// **客室を戻す規則を足さないこと**（§8.3「自動復旧しない」）。
+export {
+  ISSUE_SEVERITY_VALUES,
+  ISSUE_STATUS_VALUES,
+  ROOM_EFFECTS,
+  canTransitionIssue,
+  evaluateIssueTransition,
+  isTerminalIssueStatus,
+  requiresConfirmation,
+  roomEffectOf,
+  type IssueSeverityValue,
+  type IssueStatusValue,
+  type IssueTransitionResult,
+  type RoomEffect,
+} from "./issueRules.js";

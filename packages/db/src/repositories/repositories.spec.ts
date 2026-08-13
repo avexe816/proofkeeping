@@ -28,6 +28,7 @@ import {
   createFakeEnv,
   OTHER_ORG,
   TEST_ORG,
+  TEST_NOW,
   tenantContext,
 } from "../test-support/fake-d1.js";
 
@@ -39,6 +40,8 @@ import * as entitlementRepo from "./entitlement.js";
 import * as evidenceRepo from "./evidence.js";
 import * as inspectionRepo from "./inspection.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
+import * as issueReportRepo from "./issueReport.js";
+import * as lostItemRepo from "./lostItem.js";
 import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
 import * as rollupRepo from "./rollup.js";
@@ -64,6 +67,9 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // P2-02 が登録した検査方式。P2-04 が検査そのもの。
   inspection: inspectionRepo,
   inspectionPolicy: inspectionPolicyRepo,
+  // P2-11 / P2-12 が登録した忘れ物と設備不具合（PK-SPEC-P2 §3.5・§3.6）。
+  issueReport: issueReportRepo,
+  lostItem: lostItemRepo,
   organization: organizationRepo,
   property: propertyRepo,
   rollup: rollupRepo,
@@ -91,6 +97,9 @@ const OWN_ID = {
   // P2-07 / P2-08。
   reworkCycle: generateId(TEST_ORG.orgShortId, "rwk"),
   snapshot: generateId(TEST_ORG.orgShortId, "evd"),
+  // P2-11 / P2-12。
+  lostItem: generateId(TEST_ORG.orgShortId, "lost"),
+  issue: generateId(TEST_ORG.orgShortId, "issue"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -126,6 +135,9 @@ const OTHER_ID = {
   // P2-07 / P2-08。
   reworkCycle: generateId(OTHER_ORG.orgShortId, "rwk"),
   snapshot: generateId(OTHER_ORG.orgShortId, "evd"),
+  // P2-11 / P2-12。
+  lostItem: generateId(OTHER_ORG.orgShortId, "lost"),
+  issue: generateId(OTHER_ORG.orgShortId, "issue"),
 } as const;
 
 /**
@@ -319,6 +331,222 @@ const INVOCATIONS: Invocation[] = [
     kind: "tenant",
     run: (env, ctx) => roomRepo.setHousekeepingStatus(env, ctx, [OWN_ID.room], "READY"),
     crossTenant: (env, ctx) => roomRepo.setHousekeepingStatus(env, ctx, [OTHER_ID.room], "READY"),
+  },
+  {
+    name: "room.setRoomSaleStatus",
+    kind: "tenant",
+    run: (env, ctx) => roomRepo.setRoomSaleStatus(env, ctx, [OWN_ID.room], "OUT_OF_ORDER"),
+    crossTenant: (env, ctx) =>
+      roomRepo.setRoomSaleStatus(env, ctx, [OTHER_ID.room], "OUT_OF_ORDER"),
+  },
+  // ── P2-11 忘れ物（PK-SPEC-P2 §3.5 / §7）──────────────
+  {
+    name: "lostItem.listLostItems",
+    kind: "tenant",
+    run: (env, ctx) => lostItemRepo.listLostItems(env, ctx, { propertyId: OWN_ID.property }),
+  },
+  {
+    name: "lostItem.findLostItemById",
+    kind: "tenant",
+    run: (env, ctx) => lostItemRepo.findLostItemById(env, ctx, OWN_ID.lostItem),
+    crossTenant: (env, ctx) => lostItemRepo.findLostItemById(env, ctx, OTHER_ID.lostItem),
+  },
+  {
+    name: "lostItem.maxLostItemSequence",
+    kind: "tenant",
+    run: (env, ctx) =>
+      lostItemRepo.maxLostItemSequence(env, ctx, OWN_ID.property, "2026-09-10"),
+    crossTenant: (env, ctx) =>
+      lostItemRepo.maxLostItemSequence(env, ctx, OTHER_ID.property, "2026-09-10"),
+  },
+  {
+    name: "lostItem.createLostItem",
+    kind: "tenant",
+    run: (env, ctx) =>
+      lostItemRepo.createLostItem(env, ctx, {
+        propertyId: OWN_ID.property,
+        taskId: OWN_ID.task,
+        roomId: OWN_ID.room,
+        businessDate: "2026-09-10",
+        managementNo: "LNF-HTLA-20260910-0001",
+        category: "OTHER",
+        description: "黒い折りたたみ傘",
+        foundAt: TEST_NOW,
+        foundById: OWN_ID.membership,
+        foundLocation: "ベッド下",
+        retentionDueAt: TEST_NOW,
+      }),
+    crossTenant: (env, ctx) =>
+      lostItemRepo.createLostItem(env, ctx, {
+        propertyId: OTHER_ID.property,
+        taskId: null,
+        roomId: OTHER_ID.room,
+        businessDate: "2026-09-10",
+        managementNo: "LNF-HTLB-20260910-0001",
+        category: "OTHER",
+        description: "黒い折りたたみ傘",
+        foundAt: TEST_NOW,
+        foundById: OWN_ID.membership,
+        foundLocation: "ベッド下",
+        retentionDueAt: null,
+      }),
+  },
+  {
+    name: "lostItem.advanceLostItem",
+    kind: "tenant",
+    run: (env, ctx) =>
+      lostItemRepo.advanceLostItem(env, ctx, {
+        lostItemId: OWN_ID.lostItem,
+        from: "FOUND",
+        to: "STORED",
+        actorId: OWN_ID.membership,
+        note: null,
+        storageLocation: "事務所ロッカー A",
+      }),
+    crossTenant: (env, ctx) =>
+      lostItemRepo.advanceLostItem(env, ctx, {
+        lostItemId: OTHER_ID.lostItem,
+        from: "FOUND",
+        to: "STORED",
+        actorId: OWN_ID.membership,
+        note: null,
+      }),
+  },
+  {
+    name: "lostItem.markOwnerContacted",
+    kind: "tenant",
+    run: (env, ctx) => lostItemRepo.markOwnerContacted(env, ctx, OWN_ID.lostItem),
+    crossTenant: (env, ctx) => lostItemRepo.markOwnerContacted(env, ctx, OTHER_ID.lostItem),
+  },
+  {
+    name: "lostItem.listLostItemHistory",
+    kind: "tenant",
+    run: (env, ctx) => lostItemRepo.listLostItemHistory(env, ctx, OWN_ID.lostItem),
+    crossTenant: (env, ctx) => lostItemRepo.listLostItemHistory(env, ctx, OTHER_ID.lostItem),
+  },
+  {
+    name: "lostItem.listLostItemPhotos",
+    kind: "tenant",
+    run: (env, ctx) => lostItemRepo.listLostItemPhotos(env, ctx, OWN_ID.lostItem),
+    crossTenant: (env, ctx) => lostItemRepo.listLostItemPhotos(env, ctx, OTHER_ID.lostItem),
+  },
+  {
+    name: "lostItem.countLostItemPhotos",
+    kind: "tenant",
+    run: (env, ctx) => lostItemRepo.countLostItemPhotos(env, ctx, OWN_ID.lostItem),
+    crossTenant: (env, ctx) => lostItemRepo.countLostItemPhotos(env, ctx, OTHER_ID.lostItem),
+  },
+  {
+    name: "lostItem.createLostItemPhoto",
+    kind: "tenant",
+    run: (env, ctx) =>
+      lostItemRepo.createLostItemPhoto(env, ctx, {
+        lostItemId: OWN_ID.lostItem,
+        propertyId: OWN_ID.property,
+        storageKey: "photos/org/prop/2026-09-10/lost/a.jpg",
+        sha256: "a".repeat(64),
+        uploadedById: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      lostItemRepo.createLostItemPhoto(env, ctx, {
+        lostItemId: OTHER_ID.lostItem,
+        propertyId: OWN_ID.property,
+        storageKey: "photos/org/prop/2026-09-10/lost/a.jpg",
+        sha256: "a".repeat(64),
+        uploadedById: OWN_ID.membership,
+      }),
+  },
+  // ── P2-12 設備不具合（同 §3.6 / §8）──────────────────
+  {
+    name: "issueReport.listIssueReports",
+    kind: "tenant",
+    run: (env, ctx) => issueReportRepo.listIssueReports(env, ctx, { propertyId: OWN_ID.property }),
+  },
+  {
+    name: "issueReport.findIssueReportById",
+    kind: "tenant",
+    run: (env, ctx) => issueReportRepo.findIssueReportById(env, ctx, OWN_ID.issue),
+    crossTenant: (env, ctx) => issueReportRepo.findIssueReportById(env, ctx, OTHER_ID.issue),
+  },
+  {
+    name: "issueReport.createIssueReport",
+    kind: "tenant",
+    run: (env, ctx) =>
+      issueReportRepo.createIssueReport(env, ctx, {
+        propertyId: OWN_ID.property,
+        taskId: OWN_ID.task,
+        roomId: OWN_ID.room,
+        category: "PLUMBING",
+        severity: "HIGH",
+        title: "洗面台の水が止まらない",
+        description: "止水栓を締めても滴りが続く",
+        reportedById: OWN_ID.membership,
+        roomBlocked: false,
+      }),
+    crossTenant: (env, ctx) =>
+      issueReportRepo.createIssueReport(env, ctx, {
+        propertyId: OTHER_ID.property,
+        taskId: null,
+        roomId: OTHER_ID.room,
+        category: "PLUMBING",
+        severity: "HIGH",
+        title: "洗面台の水が止まらない",
+        description: "止水栓を締めても滴りが続く",
+        reportedById: OWN_ID.membership,
+        roomBlocked: false,
+      }),
+  },
+  {
+    name: "issueReport.advanceIssueReport",
+    kind: "tenant",
+    run: (env, ctx) =>
+      issueReportRepo.advanceIssueReport(env, ctx, {
+        issueId: OWN_ID.issue,
+        from: "OPEN",
+        to: "ACKNOWLEDGED",
+        actorId: OWN_ID.membership,
+        note: null,
+      }),
+    crossTenant: (env, ctx) =>
+      issueReportRepo.advanceIssueReport(env, ctx, {
+        issueId: OTHER_ID.issue,
+        from: "OPEN",
+        to: "ACKNOWLEDGED",
+        actorId: OWN_ID.membership,
+        note: null,
+      }),
+  },
+  {
+    name: "issueReport.listIssueHistory",
+    kind: "tenant",
+    run: (env, ctx) => issueReportRepo.listIssueHistory(env, ctx, OWN_ID.issue),
+    crossTenant: (env, ctx) => issueReportRepo.listIssueHistory(env, ctx, OTHER_ID.issue),
+  },
+  {
+    name: "issueReport.listIssuePhotos",
+    kind: "tenant",
+    run: (env, ctx) => issueReportRepo.listIssuePhotos(env, ctx, OWN_ID.issue),
+    crossTenant: (env, ctx) => issueReportRepo.listIssuePhotos(env, ctx, OTHER_ID.issue),
+  },
+  {
+    name: "issueReport.createIssuePhoto",
+    kind: "tenant",
+    run: (env, ctx) =>
+      issueReportRepo.createIssuePhoto(env, ctx, {
+        issueId: OWN_ID.issue,
+        propertyId: OWN_ID.property,
+        storageKey: "photos/org/prop/2026-09-10/issue/a.jpg",
+        sha256: "a".repeat(64),
+        uploadedById: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      issueReportRepo.createIssuePhoto(env, ctx, {
+        issueId: OTHER_ID.issue,
+        propertyId: OWN_ID.property,
+        storageKey: "photos/org/prop/2026-09-10/issue/a.jpg",
+        sha256: "a".repeat(64),
+        uploadedById: OWN_ID.membership,
+      }),
   },
   {
     name: "rollup.listPropertyRollups",

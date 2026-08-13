@@ -194,6 +194,7 @@ export {
   listFloors,
   listRooms,
   setHousekeepingStatus,
+  setRoomSaleStatus,
   updateRoom,
   type CreateRoomInput,
   type CreateRoomsResult,
@@ -222,3 +223,39 @@ export {
   type SetPasswordHashInput,
   type UserFilter,
 } from "./user.js";
+
+// 忘れ物（P2-11 / PK-SPEC-P2 §3.5・§7）。**持ち主の情報を受け取る関数が無い。**
+export {
+  advanceLostItem,
+  countLostItemPhotos,
+  createLostItem,
+  createLostItemPhoto,
+  findLostItemById,
+  listLostItemHistory,
+  listLostItemPhotos,
+  listLostItems,
+  markOwnerContacted,
+  maxLostItemSequence,
+  type AdvanceLostItemInput,
+  type AdvanceLostItemResult,
+  type CreateLostItemInput,
+  type CreateLostItemPhotoInput,
+  type CreateLostItemResult,
+  type LostItemFilter,
+} from "./lostItem.js";
+
+// 設備不具合（P2-12 / 同 §3.6・§8）。**客室を書く関数が無い**（§8.3）。
+export {
+  advanceIssueReport,
+  createIssuePhoto,
+  createIssueReport,
+  findIssueReportById,
+  listIssueHistory,
+  listIssuePhotos,
+  listIssueReports,
+  type AdvanceIssueReportInput,
+  type AdvanceIssueReportResult,
+  type CreateIssuePhotoInput,
+  type CreateIssueReportInput,
+  type IssueReportFilter,
+} from "./issueReport.js";

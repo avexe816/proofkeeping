@@ -198,6 +198,60 @@ export const PERMISSION_ACTIONS = {
    * OPEN_QUESTIONS #048）。広げるなら根拠を持つ task が動かすこと。
    */
   "evidence.export": { write: true },
+  /**
+   * 忘れ物の閲覧（W-09 / M-13 / PK-SPEC-P2 §7.4）。
+   *
+   * **`CLEANER` を許す。** §7.4 は「登録と自分が登録した内容の閲覧」。
+   * 2 つの絞りが掛かって初めて §7.4 になる。
+   *   ① このアクション … 担当施設か（`ASSIGNED`）
+   *   ② 応答の組み立て … `CLEANER` なら `foundById = 自分` で絞り、
+   *      `storageLocation` を `null` にする（`lib/report/lostItem.ts`）
+   *
+   * **② を「画面で絞る」にしないこと**（`rework.read` の注記と同じ）。
+   * 保管場所・返却先そのものは既存の `lostItem.readStorage` が
+   * `CLEANER` に `DENY` を返す（security.md §1 の絶対境界）。
+   */
+  "lostItem.read": { write: false },
+  /**
+   * 忘れ物の登録（§7.4「`CLEANER`: 登録」）。
+   *
+   * **状態の更新は別**（`lostItem.manage`）。§7.4 は `INSPECTOR` に
+   * 「保管済への更新」を許すが `CLEANER` には許さない。
+   */
+  "lostItem.write": { write: true },
+  /**
+   * 忘れ物の状態更新（§7.4）。
+   *
+   * `INSPECTOR` は「保管済への更新」まで。**廃棄・返却・移管は
+   * `PROPERTY_MANAGER` 以上**（§7.4「全操作」）だが、
+   * `PERMISSION_MATRIX` はロール × 操作までしか表せない。
+   * **遷移先ごとの絞りは `lib/report/lostItem.ts` が行う**
+   * （`INSPECTOR` は `STORED` へだけ進める）。
+   */
+  "lostItem.manage": { write: true },
+  /**
+   * 不具合の閲覧（W-10 / §8）。
+   *
+   * **`CLEANER` を許す。** 自分が報告したものを確認できないと、
+   * 「報告したのに何も起きない」が分からない。一覧の絞り
+   * （`reportedById = 自分`）は `lib/report/issue.ts` が行う。
+   */
+  "issue.read": { write: false },
+  /**
+   * 不具合の報告（§8.1「清掃中または検査中に不具合を発見した場合」）。
+   *
+   * **現場のロールが報告できないと成立しない機能。**
+   * `CLEANER` / `INSPECTOR` の両方に許す。
+   */
+  "issue.write": { write: true },
+  /**
+   * 不具合の状態更新（§8.3）。**現場は報告するだけ。**
+   *
+   * 対応の判断（着手・解決・対応しない）は運営側。`CLEANER` /
+   * `INSPECTOR` は `DENY`。§8.3 の「客室を戻すのは
+   * `PROPERTY_MANAGER` 以上」は `room.statusOverride` が別に守る。
+   */
+  "issue.manage": { write: true },
 } as const satisfies Record<string, { write: boolean }>;
 
 /** `PERMISSION_ACTIONS` に載っている操作だけを許す型。 */
@@ -570,6 +624,69 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
   // （受託した清掃会社が施設の証跡一式を持ち出せる形にしない）。
   // `AUDITOR` の DENY は上の注記（OPEN_QUESTIONS #048）。
   "evidence.export": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // ── P2-11 忘れ物（§7.4）──────────────────────────────
+  // 「`CLEANER`: 登録と自分が登録した内容の閲覧」。**自分の分だけ**という
+  // 絞りは応答の組み立て側（`lib/report/lostItem.ts`）。
+  "lostItem.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "ASSIGNED",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "ORG",
+  },
+  // 登録は現場が行う（§7.1「発見 → その場で写真・カテゴリ・場所を登録」）。
+  "lostItem.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "ASSIGNED",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "DENY",
+  },
+  // 状態の更新。**`CLEANER` は DENY**（§7.4 は登録と閲覧まで）。
+  // `INSPECTOR` は「保管済への更新」だけで、遷移先の絞りは使用側。
+  "lostItem.manage": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // ── P2-12 設備不具合（§8）────────────────────────────
+  "issue.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "ASSIGNED",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "ORG",
+  },
+  // §8.1「清掃中または検査中に不具合を発見した場合」。現場が報告する。
+  "issue.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "ASSIGNED",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "DENY",
+  },
+  // 対応の判断は運営側。**現場は報告するだけ。**
+  "issue.manage": {
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "ASSIGNED",

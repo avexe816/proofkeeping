@@ -67,7 +67,7 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("32 テーブルを定義している", () => {
+  it("38 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       "auditLog",
       "building",
@@ -91,6 +91,14 @@ describe("P0-06 スキーマ", () => {
       "inspection",
       "inspectionItemResult",
       "inspectionPhoto",
+      // P2-12。設備不具合とその写真・状態履歴（同 §3.6）。
+      "issueHistory",
+      "issuePhoto",
+      "issueReport",
+      // P2-11。忘れ物とその写真・状態履歴（同 §3.5）。
+      "lostItem",
+      "lostItemHistory",
+      "lostItemPhoto",
       "membership",
       "moduleEntitlement",
       "organization",

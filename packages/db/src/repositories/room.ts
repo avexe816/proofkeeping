@@ -16,7 +16,12 @@ import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { chunkIdsForInArray } from "../limits.js";
 import { getTenantDb, type TenantContext } from "../router.js";
-import { floor, room, type HousekeepingStatus } from "../schema/property.js";
+import {
+  floor,
+  room,
+  type HousekeepingStatus,
+  type RoomSaleStatus,
+} from "../schema/property.js";
 
 import { withTenantScope } from "./base.js";
 
@@ -198,6 +203,50 @@ export async function setHousekeepingStatus(
     const result = await db
       .update(room)
       .set({ housekeepingStatus: status, updatedAt: ctx.now })
+      .where(withTenantScope(room, ctx, room.propertyId, inArray(room.id, [...chunk])));
+    changed += result.meta.changes;
+  }
+  return changed;
+}
+
+/**
+ * 客室の販売可否を書き換える（PK-SPEC-P2 §8.2）。
+ *
+ * task: docs/tasks/P2-12.md
+ *
+ * ── `setHousekeepingStatus()` と分けてある ──────────────
+ * 2 つは別の軸（`schema/property.ts` の `ROOM_SALE_STATUSES` の注記）。
+ * §8.2 MUST は `CRITICAL` の不具合で両方を立てると定めており、
+ * 呼び出し側が 2 回呼ぶ。**1 つの関数にまとめないこと。** まとめると
+ * 「清掃が終わったので販売可へ戻す」が書けてしまい、§8.3 の
+ * 「不具合を閉じても客室状態は自動復旧しない」が崩れる。
+ *
+ * ── 監査ログはここで書かない ────────────────────────────
+ * `setHousekeepingStatus()` と同じ方針。`OUT_OF_ORDER` へ倒すのは
+ * 不具合報告に従属した結果で、元の操作（`issue.reported`）が残る。
+ * **`AVAILABLE` へ戻す操作は必ず `room.statusOverridden` を残すこと**
+ * （理由必須 / §8.3 の「明示操作」）。
+ *
+ * @returns 書き換えた行数。0 は「その客室が無い（または担当外）」。
+ */
+export async function setRoomSaleStatus(
+  env: Env,
+  ctx: TenantContext,
+  roomIds: readonly string[],
+  status: RoomSaleStatus,
+): Promise<number> {
+  for (const roomId of roomIds) assertIdBelongsToTenant(roomId, ctx);
+  if (roomIds.length === 0) return 0;
+
+  const db = await getTenantDb(env, ctx);
+
+  // **D1 は 1 文 100 変数まで**（`limits.ts`）。`setHousekeepingStatus()` と
+  // 同じ分割を通す（`SET` 句の `updatedAt` ぶんを `reserved` に含める）。
+  let changed = 0;
+  for (const chunk of chunkIdsForInArray(roomIds, SET_HOUSEKEEPING_RESERVED_PARAMS)) {
+    const result = await db
+      .update(room)
+      .set({ saleStatus: status, updatedAt: ctx.now })
       .where(withTenantScope(room, ctx, room.propertyId, inArray(room.id, [...chunk])));
     changed += result.meta.changes;
   }
