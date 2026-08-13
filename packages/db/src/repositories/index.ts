@@ -35,6 +35,7 @@ export {
   CLOSED_TASK_STATUSES,
   OPEN_TASK_STATUSES,
   appendTimeLog,
+  applyInspectionOutcome,
   applyTransition,
   assignTasks,
   cancelPlannedTasks,
@@ -51,6 +52,7 @@ export {
   reviveCancelledTasks,
   updatePlannedTasks,
   type AppendTimeLogInput,
+  type ApplyInspectionOutcomeInput,
   type ApplyTransitionInput,
   type AssignTasksOptions,
   type CreateTaskInput,
@@ -112,6 +114,33 @@ export {
   upsertInspectionPolicy,
   type InspectionPolicyInput,
 } from "./inspectionPolicy.js";
+
+// 検査・検査項目・検査写真・差戻しサイクル（P2-04 / PK-SPEC-P2 §4）。
+// **確定した検査を書き換える関数を置かない。** 訂正は次のラウンドで行う。
+export {
+  completeInspection,
+  countInspectionPhotosByItem,
+  createInspection,
+  createInspectionPhoto,
+  createReworkCycle,
+  findInspectionById,
+  findInspectionByIdempotencyKey,
+  findInspectionItemResultById,
+  findInspectionPhotoByClientId,
+  findOpenInspectionByTask,
+  listInspectionItemResults,
+  listInspectionPhotos,
+  listInspectionsByTask,
+  listReworkCyclesByTask,
+  newInspectionPhotoId,
+  recordInspectionItemResult,
+  type CompleteInspectionInput,
+  type CreateInspectionInput,
+  type CreateInspectionPhotoInput,
+  type CreateInspectionPhotoResult,
+  type CreateReworkCycleInput,
+  type RecordInspectionItemResultInput,
+} from "./inspection.js";
 
 // 当日の施設訪問順（P1-21 / §19.5）。**読み取りのみ。未登録でも一覧は動く。**
 export { listDailyRoute } from "./dailyRoute.js";

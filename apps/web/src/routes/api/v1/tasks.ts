@@ -34,10 +34,12 @@
 import {
   MAX_PHOTOS_PER_TASK,
   checklistResultUpdateRequestSchema,
+  inspectionStartRequestSchema,
   photoUploadMetaSchema,
   taskActionSchema,
   taskGenerateRequestSchema,
   taskTransitionRequestSchema,
+  type InspectionError,
   type PhotoError,
   type TaskChecklistResponse,
   type TaskError,
@@ -65,6 +67,7 @@ import { Hono } from "hono";
 
 import { assertPermission, propertyTarget } from "../../../lib/auth/permission.js";
 import { businessDateOf } from "../../../lib/businessDate.js";
+import { startInspection } from "../../../lib/inspection/start.js";
 import { uploadPhoto } from "../../../lib/photo/upload.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { generateTasksForProperty } from "../../../lib/task/generate.js";
@@ -299,6 +302,35 @@ tasks.post("/:taskId/photos", async (c) => {
     unchanged: outcome.unchanged,
   };
   return c.json(body);
+});
+
+/**
+ * 検査の開始（PK-SPEC-P2 §4.2 / §14.1）。
+ *
+ * **経路がタスク側にあるのは §14.1 がそう書いているから。** 実装は
+ * `lib/inspection/start.ts` にあり、以降の操作は `/api/v1/inspections/*`。
+ *
+ * 3 区間なので `/:taskId/:action`（2 区間）とは衝突しないが、
+ * **静的な区間を先に置く**という冒頭の方針に合わせてここに登録する。
+ */
+tasks.post("/:taskId/inspection/start", async (c) => {
+  const parsed = await readJson(c.req.raw);
+  const body = inspectionStartRequestSchema.safeParse(parsed ?? {});
+  if (!body.success) return c.json({ error: "INVALID_REQUEST" } satisfies InspectionError, 400);
+
+  const outcome = await startInspection(c.env, getTenant(c), {
+    taskId: c.req.param("taskId"),
+    inspectorId: getSession(c).membershipId,
+    overrideReason: body.data.overrideReason,
+    clientTs: body.data.clientTs,
+    idempotencyKey: c.req.header("Idempotency-Key"),
+    ip: c.req.header("CF-Connecting-IP"),
+  });
+
+  if (outcome.kind === "REJECTED") {
+    return c.json({ error: outcome.error } satisfies InspectionError, 409);
+  }
+  return c.json(outcome.body);
 });
 
 /**

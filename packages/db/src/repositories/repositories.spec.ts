@@ -36,6 +36,7 @@ import * as checklistRepo from "./checklist.js";
 import * as cleaningTaskRepo from "./cleaningTask.js";
 import * as dailyRouteRepo from "./dailyRoute.js";
 import * as entitlementRepo from "./entitlement.js";
+import * as inspectionRepo from "./inspection.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
 import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
@@ -57,7 +58,8 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   dailyRoute: dailyRouteRepo,
   taskPhoto: taskPhotoRepo,
   entitlement: entitlementRepo,
-  // P2-02 が登録した検査方式。
+  // P2-02 が登録した検査方式。P2-04 が検査そのもの。
+  inspection: inspectionRepo,
   inspectionPolicy: inspectionPolicyRepo,
   organization: organizationRepo,
   property: propertyRepo,
@@ -79,6 +81,10 @@ const OWN_ID = {
   template: generateId(TEST_ORG.orgShortId, "ctpl"),
   item: generateId(TEST_ORG.orgShortId, "citm"),
   photo: generateId(TEST_ORG.orgShortId, "photo"),
+  // P2-04。
+  inspection: generateId(TEST_ORG.orgShortId, "insp"),
+  itemResult: generateId(TEST_ORG.orgShortId, "ires"),
+  inspectionPhoto: generateId(TEST_ORG.orgShortId, "ipho"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -107,6 +113,10 @@ const OTHER_ID = {
   template: generateId(OTHER_ORG.orgShortId, "ctpl"),
   item: generateId(OTHER_ORG.orgShortId, "citm"),
   photo: generateId(OTHER_ORG.orgShortId, "photo"),
+  // P2-04。
+  inspection: generateId(OTHER_ORG.orgShortId, "insp"),
+  itemResult: generateId(OTHER_ORG.orgShortId, "ires"),
+  inspectionPhoto: generateId(OTHER_ORG.orgShortId, "ipho"),
 } as const;
 
 /**
@@ -414,6 +424,180 @@ const INVOCATIONS: Invocation[] = [
       inspectionPolicyRepo.upsertInspectionPolicy(env, ctx, OTHER_ID.property, INSPECTION_POLICY),
   },
 
+  // ── P2-04: 検査・検査項目・検査写真・差戻し ────────────
+  {
+    name: "inspection.findInspectionById",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.findInspectionById(env, ctx, OWN_ID.inspection),
+    crossTenant: (env, ctx) => inspectionRepo.findInspectionById(env, ctx, OTHER_ID.inspection),
+  },
+  {
+    name: "inspection.findOpenInspectionByTask",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.findOpenInspectionByTask(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => inspectionRepo.findOpenInspectionByTask(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "inspection.listInspectionsByTask",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.listInspectionsByTask(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => inspectionRepo.listInspectionsByTask(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "inspection.findInspectionByIdempotencyKey",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.findInspectionByIdempotencyKey(env, ctx, "key-1"),
+  },
+  {
+    name: "inspection.createInspection",
+    kind: "tenant",
+    run: (env, ctx) =>
+      inspectionRepo.createInspection(env, ctx, {
+        taskId: OWN_ID.task,
+        propertyId: OWN_ID.property,
+        round: 1,
+        inspectorId: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      inspectionRepo.createInspection(env, ctx, {
+        taskId: OTHER_ID.task,
+        propertyId: OTHER_ID.property,
+        round: 1,
+        inspectorId: OWN_ID.membership,
+      }),
+  },
+  {
+    name: "inspection.completeInspection",
+    kind: "tenant",
+    run: (env, ctx) =>
+      inspectionRepo.completeInspection(env, ctx, OWN_ID.inspection, {
+        result: "PASS",
+        durationSeconds: 90,
+      }),
+    crossTenant: (env, ctx) =>
+      inspectionRepo.completeInspection(env, ctx, OTHER_ID.inspection, {
+        result: "PASS",
+        durationSeconds: 90,
+      }),
+  },
+  {
+    name: "inspection.listInspectionItemResults",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.listInspectionItemResults(env, ctx, OWN_ID.inspection),
+    crossTenant: (env, ctx) =>
+      inspectionRepo.listInspectionItemResults(env, ctx, OTHER_ID.inspection),
+  },
+  {
+    name: "inspection.findInspectionItemResultById",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.findInspectionItemResultById(env, ctx, OWN_ID.itemResult),
+    crossTenant: (env, ctx) =>
+      inspectionRepo.findInspectionItemResultById(env, ctx, OTHER_ID.itemResult),
+  },
+  {
+    name: "inspection.recordInspectionItemResult",
+    kind: "tenant",
+    run: (env, ctx) =>
+      inspectionRepo.recordInspectionItemResult(env, ctx, {
+        inspectionId: OWN_ID.inspection,
+        propertyId: OWN_ID.property,
+        checklistItemId: OWN_ID.item,
+        status: "PASS",
+      }),
+    crossTenant: (env, ctx) =>
+      inspectionRepo.recordInspectionItemResult(env, ctx, {
+        inspectionId: OTHER_ID.inspection,
+        propertyId: OTHER_ID.property,
+        checklistItemId: OTHER_ID.item,
+        status: "PASS",
+      }),
+  },
+  {
+    name: "inspection.countInspectionPhotosByItem",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.countInspectionPhotosByItem(env, ctx, OWN_ID.inspection),
+    crossTenant: (env, ctx) =>
+      inspectionRepo.countInspectionPhotosByItem(env, ctx, OTHER_ID.inspection),
+  },
+  {
+    name: "inspection.findInspectionPhotoByClientId",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.findInspectionPhotoByClientId(env, ctx, "client-1"),
+  },
+  {
+    name: "inspection.listInspectionPhotos",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.listInspectionPhotos(env, ctx, OWN_ID.inspection),
+    crossTenant: (env, ctx) => inspectionRepo.listInspectionPhotos(env, ctx, OTHER_ID.inspection),
+  },
+  {
+    name: "inspection.createInspectionPhoto",
+    kind: "tenant",
+    run: (env, ctx) =>
+      inspectionRepo.createInspectionPhoto(env, ctx, {
+        inspectionId: OWN_ID.inspection,
+        itemResultId: OWN_ID.itemResult,
+        propertyId: OWN_ID.property,
+        storageKey: "photos/x/y.jpg",
+        photoId: OWN_ID.inspectionPhoto,
+        sha256: "0".repeat(64),
+        width: 1600,
+        height: 1200,
+        fileSize: 12345,
+        clientId: "client-1",
+        uploadedById: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      inspectionRepo.createInspectionPhoto(env, ctx, {
+        inspectionId: OTHER_ID.inspection,
+        itemResultId: OTHER_ID.itemResult,
+        propertyId: OTHER_ID.property,
+        storageKey: "photos/x/y.jpg",
+        photoId: OTHER_ID.inspectionPhoto,
+        sha256: "0".repeat(64),
+        width: 1600,
+        height: 1200,
+        fileSize: 12345,
+        clientId: "client-1",
+        uploadedById: OWN_ID.membership,
+      }),
+  },
+  {
+    // ID を採番するだけ。**SQL を発行しない。**
+    name: "inspection.newInspectionPhotoId",
+    kind: "tenant",
+    pure: true,
+    run: (_env, ctx) => Promise.resolve(inspectionRepo.newInspectionPhotoId(ctx)),
+  },
+  {
+    name: "inspection.createReworkCycle",
+    kind: "tenant",
+    run: (env, ctx) =>
+      inspectionRepo.createReworkCycle(env, ctx, {
+        taskId: OWN_ID.task,
+        propertyId: OWN_ID.property,
+        inspectionId: OWN_ID.inspection,
+        round: 1,
+        assignedToId: OWN_ID.membership,
+        reasonSummary: "DUST",
+      }),
+    crossTenant: (env, ctx) =>
+      inspectionRepo.createReworkCycle(env, ctx, {
+        taskId: OTHER_ID.task,
+        propertyId: OTHER_ID.property,
+        inspectionId: OTHER_ID.inspection,
+        round: 1,
+        assignedToId: OWN_ID.membership,
+        reasonSummary: "DUST",
+      }),
+  },
+  {
+    name: "inspection.listReworkCyclesByTask",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.listReworkCyclesByTask(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => inspectionRepo.listReworkCyclesByTask(env, ctx, OTHER_ID.task),
+  },
+
   // ── P1-01 / P1-03 / P1-05: 清掃タスク ──────────────────
   {
     name: "cleaningTask.listTasks",
@@ -481,6 +665,23 @@ const INVOCATIONS: Invocation[] = [
     crossTenant: (env, ctx) =>
       cleaningTaskRepo.applyTransition(env, ctx, OTHER_ID.task, "ASSIGNED", {
         status: "IN_PROGRESS",
+      }),
+  },
+  {
+    // P2-04。検査の結果をタスクへ反映する（§4.4 / §4.5）。
+    name: "cleaningTask.applyInspectionOutcome",
+    kind: "tenant",
+    run: (env, ctx) =>
+      cleaningTaskRepo.applyInspectionOutcome(env, ctx, OWN_ID.task, {
+        result: "PASS",
+        round: 1,
+        inspectorId: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      cleaningTaskRepo.applyInspectionOutcome(env, ctx, OTHER_ID.task, {
+        result: "PASS",
+        round: 1,
+        inspectorId: OWN_ID.membership,
       }),
   },
   {

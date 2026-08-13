@@ -42,8 +42,17 @@ export type HousekeepingStatusValue = (typeof HOUSEKEEPING_STATUS_VALUES)[number
  *   - `bulkApprove` … 一括承認（同 6 行目）。**P2 の検査フローが使う。**
  *     P1 に到達経路は無いが、§11.1 の表をここで閉じておかないと
  *     P2 が同じ判断を別の場所でやり直す
+ *
+ * P2-04 が 2 つ足した（PK-SPEC-P2 §4.4 / §4.5）。
+ *   - `inspectionPass` … 検査合格 → `READY`
+ *   - `inspectionFail` … 検査不合格 → `DIRTY`（再清掃へ戻る）
  */
-export type RoomStatusTrigger = TaskAction | "generate" | "bulkApprove";
+export type RoomStatusTrigger =
+  | TaskAction
+  | "generate"
+  | "bulkApprove"
+  | "inspectionPass"
+  | "inspectionFail";
 
 /**
  * その出来事のあとの客室ステータス（§11.1）。
@@ -86,6 +95,12 @@ export function housekeepingStatusFor(
       return inspectionRequired ? "INSPECTING" : "READY";
     case "bulkApprove":
       return "READY";
+    // PK-SPEC-P2 §4.4 / §4.5。**合格して初めて `READY`。**
+    // 不合格は `DIRTY` へ戻す（再清掃の対象として客室ボードに出る）。
+    case "inspectionPass":
+      return "READY";
+    case "inspectionFail":
+      return "DIRTY";
     case "block":
       return "BLOCKED";
     case "unblock":

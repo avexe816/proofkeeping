@@ -132,6 +132,24 @@ export const PERMISSION_ACTIONS = {
    * security.md §5 の「本人が自分の記録を閲覧できる画面」に対応する。
    */
   "task.readOwn": { write: false },
+  /**
+   * 検査の閲覧（M-08 / M-09 / PK-SPEC-P2 §4）。
+   *
+   * **`CLEANER` は DENY。** 差戻しの内容を清掃者へ見せる画面は M-12 で、
+   * それは「自分のタスクの差戻し項目だけ」という別の絞り（§4.6）を持つ。
+   * ここを開けると他人のタスクの検査結果まで見えるので、M-12 を作る
+   * task（P2-07）が `rework.readOwn` 相当を足すこと。
+   */
+  "inspection.read": { write: false },
+  /**
+   * 検査の開始・項目入力・完了（§4.2〜§4.5）。
+   *
+   * §5.1 の自動割当が対象とするのは `INSPECTOR` と `PROPERTY_MANAGER`。
+   * **`CLEANER` は DENY。** §4.2 の自己検査の例外は「検査できるロールの人が
+   * たまたま自分の清掃したタスクに当たった」場合の話で、清掃者に検査権限を
+   * 与える規定ではない（`CLEANER` を許すと、他人のタスクの検査まで通る）。
+   */
+  "inspection.write": { write: true },
 } as const satisfies Record<string, { write: boolean }>;
 
 /** `PERMISSION_ACTIONS` に載っている操作だけを許す型。 */
@@ -440,6 +458,29 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ORG",
     VENDOR_ADMIN: "ORG",
     AUDITOR: "ORG",
+  },
+  // ── P2: 検査 ────────────────────────────────────────
+  // §5.1 の自動割当は `INSPECTOR` と `PROPERTY_MANAGER` を対象にする。
+  // `VENDOR_ADMIN`（清掃会社）が受託施設の検査を行うかは §4・§5 に明記が
+  // 無いため DENY（自社の清掃を自社が検査する形になり、§4.2 の
+  // 自己検査の制限と整合しない）。広げるのは根拠を持つ task。
+  "inspection.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "inspection.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
   },
 };
 

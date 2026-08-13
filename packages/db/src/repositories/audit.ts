@@ -73,6 +73,13 @@ export const AUDIT_ACTIONS = {
   // 残らないと、翌日の再訪の判断ができない。
   "task.blocked": { requiresReason: true },
   "inspection.passed": { requiresReason: false },
+  // 検査不合格（PK-SPEC-P2 §4.5）。security.md §6 の「差戻し」に当たる。
+  // `task.reworkAssigned`（差戻しの割当）と分けてあるのは、免除（§4.7）で
+  // 差戻しが割り当たらない経路があるため。
+  "inspection.failed": { requiresReason: false },
+  // 清掃担当者本人による検査（PK-SPEC-P2 §4.2 の例外）。**理由必須。**
+  // security.md §1「緊急時の例外は理由必須＋監査ログ」がここに対応する。
+  "inspection.selfApproved": { requiresReason: true },
   "task.reworkAssigned": { requiresReason: false },
   "task.bulkApproved": { requiresReason: false },
   // 客室ステータスの手動上書き（**理由必須**）

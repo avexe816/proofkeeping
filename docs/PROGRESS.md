@@ -1,36 +1,66 @@
 # 実装進捗
 
-最終更新: 2026-08-13（P2-01〜P2-03。**検査の土台。画面はまだ無い**）
+最終更新: 2026-08-13（P2-04。**検査 API。画面はまだ無い**）
 
 ## 現在のセッション
 
 ```
-task: P2-01 / P2-02 / P2-03（Batch: 検査の土台）
-状態: 完了。**画面はまだ無い。** 検査の表・要否の判定・開始の排他まで。
+task: P2-04（検査 API）
+状態: 完了。**API だけ。画面（M-08 / M-09）は P2-05 / P2-06。**
 
-      P2-01 スキーマ
-           `packages/db/src/schema/inspection.ts` に 6 表。
-           `cleaningTask` に §3.1 の 7 列。migration 0007（**追加のみ**）。
-           `evidenceSnapshot` の UPDATE / DELETE が無いことを
-           `repositories.spec.ts` がソース走査で固定している。
-      P2-02 検査ポリシーと抽出ロジック
-           `decideInspection()`（engine・31 テスト）と
-           `propertyInspectionPolicy` のリポジトリ、`complete` への配線。
-           **判定は清掃完了の瞬間だけ**（DECISIONS #061）。
-      P2-03 InspectionLock
-           DO。ラウンド番号を保持する（#063）。50 並列で成功 1 件。
-           binding `INSPECTION_LOCK` を 4 環境 + migrations タグ `v2`。
+      経路 5 本
+        POST /api/v1/tasks/:taskId/inspection/start   §4.2（名は §14.1）
+        GET  /api/v1/inspections/:id                  M-09 が読む
+        PUT  /api/v1/inspections/:id/items            §4.3。**1 項目ずつ**
+        POST /api/v1/inspections/:id/photos           §4.3。multipart
+        POST /api/v1/inspections/:id/complete         §4.4 / §4.5
 
-次: **P2-04 検査 API。** 依存（P2-03）は満たされている。
-    `POST /tasks/:id/inspection/start` から。`InspectionLock` を使う口が
-    まだ 1 つも無いので、次の task がそれを繋ぐ。
+      engine  `inspectionResult.ts`（41 テスト）
+              `aggregateResult()` の引数は**項目の並びだけ**。
+              全体を PASS に上書きする口が型として存在しない（§4.3 MUST）。
+              `evaluateSelfInspection()` が §4.2 の例外を 1 か所に閉じる。
+      db      `repositories/inspection.ts`（17 関数）。
+              確定した検査を書き換える関数を置いていない。
+      権限    `inspection.read` / `inspection.write` を追加。
+              **`CLEANER` は両方 DENY**（M-12 は P2-07 が別の絞りで作る）。
+      監査    `inspection.failed` と `inspection.selfApproved`（**理由必須**）。
+
+次: **P2-05 M-08 検査待ち一覧。** 依存（P2-04）は満たされている。
+    `GET /api/v1/inspections/waiting` はまだ無い。P2-05 が作る。
 ```
 
---- この Batch で入れていないもの（意図的）---
-- **検査そのものの API と画面は無い**（P2-04 / P2-05 / P2-06）。
-  `inspection` 表は作ったが読み書きするリポジトリ関数がまだ無い。
-- **`evidenceSnapshot` を書く経路も無い**（P2-08）。表と不変性の検査だけ。
-- 差戻し（`reworkCycle`）も同様（P2-07）。
+--- この task で入れていないもの（意図的）---
+- **検査の画面が無い**（M-08 = P2-05 / M-09 = P2-06）。API だけ。
+- **`GET /inspections/waiting` が無い**（P2-05）。一覧の並び（緊急度・SLA）は
+  §11.2 の話で、画面と同じ task が持つほうがよい。
+- **`EvidenceSnapshot` を書かない**（P2-08）。§4.4 / §4.5 は
+  `INSPECTION_PASS` / `INSPECTION_FAIL` の証跡を要求するが、canonical JSON と
+  ハッシュ連鎖は P2-08 の担当。**証跡が無いまま検査が確定する期間がある**
+  （DECISIONS #066）。
+- **再清掃を進める API が無い**（P2-07）。`reworkCycle` は作るが
+  `OPEN` のまま溜まる（#067）。
+
+--- P2-04 からの申し送り ---
+申し送り 1: **`reworkCycle` は作られるが進まない。** `status = OPEN` の行が
+            溜まる。タスク自体は P1 の `start`（`REWORK` → `IN_PROGRESS`）で
+            再清掃を始められるが、**`reworkCycle.status` は追随しない。**
+            P2-07 が `POST /reworks/:id/{start,complete,waive}` で繋ぐ。
+申し送り 2: **検査項目の行は「答えたときだけ」作られる。** 開始時に
+            既定値つきの行を並べていない（並べたら、それが「全 PASS で
+            初期化した検査」そのもの）。画面は `taskChecklistResult` の
+            並びに `inspectionItemResult` を重ねたものを受け取る。
+            **`status: null` が「まだ見ていない」。**
+申し送り 3: **写真は項目（`inspectionItemResult`）に紐づく。** 先に
+            `PUT /items` で FAIL を記録して `itemResultId` を得てから
+            アップロードする。**順序が要る。** M-09 はこの往復を
+            1 タップに見せること（不合格を選んだ瞬間に記録を送る）。
+申し送り 4: **検査写真に枚数の上限が無い。** 清掃写真は 20 枚
+            （`MAX_PHOTOS_PER_TASK`）だが、検査側は仕様に記載が無いので
+            置いていない。大きさ（`MAX_PHOTO_BYTES`）と形式は同じ。
+申し送り 5: **`housekeepingStatusFor()` に `inspectionPass` /
+            `inspectionFail` を足した。** 客室ステータスの表は
+            `packages/engine/src/roomStatus.ts` の 1 か所のまま。
+            検査の着地で客室を動かす経路を別に書かないこと。
 
 --- 検査の要否まわりの申し送り ---
 申し送り 1: **`property.inspectionRequired`（P1）と
@@ -46,10 +76,11 @@ task: P2-01 / P2-02 / P2-03（Batch: 検査の土台）
 申し送り 3: **`cleaning_task` に 7 列増えた。** 代役の行を位置で組む spec
             （`tasks.spec.ts` の `taskRow()`）は宣言順に合わせること。
             いま該当するのは 1 ファイルだけ。
-申し送り 4: **`InspectionLock` を使う経路がまだ無い。** DO は宣言済みで
-            wrangler は起動するが、`env.INSPECTION_LOCK` を呼ぶコードは
-            P2-04 が書く。**一意制約 `(organizationId, taskId, round)` を
-            外さないこと**（DO は速い断り方であって唯一の防波堤ではない）。
+申し送り 4: ~~**`InspectionLock` を使う経路がまだ無い。**~~
+            **→ P2-04 が繋いだ。** 呼び出し口は
+            `apps/web/src/lib/inspection/lock.ts` の 1 か所。
+            **一意制約 `(organizationId, taskId, round)` を外さないこと**
+            （DO は速い断り方であって唯一の防波堤ではない）。
 申し送り 5: **抽出率の分母は「その日すでに検査対象になった件数」。**
             完了した順に決まるので、その日の総数に対する割合を事前に
             確定できない。`minDailySample` はそのための下限。
@@ -705,7 +736,7 @@ task: P0-07 リポジトリ層の雛形
 - [x] P2-01 スキーマ: 検査・証跡
 - [x] P2-02 検査ポリシーと抽出ロジック
 - [x] P2-03 InspectionLock（Durable Object）
-- [ ] P2-04 検査 API
+- [x] P2-04 検査 API
 - [ ] P2-05 M-08 検査待ち一覧
 - [ ] P2-06 M-09 検査実施
 - [ ] P2-07 差戻しと再清掃

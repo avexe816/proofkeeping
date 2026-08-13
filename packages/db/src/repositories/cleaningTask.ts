@@ -19,7 +19,7 @@ import { eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
-import type { InspectionSkipReason } from "../schema/inspection.js";
+import type { InspectionResult, InspectionSkipReason } from "../schema/inspection.js";
 import {
   TASK_STATUSES,
   cleaningTask,
@@ -416,6 +416,68 @@ export async function applyTransition(
         cleaningTask.propertyId,
         eq(cleaningTask.id, taskId),
         eq(cleaningTask.status, expectedStatus),
+      ),
+    );
+  return result.meta.changes > 0;
+}
+
+/** `applyInspectionOutcome()` の入力。**判定は engine が集約した値。** */
+export interface ApplyInspectionOutcomeInput {
+  /** 検査の判定（§4.4 / §4.5）。 */
+  result: InspectionResult;
+  /** 確定した検査のラウンド。`currentInspectionRound` に入る。 */
+  round: number;
+  /** 検査した `membership.id`。 */
+  inspectorId: string;
+}
+
+/**
+ * 検査の結果をタスクへ反映する（PK-SPEC-P2 §4.4 / §4.5）。
+ *
+ * ```
+ * PASS → status = COMPLETED、inspectionResult = PASS
+ * FAIL → status = REWORK、  inspectionResult = FAIL、reworkCount += 1
+ * ```
+ *
+ * **`AWAITING_INSPECTION` の行にしか当たらない**（楽観的排他）。同じ検査の
+ * 完了が 2 回届いても 2 回目は 0 行更新になり、`reworkCount` が二重に
+ * 増えない。`inspection` 側の `completeInspection()` も同じ形で守っている。
+ *
+ * **`inspectionRequired` / `inspectionSkipped` を触らない。** あれは清掃完了の
+ * 瞬間に決まった「検査に回すかどうか」の記録で（DECISIONS #061）、
+ * 検査の結果ではない。上書きすると「検査なし」と「検査合格」の区別が
+ * 消える（§2.3）。
+ *
+ * @returns 反映できたら `true`。競合または該当なしなら `false`。
+ */
+export async function applyInspectionOutcome(
+  env: Env,
+  ctx: TenantContext,
+  taskId: string,
+  input: ApplyInspectionOutcomeInput,
+): Promise<boolean> {
+  assertIdBelongsToTenant(taskId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const result = await db
+    .update(cleaningTask)
+    .set({
+      status: input.result === "PASS" ? "COMPLETED" : "REWORK",
+      inspectionResult: input.result,
+      inspectorId: input.inspectorId,
+      inspectedAt: ctx.now,
+      currentInspectionRound: input.round,
+      ...(input.result === "FAIL"
+        ? { reworkCount: sql`${cleaningTask.reworkCount} + 1` }
+        : {}),
+      updatedAt: ctx.now,
+    })
+    .where(
+      withTenantScope(
+        cleaningTask,
+        ctx,
+        cleaningTask.propertyId,
+        eq(cleaningTask.id, taskId),
+        eq(cleaningTask.status, "AWAITING_INSPECTION"),
       ),
     );
   return result.meta.changes > 0;

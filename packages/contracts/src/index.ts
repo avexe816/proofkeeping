@@ -172,6 +172,46 @@ export {
   type TaskChecklistResponse,
 } from "./checklist.js";
 
+// 検査（P2-04 / PK-SPEC-P2 §4）。**全体の判定を受け取る口を作らない**（§4.3 MUST）。
+export {
+  DEFECT_CODES,
+  DEFECT_NOTE_MAX_LENGTH,
+  GENERAL_NOTE_MAX_LENGTH,
+  INSPECTION_ERROR_CODES,
+  INSPECTION_ITEM_STATUSES,
+  INSPECTION_RESULTS,
+  OVERRIDE_REASON_MAX_LENGTH,
+  defectCodeSchema,
+  inspectionCompleteRequestSchema,
+  inspectionCompleteResponseSchema,
+  inspectionDetailResponseSchema,
+  inspectionErrorSchema,
+  inspectionItemSchema,
+  inspectionItemStatusSchema,
+  inspectionItemUpdateRequestSchema,
+  inspectionPhotoSchema,
+  inspectionPhotoUploadMetaSchema,
+  inspectionPhotoUploadResponseSchema,
+  inspectionResultSchema,
+  inspectionSchema,
+  inspectionStartRequestSchema,
+  type DefectCodeValue,
+  type Inspection,
+  type InspectionCompleteRequest,
+  type InspectionCompleteResponse,
+  type InspectionDetailResponse,
+  type InspectionError,
+  type InspectionErrorCode,
+  type InspectionItem,
+  type InspectionItemStatusValue,
+  type InspectionItemUpdateRequest,
+  type InspectionPhoto,
+  type InspectionPhotoUploadMeta,
+  type InspectionPhotoUploadResponse,
+  type InspectionResultValue,
+  type InspectionStartRequest,
+} from "./inspection.js";
+
 // middleware 共通のエラー応答（P0-10）。**403 を足さないこと**（INV-31）。
 export {
   API_ERROR_CODES,

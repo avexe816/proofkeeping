@@ -15,6 +15,7 @@ import auth from "./routes/api/v1/auth.js";
 import dev from "./routes/api/v1/dev.js";
 import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
 import files from "./routes/api/v1/files.js";
+import inspections from "./routes/api/v1/inspections.js";
 import organization from "./routes/api/v1/organization.js";
 import properties from "./routes/api/v1/properties.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
@@ -92,6 +93,9 @@ api.route("/properties", properties);
 api.route("/files", files);
 // 清掃タスク（P1-03 / P1-05 / P1-06）。状態変更は `Idempotency-Key` に対応する。
 api.route("/tasks", tasks);
+// 検査（P2-04 / PK-SPEC-P2 §4）。開始だけは `/tasks/:taskId/inspection/start`
+// （§14.1 の経路名）。**全体の判定を受け取る口が無い**（§4.3 MUST）。
+api.route("/inspections", inspections);
 // 当日の客室状況（P1-04 / W-05）。CSV 取込と「全室アウト清掃として生成」。
 api.route("/room-plans", roomPlans);
 // 客室タイプ（P1-24 / W-25）。**物理削除の口が無い**（無効化のみ）。
