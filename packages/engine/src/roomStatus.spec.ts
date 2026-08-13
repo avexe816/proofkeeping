@@ -42,6 +42,21 @@ describe("housekeepingStatusFor — §11.1 の表", () => {
   it("block で BLOCKED", () => {
     expect(housekeepingStatusFor("block", false)).toBe("BLOCKED");
   });
+
+  // ── P2-04（PK-SPEC-P2 §4.4 / §4.5）───────────────────
+  it("検査合格で READY", () => {
+    expect(housekeepingStatusFor("inspectionPass", true)).toBe("READY");
+  });
+
+  it("検査不合格で DIRTY（再清掃へ戻る）", () => {
+    expect(housekeepingStatusFor("inspectionFail", true)).toBe("DIRTY");
+  });
+
+  it("検査の結果は施設の検査要否に左右されない", () => {
+    // 抽出された 1 件だけを検査する施設（SAMPLE）でも、判定の意味は同じ。
+    expect(housekeepingStatusFor("inspectionPass", false)).toBe("READY");
+    expect(housekeepingStatusFor("inspectionFail", false)).toBe("DIRTY");
+  });
 });
 
 describe("housekeepingStatusFor — 変えない操作（負例）", () => {

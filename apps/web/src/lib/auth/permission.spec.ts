@@ -75,6 +75,11 @@ const EXPECTED: Record<PermissionAction, string> = {
   "room.statusOverride": "OOA----",
   // P1-17。**全ロールが自分の記録を見られる**（security.md §5 MUST）。
   "task.readOwn": "OOOOOOO",
+  // P2-04。検査は `INSPECTOR` / `PROPERTY_MANAGER` 以上（PK-SPEC-P2 §5.1）。
+  // **`CLEANER` は読み書きとも DENY。** 差戻しの内容を見せる M-12（P2-07）は
+  // 「自分のタスクの差戻し項目だけ」という別の絞りを持つ。
+  "inspection.read": "OOAA--O",
+  "inspection.write": "OOAA---",
 };
 
 const SYMBOL_TO_SCOPE: Record<string, PermissionScope> = {

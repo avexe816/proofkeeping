@@ -164,3 +164,23 @@ export {
   type InspectionSkipReasonValue,
   type MandatoryInspectionSignals,
 } from "./inspectionSampling.js";
+
+// 検査結果の集約（P2-04 / 同 §4.3〜§4.5）。**全体の判定を人から受け取らない。**
+export {
+  DEFECT_NOTE_MAX_LENGTH,
+  DEFECT_NOTE_MIN_LENGTH,
+  INSPECTION_ITEM_STATUS_VALUES,
+  INSPECTION_RESULT_VALUES,
+  aggregateResult,
+  checkInspectionCompletion,
+  durationSecondsOf,
+  evaluateSelfInspection,
+  failedItemIds,
+  hasFailure,
+  reasonSummaryOf,
+  type InspectionCompletionCheck,
+  type InspectionItemInput,
+  type InspectionItemStatusValue,
+  type InspectionResultValue,
+  type SelfInspectionVerdict,
+} from "./inspectionResult.js";

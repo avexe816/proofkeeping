@@ -105,10 +105,8 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   subscription: "リポジトリ関数がまだ無い（P7-04）",
   user: "listUsers / findUserById はあるが、施設の次元を持たない。P0-14 以降で足す",
   // P2-01 は表と migration までの task。読み書きの関数はこの後の task が作る。
-  inspection: "検査 API は P2-04。リポジトリ関数がまだ無い",
-  inspection_item_result: "同上（P2-04）",
-  inspection_photo: "同上（P2-04）",
-  rework_cycle: "差戻し・再清掃は P2-07。リポジトリ関数がまだ無い",
+  // `inspection` / `inspection_item_result` / `inspection_photo` /
+  // `rework_cycle` は P2-04 が関数を作り、inspection.spec.ts でカバーした。
   evidence_snapshot: "証跡の生成は P2-08。**INSERT のみの表**で、読み取り関数もまだ無い",
 };
 
