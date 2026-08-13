@@ -139,5 +139,24 @@ export { dailyPropertyRollup } from "./rollup.js";
 // 日報（P2-14 / PK-SPEC-P2 §9.4）。**発行済み帳票。UPDATE / DELETE しない。**
 export { dailyReport } from "./dailyReport.js";
 
+// 観察記録・リネン・ベースライン（P3-01 / PK-SPEC-P3 §2）。
+// **P3 は判定しない**（§0.2）。ここにあるのは観察値と統計量だけ。
+export {
+  AMENITY_ITEM_CODES,
+  BASELINE_EXCLUSION_REASONS,
+  ITEM_CODES,
+  LINEN_ITEM_CODES,
+  TRASH_LEVELS,
+  baselineExclusionLog,
+  consumptionBaseline,
+  linenRecord,
+  observationConfig,
+  observationRevision,
+  roomObservation,
+  type BaselineExclusionReason,
+  type ItemCode,
+  type TrashLevel,
+} from "./observation.js";
+
 // 外部システムとの ID 対応（P0-22 は定義のみ。使用は P6）。
 export { EXTERNAL_ENTITY_TYPES, externalMapping } from "./integration.js";

@@ -67,14 +67,18 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("39 テーブルを定義している", () => {
+  it("45 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       "auditLog",
+      // P3-01。ベースライン集計から除外した観察の記録（PK-SPEC-P3 §5.3）。
+      "baselineExclusionLog",
       "building",
       // P1-01。チェックリストの定義と実施結果（PK-SPEC-P1 §2.1 / §6）。
       "checklistItem",
       "checklistTemplate",
       "cleaningTask",
+      // P3-01。消耗ベースライン（同 §2.4）。**sampleSize < 20 は isReliable = false。**
+      "consumptionBaseline",
       // P0-21。施設サマリーの唯一の出どころ（§19.6）。
       "dailyPropertyRollup",
       // P2-14。日報（PK-SPEC-P2 §9.4）。**発行済み帳票。UPDATE / DELETE しない。**
@@ -97,12 +101,17 @@ describe("P0-06 スキーマ", () => {
       "issueHistory",
       "issuePhoto",
       "issueReport",
+      // P3-01。リネンの枚数（同 §2.3）。**枚数であって金額ではない。**
+      "linenRecord",
       // P2-11。忘れ物とその写真・状態履歴（同 §3.5）。
       "lostItem",
       "lostItemHistory",
       "lostItemPhoto",
       "membership",
       "moduleEntitlement",
+      // P3-01。施設ごとの観察設定と、観察記録の事後修正履歴（同 §2.6 / §2.2）。
+      "observationConfig",
+      "observationRevision",
       "organization",
       "organizationTaxProfile",
       // P0-08。直近 3 世代の再利用禁止のためだけの表。
@@ -114,6 +123,8 @@ describe("P0-06 スキーマ", () => {
       // P2-01。差戻しサイクル（同 §3.4）。
       "reworkCycle",
       "room",
+      // P3-01。入室時の観察記録（同 §2.1）。**1 タスク 1 行。**
+      "roomObservation",
       "roomType",
       // P1-01 / P1-02。標準時間マスタ（客室タイプ × 清掃種別）。
       "standardTime",

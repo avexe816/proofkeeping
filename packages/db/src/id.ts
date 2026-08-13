@@ -109,6 +109,13 @@ export const ENTITY_PREFIXES = [
   // 帳票の番号（`RPT-2026-0042`）とは別物。あちらは人が読む文書番号で、
   // こちらは行の ID。**同じ日報が「番号 1 つ・ID 複数（版ごと）」を持つ。**
   "rpt", // dailyReport
+  // P3-01 が決めたもの（docs/DECISIONS.md #092）。
+  // `obs`（roomObservation）は既に上にある（PK-SPEC-P0 §19.4）。
+  "orev", // observationRevision
+  "linen", // linenRecord
+  "bsln", // consumptionBaseline
+  "ocfg", // observationConfig
+  "bxcl", // baselineExclusionLog
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

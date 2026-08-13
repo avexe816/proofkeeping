@@ -321,3 +321,37 @@ export {
   type PropertyMetricsTaskInput,
   type WorkMinutesGroup,
 } from "./metrics.js";
+
+// 入室時の観察記録の既定値（P3-02 / PK-SPEC-P3 §3.3）。
+// **推定の精度ではなく「1 タップで確定できること」が目的**（同 §1.2）。
+export {
+  FALLBACK_GUEST_COUNT,
+  TRASH_LEVEL_VALUES,
+  estimateGuestCount,
+  estimateObservationDefaults,
+  type ObservationDefaults,
+  type RoomPlanForDefaults,
+  type RoomTypeForDefaults,
+  type TrashLevelValue,
+} from "./observationDefaults.js";
+
+// 消耗ベースライン（P3-08 / 同 §5）。**統計量だけを出し、判定はしない**（同 §0.2）。
+// `sampleSize < 20` は `isReliable = false`。P4 のルール評価から外れる（同 §2.4）。
+export {
+  BASELINE_EXCLUSION_REASON_VALUES,
+  DEFAULT_MIN_SAMPLE_SIZE,
+  MIN_INPUT_DURATION_MS,
+  OUTLIER_MEDIAN_MULTIPLIER,
+  REPEATED_INPUT_THRESHOLD,
+  baselineKeyOf,
+  computeBaseline,
+  percentile,
+  standardDeviation,
+  type BaselineComputation,
+  type BaselineExclusion,
+  type BaselineExclusionReasonValue,
+  type BaselineGroupKey,
+  type BaselineOptions,
+  type BaselineResult,
+  type ObservationSample,
+} from "./baseline.js";
