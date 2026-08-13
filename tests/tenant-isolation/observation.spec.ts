@@ -9,9 +9,8 @@
  * （`schema/observation.ts` の注記④）。親を辿らずに第 1 層が掛かることを
  * ここで固定する。
  *
- * **`consumption_baseline` と `baseline_exclusion_log` はまだ無い。**
- * 読み書きの関数を作るのは P3-09 / P3-10 / P3-12 で、それらが
- * `_template.spec.ts` の `UNCOVERED_TABLES` から行を消す。
+ * `consumption_baseline` と `baseline_exclusion_log` は `baseline.spec.ts`
+ * （P3-09 / P3-10 / P3-12）。
  */
 
 import {

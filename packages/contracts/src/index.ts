@@ -381,3 +381,43 @@ export {
   type DailyReportGenerateResponse,
   type DailyReportSummary,
 } from "./dailyReport.js";
+
+// 消耗ベースラインとデータ品質（P3-09 / P3-10 / P3-12 / PK-SPEC-P3 §5・§6）。
+// **判定を返さない**（同 §0.2）。`isReliable` は統計の信頼性であって
+// 観察の良し悪しではない。スタッフ別は入力率だけ（security.md §5）。
+export {
+  BASELINE_ERROR_CODES,
+  BASELINE_EXCLUSION_REASONS,
+  BASELINE_OVERRIDE_REASON_MAX_LENGTH,
+  BASELINE_OVERRIDE_REASON_MIN_LENGTH,
+  DATA_QUALITY_STATUSES,
+  MAX_BASELINE_QTY,
+  baselineErrorSchema,
+  baselineExclusionReasonSchema,
+  baselineListResponseSchema,
+  baselineMaturitySchema,
+  baselineOverrideRequestSchema,
+  baselineOverrideResponseSchema,
+  baselineRecomputeRequestSchema,
+  baselineRecomputeResponseSchema,
+  baselineSchema,
+  dataQualityMonthSchema,
+  dataQualityRateSchema,
+  dataQualityResponseSchema,
+  dataQualityStatusSchema,
+  staffInputRateSchema,
+  type Baseline,
+  type BaselineError,
+  type BaselineErrorCode,
+  type BaselineExclusionReasonValue,
+  type BaselineListResponse,
+  type BaselineMaturitySummary,
+  type BaselineOverrideRequest,
+  type BaselineOverrideResponse,
+  type BaselineRecomputeRequest,
+  type BaselineRecomputeResponse,
+  type DataQualityRate,
+  type DataQualityResponse,
+  type DataQualityStatusValue,
+  type StaffInputRateSummary,
+} from "./baseline.js";

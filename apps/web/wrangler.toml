@@ -210,6 +210,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 消耗ベースラインの再計算（P3-09 / PK-SPEC-P3 §5）。90 日ぶんの観察を読み、
+# 品目ごとに整列して百分位を取る。リクエストの CPU 予算（50ms /
+# architecture.md §5）に収まらないのでここで処理する。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[queues.consumers]]
+queue = "pk-baseline-learning-local"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -239,9 +250,14 @@ new_sqlite_classes = ["InspectionLock"]
 # 日本は夏時間を採らないので固定のオフセットで足りる。
 #
 # ハンドラは apps/web/src/index.ts の `scheduled()`。
-# **本数を増やすときは無料枠（5 本）を数えること。** 現在 1 本。
+# PK-SPEC-P3 §5.1: 毎週日曜 03:00 にベースラインを再計算する（P3-09）。
+# 03:00 Asia/Tokyo = 前日（土曜）18:00 UTC なので `0 18 * * 6`。
+# **曜日も 1 つ戻ること。** `0 18 * * 0` にすると日曜の 18:00 UTC、
+# つまり月曜 03:00 JST に走る。
+#
+# **本数を増やすときは無料枠（5 本）を数えること。** 現在 3 本。
 [triggers]
-crons = ["0 17 * * *", "*/10 * * * *"]
+crons = ["0 17 * * *", "*/10 * * * *", "0 18 * * 6"]
 
 # ==============================================================================
 # preview — PR ごと（§9.2: pk-pr-{n} / 1 シャード）
@@ -350,6 +366,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 消耗ベースラインの再計算（P3-09 / PK-SPEC-P3 §5）。90 日ぶんの観察を読み、
+# 品目ごとに整列して百分位を取る。リクエストの CPU 予算（50ms /
+# architecture.md §5）に収まらないのでここで処理する。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[env.preview.queues.consumers]]
+queue = "pk-baseline-learning-preview"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -376,7 +403,7 @@ new_sqlite_classes = ["InspectionLock"]
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。
 [env.preview.triggers]
-crons = ["0 17 * * *", "*/10 * * * *"]
+crons = ["0 17 * * *", "*/10 * * * *", "0 18 * * 6"]
 
 # ==============================================================================
 # staging — main マージで自動デプロイ（§9.2: pk-staging / 2 シャード）
@@ -492,6 +519,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 消耗ベースラインの再計算（P3-09 / PK-SPEC-P3 §5）。90 日ぶんの観察を読み、
+# 品目ごとに整列して百分位を取る。リクエストの CPU 予算（50ms /
+# architecture.md §5）に収まらないのでここで処理する。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[env.staging.queues.consumers]]
+queue = "pk-baseline-learning-staging"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -518,7 +556,7 @@ new_sqlite_classes = ["InspectionLock"]
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。
 [env.staging.triggers]
-crons = ["0 17 * * *", "*/10 * * * *"]
+crons = ["0 17 * * *", "*/10 * * * *", "0 18 * * 6"]
 
 # ==============================================================================
 # production — 手動デプロイ（§9.2: pk-prod / 16 シャード）
@@ -708,6 +746,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 消耗ベースラインの再計算（P3-09 / PK-SPEC-P3 §5）。90 日ぶんの観察を読み、
+# 品目ごとに整列して百分位を取る。リクエストの CPU 予算（50ms /
+# architecture.md §5）に収まらないのでここで処理する。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[env.production.queues.consumers]]
+queue = "pk-baseline-learning"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -734,4 +783,4 @@ new_sqlite_classes = ["InspectionLock"]
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。
 [env.production.triggers]
-crons = ["0 17 * * *", "*/10 * * * *"]
+crons = ["0 17 * * *", "*/10 * * * *", "0 18 * * 6"]

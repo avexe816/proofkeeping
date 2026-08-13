@@ -2,6 +2,7 @@ import type { Env } from "@pk/db";
 import { Hono } from "hono";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 
+import { handleBaselineLearningBatch } from "./consumers/baselineLearning.js";
 import { handleDailyReportBatch } from "./consumers/dailyReport.js";
 import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
 import {
@@ -15,12 +16,18 @@ import {
   useTenantMiddleware,
   type AppEnv,
 } from "./middleware/index.js";
+import {
+  BASELINE_LEARNING_CRON,
+  dispatchBaselineLearning,
+} from "./lib/baseline/dispatch.js";
 import { DAILY_REPORT_CRON, dispatchDailyReports } from "./lib/report/dispatch.js";
 import { runNightlyGeneration } from "./lib/task/nightly.js";
 import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
+import baselines from "./routes/api/v1/baselines.js";
 import dev from "./routes/api/v1/dev.js";
 import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
+import dataQuality from "./routes/api/v1/dataQuality.js";
 import evidence from "./routes/api/v1/evidence.js";
 import files from "./routes/api/v1/files.js";
 import inspections from "./routes/api/v1/inspections.js";
@@ -157,6 +164,12 @@ api.route("/room-plans", roomPlans);
 // 観察記録（P3-03〜P3-07 / PK-SPEC-P3 §7）。**削除の口が無い。**
 // 記録・スキップはタスク側（`/tasks/:id/observation`）。ここは一覧と事後修正。
 api.route("/observations", observations);
+// 消耗ベースライン（P3-09 / P3-10 / PK-SPEC-P3 §5・§7）。**削除の口が無い。**
+// 上書きは p90 だけ・理由必須（§5.5）。再計算は必ず Queue を通る。
+api.route("/baselines", baselines);
+// 観察記録の入力品質（P3-12 / 同 §6.3 / W-22）。**読み取りだけ。**
+// スタッフ別は入力率だけを返す（security.md §5 / INV-07）。
+api.route("/data-quality", dataQuality);
 // 客室タイプ（P1-24 / W-25）。**物理削除の口が無い**（無効化のみ）。
 api.route("/room-types", roomTypes);
 // 標準時間マスタ（P1-02 / W-17）。
@@ -239,6 +252,11 @@ export default {
       await handleDailyReportBatch(env, batch);
       return;
     }
+    // 消耗ベースラインの再計算（P3-09 / PK-SPEC-P3 §5）。
+    if (batch.queue.startsWith("pk-baseline-learning")) {
+      await handleBaselineLearningBatch(env, batch);
+      return;
+    }
     // 知らないキュー。**ack も retry もしない**（既定の再送に任せる）。
     console.error(`queue-unhandled queue=${batch.queue}`);
   },
@@ -248,8 +266,9 @@ export default {
    * `controller.cron` は発火した cron 式そのもの。**式で振り分ける。**
    * 分岐を持たずに両方を毎回走らせると、10 分ごとにタスク生成が走る。
    *
-   *   `0 17 * * *`    02:00 JST  翌業務日のタスク生成（P1-03）
-   *   `*&#47;10 * * * *`  10 分ごと  日締め + 10 分の施設の日報（P2-14）
+   *   `0 17 * * *`    02:00 JST      翌業務日のタスク生成（P1-03）
+   *   `*&#47;10 * * * *`  10 分ごと      日締め + 10 分の施設の日報（P2-14）
+   *   `0 18 * * 6`    日曜 03:00 JST ベースライン週次バッチ（P3-09）
    *
    * **返す Promise を `await` する。** Cron の実行は `scheduled()` の返した
    * Promise が解決するまで続く。結果は件数だけをログに出す
@@ -257,6 +276,15 @@ export default {
    */
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
     const now = new Date(controller.scheduledTime);
+
+    if (controller.cron === BASELINE_LEARNING_CRON) {
+      const result = await dispatchBaselineLearning(env, now);
+      console.log(
+        `baseline-learning-dispatch organizations=${String(result.organizations)} ` +
+          `queued=${String(result.queued)} failed=${String(result.failedOrganizations)}`,
+      );
+      return;
+    }
 
     if (controller.cron === DAILY_REPORT_CRON) {
       const result = await dispatchDailyReports(env, now);

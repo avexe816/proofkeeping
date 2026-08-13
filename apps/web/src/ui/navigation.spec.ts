@@ -73,6 +73,8 @@ describe("登録簿の不変条件", () => {
       "nav.plan",
       // W-06 証跡一覧（P2-09）。「記録の確認」の 1 つめ。
       "nav.cleaningRecords",
+      // W-22 データ品質ダッシュボード（P3-12）。「資材と分析」の 1 つめ。
+      "nav.dataQuality",
       // `/app/settings/*` の 4 画面。客室マスタ（P0-22）と事業者税務（P0-16）は
       // ルートが実在するのに**サイドバーに出ていなかった。**
       "nav.rooms",
@@ -82,6 +84,8 @@ describe("登録簿の不変条件", () => {
       "nav.standardTimes",
       // P3-11 が足した W-20（観察項目の設定）。
       "nav.observationSettings",
+      // P3-10 が足した W-21（ベースライン確認・上書き）。
+      "nav.baseline",
       "nav.taxProfile",
     ]);
   });

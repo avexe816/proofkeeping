@@ -397,6 +397,46 @@ export async function listLinenRecords(env: Env, ctx: TenantContext, taskId: str
     .orderBy(linenRecord.itemCode);
 }
 
+/** `listLinenRecordsInRange()` の絞り込み。 */
+export interface LinenRangeFilter {
+  propertyId: string;
+  /** 業務日の下限（含む）。 */
+  from: string;
+  /** 業務日の上限（含む）。 */
+  to: string;
+}
+
+/**
+ * 期間内のリネン記録（ベースライン週次バッチ / P3-09）。
+ *
+ * 品目ごとの列を持たない品目（シーツ・枕カバー・浴衣）は、この表から
+ * しか拾えない（`packages/engine` の `toObservationSamples()`）。
+ * **タスク単位ではなく期間で引く**のはバッチのため。画面は
+ * `listLinenRecords()`（1 タスクぶん）を使う。
+ */
+export async function listLinenRecordsInRange(
+  env: Env,
+  ctx: TenantContext,
+  filter: LinenRangeFilter,
+) {
+  assertIdBelongsToTenant(filter.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select()
+    .from(linenRecord)
+    .where(
+      withTenantScope(
+        linenRecord,
+        ctx,
+        linenRecord.propertyId,
+        eq(linenRecord.propertyId, filter.propertyId),
+        gte(linenRecord.businessDate, filter.from),
+        lte(linenRecord.businessDate, filter.to),
+      ),
+    )
+    .orderBy(linenRecord.businessDate, linenRecord.taskId, linenRecord.itemCode);
+}
+
 /** 品目 1 件ぶん。 */
 export interface LinenEntryInput {
   itemCode: ItemCode;

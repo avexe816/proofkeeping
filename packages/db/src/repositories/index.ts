@@ -103,6 +103,7 @@ export {
 // 当日の客室状況（P1-04）。
 export {
   listRoomPlans,
+  listRoomPlansInRange,
   upsertRoomPlans,
   type RoomPlanInput,
 } from "./roomPlan.js";
@@ -284,6 +285,7 @@ export {
   findObservationByTaskId,
   findObservationConfig,
   listLinenRecords,
+  listLinenRecordsInRange,
   listObservationConfigs,
   listObservationRevisions,
   listObservations,
@@ -293,6 +295,7 @@ export {
   upsertObservationConfig,
   type AmendObservationInput,
   type LinenEntryInput,
+  type LinenRangeFilter,
   type ObservationCountsInput,
   type ObservationFilter,
   type UpsertLinenRecordsInput,
@@ -300,3 +303,23 @@ export {
   type UpsertObservationInput,
   type UpsertObservationResult,
 } from "./observation.js";
+
+// 消耗ベースラインと除外記録（P3-09 / P3-10 / P3-12 / PK-SPEC-P3 §2.4・§5）。
+// **手動上書き（`manualOverride`）は週次バッチで消えない**（同 §5.5 MUST）。
+export {
+  clearBaselineOverride,
+  findBaselineById,
+  listBaselineExclusions,
+  listBaselines,
+  replaceBaselineExclusions,
+  replaceBaselines,
+  setBaselineOverride,
+  type BaselineExclusionFilter,
+  type BaselineExclusionRowInput,
+  type BaselineFilter,
+  type BaselineRowInput,
+  type ReplaceBaselineExclusionsInput,
+  type ReplaceBaselinesInput,
+  type ReplaceBaselinesResult,
+  type SetBaselineOverrideInput,
+} from "./baseline.js";
