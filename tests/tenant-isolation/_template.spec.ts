@@ -82,6 +82,13 @@ const TENANT_TABLES = [
   "inspection_photo",
   "rework_cycle",
   "evidence_snapshot",
+  // P2-11 / P2-12。忘れ物と設備不具合（同 §3.5・§3.6）。
+  "lost_item",
+  "lost_item_photo",
+  "lost_item_history",
+  "issue_report",
+  "issue_photo",
+  "issue_history",
 ] as const;
 
 /**

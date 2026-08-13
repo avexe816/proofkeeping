@@ -22,6 +22,8 @@ import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
 import evidence from "./routes/api/v1/evidence.js";
 import files from "./routes/api/v1/files.js";
 import inspections from "./routes/api/v1/inspections.js";
+import issues from "./routes/api/v1/issues.js";
+import lostItems from "./routes/api/v1/lostItems.js";
 import organization from "./routes/api/v1/organization.js";
 import properties from "./routes/api/v1/properties.js";
 import reworks from "./routes/api/v1/reworks.js";
@@ -138,6 +140,12 @@ api.route("/reworks", reworks);
 // 証跡は業務操作の副産物としてサーバーが書く（`contracts/evidence.ts`）。
 // ここにあるのは一覧・詳細・整合性確認・ZIP 出力の 4 つ。
 api.route("/evidence", evidence);
+// 忘れ物（P2-11 / PK-SPEC-P2 §7・§14.3）。**持ち主の情報を受け取る口が無い。**
+// `CLEANER` の絞り（自分の登録だけ・保管場所を伏せる）は `lib/report/lostItem.ts`。
+api.route("/lost-items", lostItems);
+// 設備不具合（P2-12 / 同 §8・§14.3）。**`CRITICAL` だけが客室を止める。**
+// 解決しても客室は自動復旧しない（§8.3）。
+api.route("/issues", issues);
 api.route("/room-plans", roomPlans);
 // 客室タイプ（P1-24 / W-25）。**物理削除の口が無い**（無効化のみ）。
 api.route("/room-types", roomTypes);

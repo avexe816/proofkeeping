@@ -264,6 +264,44 @@ export {
   type SnapshotVerificationResult,
 } from "./evidence.js";
 
+// 忘れ物・設備不具合（P2-11 / P2-12 / 同 §7・§8・§14.3）。
+// **持ち主に関する入力欄が 1 つも無い**（security.md §3）。
+export {
+  ISSUE_CATEGORIES,
+  ISSUE_ERRORS,
+  ISSUE_SEVERITIES,
+  ISSUE_STATUSES,
+  LOST_ITEM_CATEGORIES,
+  LOST_ITEM_ERRORS,
+  LOST_ITEM_STATUSES,
+  issueCategorySchema,
+  issueCreateRequestSchema,
+  issueReportSchema,
+  issueSeveritySchema,
+  issueStatusRequestSchema,
+  issueStatusSchema,
+  lostItemCategorySchema,
+  lostItemCreateRequestSchema,
+  lostItemSchema,
+  lostItemStatusRequestSchema,
+  lostItemStatusSchema,
+  type IssueCategoryValue,
+  type IssueCreateRequest,
+  type IssueError,
+  type IssueErrorCode,
+  type IssueReportSummary,
+  type IssueSeverityValue,
+  type IssueStatusRequest,
+  type IssueStatusValue,
+  type LostItemCategoryValue,
+  type LostItemCreateRequest,
+  type LostItemError,
+  type LostItemErrorCode,
+  type LostItemStatusRequest,
+  type LostItemStatusValue,
+  type LostItemSummary,
+} from "./report.js";
+
 // middleware 共通のエラー応答（P0-10）。**403 を足さないこと**（INV-31）。
 export {
   API_ERROR_CODES,

@@ -28,6 +28,7 @@ export {
 
 export {
   HOUSEKEEPING_STATUSES,
+  ROOM_SALE_STATUSES,
   ROOM_SOURCE_TYPES,
   building,
   floor,
@@ -35,6 +36,7 @@ export {
   room,
   roomType,
   type HousekeepingStatus,
+  type RoomSaleStatus,
 } from "./property.js";
 
 export {
@@ -109,6 +111,27 @@ export {
   type InspectionSkipReason,
   type ReworkStatus,
 } from "./inspection.js";
+
+// 忘れ物と設備不具合（P2-11 / P2-12 / PK-SPEC-P2 §3.5・§3.6・§7・§8）。
+// **宿泊者の情報を持つ列が 1 つも無い**（security.md §3）。
+export {
+  ISSUE_CATEGORIES,
+  ISSUE_SEVERITIES,
+  ISSUE_STATUSES,
+  LOST_ITEM_CATEGORIES,
+  LOST_ITEM_STATUSES,
+  issueHistory,
+  issuePhoto,
+  issueReport,
+  lostItem,
+  lostItemHistory,
+  lostItemPhoto,
+  type IssueCategory,
+  type IssueSeverity,
+  type IssueStatus,
+  type LostItemCategory,
+  type LostItemStatus,
+} from "./report.js";
 
 // 日次の施設別集計（P0-21）。施設サマリーはここだけを読む（§26 の絶対ルール）。
 export { dailyPropertyRollup } from "./rollup.js";

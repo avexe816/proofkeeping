@@ -45,6 +45,22 @@ export const HOUSEKEEPING_STATUSES = [
 export type HousekeepingStatus = (typeof HOUSEKEEPING_STATUSES)[number];
 
 /**
+ * 販売可否（PK-SPEC-P2 §8.2）。
+ *
+ * **清掃ステータスと別の軸。** `housekeepingStatus` は「清掃が終わったか」で、
+ * こちらは「売ってよいか」。§8.2 MUST は `CRITICAL` の不具合で
+ * `saleStatus = OUT_OF_ORDER` と `housekeepingStatus = BLOCKED` の
+ * **両方**を立てると定める。片方だけでは表せない
+ * （清掃は終わっているが漏水で売れない客室がありうる）。
+ *
+ * **`OUT_OF_ORDER` から戻すのは責任者の明示操作だけ**（§8.3。
+ * 不具合を閉じても自動復旧しない）。
+ */
+export const ROOM_SALE_STATUSES = ["AVAILABLE", "OUT_OF_ORDER"] as const;
+
+export type RoomSaleStatus = (typeof ROOM_SALE_STATUSES)[number];
+
+/**
  * 施設。
  *
  * `code` は清掃スタッフのログインで使う施設コード（security.md §2、
@@ -188,6 +204,15 @@ export const room = sqliteTable(
     housekeepingStatus: text("housekeeping_status", { enum: HOUSEKEEPING_STATUSES })
       .notNull()
       .default("DIRTY"),
+    /**
+     * 販売可否（PK-SPEC-P2 §8.2）。**既定は `AVAILABLE`。**
+     *
+     * `CRITICAL` の不具合報告（P2-12）だけが自動で `OUT_OF_ORDER` にする。
+     * **戻すのは責任者の明示操作**（§8.3）。列を後から足したので、
+     * P2-12 より前に作られた客室はすべて `AVAILABLE` で始まる
+     * （販売可の側＝既存の挙動と同じ）。
+     */
+    saleStatus: text("sale_status", { enum: ROOM_SALE_STATUSES }).notNull().default("AVAILABLE"),
     /** 登録経路。PMS からの取得で既存を自動上書きしない（同 §24.4）。 */
     sourceType: text("source_type", { enum: ROOM_SOURCE_TYPES }).notNull().default("MANUAL"),
     /** PMS 側の ID（方式B・P6 用）。P0 では書き込まない。 */
