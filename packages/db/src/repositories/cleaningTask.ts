@@ -18,6 +18,7 @@ import { eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
+import { chunkIdsForInArray } from "../limits.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import type { InspectionResult, InspectionSkipReason } from "../schema/inspection.js";
 import {
@@ -32,6 +33,14 @@ import {
 } from "../schema/task.js";
 
 import { withTenantScope } from "./base.js";
+
+/**
+ * `assignTasks()` がタスク ID 以外に使うバインド変数の見込み。
+ *
+ * `SET` 句（3〜4 個）+ 状態の `inArray`（最大 4 個）+ 組織条件 +
+ * 施設スコープ（15 件まで）。**多めに取る**（境界だけが落ちる形を避ける）。
+ */
+const ASSIGN_RESERVED_PARAMS = 28;
 
 /** `listTasks()` の絞り込み。未指定の項目は条件に加えない。 */
 export interface TaskFilter {
@@ -684,44 +693,53 @@ export async function assignTasks(
   if (taskIds.length === 0) return 0;
 
   const db = await getTenantDb(env, ctx);
-  const result = await db
-    .update(cleaningTask)
-    .set({
-      assigneeId,
-      assignedAt: assigneeId === null ? null : ctx.now,
-      status: assigneeId === null ? "CREATED" : "ASSIGNED",
-      updatedAt: ctx.now,
-    })
-    .where(
-      withTenantScope(
-        cleaningTask,
-        ctx,
-        cleaningTask.propertyId,
-        inArray(cleaningTask.id, [...taskIds]),
-        inArray(cleaningTask.status, ["CREATED", "ASSIGNED"]),
-      ),
-    );
 
-  if (options.includeActive !== true) return result.meta.changes;
+  // **D1 は 1 文 100 変数まで**（`limits.ts`）。W-04 の一括割当は
+  // その日のタスクを丸ごと渡してくる（`lib/task/assign.ts`）。
+  // `SET` 句・状態条件・組織条件のぶんを `reserved` に見込む。
+  let changed = 0;
+  for (const chunk of chunkIdsForInArray(taskIds, ASSIGN_RESERVED_PARAMS)) {
+    const result = await db
+      .update(cleaningTask)
+      .set({
+        assigneeId,
+        assignedAt: assigneeId === null ? null : ctx.now,
+        status: assigneeId === null ? "CREATED" : "ASSIGNED",
+        updatedAt: ctx.now,
+      })
+      .where(
+        withTenantScope(
+          cleaningTask,
+          ctx,
+          cleaningTask.propertyId,
+          inArray(cleaningTask.id, [...chunk]),
+          inArray(cleaningTask.status, ["CREATED", "ASSIGNED"]),
+        ),
+      );
+    changed += result.meta.changes;
 
-  // 作業中の引き継ぎ。**状態を含めずに担当だけを書く。**
-  const handover = await db
-    .update(cleaningTask)
-    .set({
-      assigneeId,
-      assignedAt: assigneeId === null ? null : ctx.now,
-      updatedAt: ctx.now,
-    })
-    .where(
-      withTenantScope(
-        cleaningTask,
-        ctx,
-        cleaningTask.propertyId,
-        inArray(cleaningTask.id, [...taskIds]),
-        inArray(cleaningTask.status, ["IN_PROGRESS", "PAUSED", "REWORK", "BLOCKED"]),
-      ),
-    );
-  return result.meta.changes + handover.meta.changes;
+    if (options.includeActive !== true) continue;
+
+    // 作業中の引き継ぎ。**状態を含めずに担当だけを書く。**
+    const handover = await db
+      .update(cleaningTask)
+      .set({
+        assigneeId,
+        assignedAt: assigneeId === null ? null : ctx.now,
+        updatedAt: ctx.now,
+      })
+      .where(
+        withTenantScope(
+          cleaningTask,
+          ctx,
+          cleaningTask.propertyId,
+          inArray(cleaningTask.id, [...chunk]),
+          inArray(cleaningTask.status, ["IN_PROGRESS", "PAUSED", "REWORK", "BLOCKED"]),
+        ),
+      );
+    changed += handover.meta.changes;
+  }
+  return changed;
 }
 
 /** 1 タスクの写真枚数を項目ごとに数える（`complete` の写真必須判定）。 */

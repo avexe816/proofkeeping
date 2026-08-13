@@ -14,10 +14,19 @@ import { count, eq, inArray } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
+import { chunkIdsForInArray } from "../limits.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import { floor, room, type HousekeepingStatus } from "../schema/property.js";
 
 import { withTenantScope } from "./base.js";
+
+/**
+ * `setHousekeepingStatus()` が客室 ID 以外に使うバインド変数の見込み。
+ *
+ * `SET` 句（`housekeepingStatus` / `updatedAt`）と組織条件・施設スコープ
+ * （15 件まで）を見込む。**多めに取る**（境界だけが落ちる形を避ける）。
+ */
+const SET_HOUSEKEEPING_RESERVED_PARAMS = 20;
 
 /** `listRooms()` の絞り込み。未指定の項目は条件に加えない。 */
 export interface RoomFilter {
@@ -180,11 +189,19 @@ export async function setHousekeepingStatus(
   if (roomIds.length === 0) return 0;
 
   const db = await getTenantDb(env, ctx);
-  const result = await db
-    .update(room)
-    .set({ housekeepingStatus: status, updatedAt: ctx.now })
-    .where(withTenantScope(room, ctx, room.propertyId, inArray(room.id, [...roomIds])));
-  return result.meta.changes;
+
+  // **D1 は 1 文 100 変数まで**（`limits.ts`）。タスクの自動生成は
+  // 施設の全客室ぶんの ID を渡してくる（`lib/task/generate.ts`）。
+  // `SET` 句が 1 変数（`updatedAt`）を使うぶんも `reserved` に含める。
+  let changed = 0;
+  for (const chunk of chunkIdsForInArray(roomIds, SET_HOUSEKEEPING_RESERVED_PARAMS)) {
+    const result = await db
+      .update(room)
+      .set({ housekeepingStatus: status, updatedAt: ctx.now })
+      .where(withTenantScope(room, ctx, room.propertyId, inArray(room.id, [...chunk])));
+    changed += result.meta.changes;
+  }
+  return changed;
 }
 
 /** `createRooms()` の 1 行ぶん。ID・組織・時刻は受け取らない。 */

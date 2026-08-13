@@ -17,6 +17,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
+import { chunkIdsForInArray } from "../limits.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import { taskPhoto, type PhotoKind } from "../schema/task.js";
 
@@ -66,14 +67,23 @@ export async function countPhotosByTask(
   for (const taskId of taskIds) assertIdBelongsToTenant(taskId, ctx);
 
   const db = await getTenantDb(env, ctx);
-  const rows = await db
-    .select({ taskId: taskPhoto.taskId, count: sql<number>`count(*)` })
-    .from(taskPhoto)
-    .where(
-      withTenantScope(taskPhoto, ctx, taskPhoto.propertyId, inArray(taskPhoto.taskId, [...taskIds])),
-    )
-    .groupBy(taskPhoto.taskId);
-  return new Map(rows.map((row) => [row.taskId, row.count]));
+
+  // **D1 は 1 文 100 変数まで**（`limits.ts`）。100 室の盤面（W-03 / M-10）は
+  // タスク ID を 100 件渡してくるので、1 文で流すと必ず落ちる。
+  const counts = new Map<string, number>();
+  for (const chunk of chunkIdsForInArray(taskIds)) {
+    const rows = await db
+      .select({ taskId: taskPhoto.taskId, count: sql<number>`count(*)` })
+      .from(taskPhoto)
+      .where(
+        withTenantScope(taskPhoto, ctx, taskPhoto.propertyId, inArray(taskPhoto.taskId, [...chunk])),
+      )
+      .groupBy(taskPhoto.taskId);
+    // 塊はタスク ID で重ならない（呼び出し側の並びを割っただけ）ので、
+    // **足し合わせずに置く。**
+    for (const row of rows) counts.set(row.taskId, row.count);
+  }
+  return counts;
 }
 
 /** `clientId` で 1 件引く（§7.5 の冪等性）。 */

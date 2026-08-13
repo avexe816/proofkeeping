@@ -17,6 +17,14 @@ export {
 // **アプリケーションコードは db から直に select しない。ここを通す。**
 export * from "./repositories/index.js";
 
+// D1 の 1 文あたりバインド変数上限（100）と、それに収める分割。
+// **「SQLite の 999」で分割の大きさを決めないこと**（limits.ts の注記）。
+export {
+  D1_MAX_BOUND_PARAMS,
+  chunkByParamBudget,
+  chunkIdsForInArray,
+} from "./limits.js";
+
 // ID 採番（P0-05）。テナント分離の第 2 層。ID を受け取ったら DB 問い合わせ前に
 // `assertIdBelongsToTenant()` を通すこと（一元化は P0-10 の withResourceGuard）。
 export {
