@@ -1332,3 +1332,36 @@
   常に重複扱いになることが分かった。
 - 影響: `packages/db/src/test-support/fake-d1.ts`。既存 1615 件は緑のまま
   （どのテストも `changes` の値に依存していなかった）。
+
+## #058 セッションを使う spec で `Date` を止める（時限式の CI 赤を直した）
+- 日付: 2026-08-13
+- 状態: 採用（**P1-24 の範囲外。CI が赤いまま放置できないため直した**）
+- 背景: PR #23 の `test` ジョブが 64 件落ちた。**P1-24 の変更とは無関係。**
+  `createSession()` はテストが渡す `NOW`（`2026-08-12T09:00:00Z`）から
+  12 時間で `expiresAt` を切るが、**middleware は実時刻で失効を判定する**
+  （`middleware/session.ts` の `const now = new Date()`）。
+  実時刻が `NOW + 12h`（2026-08-12T21:00Z）を過ぎた瞬間から、
+  セッションを作る spec が**全件 401** になる。
+  **時限式で、誰も何も変えていないのに赤くなる。**
+- 決定: 対象 7 ファイルで `vi.useFakeTimers({ toFake: ["Date"] })` +
+  `vi.setSystemTime(NOW)` を `beforeAll` に置き、`afterAll` で戻す。
+  - `apps/web/src/routes/api/v1/{tasks,roomTypes,session,organization}.spec.ts`
+  - `apps/web/src/middleware/{index,session,tenant}.spec.ts`
+- 理由:
+  ① **`toFake: ["Date"]` に限る。** タイマーごと差し替えると
+     `await` が進まなくなる（vitest の fake timers は既定で
+     `setTimeout` も奪う）。止めたいのは時計だけ。
+  ② `NOW` を実時刻から相対に変える案は採らなかった。業務日
+     （`businessDate`）の期待値が `NOW` に固定されており、
+     相対にすると日付をまたぐ実行で別の形で不安定になる。
+  ③ `apps/web/src/lib/auth/session.spec.ts` は変えていない。
+     あちらは `readSession(env, value, now)` と**毎回 `now` を渡して**
+     おり、実時刻に依存していない。失効の境界そのものを検査する
+     spec なので、時計を止めるとテストの意味が消える。
+- **CLAUDE.md §1.4（task に無いことを実装しない）との関係**: これは
+  production の挙動を一切変えない**テストの書き方**の修正で、
+  workflow.md §7「止まらなくてよいこと」の「テストの書き方・粒度」
+  「挙動を変えない範囲のリファクタリング」に当たると判断した。
+  放置すると P1-24 に限らず**以後すべての PR が赤いまま**になる。
+- 影響: spec 7 ファイル。production コードの変更なし。
+  **`createSession()` を使う spec を新しく書く task は同じ 2 行を置くこと。**
