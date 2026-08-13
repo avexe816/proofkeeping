@@ -95,7 +95,9 @@ describe("ENTITY_PREFIXES", () => {
     // 次:   P0-08 の password_history（docs/DECISIONS.md #018）。
     // 次:   P1-01 の 7 テーブル分（docs/DECISIONS.md #032）。
     // 次:   P2-01 の 4 テーブル分（docs/DECISIONS.md #059）。
-    // 末尾: P2-14 の日報（docs/DECISIONS.md #083）。
+    // 次:   P2-14 の日報（docs/DECISIONS.md #083）。
+    // 末尾: P3-01 の 5 テーブル分（docs/DECISIONS.md #092）。
+    //       `obs`（roomObservation）は仕様書由来なので前半にある。
     //       `insp` / `evd` は仕様書由来なので前半にある。
     //
     // **並びと綴りを変えないこと。** ID は永続データなので、
@@ -138,6 +140,11 @@ describe("ENTITY_PREFIXES", () => {
       "ipho",
       "rwk",
       "rpt",
+      "orev",
+      "linen",
+      "bsln",
+      "ocfg",
+      "bxcl",
     ]);
   });
 

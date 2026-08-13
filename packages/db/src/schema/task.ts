@@ -158,6 +158,23 @@ export const cleaningTask = sqliteTable(
     completedAt: integer("completed_at", { mode: "timestamp_ms" }),
     cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
     ...timestamps,
+    // ── P3-01 で足した列。**末尾に置くこと。**  ─────────────
+    // 既存の列の間に挿し込むと、`SELECT *` の並びを前提にした
+    // fake D1 の行（`apps/web` の spec）が 1 つずつずれる。
+    // 物理的にも ALTER TABLE は末尾に足すので、宣言順と一致させる。
+    /**
+     * 入室時の観察記録を「今回は記録しない」で飛ばした（PK-SPEC-P3 §2.7 / §1.3）。
+     *
+     * **未記録を責めるための列ではない。** 理由も聞かない（§1.3 MUST）。
+     * 未記録のタスクは P4 の照合対象から外れるため、その事実だけを残す。
+     * 施設ごとの未記録率が `observationConfig.skipWarnThreshold` を超えたら
+     * W-22 が施設単位で警告する（個人単位では出さない / security.md §5）。
+     */
+    observationSkipped: integer("observation_skipped", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    /** 観察記録を確定した時刻。`roomObservation.recordedAt` の写し。 */
+    observationRecordedAt: integer("observation_recorded_at", { mode: "timestamp_ms" }),
   },
   (t) => [
     // §2.2「同一客室・同一業務日・同一種別のタスクは 1 件しか作らない」。

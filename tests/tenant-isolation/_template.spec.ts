@@ -91,6 +91,13 @@ const TENANT_TABLES = [
   "issue_history",
   // P2-14。日報（同 §9.4）。**発行済み帳票。**
   "daily_report",
+  // P3-01。観察記録・リネン・ベースライン（PK-SPEC-P3 §2）。
+  "room_observation",
+  "observation_revision",
+  "linen_record",
+  "consumption_baseline",
+  "observation_config",
+  "baseline_exclusion_log",
 ] as const;
 
 /**
@@ -117,6 +124,15 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   // `inspection` / `inspection_item_result` / `inspection_photo` /
   // `rework_cycle` は P2-04 が関数を作り、inspection.spec.ts でカバーした。
   // `evidence_snapshot` は P2-08 が読み取り関数を足し、同じ spec でカバーした。
+  //
+  // P3-01 も表と migration までの task（P2-01 と同じ形）。読み書きの関数を
+  // 作る task が spec を足してこの行を消す。**表だけ足して放置しないこと。**
+  room_observation: "P3-01 は表のみ。読み書きは P3-03（M-05）が作る",
+  observation_revision: "P3-01 は表のみ。事後修正は P3-07 が作る",
+  linen_record: "P3-01 は表のみ。読み書きは P3-06（M-06）が作る",
+  consumption_baseline: "P3-01 は表のみ。読み書きは P3-09 / P3-10 が作る",
+  observation_config: "P3-01 は表のみ。読み書きは P3-11（W-20）が作る",
+  baseline_exclusion_log: "P3-01 は表のみ。書き込みは P3-09、閲覧は P3-12（W-22）",
 };
 
 describe("同一シャードの組織ペア（fixtures/shard-pairs.ts）", () => {
