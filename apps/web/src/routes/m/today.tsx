@@ -43,7 +43,13 @@
 import type { MyDayGroup, MyDayResponse, TaskSummary } from "@pk/contracts";
 import { lastWorkedPropertyId, type MyDayFilter, type TaskStatusValue } from "@pk/engine";
 import { useEffect, useRef, useState } from "react";
-import { Link, redirect, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import {
+  Link,
+  redirect,
+  useLoaderData,
+  useNavigate,
+  type LoaderFunctionArgs,
+} from "react-router";
 
 import { businessDateOf } from "../../lib/businessDate.js";
 import { createTranslator, type Locale, type MessageKey } from "../../lib/i18n.js";
@@ -126,6 +132,8 @@ export default function TodayRoute(): React.ReactElement {
   const t = createTranslator(data.locale);
   const { refresh, refreshing } = useAutoRefresh(REFRESH_INTERVAL_MS);
   const queue = useOfflineQueue();
+  // 開始した直後に M-05 へ進むために使う（PK-SPEC-P3 §3.2 MUST）。
+  const navigate = useNavigate();
 
   const [day, setDay] = useState<MyDayResponse>(data.day);
   /** キャッシュから描いているか（§19.7 の「取得時刻を明示」）。 */
@@ -201,6 +209,13 @@ export default function TodayRoute(): React.ReactElement {
    */
   const [justStartedPropertyId, setJustStartedPropertyId] = useState<string | null>(null);
 
+  /**
+   * 開始（§5.3）。**開始したら観察記録の画面へ進む**（PK-SPEC-P3 §3.2 MUST）。
+   *
+   * 観察は「清掃前の状態」の記録なので、清掃後に入力させると値が変わって
+   * データとして無意味になる。M-05 の側に「今回は記録しない」があるため、
+   * ここで分岐を作らない（記録するかどうかは向こうで決める）。
+   */
   const start = (task: TaskSummary): void => {
     void (async () => {
       const item = await enqueueJson({ url: `/api/v1/tasks/${task.taskId}/start`, body: {} });
@@ -211,6 +226,7 @@ export default function TodayRoute(): React.ReactElement {
       setJustStartedPropertyId(task.propertyId);
       await flushQueue();
       refresh();
+      await navigate(`/m/task/${task.taskId}/observation`);
     })();
   };
 

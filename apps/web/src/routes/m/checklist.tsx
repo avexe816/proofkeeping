@@ -37,6 +37,7 @@ import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import { assertPermission, propertyTarget } from "../../lib/auth/permission.js";
 import { createTranslator, type Locale, type MessageKey } from "../../lib/i18n.js";
 import { requireMobileContext } from "../../lib/mobile/session.js";
+import { resolveObservationConfig } from "../../lib/observation/config.js";
 import { enqueueJson, flushQueue } from "../../lib/offline/queue.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 
@@ -64,6 +65,13 @@ export interface ChecklistData {
   taskId: string;
   roomNumber: string;
   items: ChecklistItemView[];
+  /**
+   * 退室前のリネン記録を出す施設か（PK-SPEC-P3 §4.3 / P3-06）。
+   *
+   * **チェックリストを終えてから出す。** M-06 は「退室前」の記録で、
+   * 清掃の途中に出すと数える対象がまだ部屋にある。
+   */
+  requireLinen: boolean;
 }
 
 export async function loader({
@@ -80,10 +88,11 @@ export async function loader({
   if (task === undefined) throw new Response(null, { status: 404 });
   assertPermission(tenant, "task.read", propertyTarget([task.propertyId]));
 
-  const [results, photoCounts, room] = await Promise.all([
+  const [results, photoCounts, room, observationConfig] = await Promise.all([
     listChecklistResults(env, tenant, taskId),
     countPhotosByChecklistItem(env, tenant, taskId),
     findRoomById(env, tenant, task.roomId),
+    resolveObservationConfig(env, tenant, task.propertyId),
   ]);
   const items = await listTemplateItems(env, tenant, [
     ...new Set(results.map((row) => row.itemId)),
@@ -95,6 +104,7 @@ export async function loader({
     locale,
     taskId,
     roomNumber: room?.roomNumber ?? "",
+    requireLinen: observationConfig.requireLinen,
     items: results
       .map((row) => {
         const item = itemById.get(row.itemId);
@@ -233,6 +243,14 @@ export default function ChecklistRoute(): React.ReactElement {
         )}
 
         <p className="pk-m-note">{t("m.checklist.hint")}</p>
+
+        {/* M-06（PK-SPEC-P3 §4.3）。**必須項目が片付いてから出す。**
+            `requireLinen = false` の施設には出さない。 */}
+        {data.requireLinen && requiredRemaining === 0 ? (
+          <Link className="pk-m-button" to={`/m/task/${data.taskId}/linen`}>
+            {t("m.linen.title")}
+          </Link>
+        ) : null}
 
         <Link className="pk-m-button pk-m-button--secondary" to={`/m/task/${data.taskId}`}>
           {t("m.checklist.back")}

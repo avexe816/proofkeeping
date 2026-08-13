@@ -127,11 +127,10 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   //
   // P3-01 も表と migration までの task（P2-01 と同じ形）。読み書きの関数を
   // 作る task が spec を足してこの行を消す。**表だけ足して放置しないこと。**
-  room_observation: "P3-01 は表のみ。読み書きは P3-03（M-05）が作る",
-  observation_revision: "P3-01 は表のみ。事後修正は P3-07 が作る",
-  linen_record: "P3-01 は表のみ。読み書きは P3-06（M-06）が作る",
+  // `room_observation` / `observation_revision` / `linen_record` /
+  // `observation_config` は P3-03〜P3-07 / P3-11 が関数を作り、
+  // observation.spec.ts でカバーした。
   consumption_baseline: "P3-01 は表のみ。読み書きは P3-09 / P3-10 が作る",
-  observation_config: "P3-01 は表のみ。読み書きは P3-11（W-20）が作る",
   baseline_exclusion_log: "P3-01 は表のみ。書き込みは P3-09、閲覧は P3-12（W-22）",
 };
 

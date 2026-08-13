@@ -30,6 +30,7 @@ import organization from "./routes/api/v1/organization.js";
 import properties from "./routes/api/v1/properties.js";
 import reworks from "./routes/api/v1/reworks.js";
 import reports from "./routes/api/v1/reports.js";
+import observations from "./routes/api/v1/observations.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
 import session from "./routes/api/v1/session.js";
@@ -153,6 +154,9 @@ api.route("/issues", issues);
 // 生成は必ず Queue を通る（`consumers/dailyReport.ts`）。
 api.route("/reports", reports);
 api.route("/room-plans", roomPlans);
+// 観察記録（P3-03〜P3-07 / PK-SPEC-P3 §7）。**削除の口が無い。**
+// 記録・スキップはタスク側（`/tasks/:id/observation`）。ここは一覧と事後修正。
+api.route("/observations", observations);
 // 客室タイプ（P1-24 / W-25）。**物理削除の口が無い**（無効化のみ）。
 api.route("/room-types", roomTypes);
 // 標準時間マスタ（P1-02 / W-17）。

@@ -36,11 +36,16 @@ import {
   checklistResultUpdateRequestSchema,
   inspectionOverrideRequestSchema,
   inspectionStartRequestSchema,
+  linenUpsertRequestSchema,
+  observationSkipRequestSchema,
+  observationUpsertRequestSchema,
   photoUploadMetaSchema,
   taskActionSchema,
   taskGenerateRequestSchema,
   taskTransitionRequestSchema,
   type InspectionError,
+  type ObservationError,
+  type ObservationUpsertResponse,
   type PhotoError,
   type TaskChecklistResponse,
   type TaskError,
@@ -71,6 +76,12 @@ import { businessDateOf } from "../../../lib/businessDate.js";
 import { verifyTaskEvidence } from "../../../lib/evidence/verify.js";
 import { overrideInspection } from "../../../lib/inspection/override.js";
 import { startInspection } from "../../../lib/inspection/start.js";
+import { buildLinenResponse, recordLinen } from "../../../lib/observation/linen.js";
+import {
+  buildObservationDetail,
+  recordObservation,
+  skipObservationForTask,
+} from "../../../lib/observation/record.js";
 import { uploadPhoto } from "../../../lib/photo/upload.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { generateTasksForProperty } from "../../../lib/task/generate.js";
@@ -392,6 +403,116 @@ tasks.get("/:taskId/evidence/verify", async (c) => {
   assertPermission(ctx, "task.read", propertyTarget([task.propertyId]));
 
   return c.json(await verifyTaskEvidence(c.env, ctx, task.id));
+});
+
+/**
+ * 入室時の観察記録（PK-SPEC-P3 §7）。
+ *
+ * ```
+ * GET  /api/v1/tasks/:taskId/observation        既定値と施設設定も返す
+ * PUT  /api/v1/tasks/:taskId/observation        冪等。上書き可
+ * POST /api/v1/tasks/:taskId/observation/skip   「今回は記録しない」
+ * GET  /api/v1/tasks/:taskId/linen
+ * PUT  /api/v1/tasks/:taskId/linen              配列で一括
+ * ```
+ *
+ * **`/:taskId/:action`（2 区間）より前に登録すること**（冒頭の「登録の順序」）。
+ * `observation` は 2 区間で、後ろに置くと `action = "observation"` として
+ * 吸われる。
+ */
+tasks.get("/:taskId/observation", async (c) => {
+  const ctx = getTenant(c);
+  const task = await findTaskById(c.env, ctx, c.req.param("taskId"));
+  if (task === undefined) return c.notFound();
+  assertPermission(ctx, "observation.read", propertyTarget([task.propertyId]));
+
+  return c.json(await buildObservationDetail(c.env, ctx, task));
+});
+
+/**
+ * 観察の記録（M-05 / M-05b）。**冪等**（§7 MUST）。
+ *
+ * オフラインキューは同じ `Idempotency-Key` で再送する。2 回目は
+ * 何も変えずに 200 を返す（`unchanged: true`）。
+ */
+tasks.put("/:taskId/observation", async (c) => {
+  const body = observationUpsertRequestSchema.safeParse(await readJson(c.req.raw));
+  if (!body.success) {
+    return c.json({ error: "INVALID_REQUEST" } satisfies ObservationError, 400);
+  }
+
+  const ctx = getTenant(c);
+  const task = await findTaskById(c.env, ctx, c.req.param("taskId"));
+  if (task === undefined) return c.notFound();
+  assertPermission(ctx, "observation.write", propertyTarget([task.propertyId]));
+
+  const outcome = await recordObservation(c.env, ctx, task, {
+    ...body.data,
+    recordedById: getSession(c).membershipId,
+    idempotencyKey: c.req.header("Idempotency-Key"),
+  });
+  if (outcome.kind === "REJECTED") {
+    // **409 にしない。** 409 はキューが「処理済」として捨てる
+    // （`lib/observation/linen.ts` の注記と同じ理由）。
+    return c.json({ error: outcome.error } satisfies ObservationError, 400);
+  }
+
+  const detail = await buildObservationDetail(c.env, ctx, task);
+  const response: ObservationUpsertResponse = {
+    data: detail.data,
+    unchanged: outcome.unchanged,
+  };
+  return c.json(response);
+});
+
+/** 「今回は記録しない」（§1.3 MUST）。**理由を受け取らない。** */
+tasks.post("/:taskId/observation/skip", async (c) => {
+  const body = observationSkipRequestSchema.safeParse((await readJson(c.req.raw)) ?? {});
+  if (!body.success) {
+    return c.json({ error: "INVALID_REQUEST" } satisfies ObservationError, 400);
+  }
+
+  const ctx = getTenant(c);
+  const task = await findTaskById(c.env, ctx, c.req.param("taskId"));
+  if (task === undefined) return c.notFound();
+  assertPermission(ctx, "observation.write", propertyTarget([task.propertyId]));
+
+  const result = await skipObservationForTask(c.env, ctx, task);
+  const response: ObservationUpsertResponse = { data: null, unchanged: result.unchanged };
+  return c.json(response);
+});
+
+/** 退室前のリネン枚数（M-06 / §4.3）。 */
+tasks.get("/:taskId/linen", async (c) => {
+  const ctx = getTenant(c);
+  const task = await findTaskById(c.env, ctx, c.req.param("taskId"));
+  if (task === undefined) return c.notFound();
+  assertPermission(ctx, "observation.read", propertyTarget([task.propertyId]));
+
+  return c.json(await buildLinenResponse(c.env, ctx, task));
+});
+
+/** リネン枚数の記録。**破損・汚損には写真 1 枚が要る**（§4.3 MUST）。 */
+tasks.put("/:taskId/linen", async (c) => {
+  const body = linenUpsertRequestSchema.safeParse(await readJson(c.req.raw));
+  if (!body.success) {
+    return c.json({ error: "INVALID_REQUEST" } satisfies ObservationError, 400);
+  }
+
+  const ctx = getTenant(c);
+  const task = await findTaskById(c.env, ctx, c.req.param("taskId"));
+  if (task === undefined) return c.notFound();
+  assertPermission(ctx, "observation.write", propertyTarget([task.propertyId]));
+
+  const outcome = await recordLinen(c.env, ctx, task, {
+    entries: body.data.entries,
+    recordedById: getSession(c).membershipId,
+  });
+  if (outcome.kind === "REJECTED") {
+    return c.json({ error: outcome.error } satisfies ObservationError, 400);
+  }
+
+  return c.json(await buildLinenResponse(c.env, ctx, task));
 });
 
 /**

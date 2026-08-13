@@ -294,6 +294,15 @@ export default function TaskDetailRoute(): React.ReactElement {
           </span>
         </Link>
 
+        {/* M-05 入室時の記録（PK-SPEC-P3 §4.1 / P3-03）。**開始直後に自動で
+            開く画面への戻り道。** 「今回は記録しない」を押した後や、
+            入れ直したいときにここから入る（記録は上書きでき、旧値は
+            `observationRevision` に残る / 同 §2.1）。 */}
+        <Link className="pk-m-link" to={`/m/task/${data.taskId}/observation`}>
+          {t("m.obs.title")}
+          <span className="pk-m-link__count">›</span>
+        </Link>
+
         {/* M-13 報告（P2-13 / §11.5）。**忘れ物と不具合の入口はここだけ。**
             清掃中に見つけたものをその場で記録する導線で、作業の完了とは
             独立している（完了後も開ける）。 */}

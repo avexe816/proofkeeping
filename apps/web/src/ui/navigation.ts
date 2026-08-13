@@ -237,6 +237,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/settings/standard-times",
   },
+  // W-20 観察項目の設定（P3-11 / PK-SPEC-P3 §6.1）。担当ロールは `ORG_ADMIN`。
+  // **`scope` は `ORGANIZATION`**（上の 2 つと同じ理由）。設定の対象は
+  // 表示中の施設だが、到達できるロールは組織単位で決まる。
+  {
+    key: "nav.observationSettings",
+    section: "settings",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "observationConfig.write",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/settings/observation",
+  },
   // W-11 事業者・税務設定（P0-16）。**`PLATFORM`。** 登録番号の設定は
   // 請求モジュールの契約が無くても要る（未設定でも画面は成立する / P0-16）。
   {

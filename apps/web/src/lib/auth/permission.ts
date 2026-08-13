@@ -281,6 +281,45 @@ export const PERMISSION_ACTIONS = {
    * 誰でも押せる形にしない。
    */
   "dailyReport.generate": { write: true },
+  /**
+   * 観察記録の閲覧（M-05 / W-19 / PK-SPEC-P3 §2.1・§4.1）。
+   *
+   * **`CLEANER` / `INSPECTOR` を許す。** 入室時の記録は現場が入力するもので、
+   * 自分が入れた値を確認できないと入力し直しができない。一覧（W-19）で
+   * 他人のタスクが混ざるのは施設の記録として当然の範囲（担当施設に限る）。
+   *
+   * **差異レポート（`finding.read`）とは別物。** こちらは観察した数そのもので、
+   * 判定は P3 に存在しない（§0.2）。P4 が差異を作っても、その到達は
+   * `finding.read` が引き続き `CLEANER` / `INSPECTOR` に `DENY` を返す。
+   */
+  "observation.read": { write: false },
+  /**
+   * 観察記録・リネン記録の入力（§4.1・§4.3）。
+   *
+   * `task.write` と同じ並び。**記録するのは清掃した本人**で、
+   * `INSPECTOR` も自分が清掃したタスクでは入力しうる（§4.2 の例外と同じ位置）。
+   * `AUDITOR` は `DENY`（security.md §1「書き込み操作を一切できない」）。
+   */
+  "observation.write": { write: true },
+  /**
+   * 観察記録の事後修正（§2.2 MUST / P3-07）。**`PROPERTY_MANAGER` 以上。**
+   *
+   * `observation.write`（現場の入力）と分けてある。事後の書き換えは
+   * 「作業の記録」ではなく「後から数を直す」判断で、security.md §6 が
+   * 監査対象に挙げている操作（`observation.amended` / 理由必須）。
+   * **`VENDOR_ADMIN` は `DENY`。** 受託した清掃会社が自社の記録を後から
+   * 直せると、その記録が P4 の照合の根拠にならない。
+   */
+  "observation.amend": { write: true },
+  /**
+   * 施設ごとの観察項目の設定（W-20 / §2.6・§6.1）。
+   *
+   * §6.1 の担当ロールは `ORG_ADMIN`。**閲覧は施設責任者にも開く**
+   * （自分の施設で何が入力対象かを知らないと、未記録率の話ができない）。
+   */
+  "observationConfig.read": { write: false },
+  /** 同上の変更。§6.1 の担当ロールどおり `ORG_ADMIN` 以上のみ。 */
+  "observationConfig.write": { write: true },
 } as const satisfies Record<string, { write: boolean }>;
 
 /** `PERMISSION_ACTIONS` に載っている操作だけを許す型。 */
@@ -754,6 +793,55 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // ── P3-03〜P3-07 / P3-11 観察記録（PK-SPEC-P3 §2・§4・§6.1）──
+  // 現場が入力し、現場が自分の入れた値を見る。**判定はここに無い**（§0.2）。
+  "observation.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "ASSIGNED",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "ORG",
+  },
+  "observation.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "ASSIGNED",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "DENY",
+  },
+  // §2.2 MUST「事後修正は PROPERTY_MANAGER 以上のみ」。
+  "observation.amend": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  "observationConfig.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  // §6.1 の担当ロールは `ORG_ADMIN`。施設責任者は読むだけ。
+  "observationConfig.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
     INSPECTOR: "DENY",
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",

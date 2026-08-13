@@ -790,3 +790,30 @@ a.pk-nav:hover {
   font-size: 13px;
   border-bottom: 1px solid var(--line2);
 }
+
+/* ── W-20 観察項目の設定（PK-SPEC-P3 §2.6 / P3-11）──────── */
+
+.pk-fieldset {
+  padding: 12px 14px;
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.pk-fieldset legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+
+/* チェックは 1 行 1 項目。**並べて詰めない**（設定の取り違えを防ぐ）。 */
+.pk-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.pk-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}

@@ -80,6 +80,8 @@ describe("登録簿の不変条件", () => {
       "nav.roomTypes",
       "nav.checklists",
       "nav.standardTimes",
+      // P3-11 が足した W-20（観察項目の設定）。
+      "nav.observationSettings",
       "nav.taxProfile",
     ]);
   });

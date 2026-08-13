@@ -108,6 +108,14 @@ const EXPECTED: Record<PermissionAction, string> = {
   // 提出する側（`VENDOR_ADMIN`）は読めるが、版を増やすのは施設側の判断。
   "dailyReport.read": "OOA--AO",
   "dailyReport.generate": "OOA----",
+  // P3。観察記録（PK-SPEC-P3 §2.2・§6.1）。現場が入力し、現場が読む。
+  "observation.read": "OOAAAAO",
+  "observation.write": "OOAAAA-",
+  // §2.2 MUST「事後修正は PROPERTY_MANAGER 以上のみ」。
+  "observation.amend": "OOA----",
+  "observationConfig.read": "OOA---O",
+  // §6.1 の担当ロールは ORG_ADMIN。施設責任者は読むだけ。
+  "observationConfig.write": "OO-----",
 };
 
 const SYMBOL_TO_SCOPE: Record<string, PermissionScope> = {
