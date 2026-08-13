@@ -43,6 +43,10 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  * ── P1-24（P1 の後・P2 の前）───────────────────────────
  *   /app/settings/room-types      W-25 客室タイプ管理
  *
+ * ── P2-05 / P2-06 が足した検査の画面 ────────────────────
+ *   /m/inspections                M-08 検査待ち一覧
+ *   /m/inspection/:inspectionId   M-09 検査実施
+ *
  * 上の 3 画面が読む `room_type` に**書く経路が一つも無かった。** seed の
  * 無い組織では W-17 が 0 行、W-16 の第 3 階層が作れない状態だった。
  *
@@ -66,6 +70,8 @@ export default [
     route("m/task/:taskId/checklist", "routes/m/checklist.tsx"),
     route("m/board", "routes/m/board.tsx"),
     route("m/me", "routes/m/me.tsx"),
+    route("m/inspections", "routes/m/inspections.tsx"),
+    route("m/inspection/:inspectionId", "routes/m/inspection.tsx"),
   ]),
   layout("routes/app/layout.tsx", [
     route("app/dashboard", "routes/app/dashboard.tsx"),

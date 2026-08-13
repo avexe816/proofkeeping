@@ -161,6 +161,14 @@ export type InspectionItemUpdateRequest = z.infer<typeof inspectionItemUpdateReq
 /** 検査画面に出す項目 1 件。 */
 export const inspectionItemSchema = z.object({
   checklistItemId: z.string(),
+  /**
+   * 記録済みの `inspectionItemResult.id`。**まだ答えていなければ `null`。**
+   *
+   * 写真は項目の**結果**に紐づく（`inspectionPhoto.itemResultId`）ので、
+   * 不合格を記録してからでないとアップロードできない。画面はこの値が
+   * 埋まってからカメラを出す。
+   */
+  itemResultId: z.string().nullable(),
   section: z.string(),
   labels: z.record(z.string(), z.string()),
   /** **未選択は `null`。** 既定値を持たせない（§4.3）。 */
@@ -236,6 +244,59 @@ export const inspectionCompleteResponseSchema = z.object({
 });
 
 export type InspectionCompleteResponse = z.infer<typeof inspectionCompleteResponseSchema>;
+
+// ────────────────────────────────────────────────────────────
+// 検査待ち一覧（§5.2 / §5.3 / §11.2 / P2-05）
+// ────────────────────────────────────────────────────────────
+
+/** 一覧の行の強さ。`packages/engine` の `INSPECTION_QUEUE_TONES` と同じ並び。 */
+export const INSPECTION_QUEUE_TONES = ["URGENT", "OVER_SLA", "NORMAL"] as const;
+
+export const inspectionQueueToneSchema = z.enum(INSPECTION_QUEUE_TONES);
+
+export type InspectionQueueToneValue = (typeof INSPECTION_QUEUE_TONES)[number];
+
+/**
+ * 検査待ちの 1 件（M-08）。
+ *
+ * **清掃担当者の名前を持たせない。** §11.2 のワイヤーは「清掃: 田中」を
+ * 出しているが、`ui-prototypes/mobile/pk-13-inspection.html` の設計意図は
+ * 「検査結果を入力するまで清掃員の名前を表示しない」（名前が判断に効く）。
+ * 一覧は名前を持たず、確定後に M-09 の履歴から辿れる形にした
+ * （OPEN_QUESTIONS #046）。
+ */
+export const inspectionWaitingItemSchema = z.object({
+  taskId: z.string(),
+  roomNumber: z.string(),
+  tone: inspectionQueueToneSchema,
+  /** 清掃完了からの経過（分）。 */
+  waitedMinutes: z.number().int().min(0),
+  /** チェックインまでの残り（分）。予定が無ければ `null`。 */
+  minutesToCheckIn: z.number().int().nullable(),
+  /** 施設の目安（`propertyInspectionPolicy.inspectionSlaMinutes`）。 */
+  slaMinutes: z.number().int().min(0),
+  isOverSla: z.boolean(),
+  isRecheck: z.boolean(),
+  /** これから始まる検査のラウンド（`currentInspectionRound + 1`）。 */
+  nextRound: z.number().int().min(1),
+  completedAt: z.number().int().nullable(),
+});
+
+export type InspectionWaitingItem = z.infer<typeof inspectionWaitingItemSchema>;
+
+/** `GET /api/v1/inspections/waiting?propertyId=&businessDate=`。 */
+export const inspectionWaitingResponseSchema = z.object({
+  businessDate: businessDateSchema,
+  summary: z.object({
+    total: z.number().int().min(0),
+    urgent: z.number().int().min(0),
+    overSla: z.number().int().min(0),
+    recheck: z.number().int().min(0),
+  }),
+  data: z.array(inspectionWaitingItemSchema),
+});
+
+export type InspectionWaitingResponse = z.infer<typeof inspectionWaitingResponseSchema>;
 
 // ────────────────────────────────────────────────────────────
 // 検査写真（§4.3 / §6.5）

@@ -1,66 +1,76 @@
 # 実装進捗
 
-最終更新: 2026-08-13（P2-04。**検査 API。画面はまだ無い**）
+最終更新: 2026-08-13（P2-05 / P2-06。**検査の画面 2 枚。差戻しは次**）
 
 ## 現在のセッション
 
 ```
-task: P2-04（検査 API）
-状態: 完了。**API だけ。画面（M-08 / M-09）は P2-05 / P2-06。**
+task: P2-05 / P2-06（Batch: 検査の画面）
+状態: 完了。**検査が現場で通しで回るようになった。** 差戻しの受け側は次。
 
-      経路 5 本
-        POST /api/v1/tasks/:taskId/inspection/start   §4.2（名は §14.1）
-        GET  /api/v1/inspections/:id                  M-09 が読む
-        PUT  /api/v1/inspections/:id/items            §4.3。**1 項目ずつ**
-        POST /api/v1/inspections/:id/photos           §4.3。multipart
-        POST /api/v1/inspections/:id/complete         §4.4 / §4.5
+      P2-05 M-08 検査待ち一覧
+           engine `inspectionQueue.ts`（22 テスト）が §11.2 の 4 段を持つ。
+           `GET /api/v1/inspections/waiting`。画面 `/m/inspections`。
+           下部タブに「検査」を追加（**`CLEANER` には出さない** / #070）。
+      P2-06 M-09 検査実施
+           画面 `/m/inspection/:inspectionId`。項目別の 3 値。
+           **未選択から始まり、「全て合格」は無い**（§11.3 の 2 つの MUST）。
+           不合格の写真は `input[type=file][capture]`（security.md §4）。
 
-      engine  `inspectionResult.ts`（41 テスト）
-              `aggregateResult()` の引数は**項目の並びだけ**。
-              全体を PASS に上書きする口が型として存在しない（§4.3 MUST）。
-              `evaluateSelfInspection()` が §4.2 の例外を 1 か所に閉じる。
-      db      `repositories/inspection.ts`（17 関数）。
-              確定した検査を書き換える関数を置いていない。
-      権限    `inspection.read` / `inspection.write` を追加。
-              **`CLEANER` は両方 DENY**（M-12 は P2-07 が別の絞りで作る）。
-      監査    `inspection.failed` と `inspection.selfApproved`（**理由必須**）。
-
-次: **P2-05 M-08 検査待ち一覧。** 依存（P2-04）は満たされている。
-    `GET /api/v1/inspections/waiting` はまだ無い。P2-05 が作る。
+次: **P2-07 差戻しと再清掃（M-12）。** 依存（P2-06）は満たされている。
+    `reworkCycle` は P2-04 が作っているが `OPEN` のまま溜まっている。
+    `POST /reworks/:id/{start,complete,waive}` がそれを進める。
 ```
 
---- この task で入れていないもの（意図的）---
-- **検査の画面が無い**（M-08 = P2-05 / M-09 = P2-06）。API だけ。
-- **`GET /inspections/waiting` が無い**（P2-05）。一覧の並び（緊急度・SLA）は
-  §11.2 の話で、画面と同じ task が持つほうがよい。
-- **`EvidenceSnapshot` を書かない**（P2-08）。§4.4 / §4.5 は
-  `INSPECTION_PASS` / `INSPECTION_FAIL` の証跡を要求するが、canonical JSON と
-  ハッシュ連鎖は P2-08 の担当。**証跡が無いまま検査が確定する期間がある**
-  （DECISIONS #066）。
-- **再清掃を進める API が無い**（P2-07）。`reworkCycle` は作るが
-  `OPEN` のまま溜まる（#067）。
+--- この Batch で入れていないもの（意図的）---
+- **M-12（再清掃の画面）が無い**（P2-07）。差戻された清掃員は M-02 に
+  `REWORK` のタスクを見るが、**どの項目がなぜ差し戻されたかを見る画面が
+  まだ無い。** §4.6「清掃者は差戻し項目だけを表示できる」は未達。
+- **`EvidenceSnapshot` を書かない**（P2-08）。
+- **W-03 の検査 SLA オレンジ表示**（§5.2 の 1 行目）は PC 側なので手付かず。
+  規則（`waitStateOf()`）は engine にあるので、W-03 を触る task が使える。
 
---- P2-04 からの申し送り ---
+--- P2-05 / P2-06 からの申し送り ---
+申し送り 1: **§5.3 の「緊急」が実データでは効かない**（OPEN_QUESTIONS #045）。
+            チェックイン予定時刻を持つ列がどこにも無い（`dailyRoomPlan` は
+            `hasCheckin` の真偽だけ、`property` に `checkInTime` は無い）。
+            規則は engine に実装済みで、`lib/inspection/waiting.ts` が
+            `checkInAtMs: null` を渡している。**列ができたら 1 行差す。**
+            `hasCheckin` を緊急に読み替えないこと（全件が緊急になる）。
+申し送り 2: **担当清掃者の名前を検査画面に出していない**（#046）。
+            §11.2 / §11.3 のワイヤーは「清掃: 田中」を描くが、
+            プロトタイプ pk-13 の設計意図（判断の前に名前を見せない）を
+            採った。API の応答にも `assigneeId` を載せていない。
+申し送り 3: **プロトタイプ pk-13 は §11.3 と別物**（#047）。部屋単位の二択で、
+            「24 時間後に自動で合格」まで書いてある（§2.3 が禁じている）。
+            **実装の参照に使わないこと。** 描き直すか `_archive/` へ移すかは
+            人間の判断待ち。
+申し送り 4: **検査の記録はオフラインキューに載せていない**（#068）。
+            清掃側（M-03 / M-04）とは送り方が違う。圏外では検査を始められず、
+            その旨をその場で出す。**同じ画面群だから同じ送り方、としない。**
+申し送り 5: **写真は項目の「結果」に紐づく。** 不合格を記録して
+            `itemResultId` が返ってからでないとアップロードできない。
+            M-09 は不合格を選んだ瞬間に記録を送ることでこの往復を隠している。
+            **順序を入れ替えると写真が送れない。**
+
+--- P2-04（検査 API）からの申し送り ---
 申し送り 1: **`reworkCycle` は作られるが進まない。** `status = OPEN` の行が
-            溜まる。タスク自体は P1 の `start`（`REWORK` → `IN_PROGRESS`）で
+            溜まる。タスクは P1 の `start`（`REWORK` → `IN_PROGRESS`）で
             再清掃を始められるが、**`reworkCycle.status` は追随しない。**
             P2-07 が `POST /reworks/:id/{start,complete,waive}` で繋ぐ。
-申し送り 2: **検査項目の行は「答えたときだけ」作られる。** 開始時に
-            既定値つきの行を並べていない（並べたら、それが「全 PASS で
-            初期化した検査」そのもの）。画面は `taskChecklistResult` の
-            並びに `inspectionItemResult` を重ねたものを受け取る。
-            **`status: null` が「まだ見ていない」。**
-申し送り 3: **写真は項目（`inspectionItemResult`）に紐づく。** 先に
-            `PUT /items` で FAIL を記録して `itemResultId` を得てから
-            アップロードする。**順序が要る。** M-09 はこの往復を
-            1 タップに見せること（不合格を選んだ瞬間に記録を送る）。
-申し送り 4: **検査写真に枚数の上限が無い。** 清掃写真は 20 枚
+申し送り 2: **検査項目の行は「答えたときだけ」作られる。** 開始時に既定値
+            つきの行を並べていない（並べたら、それが「全 PASS で初期化した
+            検査」そのもの）。**`status: null` が「まだ見ていない」。**
+申し送り 3: **検査写真に枚数の上限が無い。** 清掃写真は 20 枚
             （`MAX_PHOTOS_PER_TASK`）だが、検査側は仕様に記載が無いので
-            置いていない。大きさ（`MAX_PHOTO_BYTES`）と形式は同じ。
-申し送り 5: **`housekeepingStatusFor()` に `inspectionPass` /
+            置いていない。大きさと形式は同じ。
+申し送り 4: **`housekeepingStatusFor()` に `inspectionPass` /
             `inspectionFail` を足した。** 客室ステータスの表は
             `packages/engine/src/roomStatus.ts` の 1 か所のまま。
             検査の着地で客室を動かす経路を別に書かないこと。
+申し送り 5: **`EvidenceSnapshot` を書く経路はまだ無い**（P2-08）。
+            §4.4 / §4.5 は証跡を要求するが、**証跡が無いまま検査が
+            確定する期間がある**（DECISIONS #066）。
 
 --- 検査の要否まわりの申し送り ---
 申し送り 1: **`property.inspectionRequired`（P1）と
@@ -737,8 +747,8 @@ task: P0-07 リポジトリ層の雛形
 - [x] P2-02 検査ポリシーと抽出ロジック
 - [x] P2-03 InspectionLock（Durable Object）
 - [x] P2-04 検査 API
-- [ ] P2-05 M-08 検査待ち一覧
-- [ ] P2-06 M-09 検査実施
+- [x] P2-05 M-08 検査待ち一覧
+- [x] P2-06 M-09 検査実施
 - [ ] P2-07 差戻しと再清掃
 - [ ] P2-08 EvidenceSnapshot とハッシュ
 - [ ] P2-09 W-07 証跡詳細画面

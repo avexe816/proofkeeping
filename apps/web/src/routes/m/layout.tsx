@@ -14,13 +14,17 @@
  * └────────────────────────────┘
  * ```
  *
- * ── タブバーは 3 つだけ ─────────────────────────────────
+ * ── タブバーは最大 4 つ ─────────────────────────────────
  * プロトタイプ（pk-02）は下部に 4 つのタブ（タスク・検査・実績・設定）を
- * 描く。P1-17（M-11 実績）と P1-15（M-10 客室ボード）が揃ったので
- * **タスク・客室・実績の 3 つを置いた。** 検査は P2（M-08 / M-09）なので
- * まだ無い。**押しても何も起きないタブを置かないこと。**
+ * 描く。タスク・客室・実績が P1、**検査は P2-05 が足した。**
+ * **押しても何も起きないタブを置かないこと。**
  * 設定は独立したタブにせず、実績の画面に言語切替を置いた（§12.3 が
  * 「M-11 の設定画面から変更できる」と定めるため）。
+ *
+ * ── 検査タブはロールで出し分ける ────────────────────────
+ * `CLEANER` は `inspection.read` が DENY で、開いても 404 になる（P2-04）。
+ * **404 になるタブを見せない。** ただしこれは UX 上の措置であって権限制御
+ * ではない（security.md §1）。判定は画面側の `assertPermission()` が行う。
  *
  * ── 送信キューはここで 1 つだけ動かす ───────────────────
  * `useOfflineQueue()` は購読と 30 秒ポーリングを始める。**画面ごとに
@@ -35,6 +39,7 @@ import {
   type LoaderFunctionArgs,
 } from "react-router";
 
+import { can, propertyTarget } from "../../lib/auth/permission.js";
 import { createTranslator, type Locale, type MessageKey } from "../../lib/i18n.js";
 import { requireMobileContext } from "../../lib/mobile/session.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
@@ -48,11 +53,23 @@ export const links: LinksFunction = () => [{ rel: "stylesheet", href: mobileStyl
 export interface MobileShellData {
   locale: Locale;
   displayName: string;
+  /** 検査タブを出すか（`inspection.read` を持つロールだけ）。 */
+  canInspect: boolean;
 }
 
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<MobileShellData> {
-  const { locale, displayName } = await requireMobileContext(getEnv(context), request, new Date());
-  return { locale, displayName };
+  const { locale, displayName, tenant } = await requireMobileContext(
+    getEnv(context),
+    request,
+    new Date(),
+  );
+  return {
+    locale,
+    displayName,
+    // `can()` は throw しない版。**これで分岐したからといって画面側の
+    // `assertPermission()` を省かないこと**（security.md §1）。
+    canInspect: can(tenant, "inspection.read", propertyTarget(tenant.allowedPropertyIds)),
+  };
 }
 
 export default function MobileShell(): React.ReactElement {
@@ -68,7 +85,7 @@ export default function MobileShell(): React.ReactElement {
 
       {/* タップ領域 48px 以上（INV-25）。CSS は mobile.css の `.pk-m-tabs`。 */}
       <nav className="pk-m-tabs">
-        {MOBILE_TABS.map((tab) => (
+        {mobileTabs(data.canInspect).map((tab) => (
           <NavLink
             key={tab.to}
             to={tab.to}
@@ -87,11 +104,14 @@ export default function MobileShell(): React.ReactElement {
 /**
  * 下部タブ（`ui-prototypes/mobile/pk-02-today-tasks.html`）。
  *
- * **検査（P2 の M-08 / M-09）はまだ無い。** 画面ができた task がここへ
- * 1 行足すこと。到達先の無いタブを置かない。
+ * **到達先の無いタブを置かない。** 検査（M-08）は P2-05 が足した。
+ * 並びはプロトタイプどおり「タスク → 検査 → …」。
  */
-const MOBILE_TABS: readonly { to: string; key: MessageKey }[] = [
-  { to: "/m/today", key: "m.tab.tasks" },
-  { to: "/m/board", key: "m.tab.board" },
-  { to: "/m/me", key: "m.tab.me" },
-];
+function mobileTabs(canInspect: boolean): readonly { to: string; key: MessageKey }[] {
+  return [
+    { to: "/m/today", key: "m.tab.tasks" },
+    ...(canInspect ? [{ to: "/m/inspections", key: "m.tab.inspections" as MessageKey }] : []),
+    { to: "/m/board", key: "m.tab.board" },
+    { to: "/m/me", key: "m.tab.me" },
+  ];
+}

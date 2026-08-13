@@ -179,6 +179,7 @@ export {
   GENERAL_NOTE_MAX_LENGTH,
   INSPECTION_ERROR_CODES,
   INSPECTION_ITEM_STATUSES,
+  INSPECTION_QUEUE_TONES,
   INSPECTION_RESULTS,
   OVERRIDE_REASON_MAX_LENGTH,
   defectCodeSchema,
@@ -192,9 +193,12 @@ export {
   inspectionPhotoSchema,
   inspectionPhotoUploadMetaSchema,
   inspectionPhotoUploadResponseSchema,
+  inspectionQueueToneSchema,
   inspectionResultSchema,
   inspectionSchema,
   inspectionStartRequestSchema,
+  inspectionWaitingItemSchema,
+  inspectionWaitingResponseSchema,
   type DefectCodeValue,
   type Inspection,
   type InspectionCompleteRequest,
@@ -208,8 +212,11 @@ export {
   type InspectionPhoto,
   type InspectionPhotoUploadMeta,
   type InspectionPhotoUploadResponse,
+  type InspectionQueueToneValue,
   type InspectionResultValue,
   type InspectionStartRequest,
+  type InspectionWaitingItem,
+  type InspectionWaitingResponse,
 } from "./inspection.js";
 
 // middleware 共通のエラー応答（P0-10）。**403 を足さないこと**（INV-31）。
