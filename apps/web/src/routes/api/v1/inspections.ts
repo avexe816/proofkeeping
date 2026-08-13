@@ -50,6 +50,7 @@ import { assertPermission, propertyTarget } from "../../../lib/auth/permission.j
 import { businessDateOf } from "../../../lib/businessDate.js";
 import { completeInspectionUseCase } from "../../../lib/inspection/complete.js";
 import { listInspectionItems, toInspection } from "../../../lib/inspection/detail.js";
+import { buildStrandedList } from "../../../lib/inspection/stranded.js";
 import { buildWaitingList } from "../../../lib/inspection/waiting.js";
 import { uploadInspectionPhoto } from "../../../lib/photo/inspectionUpload.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
@@ -85,6 +86,29 @@ inspections.get("/waiting", async (c) => {
   assertPermission(ctx, "inspection.read", propertyTarget([propertyId]));
 
   return c.json(await buildWaitingList(c.env, ctx, propertyId, businessDate, getNow(c)));
+});
+
+/**
+ * 検査待ちのまま取り残されたタスク（§13.3 / P2-16）。
+ *
+ * ```
+ * GET /api/v1/inspections/stranded?propertyId=
+ * ```
+ *
+ * `waiting` と同じ理由で **`/:inspectionId` より前に登録する。**
+ * 業務日で絞らない。取り残しは古い日付に溜まる（`lib/inspection/stranded.ts`）。
+ */
+inspections.get("/stranded", async (c) => {
+  const ctx = getTenant(c);
+  const propertyId = c.req.query("propertyId");
+
+  if (propertyId === undefined) return c.json(invalidRequest(), 400);
+
+  // **読むだけなら検査の閲覧権限で足りる。** 上書きは別の権限
+  // （`inspection.emergencyOverride` / 施設責任者以上）。
+  assertPermission(ctx, "inspection.read", propertyTarget([propertyId]));
+
+  return c.json(await buildStrandedList(c.env, ctx, propertyId));
 });
 
 /** 検査 1 件（M-09 が読む）。**項目を必ず添える。** */

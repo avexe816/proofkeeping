@@ -177,6 +177,7 @@ export {
   DEFECT_CODES,
   DEFECT_NOTE_MAX_LENGTH,
   GENERAL_NOTE_MAX_LENGTH,
+  EMERGENCY_OVERRIDE_REASON_MAX_LENGTH,
   INSPECTION_ERROR_CODES,
   INSPECTION_ITEM_STATUSES,
   INSPECTION_QUEUE_TONES,
@@ -190,6 +191,8 @@ export {
   inspectionItemSchema,
   inspectionItemStatusSchema,
   inspectionItemUpdateRequestSchema,
+  inspectionOverrideRequestSchema,
+  inspectionOverrideResponseSchema,
   inspectionPhotoSchema,
   inspectionPhotoUploadMetaSchema,
   inspectionPhotoUploadResponseSchema,
@@ -199,6 +202,8 @@ export {
   inspectionStartRequestSchema,
   inspectionWaitingItemSchema,
   inspectionWaitingResponseSchema,
+  strandedTaskListResponseSchema,
+  strandedTaskSchema,
   type DefectCodeValue,
   type Inspection,
   type InspectionCompleteRequest,
@@ -209,6 +214,8 @@ export {
   type InspectionItem,
   type InspectionItemStatusValue,
   type InspectionItemUpdateRequest,
+  type InspectionOverrideRequest,
+  type InspectionOverrideResponse,
   type InspectionPhoto,
   type InspectionPhotoUploadMeta,
   type InspectionPhotoUploadResponse,
@@ -217,6 +224,8 @@ export {
   type InspectionStartRequest,
   type InspectionWaitingItem,
   type InspectionWaitingResponse,
+  type StrandedTask,
+  type StrandedTaskListResponse,
 } from "./inspection.js";
 
 // 差戻し・再清掃（P2-07 / 同 §4.5〜§4.7）。

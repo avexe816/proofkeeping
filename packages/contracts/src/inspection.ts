@@ -340,3 +340,63 @@ export const inspectionPhotoUploadResponseSchema = z.object({
 });
 
 export type InspectionPhotoUploadResponse = z.infer<typeof inspectionPhotoUploadResponseSchema>;
+
+// ────────────────────────────────────────────────────────────
+// 残存タスクの緊急上書き（§13.3 / P2-16）
+// ────────────────────────────────────────────────────────────
+
+/** 緊急上書きの理由の長さ。**下限 1 文字**（空文字を通さない）。 */
+export const EMERGENCY_OVERRIDE_REASON_MAX_LENGTH = 200;
+
+/**
+ * `POST /api/v1/tasks/:taskId/inspection/override`。
+ *
+ * §13.3「残存がある場合は `EMERGENCY_OVERRIDE` として完了させ、監査ログに
+ * 記録する」。**1 件ずつしか受け取らない。** 配列を受ける口を作ると、
+ * §13.1 で廃止した一括承認がそのまま復活する。
+ *
+ * `reason` は必須。理由コードの閉じた語彙にしていないのは、これが日常の
+ * 業務操作ではなく**移行の後始末**で、分布を集計する対象ではないため
+ * （差戻しの `defectCode` とはそこが違う）。
+ */
+export const inspectionOverrideRequestSchema = z.object({
+  reason: z.string().min(1).max(EMERGENCY_OVERRIDE_REASON_MAX_LENGTH),
+});
+
+export type InspectionOverrideRequest = z.infer<typeof inspectionOverrideRequestSchema>;
+
+export const inspectionOverrideResponseSchema = z.object({
+  taskId: z.string(),
+  status: z.literal("COMPLETED"),
+  /** 再送・処理済みで状態が動かなかったら `true`。 */
+  unchanged: z.boolean(),
+});
+
+export type InspectionOverrideResponse = z.infer<typeof inspectionOverrideResponseSchema>;
+
+/** 検査待ちのまま取り残されたタスク 1 件。 */
+export const strandedTaskSchema = z.object({
+  taskId: z.string(),
+  roomNumber: z.string(),
+  businessDate: businessDateSchema,
+  /** 清掃が完了した時刻（epoch ミリ秒）。**待ち時間の長さが判断材料になる。** */
+  completedAt: z.number().int().nullable(),
+  /** 完了した検査ラウンド数。0 なら一度も検査されていない。 */
+  completedRounds: z.number().int(),
+});
+
+export type StrandedTask = z.infer<typeof strandedTaskSchema>;
+
+/**
+ * `GET /api/v1/inspections/stranded?propertyId=`。
+ *
+ * 業務日で絞らない。**取り残しは古い日付にこそ溜まる**ので、
+ * M-08（`/waiting`）の「その日の検査待ち」では見つからない。
+ */
+export const strandedTaskListResponseSchema = z.object({
+  /** 施設の現在の検査方式。`NONE` なら、これらは二度と検査されない。 */
+  mode: z.enum(["ALL", "SAMPLE", "NONE"]),
+  data: z.array(strandedTaskSchema),
+});
+
+export type StrandedTaskListResponse = z.infer<typeof strandedTaskListResponseSchema>;

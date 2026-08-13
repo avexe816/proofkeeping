@@ -15,9 +15,11 @@ import { eq } from "drizzle-orm";
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
+import { propertyInspectionPolicy } from "../schema/inspection.js";
 import { property, roomType } from "../schema/property.js";
 
 import { withTenantScope } from "./base.js";
+import { legacyPolicyValues } from "./inspectionPolicy.js";
 
 /** `listProperties()` の絞り込み。 */
 export interface PropertyFilter {
@@ -245,19 +247,38 @@ export interface CreatePropertyInput {
   /** 日締め時刻 `HH:MM`。未指定なら列の既定（05:00 / architecture.md §7）。 */
   dayCutoffTime?: string | undefined;
   sortOrder?: number | undefined;
+  /**
+   * 検査を要求するか。未指定なら `false`（列の既定 / PK-SPEC-P1 §5.2）。
+   *
+   * **`propertyInspectionPolicy` の行もこの値から作られる**（下記）。
+   * 検査方式そのもの（`SAMPLE` の抽出率など）はここで受け取らない。
+   * 設定は W-02 から `upsertInspectionPolicy()` で行う。
+   */
+  inspectionRequired?: boolean | undefined;
 }
 
 /**
- * 施設を作る。
+ * 施設を作る。**検査方式の行も一緒に作る。**
  *
  * `id` は `generateId(ctx.orgShortId, "prop")`、`organizationId` と時刻は `ctx` から入れる。
  * **これらを入力から受け取らない**（PK-SPEC-P0 §19.5 / CLAUDE.md §5）。
+ *
+ * ── 旧列と新表の両方へ書く（P2-16 / architecture.md §6 の②）─
+ * `property.inspectionRequired` は次リリースで消える列だが、消えるまでは
+ * **新しく作った施設でも 2 つが食い違わない**ようにする。片方だけ書くと、
+ * 移行済みの施設（両方ある）と新設の施設（片方だけ）で読み方が変わり、
+ * 旧列を落とす③の判断材料が濁る。
+ *
+ * 検査方式の行を作らない選択もあり得たが、**行が無い施設が生まれ続けると
+ * 移行が終わらない。** 0011 のマイグレーションが埋めた「行がある」状態を
+ * ここで保つ。
  *
  * 監査ログ（`recordAudit`）はこの層では呼ばない。P0-11 が基盤を作り、
  * 呼ぶのは API ハンドラ側（トランザクションの単位が違うため）。
  */
 export async function createProperty(env: Env, ctx: TenantContext, input: CreatePropertyInput) {
   const db = await getTenantDb(env, ctx);
+  const inspectionRequired = input.inspectionRequired ?? false;
   const row = {
     id: generateId(ctx.orgShortId, "prop"),
     organizationId: ctx.organizationId,
@@ -268,9 +289,18 @@ export async function createProperty(env: Env, ctx: TenantContext, input: Create
     ...(input.timezone === undefined ? {} : { timezone: input.timezone }),
     ...(input.dayCutoffTime === undefined ? {} : { dayCutoffTime: input.dayCutoffTime }),
     ...(input.sortOrder === undefined ? {} : { sortOrder: input.sortOrder }),
+    inspectionRequired,
     createdAt: ctx.now,
     updatedAt: ctx.now,
   };
   await db.insert(property).values(row);
+  await db.insert(propertyInspectionPolicy).values({
+    id: generateId(ctx.orgShortId, "ipol"),
+    organizationId: ctx.organizationId,
+    propertyId: row.id,
+    ...legacyPolicyValues(inspectionRequired),
+    createdAt: ctx.now,
+    updatedAt: ctx.now,
+  });
   return row;
 }

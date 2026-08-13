@@ -667,6 +667,13 @@ const INVOCATIONS: Invocation[] = [
 
   // ── P2-02: 施設ごとの検査方式 ──────────────────────────
   {
+    // P2-16: P1 の真偽値 1 つから検査方式を作る。**DB へ行かない。**
+    name: "inspectionPolicy.legacyPolicyValues",
+    kind: "tenant",
+    pure: true,
+    run: () => Promise.resolve(inspectionPolicyRepo.legacyPolicyValues(true)),
+  },
+  {
     name: "inspectionPolicy.findInspectionPolicy",
     kind: "tenant",
     run: (env, ctx) => inspectionPolicyRepo.findInspectionPolicy(env, ctx, OWN_ID.property),

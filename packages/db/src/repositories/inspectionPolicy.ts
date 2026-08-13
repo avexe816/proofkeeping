@@ -5,11 +5,17 @@
  * 仕様: docs/PK-SPEC-P2.md §2.1
  *
  * ── 行が無いことに意味がある ────────────────────────────
- * 未設定の施設では行を作らない。呼び出し側は P1 の
- * `property.inspectionRequired` から `policyFromLegacyFlag()` で組み立てる
- * （`packages/engine`）。**読み取りのついでに既定行を挿入しないこと。**
- * 挿入すると、P1 の設定を触っていない施設が「検査方式を設定済み」に見え、
- * 移行（P2-16）でどちらが正か分からなくなる。
+ * 未設定の施設では行を作らない。**読み取りのついでに既定行を挿入しない。**
+ * 挿入すると、設定を触っていない施設が「検査方式を設定済み」に見える。
+ *
+ * ── 移行を通した（P2-16 / §13.2）────────────────────────
+ * `0011_p2_16_inspection_policy_backfill.sql` が、既存の全施設に対して
+ * `property.inspectionRequired` から行を作った。以後は**施設を作るときに
+ * 行も作る**（`createProperty()`）。行が無い施設はもう生まれない。
+ * それでも読み取り側の `policyFromLegacyFlag()` を残してあるのは、
+ * **移行が届いていないシャードで既定（`ALL`）へ落ちないため**
+ * （落ちると全タスクが検査待ちで滞留する / OPEN_QUESTIONS #044）。
+ * 旧列と一緒に消すのは次リリース（architecture.md §6 の③）。
  */
 
 import { eq } from "drizzle-orm";
@@ -20,6 +26,31 @@ import { getTenantDb, type TenantContext } from "../router.js";
 import { propertyInspectionPolicy, type InspectionMode } from "../schema/inspection.js";
 
 import { withTenantScope } from "./base.js";
+
+/**
+ * P1 の真偽値 1 つから作る検査方式（PK-SPEC-P2 §13.2 の CASE 式）。
+ *
+ * **`packages/engine` の `policyFromLegacyFlag()` と同じ値を返す。**
+ * `@pk/db` は `@pk/engine` に依存しない（engine は依存ゼロの純粋関数群で、
+ * 向きを逆にすると DB 側の型が engine へ流れ込む）ので、写しを 1 つ持つ。
+ * **3 か所を揃えて変えること**（ここ / engine / 0011 のマイグレーション）。
+ *
+ * `minDailySample` を 0 にしてあるのは engine 側と同じ理由で、`ALL` / `NONE`
+ * では効かない値だから。設定画面（W-02）が `SAMPLE` を選んだときに初めて
+ * 意味を持つ。
+ */
+export function legacyPolicyValues(inspectionRequired: boolean): InspectionPolicyInput {
+  return {
+    mode: inspectionRequired ? "ALL" : "NONE",
+    sampleRate: inspectionRequired ? 100 : 0,
+    minDailySample: 0,
+    alwaysInspectCheckin: true,
+    alwaysInspectRework: true,
+    selfInspectionAllowed: false,
+    autoAssignInspector: true,
+    inspectionSlaMinutes: 20,
+  };
+}
 
 /** 施設の検査方式。**未設定なら `undefined`。** */
 export async function findInspectionPolicy(env: Env, ctx: TenantContext, propertyId: string) {
