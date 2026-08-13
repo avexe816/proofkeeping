@@ -1300,3 +1300,56 @@
   background: transparent;
   border: 2px solid var(--line);
 }
+
+/* ── M-05 / M-05b / M-06 観察記録（PK-SPEC-P3 §4）───────── */
+
+.pk-m-obs {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/*
+ * ステッパー（§1.2 MUST「数値入力はキーボードを出さない」）。
+ * **ボタンは 56px 角。** 手袋のまま押せる大きさを、他の主要ボタンと揃える
+ * （ui-writing.md §3）。
+ */
+.pk-m-step {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.pk-m-step__label {
+  flex: 1;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.pk-m-step__control {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: none;
+}
+
+.pk-m-step__button {
+  width: 56px;
+  height: 56px;
+  font-family: inherit;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surf);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+}
+
+.pk-m-step__value {
+  min-width: 44px;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}

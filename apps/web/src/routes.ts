@@ -56,6 +56,14 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  * **`?taskId=` で客室を解決する。** 現場は「いまいる部屋」で報告するので
  * 客室を選ばせない（`routes/m/report.tsx` の loader の注記）。
  *
+ * ── P3-03〜P3-06 / P3-11 が足した観察の画面 ────────────
+ *   /m/task/:taskId/observation   M-05 入室時の記録（M-05b は同じ画面の 2/2）
+ *   /m/task/:taskId/linen         M-06 リネン枚数（退室前）
+ *   /app/settings/observation     W-20 観察項目の設定
+ *
+ * **M-05 は `start` の直後にここへ来る**（§3.2）。M-02 の「開始」を押すと
+ * 遷移する。清掃後に入力させると値が変わり、データとして無意味になる。
+ *
  * ── P2-09 が足した証跡の画面 ────────────────────────────
  *   /app/p/:propertyId/evidence          W-06 証跡一覧（1 業務日ぶん）
  *   /app/p/:propertyId/evidence/:taskId  W-07 証跡詳細（§12.2 の表示順）
@@ -86,6 +94,8 @@ export default [
     route("m/task/:taskId", "routes/m/task.tsx"),
     route("m/task/:taskId/checklist", "routes/m/checklist.tsx"),
     route("m/task/:taskId/rework", "routes/m/rework.tsx"),
+    route("m/task/:taskId/observation", "routes/m/observation.tsx"),
+    route("m/task/:taskId/linen", "routes/m/linen.tsx"),
     route("m/report", "routes/m/report.tsx"),
     route("m/board", "routes/m/board.tsx"),
     route("m/me", "routes/m/me.tsx"),
@@ -105,6 +115,7 @@ export default [
     route("app/settings/checklists", "routes/app/checklists.tsx"),
     route("app/settings/standard-times", "routes/app/standardTimes.tsx"),
     route("app/settings/tax", "routes/app/taxProfile.tsx"),
+    route("app/settings/observation", "routes/app/observationSettings.tsx"),
   ]),
   // シェルの外に置く。POST のたびにシェルの loader を動かす必要が無い
   // （切替後のリダイレクトで、どのみち loader は動き直す）。

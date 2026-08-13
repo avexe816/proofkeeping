@@ -43,6 +43,7 @@ import * as inspectionRepo from "./inspection.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
 import * as issueReportRepo from "./issueReport.js";
 import * as lostItemRepo from "./lostItem.js";
+import * as observationRepo from "./observation.js";
 import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
 import * as rollupRepo from "./rollup.js";
@@ -74,6 +75,9 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // P2-11 / P2-12 が登録した忘れ物と設備不具合（PK-SPEC-P2 §3.5・§3.6）。
   issueReport: issueReportRepo,
   lostItem: lostItemRepo,
+  // P3-03〜P3-07 / P3-11 が登録した観察記録（PK-SPEC-P3 §2）。
+  // **DELETE が無い**ことも下で検査する（P4 の照合の土台）。
+  observation: observationRepo,
   organization: organizationRepo,
   property: propertyRepo,
   rollup: rollupRepo,
@@ -106,6 +110,8 @@ const OWN_ID = {
   issue: generateId(TEST_ORG.orgShortId, "issue"),
   // P2-14。
   dailyReport: generateId(TEST_ORG.orgShortId, "rpt"),
+  // P3-03〜P3-07 / P3-11。
+  observation: generateId(TEST_ORG.orgShortId, "obs"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -164,6 +170,8 @@ const OTHER_ID = {
   issue: generateId(OTHER_ORG.orgShortId, "issue"),
   // P2-14。
   dailyReport: generateId(OTHER_ORG.orgShortId, "rpt"),
+  // P3-03〜P3-07 / P3-11。
+  observation: generateId(OTHER_ORG.orgShortId, "obs"),
 } as const;
 
 /**
@@ -188,6 +196,74 @@ interface Invocation {
    * `true` を付けるのは「DB へ行かないことがその関数の仕様」のときだけ。
    */
   pure?: boolean;
+}
+
+/** 観察記録の数（P3 / §2.1）。**中身は問わない検証で使う。** */
+const COUNTS = {
+  bedsUsed: 2,
+  trashLevel: "NORMAL",
+  bathTowelUsed: 2,
+  faceTowelUsed: 2,
+  handTowelUsed: 2,
+  bathMatUsed: 1,
+  slippersUsed: 2,
+  cupsUsed: 2,
+  extraFutonUsed: 0,
+  amenitiesUsed: {},
+} as const;
+
+/** `upsertObservation()` の入力（自組織・別組織で ID だけ差し替える）。 */
+function OBSERVATION_INPUT(id: typeof OWN_ID | typeof OTHER_ID) {
+  return {
+    taskId: id.task,
+    propertyId: id.property,
+    roomId: id.room,
+    roomTypeId: id.roomType,
+    businessDate: "2026-09-10",
+    ...COUNTS,
+    note: null,
+    inputDurationMs: 12_400,
+    usedDefaults: true,
+    recordedById: OWN_ID.membership,
+    clientTs: null,
+    idempotencyKey: null,
+  };
+}
+
+/** `upsertLinenRecords()` の入力。 */
+function LINEN_INPUT(id: typeof OWN_ID | typeof OTHER_ID) {
+  return {
+    taskId: id.task,
+    propertyId: id.property,
+    roomId: id.room,
+    businessDate: "2026-09-10",
+    recordedById: OWN_ID.membership,
+    entries: [
+      {
+        itemCode: "BATH_TOWEL",
+        collectedQty: 2,
+        suppliedQty: 0,
+        damagedQty: 0,
+        stainedQty: 0,
+        note: null,
+      },
+    ],
+  } as const;
+}
+
+/** `upsertObservationConfig()` の入力。 */
+function CONFIG_INPUT(id: typeof OWN_ID | typeof OTHER_ID) {
+  return {
+    propertyId: id.property,
+    enabled: true,
+    requireBeds: true,
+    requireTrash: true,
+    requireTowels: true,
+    requireAmenities: false,
+    requireLinen: false,
+    enabledItemCodes: ["BATH_TOWEL"],
+    skipWarnThreshold: 20,
+  } as const;
 }
 
 /**
@@ -1373,6 +1449,100 @@ const INVOCATIONS: Invocation[] = [
     pure: true,
     run: (_env, ctx) => Promise.resolve(taskPhotoRepo.newPhotoId(ctx)),
   },
+  // ── P3-03〜P3-07 / P3-11 観察記録（PK-SPEC-P3 §2）────────
+  {
+    name: "observation.findObservationByTaskId",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.findObservationByTaskId(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => observationRepo.findObservationByTaskId(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "observation.findObservationById",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.findObservationById(env, ctx, OWN_ID.observation),
+    crossTenant: (env, ctx) =>
+      observationRepo.findObservationById(env, ctx, OTHER_ID.observation),
+  },
+  {
+    name: "observation.listObservations",
+    kind: "tenant",
+    run: (env, ctx) =>
+      observationRepo.listObservations(env, ctx, {
+        propertyId: OWN_ID.property,
+        from: "2026-09-01",
+        to: "2026-09-30",
+      }),
+  },
+  {
+    name: "observation.upsertObservation",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.upsertObservation(env, ctx, OBSERVATION_INPUT(OWN_ID)),
+    crossTenant: (env, ctx) =>
+      observationRepo.upsertObservation(env, ctx, OBSERVATION_INPUT(OTHER_ID)),
+  },
+  {
+    name: "observation.skipObservation",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.skipObservation(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => observationRepo.skipObservation(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "observation.amendObservation",
+    kind: "tenant",
+    run: (env, ctx) =>
+      observationRepo.amendObservation(env, ctx, {
+        observationId: OWN_ID.observation,
+        ...COUNTS,
+        note: null,
+        changedById: OWN_ID.membership,
+        reason: "客室から戻ってきた実物と枚数が違ったため",
+      }),
+    crossTenant: (env, ctx) =>
+      observationRepo.amendObservation(env, ctx, {
+        observationId: OTHER_ID.observation,
+        ...COUNTS,
+        note: null,
+        changedById: OWN_ID.membership,
+        reason: "客室から戻ってきた実物と枚数が違ったため",
+      }),
+  },
+  {
+    name: "observation.listObservationRevisions",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.listObservationRevisions(env, ctx, OWN_ID.observation),
+    crossTenant: (env, ctx) =>
+      observationRepo.listObservationRevisions(env, ctx, OTHER_ID.observation),
+  },
+  {
+    name: "observation.listLinenRecords",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.listLinenRecords(env, ctx, OWN_ID.task),
+    crossTenant: (env, ctx) => observationRepo.listLinenRecords(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "observation.upsertLinenRecords",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.upsertLinenRecords(env, ctx, LINEN_INPUT(OWN_ID)),
+    crossTenant: (env, ctx) => observationRepo.upsertLinenRecords(env, ctx, LINEN_INPUT(OTHER_ID)),
+  },
+  {
+    name: "observation.findObservationConfig",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.findObservationConfig(env, ctx, OWN_ID.property),
+    crossTenant: (env, ctx) => observationRepo.findObservationConfig(env, ctx, OTHER_ID.property),
+  },
+  {
+    name: "observation.listObservationConfigs",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.listObservationConfigs(env, ctx, [OWN_ID.property]),
+  },
+  {
+    name: "observation.upsertObservationConfig",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.upsertObservationConfig(env, ctx, CONFIG_INPUT(OWN_ID)),
+    crossTenant: (env, ctx) =>
+      observationRepo.upsertObservationConfig(env, ctx, CONFIG_INPUT(OTHER_ID)),
+  },
 ];
 
 /** 組織条件を検査する対象。**`pure` の関数だけを外す。** */
@@ -1517,6 +1687,36 @@ describe("日報の不変性", () => {
   it("daily_report を対象にした SQL の update / delete が無い", () => {
     const offenders = repositorySources().filter(({ code }) =>
       /(update|delete\s+from)\s+["`']?daily_report/i.test(code),
+    );
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+});
+
+describe("観察記録の不変性", () => {
+  // PK-SPEC-P3 §0.1（P4 の照合はこのデータの上にしか成立しない）/
+  // 同 §2.1 MUST（上書きは許すが履歴を残す）。
+  // **DELETE が 1 つも無い。** 訂正は `amendObservation()`。
+  it("room_observation / observation_revision を DELETE する関数が無い", () => {
+    const offenders = repositorySources().filter(
+      ({ code }) =>
+        /\.delete\(\s*roomObservation/.test(code) ||
+        /\.delete\(\s*observationRevision/.test(code) ||
+        /\.delete\(\s*linenRecord/.test(code),
+    );
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  it("修正履歴（observation_revision）を UPDATE する関数が無い", () => {
+    // 追記のみ。**旧値を書き換えられたら履歴の意味が無い。**
+    const offenders = repositorySources().filter(({ code }) =>
+      /\.update\(\s*observationRevision/.test(code),
+    );
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  it("観察の表を対象にした SQL の delete が無い", () => {
+    const offenders = repositorySources().filter(({ code }) =>
+      /delete\s+from\s+["`']?(room_observation|observation_revision|linen_record)/i.test(code),
     );
     expect(offenders.map(({ file }) => file)).toEqual([]);
   });

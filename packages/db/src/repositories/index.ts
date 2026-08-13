@@ -275,3 +275,28 @@ export {
   type DailyReportFilter,
   type DailyReportRow,
 } from "./dailyReport.js";
+
+// 観察記録・リネン・観察設定（P3-03〜P3-07 / P3-11 / PK-SPEC-P3 §2）。
+// **消す関数が無い。** 訂正は `amendObservation()`（旧値を履歴へ積む / §2.2）。
+export {
+  amendObservation,
+  findObservationById,
+  findObservationByTaskId,
+  findObservationConfig,
+  listLinenRecords,
+  listObservationConfigs,
+  listObservationRevisions,
+  listObservations,
+  skipObservation,
+  upsertLinenRecords,
+  upsertObservation,
+  upsertObservationConfig,
+  type AmendObservationInput,
+  type LinenEntryInput,
+  type ObservationCountsInput,
+  type ObservationFilter,
+  type UpsertLinenRecordsInput,
+  type UpsertObservationConfigInput,
+  type UpsertObservationInput,
+  type UpsertObservationResult,
+} from "./observation.js";
