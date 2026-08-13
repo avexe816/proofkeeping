@@ -648,6 +648,13 @@ function TaskCard({
             {t("m.task.start")}
           </button>
         )
+      ) : task.status === "REWORK" ? (
+        // 差戻しは**再清掃の画面へ入る**（M-12 / PK-SPEC-P2 §4.6）。
+        // タスク詳細ではなく、直す項目が並ぶ画面。§4.5 の
+        // 「担当清掃者の M-02 上部へ差戻しタスクを優先表示」の受け側。
+        <Link className="pk-m-button" to={`/m/task/${task.taskId}/rework`}>
+          {t("m.rework.open")}
+        </Link>
       ) : (
         <Link className="pk-m-button pk-m-button--secondary" to={`/m/task/${task.taskId}`}>
           {isRunning || isPaused ? t("m.task.resume") : t("m.task.open")}

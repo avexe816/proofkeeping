@@ -101,6 +101,13 @@ export interface CreateTaskPhotoInput {
   storageKey: string;
   /** `storageKey` に埋めた `photoId`。 */
   photoId: string;
+  /**
+   * バイナリの SHA-256（PK-SPEC-P2 §6.3）。**サーバーが計算した値。**
+   *
+   * 省略できるのは、この列が P2-08 で後から足されたため
+   * （`schema/task.ts` の注記）。**新しい経路では必ず渡すこと。**
+   */
+  sha256?: string | null | undefined;
   width: number;
   height: number;
   fileSize: number;
@@ -145,6 +152,7 @@ export async function createTaskPhoto(
       checklistItemId: input.checklistItemId ?? null,
       kind: input.kind,
       storageKey: input.storageKey,
+      sha256: input.sha256 ?? null,
       width: input.width,
       height: input.height,
       fileSize: input.fileSize,

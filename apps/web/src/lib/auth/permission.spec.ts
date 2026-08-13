@@ -80,6 +80,13 @@ const EXPECTED: Record<PermissionAction, string> = {
   // 「自分のタスクの差戻し項目だけ」という別の絞りを持つ。
   "inspection.read": "OOAA--O",
   "inspection.write": "OOAA---",
+  // P2-07。差戻し（PK-SPEC-P2 §4.6・§4.7）。
+  // **`CLEANER` を許す唯一の検査系アクションが `rework.read` / `rework.write`。**
+  // 「自分の差戻しか」は `assertReworkVisible()` が別に絞る。
+  // 免除は §4.7 の「PROPERTY_MANAGER 以上」で、`VENDOR_ADMIN` に広げない。
+  "rework.read": "OOAAAAO",
+  "rework.write": "OOA-AA-",
+  "rework.waive": "OOA----",
 };
 
 const SYMBOL_TO_SCOPE: Record<string, PermissionScope> = {

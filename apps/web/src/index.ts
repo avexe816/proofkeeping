@@ -18,6 +18,7 @@ import files from "./routes/api/v1/files.js";
 import inspections from "./routes/api/v1/inspections.js";
 import organization from "./routes/api/v1/organization.js";
 import properties from "./routes/api/v1/properties.js";
+import reworks from "./routes/api/v1/reworks.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
 import session from "./routes/api/v1/session.js";
@@ -97,6 +98,9 @@ api.route("/tasks", tasks);
 // （§14.1 の経路名）。**全体の判定を受け取る口が無い**（§4.3 MUST）。
 api.route("/inspections", inspections);
 // 当日の客室状況（P1-04 / W-05）。CSV 取込と「全室アウト清掃として生成」。
+// 差戻し・再清掃（P2-07 / PK-SPEC-P2 §4.6・§4.7）。**一覧の口は無い。**
+// 差戻しはタスクから辿る（`routes/api/v1/reworks.ts` の注記）。
+api.route("/reworks", reworks);
 api.route("/room-plans", roomPlans);
 // 客室タイプ（P1-24 / W-25）。**物理削除の口が無い**（無効化のみ）。
 api.route("/room-types", roomTypes);

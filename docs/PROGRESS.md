@@ -1,34 +1,63 @@
 # 実装進捗
 
-最終更新: 2026-08-13（P2-05 / P2-06。**検査の画面 2 枚。差戻しは次**）
+最終更新: 2026-08-13（P2-07 / P2-08。**差戻しの受け側と証跡の連鎖**）
 
 ## 現在のセッション
 
 ```
-task: P2-05 / P2-06（Batch: 検査の画面）
-状態: 完了。**検査が現場で通しで回るようになった。** 差戻しの受け側は次。
+task: P2-07 / P2-08（Batch: 差戻しと証跡）
+状態: 完了。**検査 → 差戻し → 再清掃 → 再検査が 1 周する。**
+      証跡は 3 か所（清掃完了・検査確定・再清掃完了）から書かれる。
 
-      P2-05 M-08 検査待ち一覧
-           engine `inspectionQueue.ts`（22 テスト）が §11.2 の 4 段を持つ。
-           `GET /api/v1/inspections/waiting`。画面 `/m/inspections`。
-           下部タブに「検査」を追加（**`CLEANER` には出さない** / #070）。
-      P2-06 M-09 検査実施
-           画面 `/m/inspection/:inspectionId`。項目別の 3 値。
-           **未選択から始まり、「全て合格」は無い**（§11.3 の 2 つの MUST）。
-           不合格の写真は `input[type=file][capture]`（security.md §4）。
+      P2-07 差戻しと再清掃（M-12）
+           engine `reworkStatus.ts`（28 テスト）が状態機械と §4.6 の絞り。
+           `GET/POST /api/v1/reworks/:id{,/start,/complete,/waive}`。
+           画面 `/m/task/:taskId/rework`。M-02 の REWORK カードから入る。
+           権限 `rework.read` / `rework.write` / `rework.waive` を追加。
+           **`CLEANER` を許す唯一の検査系アクション**（自分の差戻しだけ）。
+      P2-08 EvidenceSnapshot とハッシュ
+           engine `evidence.ts`（37 テスト）が canonical JSON と検証。
+           `lib/evidence/{hash,record,payload,verify}.ts`（13 テスト）。
+           `GET /api/v1/tasks/:taskId/evidence/verify`（§6.3）。
+           **リポジトリは INSERT と SELECT だけ**（spec がソースで固定）。
 
-次: **P2-07 差戻しと再清掃（M-12）。** 依存（P2-06）は満たされている。
-    `reworkCycle` は P2-04 が作っているが `OPEN` のまま溜まっている。
-    `POST /reworks/:id/{start,complete,waive}` がそれを進める。
+次: **P2-09 W-07 証跡詳細画面。** 依存（P2-08）は満たされている。
+    `verifyTaskEvidence()` と `listEvidenceSnapshotsByTask()` が揃っている。
+    §12.3 のタイムラインは `inspection` / `reworkCycle` / `taskTimeLog` から
+    組む（証跡の payload を parse して組み立てないこと）。
 ```
 
 --- この Batch で入れていないもの（意図的）---
-- **M-12（再清掃の画面）が無い**（P2-07）。差戻された清掃員は M-02 に
-  `REWORK` のタスクを見るが、**どの項目がなぜ差し戻されたかを見る画面が
-  まだ無い。** §4.6「清掃者は差戻し項目だけを表示できる」は未達。
-- **`EvidenceSnapshot` を書かない**（P2-08）。
+- **W-07 / W-06（証跡の画面）が無い**（P2-09）。API と検証関数はある。
+- **証跡 ZIP が無い**（P2-10）。`export.evidenceZip` の監査 action は P0 から
+  登録済み。
+- **写真の実体（R2）との照合をしていない。** `verifyTaskEvidence()` は
+  DB と payload の突き合わせだけ。§6.3 の「不一致時は Sentry と監査ログへ
+  記録する」も、実体照合を持つ P2-09 / P2-10 の担当。
 - **W-03 の検査 SLA オレンジ表示**（§5.2 の 1 行目）は PC 側なので手付かず。
   規則（`waitStateOf()`）は engine にあるので、W-03 を触る task が使える。
+
+--- P2-07 / P2-08 からの申し送り ---
+申し送り 1: **免除の `issueReportId` は形式しか検査していない**（#071）。
+            `issueReport` 表は P2-12 の担当。**P2-12 が実在確認を足すこと。**
+            それまでは存在しない ID でも免除が通る。
+申し送り 2: **証跡の連鎖はタスクごと**（#072）。`taskId` が null の証跡
+            （日報 / `DAILY_REPORT`）は毎回先頭になり、**連鎖では守られない。**
+            payload ハッシュ単体で足りるかは P2-14 が確かめること。
+申し送り 3: **`CLEANING_COMPLETION` は `reworkCount === 0` のときだけ書く**
+            （#073）。`reworkCount` の意味を変える task はここも直すこと。
+            2 回目以降の `complete` は `REWORK_COMPLETION` になる。
+申し送り 4: **`task_photo.sha256` を足したが既存の行は `null`。**
+            §6.3 は「アップロード完了時にサーバー側で計算」なので、
+            **後から埋めない。** 証跡の payload は `null` を空文字で載せる。
+            移行が必要になったら「いつ計算した値か」を別列で持つこと。
+申し送り 5: **`recordEvidence()` の payload は関数で渡す**（#074）。
+            値で渡すと材料の DB 読み取りが try の外に出て、証跡の失敗が
+            業務操作を 500 にする。証跡を書く経路を足す task は必ず関数で。
+申し送り 6: **P2-04 / P2-06 の欠陥を 1 つ直した。** `listInspectionItems()` が
+            `listTemplateItems()`（`templateId` で絞る）へ**項目 ID**を
+            渡しており、M-09 の項目名とセクションが常に空欄だった。
+            `listChecklistItemsByIds()` を足して両方直した。
 
 --- P2-05 / P2-06 からの申し送り ---
 申し送り 1: **§5.3 の「緊急」が実データでは効かない**（OPEN_QUESTIONS #045）。
@@ -54,10 +83,10 @@ task: P2-05 / P2-06（Batch: 検査の画面）
             **順序を入れ替えると写真が送れない。**
 
 --- P2-04（検査 API）からの申し送り ---
-申し送り 1: **`reworkCycle` は作られるが進まない。** `status = OPEN` の行が
-            溜まる。タスクは P1 の `start`（`REWORK` → `IN_PROGRESS`）で
-            再清掃を始められるが、**`reworkCycle.status` は追随しない。**
-            P2-07 が `POST /reworks/:id/{start,complete,waive}` で繋ぐ。
+申し送り 1: ~~**`reworkCycle` は作られるが進まない。**~~
+            **→ P2-07 が繋いだ。** `POST /reworks/:id/{start,complete,waive}`。
+            タスク側の遷移（`runTransition()`）を先に動かし、そのあと
+            差戻しを 1 段進める。**免除はタスクに触らない。**
 申し送り 2: **検査項目の行は「答えたときだけ」作られる。** 開始時に既定値
             つきの行を並べていない（並べたら、それが「全 PASS で初期化した
             検査」そのもの）。**`status: null` が「まだ見ていない」。**
@@ -68,9 +97,9 @@ task: P2-05 / P2-06（Batch: 検査の画面）
             `inspectionFail` を足した。** 客室ステータスの表は
             `packages/engine/src/roomStatus.ts` の 1 か所のまま。
             検査の着地で客室を動かす経路を別に書かないこと。
-申し送り 5: **`EvidenceSnapshot` を書く経路はまだ無い**（P2-08）。
-            §4.4 / §4.5 は証跡を要求するが、**証跡が無いまま検査が
-            確定する期間がある**（DECISIONS #066）。
+申し送り 5: ~~**`EvidenceSnapshot` を書く経路はまだ無い**（P2-08）。~~
+            **→ P2-08 が繋いだ。** `lib/inspection/complete.ts` が
+            差戻しサイクルを作ったあとに 1 件書く。
 
 --- 検査の要否まわりの申し送り ---
 申し送り 1: **`property.inspectionRequired`（P1）と
@@ -84,8 +113,9 @@ task: P2-05 / P2-06（Batch: 検査の画面）
             「重点客室」は §3 に列そのものが無い（OPEN_QUESTIONS #043）。
             規則は engine に実装済みなので、材料を差すだけで効く。
 申し送り 3: **`cleaning_task` に 7 列増えた。** 代役の行を位置で組む spec
-            （`tasks.spec.ts` の `taskRow()`）は宣言順に合わせること。
-            いま該当するのは 1 ファイルだけ。
+            （`tasks.spec.ts` / `inspections.spec.ts` / `reworks.spec.ts` の
+            `taskRow()`）は宣言順に合わせること。P2-07 / P2-08 で
+            `rework_cycle` と `task_photo` にも 1 列ずつ増えている。
 申し送り 4: ~~**`InspectionLock` を使う経路がまだ無い。**~~
             **→ P2-04 が繋いだ。** 呼び出し口は
             `apps/web/src/lib/inspection/lock.ts` の 1 か所。
@@ -749,8 +779,8 @@ task: P0-07 リポジトリ層の雛形
 - [x] P2-04 検査 API
 - [x] P2-05 M-08 検査待ち一覧
 - [x] P2-06 M-09 検査実施
-- [ ] P2-07 差戻しと再清掃
-- [ ] P2-08 EvidenceSnapshot とハッシュ
+- [x] P2-07 差戻しと再清掃
+- [x] P2-08 EvidenceSnapshot とハッシュ
 - [ ] P2-09 W-07 証跡詳細画面
 - [ ] P2-10 証跡 ZIP エクスポート
 - [ ] P2-11 忘れ物管理

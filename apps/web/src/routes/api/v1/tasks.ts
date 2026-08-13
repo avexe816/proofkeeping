@@ -67,6 +67,7 @@ import { Hono } from "hono";
 
 import { assertPermission, propertyTarget } from "../../../lib/auth/permission.js";
 import { businessDateOf } from "../../../lib/businessDate.js";
+import { verifyTaskEvidence } from "../../../lib/evidence/verify.js";
 import { startInspection } from "../../../lib/inspection/start.js";
 import { uploadPhoto } from "../../../lib/photo/upload.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
@@ -331,6 +332,32 @@ tasks.post("/:taskId/inspection/start", async (c) => {
     return c.json({ error: outcome.error } satisfies InspectionError, 409);
   }
   return c.json(outcome.body);
+});
+
+/**
+ * 証跡の整合性確認（PK-SPEC-P2 §6.3 / §12.2「整合性を確認」）。
+ *
+ * ```
+ * GET /api/v1/tasks/:taskId/evidence/verify
+ * ```
+ *
+ * **示せるのは「保存後に書き換えられていないこと」だけ。** P2 は外部の
+ * 時刻認証を導入していない（§6.1）ので、「その時刻に存在したこと」の
+ * 証明ではない。画面の文言もそう書くこと（P2-08）。
+ *
+ * 権限は `task.read`。**証跡そのものに別のアクションを足していない。**
+ * 内容はタスクの記録（チェックリスト・写真・検査結果）で、それを読める
+ * 相手が連鎖の健全性も確かめられないと、確認の意味が無い。
+ * 3 区間なので `/:taskId/:action`（2 区間）とは衝突しないが、
+ * **静的な区間を先に置く**という冒頭の方針に合わせてここに登録する。
+ */
+tasks.get("/:taskId/evidence/verify", async (c) => {
+  const ctx = getTenant(c);
+  const task = await findTaskById(c.env, ctx, c.req.param("taskId"));
+  if (task === undefined) return c.notFound();
+  assertPermission(ctx, "task.read", propertyTarget([task.propertyId]));
+
+  return c.json(await verifyTaskEvidence(c.env, ctx, task.id));
 });
 
 /**

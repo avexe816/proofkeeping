@@ -66,6 +66,7 @@ export {
   createTemplate,
   deactivateTemplate,
   expandChecklist,
+  listChecklistItemsByIds,
   listChecklistResults,
   listTemplateItems,
   listTemplates,
@@ -118,6 +119,7 @@ export {
 // 検査・検査項目・検査写真・差戻しサイクル（P2-04 / PK-SPEC-P2 §4）。
 // **確定した検査を書き換える関数を置かない。** 訂正は次のラウンドで行う。
 export {
+  advanceReworkCycle,
   completeInspection,
   countInspectionPhotosByItem,
   createInspection,
@@ -128,12 +130,15 @@ export {
   findInspectionItemResultById,
   findInspectionPhotoByClientId,
   findOpenInspectionByTask,
+  findOpenReworkCycleByTask,
+  findReworkCycleById,
   listInspectionItemResults,
   listInspectionPhotos,
   listInspectionsByTask,
   listReworkCyclesByTask,
   newInspectionPhotoId,
   recordInspectionItemResult,
+  type AdvanceReworkCycleInput,
   type CompleteInspectionInput,
   type CreateInspectionInput,
   type CreateInspectionPhotoInput,
@@ -141,6 +146,17 @@ export {
   type CreateReworkCycleInput,
   type RecordInspectionItemResultInput,
 } from "./inspection.js";
+
+// 証跡スナップショット（P2-08 / PK-SPEC-P2 §3.7・§6）。
+// **INSERT と SELECT だけ。** 更新・削除の関数を足さないこと（§3.7 MUST）。
+export {
+  appendEvidenceSnapshot,
+  findEvidenceSnapshotById,
+  findLatestEvidenceSnapshotByTask,
+  listEvidenceSnapshotsByDate,
+  listEvidenceSnapshotsByTask,
+  type AppendEvidenceSnapshotInput,
+} from "./evidence.js";
 
 // 当日の施設訪問順（P1-21 / §19.5）。**読み取りのみ。未登録でも一覧は動く。**
 export { listDailyRoute } from "./dailyRoute.js";

@@ -320,6 +320,17 @@ export const reworkCycle = sqliteTable(
     completedAt: integer("completed_at", { mode: "timestamp_ms" }),
     waivedById: text("waived_by_id"),
     waivedReason: text("waived_reason"),
+    /**
+     * 免除の根拠となった不具合報告（`issueReport.id`）。
+     *
+     * **§3.4 のモデルに無い列を足してある。** §4.7 は免除に「関連する
+     * IssueReport 必須」を要求するが、§3.4 の `ReworkCycle` にその参照が
+     * 無い。理由を自由記述に押し込むと、§8 の修繕依頼と突き合わせられず、
+     * 「設備故障なので免除した」という主張の裏が取れない。
+     * P2-07 で列を足し、`issueReport` そのものは P2-12 が作る。
+     * **それまでは形式の検証だけ**（存在確認は P2-12 が足す / DECISIONS #071）。
+     */
+    waivedIssueId: text("waived_issue_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },

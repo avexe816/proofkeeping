@@ -568,6 +568,14 @@ function enqueueCompletion(
   ctx.d1.enqueueRows([]); // countPhotosByChecklistItem
   ctx.d1.enqueueRows(options.policy ?? []); // findInspectionPolicy
   ctx.d1.enqueueRows([]); // listTimeLogs（追記後の読み直し）
+  // ── 証跡（P2-08 / PK-SPEC-P2 §6.2）─────────────────────
+  // `CLEANING_COMPLETION` の payload を組むための読み取り 3 本と、
+  // 連鎖の直前 1 本。**`rework_count` が 0 のタスクだけ通る枝**
+  // （2 回目以降の完了は `REWORK_COMPLETION` / P2-07）。
+  ctx.d1.enqueueRows([]); // listTaskPhotos
+  ctx.d1.enqueueRows([]); // listTimeLogs（payload 用）
+  ctx.d1.enqueueRows([]); // listChecklistResults（templateVersion 用）
+  ctx.d1.enqueueRows([]); // findLatestEvidenceSnapshotByTask（先頭なので空）
   ctx.d1.enqueueRows([taskRow("IN_PROGRESS")]); // 応答のための再取得
   ctx.d1.enqueueRows([roomRow()]); // 部屋番号
 }

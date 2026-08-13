@@ -47,6 +47,13 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  *   /m/inspections                M-08 検査待ち一覧
  *   /m/inspection/:inspectionId   M-09 検査実施
  *
+ * ── P2-07 が足した再清掃の画面 ──────────────────────────
+ *   /m/task/:taskId/rework        M-12 再清掃
+ *
+ * **`taskId` で開く。** 清掃者は差戻しの ID を知らない（M-02 の一覧から
+ * 部屋を押して入る）。`/m/rework/:reworkCycleId` にしない理由は
+ * `routes/m/rework.tsx` の loader の注記。
+ *
  * 上の 3 画面が読む `room_type` に**書く経路が一つも無かった。** seed の
  * 無い組織では W-17 が 0 行、W-16 の第 3 階層が作れない状態だった。
  *
@@ -68,6 +75,7 @@ export default [
     route("m/select-property", "routes/m/selectProperty.tsx"),
     route("m/task/:taskId", "routes/m/task.tsx"),
     route("m/task/:taskId/checklist", "routes/m/checklist.tsx"),
+    route("m/task/:taskId/rework", "routes/m/rework.tsx"),
     route("m/board", "routes/m/board.tsx"),
     route("m/me", "routes/m/me.tsx"),
     route("m/inspections", "routes/m/inspections.tsx"),

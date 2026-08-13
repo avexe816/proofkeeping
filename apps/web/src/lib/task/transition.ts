@@ -45,6 +45,8 @@ import {
 } from "@pk/engine";
 
 import { assertPermission, propertyTarget } from "../auth/permission.js";
+import { buildCleaningCompletionEvidence } from "../evidence/payload.js";
+import { recordEvidence } from "../evidence/record.js";
 
 import { resolveInspectionDecision } from "./inspectionDecision.js";
 
@@ -224,6 +226,37 @@ export async function runTransition(
   const roomStatus = housekeepingStatusFor(input.action, inspectionRequired);
   if (roomStatus !== null) {
     await setHousekeepingStatus(env, ctx, [task.roomId], roomStatus);
+  }
+
+  // ── 証跡（PK-SPEC-P2 §3.7 / §6.2 / P2-08）───────────────
+  // **最初の清掃完了だけ。** 2 回目以降の `complete` は再清掃の完了で、
+  // そちらは `REWORK_COMPLETION` として `lib/rework/advance.ts` が書く
+  // （§6.5 の ZIP は `cleaning-completion.json` を 1 件しか持たない）。
+  // 判定に `reworkCount` を使えるのは、この値が検査不合格のときにしか
+  // 増えないため（`applyInspectionOutcome()`）。
+  if (input.action === "complete" && task.reworkCount === 0) {
+    await recordEvidence(env, ctx, {
+      propertyId: task.propertyId,
+      taskId: task.id,
+      businessDate: task.businessDate,
+      evidenceType: "CLEANING_COMPLETION",
+      payload: () =>
+        buildCleaningCompletionEvidence(
+          env,
+          ctx,
+          {
+            taskId: task.id,
+            propertyId: task.propertyId,
+            roomId: task.roomId,
+            businessDate: task.businessDate,
+            taskType: task.taskType,
+            assigneeId: task.assigneeId,
+            actualMinutes: Math.floor(summary.workedMs / 60_000),
+          },
+          summary.completedAt ?? ctx.now.getTime(),
+        ),
+      createdById: input.actorId,
+    });
   }
 
   await recordTransitionAudit(env, ctx, input, task.propertyId, task.status, decision.to);

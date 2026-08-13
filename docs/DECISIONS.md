@@ -1561,3 +1561,63 @@
 - 理由: 「押しても何も起きないタブを置かない」（`routes/m/layout.tsx` の
   既存の方針）。**これは UX 上の措置であって権限制御ではない。**
   画面側の `assertPermission()` は残してある（security.md §1）。
+
+## #071 `reworkCycle` に `waivedIssueId` を足す
+- 日付: 2026-08-13
+- 状態: 採用（P2-07）
+- 背景: PK-SPEC-P2 §4.7 は免除に「理由必須」と「関連する IssueReport 必須」の
+  2 つを課す。一方 §3.4 の `ReworkCycle` モデルは `waivedById` /
+  `waivedReason` しか持たず、**不具合報告への参照が無い。**
+- 決定: `rework_cycle.waived_issue_id`（nullable text）を足し、免除 API は
+  `issueReportId` を必須で受ける。**形式（`{orgShortId}__{prefix}_{ulid}`）だけを
+  検査し、実在の確認はしない。**
+- 理由: 理由を自由記述に押し込むと §8 の修繕依頼と突き合わせられず、
+  「設備故障なので免除した」という主張の裏が取れない。§4.7 が要求している
+  のは参照そのもので、置き場所を §3.4 が書き忘れていると読んだ。
+  実在確認をしないのは `issueReport` 表が P2-12 の担当で、まだ存在しないため。
+- 影響: migration 0008（後方互換の列追加のみ）。**P2-12 が実在確認を足すこと。**
+  それまでは存在しない ID でも免除が通る。
+
+## #072 証跡の連鎖は「同一タスク内」だけに張る
+- 日付: 2026-08-13
+- 状態: 採用（P2-08）
+- 背景: §3.7 は `previousHash` を「同一タスク内の前スナップショット」と書く。
+  一方 §6.5 の証跡バンドルは 1 タスク単位で、日報（`DAILY_REPORT`）は
+  `taskId` を持たない。
+- 決定: **連鎖はタスクごと。** `taskId` が null の証跡は毎回先頭
+  （`previousHash = null`）として扱う。施設×業務日でまとめた連鎖を作らない。
+- 理由: 仕様に無い連鎖を足すと、検証（§6.3）が「どの並びが正か」を
+  2 つ持つことになる。日報の改ざん検出は payload ハッシュ単体で成立する。
+- 影響: 日報の証跡は連鎖で守られない（payload ハッシュのみ）。
+  P2-14（日報 PDF）がそれで足りるかを確かめること。
+
+## #073 清掃完了の証跡は最初の 1 回だけ（2 回目以降は再清掃完了）
+- 日付: 2026-08-13
+- 状態: 採用（P2-08 / P2-07）
+- 背景: §4.1 の状態遷移では、再清掃も `cleaner.complete` でタスクを
+  `AWAITING_INSPECTION` へ戻す。**同じ操作**なので、素直に書くと
+  `CLEANING_COMPLETION` がラウンドの数だけ増える。一方 §6.5 の ZIP は
+  `cleaning-completion.json` を 1 件しか持たない。
+- 決定: `runTransition()` は `complete` かつ **`task.reworkCount === 0`** の
+  ときだけ `CLEANING_COMPLETION` を書く。2 回目以降は
+  `lib/rework/advance.ts` が `REWORK_COMPLETION` を書く。
+- 理由: `reworkCount` は検査不合格のときにしか増えない
+  （`applyInspectionOutcome()`）ので、「初回の清掃完了か」を余分なクエリ
+  なしに判定できる。差戻しサイクルの有無で判定する形も考えたが、
+  クエリが 1 本増えるうえ、免除で決着した差戻しがあるタスクの再完了で
+  誤判定する。
+- 影響: `reworkCount` の意味を変える task は、ここも直すこと。
+
+## #074 `recordEvidence()` は payload を「関数」で受ける
+- 日付: 2026-08-13
+- 状態: 採用（P2-08）
+- 背景: 証跡の失敗で業務操作を巻き戻さない方針にした（検査は成立している
+  のに 500 を返すと、オフラインキューが再送を始めて二重に進む余地が出る）。
+  ところが payload を値で受けると `payload: await build(...)` と書けてしまい、
+  **材料を DB から引く段が `recordEvidence()` の try の外**で走る。
+  実際に `tasks.spec.ts` の完了 3 件が 500 になって露見した。
+- 決定: `RecordEvidenceInput.payload` の型を
+  `() => CanonicalValue | Promise<CanonicalValue>` にする。
+- 理由: 「例外を外へ出さない」という約束を、呼び出し側の書き方に
+  依存させない。型でそう書けなくする。
+- 影響: 証跡を書く経路を足す task は、payload を必ず関数で渡す。

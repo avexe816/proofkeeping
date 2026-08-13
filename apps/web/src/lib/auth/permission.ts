@@ -150,6 +150,39 @@ export const PERMISSION_ACTIONS = {
    * 与える規定ではない（`CLEANER` を許すと、他人のタスクの検査まで通る）。
    */
   "inspection.write": { write: true },
+  /**
+   * 差戻しの閲覧（M-12 / PK-SPEC-P2 §4.6）。
+   *
+   * **`CLEANER` を許す。** §4.6 は「清掃者は差戻し項目だけを表示できる」で、
+   * `inspection.read`（DENY）とは別の操作。2 つの絞りが掛かって初めて
+   * §4.6 になる。
+   *   ① このアクション … 担当施設か（`ASSIGNED`）
+   *   ② 応答の組み立て … 自分に割り当てられた差戻しか（`assertReworkVisible()`）
+   *      ＋ 不合格かつ再清掃が要る項目だけ（`reworkVisibleItemIds()`）
+   *
+   * **② を「画面で絞る」にしないこと。** ロールだけでは「他人の差戻しを
+   * 見られない」を表せない（`PERMISSION_MATRIX` は施設までしか絞れない）。
+   * `SELF` スコープを足さない理由は `task.readOwn` の注記と同じ。
+   */
+  "rework.read": { write: false },
+  /**
+   * 再清掃の開始・完了（§4.6）。
+   *
+   * `task.write`（§5.3 の「担当者本人、P_MANAGER 以上」）と同じ並びにする。
+   * 再清掃は清掃作業そのもので、**`INSPECTOR` は行わない**（自分が差し戻した
+   * 項目を自分で直せると、§1.1 の「検査は清掃者と分離する」が崩れる）。
+   */
+  "rework.write": { write: true },
+  /**
+   * 免除（§4.7）。**`PROPERTY_MANAGER` 以上。**
+   *
+   * §4.7 の「設備故障等で清掃者が改善できない項目は PROPERTY_MANAGER 以上が
+   * 免除できる」をそのまま写す。`rework.write` と分けてあるのは、免除が
+   * 「作業を進める」ではなく「不合格のまま客室を扱う」判断だから。
+   * **`VENDOR_ADMIN` は DENY**（受託した清掃会社が自分の差戻しを免除できると、
+   * 検査そのものが意味を失う）。
+   */
+  "rework.waive": { write: true },
 } as const satisfies Record<string, { write: boolean }>;
 
 /** `PERMISSION_ACTIONS` に載っている操作だけを許す型。 */
@@ -478,6 +511,40 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "ASSIGNED",
     INSPECTOR: "ASSIGNED",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // ── P2-07: 差戻しと再清掃 ──────────────────────────────
+  // **`CLEANER` を許す唯一の検査系アクション**（§4.6）。`INSPECTOR` も許すのは
+  // 差し戻した内容を再検査のときに読み直す必要があるため（§4.6 の「次回検査へ
+  // 紐づける」）。「自分の差戻しか」の絞りはここでは掛からない
+  // （`assertReworkVisible()` が掛ける）。
+  "rework.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "ASSIGNED",
+    CLEANER: "ASSIGNED",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "ORG",
+  },
+  // `task.write` と同じ並び。**`INSPECTOR` は DENY**（§1.1 の分離）。
+  "rework.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "ASSIGNED",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "DENY",
+  },
+  // §4.7「PROPERTY_MANAGER 以上」。**`VENDOR_ADMIN` に広げない。**
+  "rework.waive": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",

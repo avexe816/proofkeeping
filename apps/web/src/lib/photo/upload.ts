@@ -32,6 +32,7 @@ import {
 } from "@pk/db";
 
 import { assertPermission, propertyTarget } from "../auth/permission.js";
+import { sha256Hex } from "../evidence/hash.js";
 
 import { sanitizeImage } from "./image.js";
 
@@ -88,6 +89,8 @@ export type UploadPhotoOutcome =
         photoId: string;
         taskId: string;
         storageKey: string;
+        /** バイナリの SHA-256（PK-SPEC-P2 §6.3）。**P2-08 より前の行は `null`。** */
+        sha256: string | null;
         photoKind: PhotoKindValue;
         checklistItemId: string | null;
         width: number;
@@ -126,6 +129,7 @@ export async function uploadPhoto(
         photoId: existing.id,
         taskId: existing.taskId,
         storageKey: existing.storageKey,
+        sha256: existing.sha256,
         photoKind: existing.kind,
         checklistItemId: existing.checklistItemId,
         width: existing.width,
@@ -160,8 +164,14 @@ export async function uploadPhoto(
     extension: sanitized.format === "image/png" ? "png" : "jpg",
   });
 
+  // **EXIF を落としたあとのバイト列をハッシュする**（§6.3）。落とす前を
+  // ハッシュすると、R2 に置いた実体と値が合わず照合が常に失敗する。
+  const sha256 = await sha256Hex(sanitized.bytes);
+
   await env.PHOTOS.put(storageKey, sanitized.bytes, {
     httpMetadata: { contentType: sanitized.format },
+    // **R2 側にも残す**（§6.3「DB の sha256 と R2 object metadata の双方へ保存」）。
+    customMetadata: { sha256 },
   });
 
   const created = await createTaskPhoto(env, ctx, {
@@ -171,6 +181,7 @@ export async function uploadPhoto(
     kind: input.kind,
     storageKey,
     photoId,
+    sha256,
     width: sanitized.size.width,
     height: sanitized.size.height,
     fileSize: sanitized.bytes.byteLength,
@@ -186,6 +197,7 @@ export async function uploadPhoto(
       photoId: created.row.id,
       taskId: created.row.taskId,
       storageKey: created.row.storageKey,
+      sha256: created.row.sha256,
       photoKind: created.row.kind,
       checklistItemId: created.row.checklistItemId,
       width: created.row.width,

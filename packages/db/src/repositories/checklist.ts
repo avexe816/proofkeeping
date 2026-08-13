@@ -96,6 +96,34 @@ export async function listTemplateItems(
     .orderBy(checklistItem.sortOrder);
 }
 
+/**
+ * 項目そのものを ID で引く（P2-07）。
+ *
+ * **`listTemplateItems()` と混同しないこと。** あちらは `templateId` で
+ * 絞る（テンプレート 1 件の項目を並べる）。こちらは `checklistItem.id` で
+ * 絞る。検査・再清掃の画面は `taskChecklistResult.itemId` を持っていて
+ * テンプレート ID を持たないため、この形が要る。
+ *
+ * 並びは `sortOrder`（`listTemplateItems()` と同じ）。
+ */
+export async function listChecklistItemsByIds(
+  env: Env,
+  ctx: TenantContext,
+  itemIds: readonly string[],
+) {
+  for (const id of itemIds) assertIdBelongsToTenant(id, ctx);
+  if (itemIds.length === 0) return [];
+
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select()
+    .from(checklistItem)
+    .where(
+      withTenantScope(checklistItem, ctx, NO_PROPERTY_SCOPE, inArray(checklistItem.id, [...itemIds])),
+    )
+    .orderBy(checklistItem.sortOrder);
+}
+
 /** `createTemplate()` の 1 項目。 */
 export interface CreateChecklistItemInput {
   section: string;

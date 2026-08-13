@@ -11,8 +11,11 @@
 
 import {
   type TenantContext,
+  findEvidenceSnapshotById,
   findInspectionById,
   findInspectionItemResultById,
+  findReworkCycleById,
+  listEvidenceSnapshotsByTask,
   listInspectionItemResults,
   listInspectionPhotos,
   listInspectionsByTask,
@@ -62,5 +65,23 @@ describeTenantIsolation({
 describeTenantIsolation({
   table: "rework_cycle",
   list: (env, ctx) => listReworkCyclesByTask(env, ctx, ownId(ctx, "task")),
+  // P2-07 が `findReworkCycleById()` を足したので越境 ID の検査も掛かる。
+  findById: (env, ctx, id) => findReworkCycleById(env, ctx, id),
+  entityPrefix: "rwk",
+  propertyColumn: "property_id",
+});
+
+/**
+ * 証跡（P2-08 / PK-SPEC-P2 §3.7）。
+ *
+ * **読み取りだけを検査する。** この表には UPDATE / DELETE の関数が無い
+ * （`repositories/evidence.ts` / `repositories.spec.ts` がソースで固定）。
+ * 越境で書けないことは `appendEvidenceSnapshot()` の登録表が押さえている。
+ */
+describeTenantIsolation({
+  table: "evidence_snapshot",
+  list: (env, ctx) => listEvidenceSnapshotsByTask(env, ctx, ownId(ctx, "task")),
+  findById: (env, ctx, id) => findEvidenceSnapshotById(env, ctx, id),
+  entityPrefix: "evd",
   propertyColumn: "property_id",
 });

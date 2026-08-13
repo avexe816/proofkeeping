@@ -197,3 +197,43 @@ export {
   type QueuedInspection,
   type WaitingInspection,
 } from "./inspectionQueue.js";
+
+// 差戻しサイクルの状態機械と再清掃項目の絞り（P2-07 / 同 §4.5〜§4.7）。
+// **タスクの状態機械（`taskStatus.ts`）とは別の軸。**
+export {
+  REWORK_ACTIONS,
+  REWORK_STATUS_VALUES,
+  checkWaiveRequirements,
+  evaluateReworkTransition,
+  isReworkSettled,
+  reworkVisibleItemIds,
+  type ReworkAction,
+  type ReworkCandidateItem,
+  type ReworkStatusValue,
+  type ReworkTransitionResult,
+  type WaiveRequirementCheck,
+} from "./reworkStatus.js";
+
+// 証跡の正規化 JSON と連鎖の入力（P2-08 / 同 §6.2・§6.3）。
+// **ハッシュそのものは取らない**（WebCrypto は `apps/web/src/lib/evidence/`）。
+export {
+  CanonicalJsonError,
+  GENESIS_HASH,
+  buildCleaningCompletionPayload,
+  buildInspectionPayload,
+  buildReworkCompletionPayload,
+  canonicalJson,
+  chainHashInput,
+  isoUtc,
+  verifyEvidenceChain,
+  type CanonicalValue,
+  type CleaningCompletionInput,
+  type EvidenceChainVerification,
+  type EvidenceInspectionItemInput,
+  type EvidencePhotoInput,
+  type EvidenceTimeLogInput,
+  type InspectionEvidenceInput,
+  type ReworkCompletionInput,
+  type SnapshotVerification,
+  type SnapshotVerificationInput,
+} from "./evidence.js";
