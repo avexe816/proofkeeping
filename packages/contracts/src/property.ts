@@ -55,6 +55,83 @@ export type PropertySummaryResponse = z.infer<typeof propertySummaryResponseSche
 export const businessDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 // ────────────────────────────────────────────────────────────
+// 客室タイプ（P1-24 / W-25・PK-SPEC-P0 §24.3）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 客室タイプのコード。CSV 取込の `room_type_code` と同じ語彙。
+ *
+ * **英数字と `-` `_` に限る。** カンマを許すと §24.2 の CSV（引用符を
+ * 扱わない）で列が割れる。大文字へ寄せるような正規化はしない
+ * （PMS 側のコードをそのまま入れる施設があり、勝手に変えると
+ * P6 の突き合わせがずれる）。
+ */
+export const roomTypeCodeSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(32)
+  .regex(/^[A-Za-z0-9_-]+$/);
+
+/**
+ * 客室タイプの作成。
+ *
+ * `bedCount` / `capacity` は空欄でよい。**0 を `null` に落とさない。**
+ * ベッドの無い清掃専用の場所（`PANTRY`）は 0 が正しい値で、
+ * 「未入力」とは別物（`parseRoomCsv()` の `toNumber()` と同じ向き）。
+ */
+export const roomTypeCreateSchema = z.object({
+  propertyId: z.string().min(1),
+  code: roomTypeCodeSchema,
+  name: z.string().trim().min(1).max(60),
+  bedCount: z.number().int().min(0).max(20).optional(),
+  capacity: z.number().int().min(0).max(20).optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+});
+
+export type RoomTypeCreate = z.infer<typeof roomTypeCreateSchema>;
+
+/**
+ * 客室タイプの更新。**`code` と `propertyId` は含めない。**
+ *
+ * `code` は取込と外部連携が突き合わせる鍵で、変えると過去の取込が
+ * 別のタイプを指す（`updateRoomType()` の注記）。
+ */
+export const roomTypeUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  bedCount: z.number().int().min(0).max(20).nullable().optional(),
+  capacity: z.number().int().min(0).max(20).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export type RoomTypeUpdate = z.infer<typeof roomTypeUpdateSchema>;
+
+/** 一覧の 1 件。**`organizationId` を含めない**（シャード・組織の露出）。 */
+export const roomTypeSummarySchema = z.object({
+  roomTypeId: z.string().min(1),
+  propertyId: z.string().min(1),
+  code: z.string().min(1),
+  name: z.string().min(1),
+  bedCount: z.number().int().nullable(),
+  capacity: z.number().int().nullable(),
+  sortOrder: z.number().int(),
+  isActive: z.boolean(),
+  /** この客室タイプが割り当てられた有効な客室の数（§24.5 の提示に使う）。 */
+  roomCount: z.number().int().min(0),
+});
+
+export type RoomTypeSummary = z.infer<typeof roomTypeSummarySchema>;
+
+/** `GET /api/v1/room-types?propertyId=` の応答。 */
+export const roomTypeListResponseSchema = z.object({
+  propertyId: z.string().min(1),
+  data: z.array(roomTypeSummarySchema),
+});
+
+export type RoomTypeListResponse = z.infer<typeof roomTypeListResponseSchema>;
+
+// ────────────────────────────────────────────────────────────
 // 事業者・税務マスタ（P0-16 / W-11）
 // ────────────────────────────────────────────────────────────
 

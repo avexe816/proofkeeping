@@ -41,13 +41,28 @@ export interface FakeD1 {
    * 積まなければ 0 件を返す。P0-07 の検証は SQL だけを見るため通常は使わない。
    */
   enqueueRows(rows: unknown[][]): void;
+  /**
+   * 次の書き込みが報告する影響行数を積む。**既定は 1。**
+   *
+   * `0` は `onConflictDoNothing()` で見送られた状態を表す
+   * （`createRooms()` の `skipped` / `createRoomType()` の重複）。
+   * 積まなければ「1 行書けた」として振る舞う。
+   */
+  enqueueChanges(changes: number): void;
 }
 
 export function createFakeD1(): FakeD1 {
   const queries: RecordedQuery[] = [];
   const pendingRows: unknown[][][] = [];
+  const pendingChanges: number[] = [];
 
   const takeRows = (): unknown[][] => pendingRows.shift() ?? [];
+  // **既定を 1 にする。** D1 の実装は成功した INSERT / UPDATE の行数を
+  // 必ず返す。ここを空にしておくと `result.meta.changes` が `undefined` になり、
+  // `changes > 0` を見る経路（`createRooms()` など）が代役の下でだけ
+  // 常に「見送った」側へ倒れる。**代役が本物と違う分岐を通ると、
+  // テストが通っていることの意味が変わる。**
+  const takeChanges = (): number => pendingChanges.shift() ?? 1;
 
   const database = {
     prepare(sql: string) {
@@ -58,8 +73,8 @@ export function createFakeD1(): FakeD1 {
         },
         raw: () => Promise.resolve(takeRows()),
         all: () =>
-          Promise.resolve({ results: takeRows(), success: true, meta: {} }),
-        run: () => Promise.resolve({ success: true, meta: {} }),
+          Promise.resolve({ results: takeRows(), success: true, meta: { changes: takeChanges() } }),
+        run: () => Promise.resolve({ success: true, meta: { changes: takeChanges() } }),
         first: () => Promise.resolve(takeRows()[0] ?? null),
       };
       return statement;
@@ -73,6 +88,9 @@ export function createFakeD1(): FakeD1 {
     database: database as unknown as D1Database,
     enqueueRows(rows) {
       pendingRows.push(rows);
+    },
+    enqueueChanges(changes) {
+      pendingChanges.push(changes);
     },
   };
 }

@@ -40,6 +40,12 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  *   /app/settings/checklists      W-16 チェックリスト定義
  *   /app/settings/standard-times  W-17 標準時間設定
  *
+ * ── P1-24（P1 の後・P2 の前）───────────────────────────
+ *   /app/settings/room-types      W-25 客室タイプ管理
+ *
+ * 上の 3 画面が読む `room_type` に**書く経路が一つも無かった。** seed の
+ * 無い組織では W-17 が 0 行、W-16 の第 3 階層が作れない状態だった。
+ *
  * 3 task はいずれも API だけを実装し、画面を「Batch 2/3 の担当」として
  * 残していた。Batch 2/3（P1-07〜P1-18）は現場画面（`/m/*`）を作って
  * 通り過ぎており、**§10.1 の PC 5 画面のうち W-03 / W-04 しか無かった。**
@@ -68,6 +74,7 @@ export default [
     route("app/p/:propertyId/plan", "routes/app/propertyPlan.tsx"),
     route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
+    route("app/settings/room-types", "routes/app/roomTypes.tsx"),
     route("app/settings/checklists", "routes/app/checklists.tsx"),
     route("app/settings/standard-times", "routes/app/standardTimes.tsx"),
     route("app/settings/tax", "routes/app/taxProfile.tsx"),

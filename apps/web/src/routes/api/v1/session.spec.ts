@@ -16,7 +16,7 @@
 import type { Env } from "@pk/db";
 import { createFakeD1, type FakeD1 } from "@pk/db/test-support";
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { SESSION_COOKIE_NAME } from "../../../lib/auth/cookie.js";
 import { createSession, readSession } from "../../../lib/auth/session.js";
@@ -27,6 +27,18 @@ import session from "./session.js";
 
 const SECRET = "test-session-secret-not-used-anywhere-else";
 const NOW = new Date("2026-08-12T09:00:00.000Z");
+
+// セッションの有効期限は `createSession()` が `NOW` から 12 時間で切る一方、
+// middleware は**実時刻**で失効を判定する。時計を止めないと、実時刻が
+// `NOW + 12h` を過ぎた日から全件 401 になる（時限式で赤くなる）。
+// `Date` だけを差し替える。タイマーごと差し替えると await が進まなくなる。
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 const ORG_SHORT_ID = "a1b2c3";
 const MEMBERSHIP_ID = `${ORG_SHORT_ID}__mem_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 const USER_ID = `${ORG_SHORT_ID}__usr_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;

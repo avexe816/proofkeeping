@@ -1271,3 +1271,97 @@
   書いてある。`nav.propertySettings` は PLANNED のままにしてあり、
   P1-24 がそこに入れるか `/app/settings/rooms` に節を足すかを実装時に
   決めて DECISIONS へ残すこと。
+
+## #055 客室タイプ管理を独立ルート `/app/settings/room-types` に置いた
+- 日付: 2026-08-12
+- 状態: 採用
+- 背景: #054 が「`nav.propertySettings`（PLANNED）の一部として置くか、
+  `/app/settings/rooms` の中に節を足すかを実装時に決めて残すこと」と
+  していた宿題。
+- 決定: **独立したルートと独立したサイドバー項目にする。**
+  `nav.roomTypes` を新設し、`nav.rooms`（客室マスタ）の直後に置いた。
+  `nav.propertySettings` は PLANNED のまま据え置く。
+- 理由:
+  ① 客室タイプは客室とは**別の一意制約を持つマスタ**
+     （`uq_room_type_property_code`）で、W-16 の第 3 階層と W-17 の行は
+     客室ではなくこちらを参照する。「客室マスタの一部」ではない。
+  ② `rooms.tsx` は既に 3 つの `intent`（範囲一括・CSV・無効化）を持ち、
+     P1-24 で 4 つ目（客室タイプの付け替え）が加わる。ここへさらに
+     客室タイプの CRUD を混ぜると、**1 つの `action` が 7 分岐**になる。
+  ③ W-16 / W-17 は客室タイプが 1 件も無いと設定を始められない。
+     設定の並びとして、客室マスタの直後に見えている必要がある。
+  `nav.propertySettings` を使わなかったのは、あちらが「施設設定」という
+  **未確定の入れ物**で、日締め時刻・施設情報など別のものが入る予定の枠
+  だから。客室タイプを先に入れると、あとで枠の意味が決まったときに
+  移動することになる。
+- 影響: `apps/web/src/routes/app/roomTypes.tsx`（新規）、`routes.ts`、
+  `ui/navigation.ts`、`ui/navigation.spec.ts` の READY 一覧。
+
+## #056 客室タイプの API に `Idempotency-Key` の記録を実装しない
+- 日付: 2026-08-12
+- 状態: 採用
+- 背景: CLAUDE.md §5「状態変更 API は `Idempotency-Key` ヘッダに対応する」。
+  `/api/v1/room-types` の POST / PATCH が状態変更にあたる。
+- 決定: ヘッダは受けるが、**鍵を保存する表・KV を作らない。**
+- 理由: この 2 操作は再送しても状態が変わらない。
+  - `POST` は `uq_room_type_property_code` があり、2 回目は
+    `onConflictDoNothing()` で弾かれて 409 になる。**行が 2 つできない。**
+  - `PATCH` は渡された項目をその値にするだけで、何度送っても同じ状態。
+  採番も課金も伴わないため、`routes/api/v1/session.ts`（`/switch-property`）
+  と同じ判断。**壊れるものが無いところに、鍵の寿命管理という新しい
+  状態を増やさない。**
+  一方 `cleaningTask` の状態遷移は `taskTimeLog` に行が積まれるため
+  鍵の照合が要る（`findTimeLogByIdempotencyKey()`）。この違いは
+  「再送で行が増えるか」で分かれる。
+- 影響: `apps/web/src/routes/api/v1/roomTypes.ts` の冒頭コメント。
+  **新しい API を足す task は、この基準（再送で行が増えるか）で判断すること。**
+
+## #057 `createFakeD1()` の `meta.changes` の既定を 1 にした
+- 日付: 2026-08-12
+- 状態: 採用
+- 背景: 代役の `run()` / `all()` が `meta: {}` を返していた。
+  `result.meta.changes > 0` を見る経路（`createRooms()` /
+  `createRoomType()` / `appendTimeLog()` など 14 か所）は、代役の下では
+  `undefined > 0` すなわち**常に false** を通っていた。
+- 決定: 既定を `1`（1 行書けた）にし、`enqueueChanges(n)` で
+  1 回ぶんだけ上書きできるようにした。`0` は
+  `onConflictDoNothing()` で見送られた状態を表す。
+- 理由: **代役が本物と違う分岐を通ると、テストが通っていることの意味が
+  変わる。** 既存のテストは SQL の形だけを見ていたため誰も気づかなかったが、
+  P1-24 で「重複したら 409」を検証しようとした時点で、代役では
+  常に重複扱いになることが分かった。
+- 影響: `packages/db/src/test-support/fake-d1.ts`。既存 1615 件は緑のまま
+  （どのテストも `changes` の値に依存していなかった）。
+
+## #058 セッションを使う spec で `Date` を止める（時限式の CI 赤を直した）
+- 日付: 2026-08-13
+- 状態: 採用（**P1-24 の範囲外。CI が赤いまま放置できないため直した**）
+- 背景: PR #23 の `test` ジョブが 64 件落ちた。**P1-24 の変更とは無関係。**
+  `createSession()` はテストが渡す `NOW`（`2026-08-12T09:00:00Z`）から
+  12 時間で `expiresAt` を切るが、**middleware は実時刻で失効を判定する**
+  （`middleware/session.ts` の `const now = new Date()`）。
+  実時刻が `NOW + 12h`（2026-08-12T21:00Z）を過ぎた瞬間から、
+  セッションを作る spec が**全件 401** になる。
+  **時限式で、誰も何も変えていないのに赤くなる。**
+- 決定: 対象 7 ファイルで `vi.useFakeTimers({ toFake: ["Date"] })` +
+  `vi.setSystemTime(NOW)` を `beforeAll` に置き、`afterAll` で戻す。
+  - `apps/web/src/routes/api/v1/{tasks,roomTypes,session,organization}.spec.ts`
+  - `apps/web/src/middleware/{index,session,tenant}.spec.ts`
+- 理由:
+  ① **`toFake: ["Date"]` に限る。** タイマーごと差し替えると
+     `await` が進まなくなる（vitest の fake timers は既定で
+     `setTimeout` も奪う）。止めたいのは時計だけ。
+  ② `NOW` を実時刻から相対に変える案は採らなかった。業務日
+     （`businessDate`）の期待値が `NOW` に固定されており、
+     相対にすると日付をまたぐ実行で別の形で不安定になる。
+  ③ `apps/web/src/lib/auth/session.spec.ts` は変えていない。
+     あちらは `readSession(env, value, now)` と**毎回 `now` を渡して**
+     おり、実時刻に依存していない。失効の境界そのものを検査する
+     spec なので、時計を止めるとテストの意味が消える。
+- **CLAUDE.md §1.4（task に無いことを実装しない）との関係**: これは
+  production の挙動を一切変えない**テストの書き方**の修正で、
+  workflow.md §7「止まらなくてよいこと」の「テストの書き方・粒度」
+  「挙動を変えない範囲のリファクタリング」に当たると判断した。
+  放置すると P1-24 に限らず**以後すべての PR が赤いまま**になる。
+- 影響: spec 7 ファイル。production コードの変更なし。
+  **`createSession()` を使う spec を新しく書く task は同じ 2 行を置くこと。**

@@ -116,15 +116,23 @@ export {
 
 export {
   createProperty,
+  createRoomType,
   findPropertyByCode,
   findPropertyById,
+  findRoomTypeById,
   listProperties,
   listRoomTypes,
+  updateRoomType,
   type CreatePropertyInput,
+  type CreateRoomTypeInput,
+  type CreateRoomTypeResult,
   type PropertyFilter,
+  type RoomTypeFilter,
+  type UpdateRoomTypeInput,
 } from "./property.js";
 
 export {
+  countRoomsByRoomType,
   countSellableRoomsByProperty,
   createRooms,
   findRoomById,
