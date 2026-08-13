@@ -94,7 +94,8 @@ describe("ENTITY_PREFIXES", () => {
     // 中盤: P0-06 の 13 テーブル分（docs/DECISIONS.md #013）。
     // 次:   P0-08 の password_history（docs/DECISIONS.md #018）。
     // 次:   P1-01 の 7 テーブル分（docs/DECISIONS.md #032）。
-    // 末尾: P2-01 の 4 テーブル分（docs/DECISIONS.md #059）。
+    // 次:   P2-01 の 4 テーブル分（docs/DECISIONS.md #059）。
+    // 末尾: P2-14 の日報（docs/DECISIONS.md #083）。
     //       `insp` / `evd` は仕様書由来なので前半にある。
     //
     // **並びと綴りを変えないこと。** ID は永続データなので、
@@ -136,6 +137,7 @@ describe("ENTITY_PREFIXES", () => {
       "ires",
       "ipho",
       "rwk",
+      "rpt",
     ]);
   });
 

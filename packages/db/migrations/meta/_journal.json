@@ -71,6 +71,13 @@
       "when": 1786605070268,
       "tag": "0009_p2_11_12_lost_item_and_issue",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1786624449300,
+      "tag": "0010_p2_14_daily_report",
+      "breakpoints": true
     }
   ]
 }

@@ -89,6 +89,8 @@ const TENANT_TABLES = [
   "issue_report",
   "issue_photo",
   "issue_history",
+  // P2-14。日報（同 §9.4）。**発行済み帳票。**
+  "daily_report",
 ] as const;
 
 /**

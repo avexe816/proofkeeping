@@ -34,10 +34,11 @@
 # ここに「まだ」書いていないもの
 # ------------------------------------------------------------------------------
 #
-#   [[queues.consumers]]      **P2-10 が evidence-export だけを宣言した。**
-#                             残り 6 キューはハンドラが未実装で、宣言すると
-#                             wrangler が起動しない。実装する task
-#                             （P3-09 / P4-14 / P5-06 / P6-04 / P7-09）が
+#   [[queues.consumers]]      **P2-10 が evidence-export、P2-14 が
+#                             pdf-generation を宣言した。** 残り 5 キューは
+#                             ハンドラが未実装で、宣言すると wrangler が
+#                             起動しない。実装する task
+#                             （P3-09 / P4-14 / P6-04 / P7-09）が
 #                             自分の分を 4 環境ぶん追記し、同時に
 #                             src/index.ts の `queue()` へ分岐を足すこと。
 #
@@ -48,23 +49,30 @@
 #                             [[migrations]] の新しいタグを同時に足す。
 #                             **既存の tag = "v1" を書き換えないこと。**
 #
-#   compatibility_flags       同上。@react-pdf/renderer を Queue コンシューマで
-#                             動かす P2 の task が nodejs_compat を追加する。
-#                             フラグの後付けは非破壊。
-#
 # ------------------------------------------------------------------------------
 # Cron Triggers の本数
 # ------------------------------------------------------------------------------
 #
-#   無料枠は 5 本まで。**現在 1 本**（P1-03 のタスク自動生成 / 02:00 JST）。
+#   無料枠は 5 本まで。**現在 2 本。**
+#     0 17 * * *      P1-03 タスク自動生成（02:00 JST）
+#     */10 * * * *    P2-14 日報（日締め + 10 分の施設を拾う）
 #   足す task は、この行の本数を数え直してから追記すること。
 #   cron 式は UTC 指定。日本時間で書かない（下の [triggers] の注記を参照）。
+#   **10 分ごとの回は施設ごとの日締め時刻と突き合わせて絞る**
+#   （apps/web/src/lib/report/schedule.ts）。日締めは施設が設定できるので、
+#   「05:10 に走る cron」では設定を変えた施設の日報が出ない。
 #
 # ------------------------------------------------------------------------------
 
 name = "pk-local"
 main = "src/index.ts"
 compatibility_date = "2026-08-11"
+
+# @react-pdf/renderer（日報 PDF / P2-14）が Node の API を使う。
+# **継承されるキーなので [env.*] へ書き写さない**（compatibility_date と同じ扱い。
+# binding だけが継承されない）。フラグの後付けは非破壊。
+compatibility_flags = ["nodejs_compat"]
+
 account_id = "6c8b5b6228c4021c651755d1c5fb53d6"
 
 # workers.dev のサブドメインに露出させない。独自ドメインのみで公開する。
@@ -191,6 +199,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 日報 PDF の生成（P2-14 / PK-SPEC-P2 §9）。@react-pdf/renderer は
+# レイアウトと書体の埋め込みで数百 ms 使う。リクエストの CPU 予算
+# （50ms / architecture.md §5）に収まらないのでここで処理する。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[queues.consumers]]
+queue = "pk-pdf-generation-local"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -222,7 +241,7 @@ new_sqlite_classes = ["InspectionLock"]
 # ハンドラは apps/web/src/index.ts の `scheduled()`。
 # **本数を増やすときは無料枠（5 本）を数えること。** 現在 1 本。
 [triggers]
-crons = ["0 17 * * *"]
+crons = ["0 17 * * *", "*/10 * * * *"]
 
 # ==============================================================================
 # preview — PR ごと（§9.2: pk-pr-{n} / 1 シャード）
@@ -320,6 +339,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 日報 PDF の生成（P2-14 / PK-SPEC-P2 §9）。@react-pdf/renderer は
+# レイアウトと書体の埋め込みで数百 ms 使う。リクエストの CPU 予算
+# （50ms / architecture.md §5）に収まらないのでここで処理する。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[env.preview.queues.consumers]]
+queue = "pk-pdf-generation-preview"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -346,7 +376,7 @@ new_sqlite_classes = ["InspectionLock"]
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。
 [env.preview.triggers]
-crons = ["0 17 * * *"]
+crons = ["0 17 * * *", "*/10 * * * *"]
 
 # ==============================================================================
 # staging — main マージで自動デプロイ（§9.2: pk-staging / 2 シャード）
@@ -451,6 +481,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 日報 PDF の生成（P2-14 / PK-SPEC-P2 §9）。@react-pdf/renderer は
+# レイアウトと書体の埋め込みで数百 ms 使う。リクエストの CPU 予算
+# （50ms / architecture.md §5）に収まらないのでここで処理する。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[env.staging.queues.consumers]]
+queue = "pk-pdf-generation-staging"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -477,7 +518,7 @@ new_sqlite_classes = ["InspectionLock"]
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。
 [env.staging.triggers]
-crons = ["0 17 * * *"]
+crons = ["0 17 * * *", "*/10 * * * *"]
 
 # ==============================================================================
 # production — 手動デプロイ（§9.2: pk-prod / 16 シャード）
@@ -656,6 +697,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 日報 PDF の生成（P2-14 / PK-SPEC-P2 §9）。@react-pdf/renderer は
+# レイアウトと書体の埋め込みで数百 ms 使う。リクエストの CPU 予算
+# （50ms / architecture.md §5）に収まらないのでここで処理する。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[env.production.queues.consumers]]
+queue = "pk-pdf-generation"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -682,4 +734,4 @@ new_sqlite_classes = ["InspectionLock"]
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。
 [env.production.triggers]
-crons = ["0 17 * * *"]
+crons = ["0 17 * * *", "*/10 * * * *"]

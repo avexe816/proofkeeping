@@ -35,6 +35,7 @@ import {
 import * as auditRepo from "./audit.js";
 import * as checklistRepo from "./checklist.js";
 import * as cleaningTaskRepo from "./cleaningTask.js";
+import * as dailyReportRepo from "./dailyReport.js";
 import * as dailyRouteRepo from "./dailyRoute.js";
 import * as entitlementRepo from "./entitlement.js";
 import * as evidenceRepo from "./evidence.js";
@@ -61,6 +62,9 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // （P1-14〜P1-18 の申し送り 1）。
   dailyRoute: dailyRouteRepo,
   taskPhoto: taskPhotoRepo,
+  // P2-14 が登録した日報（PK-SPEC-P2 §9.4）。
+  // **INSERT と SELECT だけ**であることも下で検査する（発行済み帳票）。
+  dailyReport: dailyReportRepo,
   entitlement: entitlementRepo,
   // P2-08 が登録した証跡。**INSERT と SELECT だけ**であることも下で検査する。
   evidence: evidenceRepo,
@@ -100,10 +104,30 @@ const OWN_ID = {
   // P2-11 / P2-12。
   lostItem: generateId(TEST_ORG.orgShortId, "lost"),
   issue: generateId(TEST_ORG.orgShortId, "issue"),
+  // P2-14。
+  dailyReport: generateId(TEST_ORG.orgShortId, "rpt"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
 const FAKE_HASH = "pbkdf2$sha256$210000$c2FsdA$aGFzaA";
+
+/** 日報 1 行ぶんの値（P2-14 / PK-SPEC-P2 §9.4）。**集計値の中身は問わない。** */
+const DAILY_REPORT = {
+  propertyId: "",
+  businessDate: "2026-09-10",
+  documentNo: "RPT-2026-0042",
+  revision: 1,
+  storageKey: "documents/org/prop/daily-reports/2026/09/RPT-2026-0042-r1.pdf",
+  payloadSha256: "a".repeat(64),
+  pdfSha256: "b".repeat(64),
+  totalTasks: 0,
+  completedTasks: 0,
+  failedFirstInspection: 0,
+  openIssues: 0,
+  openLostItems: 0,
+  generatedById: null,
+  supersedesId: null,
+} as const;
 
 /** 検査方式の設定値（P2-02 / PK-SPEC-P2 §2.1）。 */
 const INSPECTION_POLICY = {
@@ -138,6 +162,8 @@ const OTHER_ID = {
   // P2-11 / P2-12。
   lostItem: generateId(OTHER_ORG.orgShortId, "lost"),
   issue: generateId(OTHER_ORG.orgShortId, "issue"),
+  // P2-14。
+  dailyReport: generateId(OTHER_ORG.orgShortId, "rpt"),
 } as const;
 
 /**
@@ -680,6 +706,13 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => inspectionRepo.listInspectionsByTask(env, ctx, OWN_ID.task),
     crossTenant: (env, ctx) => inspectionRepo.listInspectionsByTask(env, ctx, OTHER_ID.task),
   },
+  // 日報（P2-14）が 100 室ぶんをまとめて引く。**ID の並びを受け取るので
+  // `crossTenant` を書けない**（越境 ID は第 2 層ではなく組織条件が落とす）。
+  {
+    name: "inspection.listInspectionsByTaskIds",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.listInspectionsByTaskIds(env, ctx, [OWN_ID.task]),
+  },
   {
     name: "inspection.findInspectionByIdempotencyKey",
     kind: "tenant",
@@ -833,6 +866,43 @@ const INVOCATIONS: Invocation[] = [
     kind: "tenant",
     run: (env, ctx) => inspectionRepo.listReworkCyclesByTask(env, ctx, OWN_ID.task),
     crossTenant: (env, ctx) => inspectionRepo.listReworkCyclesByTask(env, ctx, OTHER_ID.task),
+  },
+  {
+    name: "inspection.listReworkCyclesByTaskIds",
+    kind: "tenant",
+    run: (env, ctx) => inspectionRepo.listReworkCyclesByTaskIds(env, ctx, [OWN_ID.task]),
+  },
+
+  // ── P2-14: 日報 ────────────────────────────────────────
+  {
+    name: "dailyReport.createDailyReport",
+    kind: "tenant",
+    run: (env, ctx) =>
+      dailyReportRepo.createDailyReport(env, ctx, { ...DAILY_REPORT, propertyId: OWN_ID.property }),
+    crossTenant: (env, ctx) =>
+      dailyReportRepo.createDailyReport(env, ctx, {
+        ...DAILY_REPORT,
+        propertyId: OTHER_ID.property,
+      }),
+  },
+  {
+    name: "dailyReport.findDailyReportById",
+    kind: "tenant",
+    run: (env, ctx) => dailyReportRepo.findDailyReportById(env, ctx, OWN_ID.dailyReport),
+    crossTenant: (env, ctx) => dailyReportRepo.findDailyReportById(env, ctx, OTHER_ID.dailyReport),
+  },
+  {
+    name: "dailyReport.findLatestDailyReport",
+    kind: "tenant",
+    run: (env, ctx) =>
+      dailyReportRepo.findLatestDailyReport(env, ctx, OWN_ID.property, "2026-09-10"),
+    crossTenant: (env, ctx) =>
+      dailyReportRepo.findLatestDailyReport(env, ctx, OTHER_ID.property, "2026-09-10"),
+  },
+  {
+    name: "dailyReport.listDailyReports",
+    kind: "tenant",
+    run: (env, ctx) => dailyReportRepo.listDailyReports(env, ctx, { propertyId: OWN_ID.property }),
   },
 
   // ── P2-07: 差戻しの進行 ────────────────────────────────
@@ -1422,6 +1492,24 @@ describe("証跡スナップショットの不変性", () => {
     // drizzle の呼び出しを介さない生 SQL（`sql\`\``）でも同じこと。
     const offenders = repositorySources().filter(({ code }) =>
       /(update|delete\s+from)\s+["`']?evidence_snapshot/i.test(code),
+    );
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+});
+
+describe("日報の不変性", () => {
+  // P2-14 完了条件 / PK-SPEC-P2 §9.3 / CLAUDE.md §4（発行済み帳票）。
+  // **INSERT だけ。** 再生成は revision を上げた新しい行を足す。
+  it("daily_report を UPDATE / DELETE するリポジトリ関数が無い", () => {
+    const offenders = repositorySources().filter(
+      ({ code }) => /\.update\(\s*dailyReport/.test(code) || /\.delete\(\s*dailyReport/.test(code),
+    );
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  it("daily_report を対象にした SQL の update / delete が無い", () => {
+    const offenders = repositorySources().filter(({ code }) =>
+      /(update|delete\s+from)\s+["`']?daily_report/i.test(code),
     );
     expect(offenders.map(({ file }) => file)).toEqual([]);
   });

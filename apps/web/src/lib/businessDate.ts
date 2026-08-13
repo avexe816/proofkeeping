@@ -97,3 +97,28 @@ export function businessDateOf(
   const { date, minutes } = localParts(now, timezone);
   return minutes < cutoffMinutes(dayCutoffTime) ? previousDate(date) : date;
 }
+
+/**
+ * 業務日を 1 日戻す（P2-14 の日報が「いま終わった業務日」を求めるのに使う）。
+ *
+ * `nextBusinessDate()` の逆。**日締め時刻を再度考える必要は無い**
+ * （業務日は `YYYY-MM-DD` の連続した並び）。
+ */
+export function previousBusinessDate(businessDate: string): string {
+  return previousDate(businessDate);
+}
+
+/**
+ * その瞬間の現地時刻を「0 時からの分」で返す（P2-14 の日報バッチが使う）。
+ *
+ * `localClockOf()` と同じ値を文字列ではなく数で返すもの。日締めからの
+ * 経過を窓で判定するのに、`"05:10"` を再び分解したくないため。
+ */
+export function localMinutesOf(now: Date, timezone: string = DEFAULT_TIMEZONE): number {
+  return localParts(now, timezone).minutes;
+}
+
+/** `HH:MM` を 0 時からの分に直す。形が違えば既定（05:00）とみなす。 */
+export function dayCutoffMinutes(dayCutoffTime: string): number {
+  return cutoffMinutes(dayCutoffTime);
+}
