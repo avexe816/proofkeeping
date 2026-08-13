@@ -18,6 +18,7 @@ import { and, eq, inArray, isNull, or, type SQL } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
+import { chunkByParamBudget, chunkIdsForInArray } from "../limits.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import {
   checklistItem,
@@ -28,6 +29,21 @@ import {
 import type { TaskType } from "../schema/task.js";
 
 import { NO_PROPERTY_SCOPE, withTenantScope } from "./base.js";
+
+/**
+ * 1 行が使うバインド変数の数（D1 の上限は 100 / `limits.ts`）。
+ *
+ * **列を足したらこの数も直すこと。** 定数を持たせているのは、
+ * 分割の大きさを「行数」で書かないため（行数だと列の増減で静かに壊れる）。
+ */
+const CHECKLIST_ITEM_PARAMS_PER_ROW = 10;
+
+/**
+ * `taskChecklistResult` の 1 行ぶん。15 列のうち 4 列（`value` /
+ * `reasonCode` / `checkedAt` / `checkedById`）は展開時に全行 null で、
+ * drizzle が SQL の定数へ畳むためバインドされない。**余裕を見て 15 で割る。**
+ */
+const CHECKLIST_RESULT_PARAMS_PER_ROW = 15;
 
 /**
  * 施設に効きうるテンプレートを列挙する（組織共通 + その施設）。
@@ -82,6 +98,22 @@ export async function listTemplateItems(
   if (templateIds.length === 0) return [];
 
   const db = await getTenantDb(env, ctx);
+  // **D1 は 1 文 100 変数まで**（`limits.ts`）。ID の並びは呼び出し側が
+  // 決めるので、上限に収まる塊へ割って足し合わせる。
+  const rows: Awaited<ReturnType<typeof selectItemsByTemplate>> = [];
+  for (const chunk of chunkIdsForInArray(templateIds)) {
+    rows.push(...(await selectItemsByTemplate(db, ctx, chunk)));
+  }
+  // 塊をまたぐと並びが崩れるので、**最後に並べ直す。**
+  return rows.sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+/** `listTemplateItems()` の 1 塊ぶん。**組織条件は必ず載る。** */
+async function selectItemsByTemplate(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  ctx: TenantContext,
+  templateIds: readonly string[],
+) {
   return db
     .select()
     .from(checklistItem)
@@ -115,6 +147,21 @@ export async function listChecklistItemsByIds(
   if (itemIds.length === 0) return [];
 
   const db = await getTenantDb(env, ctx);
+  // **D1 は 1 文 100 変数まで**（`limits.ts`）。チェックリストの項目数は
+  // 施設ごとに増えるので、ここを 1 文で流すと項目の多い組織で落ちる。
+  const rows: Awaited<ReturnType<typeof selectItemsByIds>> = [];
+  for (const chunk of chunkIdsForInArray(itemIds)) {
+    rows.push(...(await selectItemsByIds(db, ctx, chunk)));
+  }
+  return rows.sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+/** `listChecklistItemsByIds()` の 1 塊ぶん。 */
+async function selectItemsByIds(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  ctx: TenantContext,
+  itemIds: readonly string[],
+) {
   return db
     .select()
     .from(checklistItem)
@@ -180,20 +227,26 @@ async function insertItems(
 ): Promise<void> {
   if (items.length === 0) return;
   const db = await getTenantDb(env, ctx);
-  await db.insert(checklistItem).values(
-    items.map((item, index) => ({
-      id: generateId(ctx.orgShortId, "citm"),
-      organizationId: ctx.organizationId,
-      templateId,
-      section: item.section,
-      labels: item.labels,
-      isRequired: item.isRequired,
-      photoRequired: item.photoRequired,
-      sortOrder: index,
-      createdAt: ctx.now,
-      updatedAt: ctx.now,
-    })),
-  );
+
+  const rows = items.map((item, index) => ({
+    id: generateId(ctx.orgShortId, "citm"),
+    organizationId: ctx.organizationId,
+    templateId,
+    section: item.section,
+    labels: item.labels,
+    isRequired: item.isRequired,
+    photoRequired: item.photoRequired,
+    sortOrder: index,
+    createdAt: ctx.now,
+    updatedAt: ctx.now,
+  }));
+
+  // **D1 の上限は 100 変数**（`limits.ts`）。1 行 10 列なので 11 項目目から
+  // 超える。W-16 は 1 テンプレートに何項目でも定義できるので、
+  // ここを 1 文で流すと現場のチェックリストがそのまま入らない。
+  for (const chunk of chunkByParamBudget(rows, CHECKLIST_ITEM_PARAMS_PER_ROW)) {
+    await db.insert(checklistItem).values(chunk);
+  }
 }
 
 /**
@@ -319,14 +372,13 @@ export async function expandChecklist(
   );
   if (rows.length === 0) return 0;
 
-  // 1 行 12 列。SQLite の既定上限（999 変数）に収まる塊へ割る。
-  const CHUNK = 60;
+  // **D1 の上限は 100 変数**（`limits.ts`）。SQLite の 999 ではない。
+  // 1 行 11 変数（`value` / `reasonCode` / `checkedAt` / `checkedById` は
+  // 全行 null なので drizzle が定数に畳む）で、**行数を定数で持たない。**
+  // 列が増えた日に静かに上限を超えるため（同注記）。
   let inserted = 0;
-  for (let offset = 0; offset < rows.length; offset += CHUNK) {
-    const result = await db
-      .insert(taskChecklistResult)
-      .values(rows.slice(offset, offset + CHUNK))
-      .onConflictDoNothing();
+  for (const chunk of chunkByParamBudget(rows, CHECKLIST_RESULT_PARAMS_PER_ROW)) {
+    const result = await db.insert(taskChecklistResult).values(chunk).onConflictDoNothing();
     inserted += result.meta.changes;
   }
   return inserted;
