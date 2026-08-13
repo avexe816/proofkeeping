@@ -135,7 +135,10 @@ export {
   listInspectionItemResults,
   listInspectionPhotos,
   listInspectionsByTask,
+  // 日報（P2-14）が 100 室ぶんをまとめて引く。1 室ずつ引かない。
+  listInspectionsByTaskIds,
   listReworkCyclesByTask,
+  listReworkCyclesByTaskIds,
   newInspectionPhotoId,
   recordInspectionItemResult,
   type AdvanceReworkCycleInput,
@@ -259,3 +262,15 @@ export {
   type CreateIssueReportInput,
   type IssueReportFilter,
 } from "./issueReport.js";
+
+// 日報（P2-14 / PK-SPEC-P2 §9）。**発行済み帳票。UPDATE / DELETE が無い。**
+// 再生成は revision を上げた新しい行（§9.3）。
+export {
+  createDailyReport,
+  findDailyReportById,
+  findLatestDailyReport,
+  listDailyReports,
+  type CreateDailyReportInput,
+  type DailyReportFilter,
+  type DailyReportRow,
+} from "./dailyReport.js";

@@ -105,6 +105,10 @@ export const ENTITY_PREFIXES = [
   "ires", // inspectionItemResult
   "ipho", // inspectionPhoto
   "rwk", // reworkCycle
+  // P2-14 が決めたもの（docs/DECISIONS.md #083）。
+  // 帳票の番号（`RPT-2026-0042`）とは別物。あちらは人が読む文書番号で、
+  // こちらは行の ID。**同じ日報が「番号 1 つ・ID 複数（版ごと）」を持つ。**
+  "rpt", // dailyReport
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

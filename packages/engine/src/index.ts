@@ -283,3 +283,22 @@ export {
   type IssueTransitionResult,
   type RoomEffect,
 } from "./issueRules.js";
+
+// 日報の集計（P2-14 / PK-SPEC-P2 §9.2）。
+// **PDF も DB の集計列もこの payload から作る。** 数える口を 2 つ作らない。
+export {
+  DAILY_REPORT_SCHEMA_VERSION,
+  buildDailyReportPayload,
+  dailyReportCounters,
+  dailyReportPayloadToCanonical,
+  type DailyReportDetailRow,
+  type DailyReportFindingInput,
+  type DailyReportFindingRow,
+  type DailyReportIncompleteRow,
+  type DailyReportInput,
+  type DailyReportInspectionInput,
+  type DailyReportPayload,
+  type DailyReportReworkInput,
+  type DailyReportSummary,
+  type DailyReportTaskInput,
+} from "./dailyReport.js";

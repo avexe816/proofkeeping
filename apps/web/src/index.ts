@@ -2,6 +2,7 @@ import type { Env } from "@pk/db";
 import { Hono } from "hono";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 
+import { handleDailyReportBatch } from "./consumers/dailyReport.js";
 import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
 import {
   missingSecretNames,
@@ -14,6 +15,7 @@ import {
   useTenantMiddleware,
   type AppEnv,
 } from "./middleware/index.js";
+import { DAILY_REPORT_CRON, dispatchDailyReports } from "./lib/report/dispatch.js";
 import { runNightlyGeneration } from "./lib/task/nightly.js";
 import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
@@ -27,6 +29,7 @@ import lostItems from "./routes/api/v1/lostItems.js";
 import organization from "./routes/api/v1/organization.js";
 import properties from "./routes/api/v1/properties.js";
 import reworks from "./routes/api/v1/reworks.js";
+import reports from "./routes/api/v1/reports.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
 import session from "./routes/api/v1/session.js";
@@ -146,6 +149,9 @@ api.route("/lost-items", lostItems);
 // 設備不具合（P2-12 / 同 §8・§14.3）。**`CRITICAL` だけが客室を止める。**
 // 解決しても客室は自動復旧しない（§8.3）。
 api.route("/issues", issues);
+// 日報（P2-14 / PK-SPEC-P2 §9・§14.4）。**削除・訂正・送付の口が無い。**
+// 生成は必ず Queue を通る（`consumers/dailyReport.ts`）。
+api.route("/reports", reports);
 api.route("/room-plans", roomPlans);
 // 客室タイプ（P1-24 / W-25）。**物理削除の口が無い**（無効化のみ）。
 api.route("/room-types", roomTypes);
@@ -224,11 +230,40 @@ export default {
       await handleEvidenceExportBatch(env, batch);
       return;
     }
+    // 日報 PDF（P2-14 / PK-SPEC-P2 §9）。請求書・領収書（P5）も同じキュー。
+    if (batch.queue.startsWith("pk-pdf-generation")) {
+      await handleDailyReportBatch(env, batch);
+      return;
+    }
     // 知らないキュー。**ack も retry もしない**（既定の再送に任せる）。
     console.error(`queue-unhandled queue=${batch.queue}`);
   },
-  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
-    const result = await runNightlyGeneration(env, new Date());
+  /**
+   * Cron Trigger（wrangler.toml の `[triggers]`）。**2 本ある。**
+   *
+   * `controller.cron` は発火した cron 式そのもの。**式で振り分ける。**
+   * 分岐を持たずに両方を毎回走らせると、10 分ごとにタスク生成が走る。
+   *
+   *   `0 17 * * *`    02:00 JST  翌業務日のタスク生成（P1-03）
+   *   `*&#47;10 * * * *`  10 分ごと  日締め + 10 分の施設の日報（P2-14）
+   *
+   * **返す Promise を `await` する。** Cron の実行は `scheduled()` の返した
+   * Promise が解決するまで続く。結果は件数だけをログに出す
+   * （組織 ID・シャード番号を出さない / architecture.md §1）。
+   */
+  async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    const now = new Date(controller.scheduledTime);
+
+    if (controller.cron === DAILY_REPORT_CRON) {
+      const result = await dispatchDailyReports(env, now);
+      console.log(
+        `daily-report-dispatch organizations=${String(result.organizations)} ` +
+          `queued=${String(result.queued)} failed=${String(result.failedOrganizations)}`,
+      );
+      return;
+    }
+
+    const result = await runNightlyGeneration(env, now);
     console.log(
       `nightly-generation properties=${String(result.properties)} ` +
         `created=${String(result.created)} failed=${String(result.failedProperties)}`,

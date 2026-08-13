@@ -24,6 +24,7 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
+import { chunkIdsForInArray } from "../limits.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import {
   inspection,
@@ -90,6 +91,50 @@ export async function listInspectionsByTask(env: Env, ctx: TenantContext, taskId
     .from(inspection)
     .where(withTenantScope(inspection, ctx, inspection.propertyId, eq(inspection.taskId, taskId)))
     .orderBy(inspection.round);
+}
+
+/**
+ * 複数タスクの検査をまとめて引く（P2-14 の日報 / §9.2）。
+ *
+ * **`listInspectionsByTask()` を 100 回呼ばないため**にある。日報は
+ * 1 施設 1 業務日で 100 室ぶんの明細を作る（§15「100 室で 30 秒以内」）。
+ * 1 室ずつ引くと D1 への往復が 100 回になる。
+ *
+ * **`inspection` は業務日を持たない。** 業務日はタスク側の列なので、
+ * 「その日の検査」はタスク ID の並びからしか引けない。
+ * ID の並びは D1 の 1 文 100 変数の上限に収まる塊へ割る（`limits.ts`）。
+ *
+ * 並びは `taskId` → `round` の昇順。**塊をまたぐと崩れるので最後に並べ直す。**
+ */
+export async function listInspectionsByTaskIds(
+  env: Env,
+  ctx: TenantContext,
+  taskIds: readonly string[],
+) {
+  if (taskIds.length === 0) return [];
+  const db = await getTenantDb(env, ctx);
+
+  const rows: Awaited<ReturnType<typeof selectInspectionsByTaskIds>> = [];
+  for (const chunk of chunkIdsForInArray(taskIds)) {
+    rows.push(...(await selectInspectionsByTaskIds(db, ctx, chunk)));
+  }
+  return rows.sort((a, b) => a.taskId.localeCompare(b.taskId) || a.round - b.round);
+}
+
+/** `listInspectionsByTaskIds()` の 1 塊ぶん。**組織条件は必ず載る。** */
+async function selectInspectionsByTaskIds(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  ctx: TenantContext,
+  taskIds: readonly string[],
+) {
+  return db
+    .select()
+    .from(inspection)
+    .where(
+      withTenantScope(inspection, ctx, inspection.propertyId, inArray(inspection.taskId, [
+        ...taskIds,
+      ])),
+    );
 }
 
 /**
@@ -555,6 +600,43 @@ export async function listReworkCyclesByTask(env: Env, ctx: TenantContext, taskI
     .from(reworkCycle)
     .where(withTenantScope(reworkCycle, ctx, reworkCycle.propertyId, eq(reworkCycle.taskId, taskId)))
     .orderBy(reworkCycle.round);
+}
+
+/**
+ * 複数タスクの差戻しをまとめて引く（P2-14 の日報 / §9.2 の「再清掃」列）。
+ *
+ * 理由と分割は `listInspectionsByTaskIds()` と同じ。
+ * 並びは `taskId` → `round` の昇順。
+ */
+export async function listReworkCyclesByTaskIds(
+  env: Env,
+  ctx: TenantContext,
+  taskIds: readonly string[],
+) {
+  if (taskIds.length === 0) return [];
+  const db = await getTenantDb(env, ctx);
+
+  const rows: Awaited<ReturnType<typeof selectReworkCyclesByTaskIds>> = [];
+  for (const chunk of chunkIdsForInArray(taskIds)) {
+    rows.push(...(await selectReworkCyclesByTaskIds(db, ctx, chunk)));
+  }
+  return rows.sort((a, b) => a.taskId.localeCompare(b.taskId) || a.round - b.round);
+}
+
+/** `listReworkCyclesByTaskIds()` の 1 塊ぶん。**組織条件は必ず載る。** */
+async function selectReworkCyclesByTaskIds(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  ctx: TenantContext,
+  taskIds: readonly string[],
+) {
+  return db
+    .select()
+    .from(reworkCycle)
+    .where(
+      withTenantScope(reworkCycle, ctx, reworkCycle.propertyId, inArray(reworkCycle.taskId, [
+        ...taskIds,
+      ])),
+    );
 }
 
 /** 差戻し 1 件。越境 ID は DB へ行く前に `NotFoundError`（→ 404）。 */

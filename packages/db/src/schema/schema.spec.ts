@@ -67,7 +67,7 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("38 テーブルを定義している", () => {
+  it("39 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       "auditLog",
       "building",
@@ -77,6 +77,8 @@ describe("P0-06 スキーマ", () => {
       "cleaningTask",
       // P0-21。施設サマリーの唯一の出どころ（§19.6）。
       "dailyPropertyRollup",
+      // P2-14。日報（PK-SPEC-P2 §9.4）。**発行済み帳票。UPDATE / DELETE しない。**
+      "dailyReport",
       // P1-01。当日の客室状況（P1 は PMS 連携が無いため施設側が入力する）。
       "dailyRoomPlan",
       // P1-21。当日の施設訪問順（§19.5）。**未登録でも一覧は動く。**

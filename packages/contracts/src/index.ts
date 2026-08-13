@@ -309,3 +309,16 @@ export {
   type ApiError,
   type ApiErrorCode,
 } from "./error.js";
+
+// 日報（P2-14 / PK-SPEC-P2 §9・§14.4）。
+// **削除・訂正のスキーマが無い。** 作り直しは版を上げた新しい 1 通。
+export {
+  dailyReportDownloadResponseSchema,
+  dailyReportGenerateRequestSchema,
+  dailyReportGenerateResponseSchema,
+  dailyReportSchema,
+  type DailyReportDownloadResponse,
+  type DailyReportGenerateRequest,
+  type DailyReportGenerateResponse,
+  type DailyReportSummary,
+} from "./dailyReport.js";

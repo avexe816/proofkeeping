@@ -38,6 +38,10 @@
  */
 
 import { EVIDENCE_BUNDLE_PREFIX } from "../../../consumers/evidenceExport.js";
+import {
+  DAILY_REPORT_PREFIX,
+  isOwnDailyReportKey,
+} from "../../../lib/report/dailyReportKey.js";
 import { DOCUMENTS_PREFIX } from "../../../lib/storage/prefix.js";
 import { PHOTOS_PREFIX, isOwnPhotoKey } from "../../../lib/photo/upload.js";
 import { verifyObjectUrl } from "../../../lib/storage/signedUrl.js";
@@ -53,7 +57,12 @@ files.get("/:key", async (c) => {
   const isDocument = key.startsWith(DOCUMENTS_PREFIX);
   const isPhoto = key.startsWith(PHOTOS_PREFIX);
   const isBundle = key.startsWith(EVIDENCE_BUNDLE_PREFIX);
-  if (!isDocument && !isPhoto && !isBundle) return c.notFound();
+  // 日報 PDF（P2-14 / §9.5）。角印と同じ `DOCUMENTS` バケットだが
+  // 接頭辞が違い、**キーに組織 ID が入る**ので下で照合する。
+  // **フォント（`fonts/`）はここに載せていない。** 署名付き URL で
+  // 配る対象ではない（`lib/report/font.ts`）。
+  const isDailyReport = key.startsWith(DAILY_REPORT_PREFIX);
+  if (!isDocument && !isPhoto && !isBundle && !isDailyReport) return c.notFound();
 
   const organizationId = getTenant(c).organizationId;
   if (isPhoto && !isOwnPhotoKey(key, organizationId)) return c.notFound();
@@ -61,6 +70,7 @@ files.get("/:key", async (c) => {
   if (isBundle && !key.startsWith(`${EVIDENCE_BUNDLE_PREFIX}${organizationId}/`)) {
     return c.notFound();
   }
+  if (isDailyReport && !isOwnDailyReportKey(key, organizationId)) return c.notFound();
 
   const valid = await verifyObjectUrl(
     c.env.SESSION_SECRET,

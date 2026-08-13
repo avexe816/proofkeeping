@@ -99,6 +99,11 @@ const EXPECTED: Record<PermissionAction, string> = {
   "issue.read": "OOAAAAO",
   "issue.write": "OOAAAA-",
   "issue.manage": "OOA----",
+  // P2-14。日報（§9.1・§9.3）。**現場ロール（`INSPECTOR` / `CLEANER`）は DENY。**
+  // 明細に全室ぶんの担当者名と所要時間が並ぶため（security.md §5）。
+  // 提出する側（`VENDOR_ADMIN`）は読めるが、版を増やすのは施設側の判断。
+  "dailyReport.read": "OOA--AO",
+  "dailyReport.generate": "OOA----",
 };
 
 const SYMBOL_TO_SCOPE: Record<string, PermissionScope> = {

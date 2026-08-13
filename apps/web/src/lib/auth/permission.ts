@@ -252,6 +252,24 @@ export const PERMISSION_ACTIONS = {
    * `PROPERTY_MANAGER` 以上」は `room.statusOverride` が別に守る。
    */
   "issue.manage": { write: true },
+  /**
+   * 日報の閲覧・ダウンロード（W-08 相当 / PK-SPEC-P2 §9.1・§9.6）。
+   *
+   * 日報は「清掃会社が施設へ提出し、ホテルが実績と検査結果を確認する」
+   * 文書（§9.1）。**清掃スタッフと検査担当には見せない。**
+   * 明細に全室ぶんの担当者名・所要時間が並ぶので、これを現場ロールへ
+   * 開くと `task.readOwn`（自分の記録だけ / security.md §5）の境界が
+   * 意味を失う。`VENDOR_ADMIN` は提出する側なので受託施設で許す。
+   */
+  "dailyReport.read": { write: false },
+  /**
+   * 日報の生成・再生成（§9.3「PROPERTY_MANAGER 以上が手動再生成可能」）。
+   *
+   * 自動生成は cron が行い、この権限を通らない（セッションが無い）。
+   * ここが守るのは**手動で版を増やす操作**。版は消せないので、
+   * 誰でも押せる形にしない。
+   */
+  "dailyReport.generate": { write: true },
 } as const satisfies Record<string, { write: boolean }>;
 
 /** `PERMISSION_ACTIONS` に載っている操作だけを許す型。 */
@@ -687,6 +705,29 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
   },
   // 対応の判断は運営側。**現場は報告するだけ。**
   "issue.manage": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // ── P2-14 日報（§9.1・§9.3・§9.6）────────────────────
+  // 提出する側（`VENDOR_ADMIN`）と受け取る側（施設・運営）が読む。
+  // **現場ロール（`INSPECTOR` / `CLEANER`）は DENY**（上の注記）。
+  "dailyReport.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "ORG",
+  },
+  // §9.3「PROPERTY_MANAGER 以上が手動再生成可能」。
+  // `VENDOR_ADMIN` は DENY（版を増やせるのは施設側の判断）。
+  "dailyReport.generate": {
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "ASSIGNED",
