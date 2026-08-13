@@ -64,6 +64,14 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  * **M-05 は `start` の直後にここへ来る**（§3.2）。M-02 の「開始」を押すと
  * 遷移する。清掃後に入力させると値が変わり、データとして無意味になる。
  *
+ * ── P3-10 / P3-12 が足したベースラインの画面 ────────────
+ *   /app/settings/baseline           W-21 ベースライン確認・上書き
+ *   /app/p/:propertyId/data-quality  W-22 データ品質ダッシュボード
+ *
+ * **W-21 は設定、W-22 は施設の画面。** ベースラインは施設ごとの値だが、
+ * 上書きは `ORG_ADMIN` の操作（§5.5）で、表示中の施設に対して行う。
+ * 入力品質は施設と月で見るので `:propertyId` を URL に持つ。
+ *
  * ── P2-09 が足した証跡の画面 ────────────────────────────
  *   /app/p/:propertyId/evidence          W-06 証跡一覧（1 業務日ぶん）
  *   /app/p/:propertyId/evidence/:taskId  W-07 証跡詳細（§12.2 の表示順）
@@ -116,6 +124,8 @@ export default [
     route("app/settings/standard-times", "routes/app/standardTimes.tsx"),
     route("app/settings/tax", "routes/app/taxProfile.tsx"),
     route("app/settings/observation", "routes/app/observationSettings.tsx"),
+    route("app/settings/baseline", "routes/app/baselineSettings.tsx"),
+    route("app/p/:propertyId/data-quality", "routes/app/dataQuality.tsx"),
   ]),
   // シェルの外に置く。POST のたびにシェルの loader を動かす必要が無い
   // （切替後のリダイレクトで、どのみち loader は動き直す）。

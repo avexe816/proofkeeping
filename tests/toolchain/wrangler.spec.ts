@@ -263,7 +263,11 @@ describe("P0-02 wrangler.toml の構成", () => {
    * **コンシューマを実装する task がここへ 1 行足す。** 接尾辞は環境ごとに
    * 違う（`-local` / `-preview` / `-staging` / 無し）ので前方一致で見る。
    */
-  const IMPLEMENTED_CONSUMERS = ["pk-evidence-export", "pk-pdf-generation"] as const;
+  const IMPLEMENTED_CONSUMERS = [
+    "pk-evidence-export",
+    "pk-pdf-generation",
+    "pk-baseline-learning",
+  ] as const;
 
   it.each(ENVIRONMENTS)("$label: 実装済みの Queue コンシューマだけを宣言する", ({ section }) => {
     const consumers = (section.queues?.consumers ?? []) as { queue?: string }[];

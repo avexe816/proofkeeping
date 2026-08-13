@@ -109,6 +109,19 @@ export function previousBusinessDate(businessDate: string): string {
 }
 
 /**
+ * 業務日を任意の日数だけ動かす（P3-09 の集計ウィンドウ / PK-SPEC-P3 §5.4）。
+ *
+ * 「直近 90 日」を `from` / `to` の業務日に直すのに使う。**負の値で戻る。**
+ * `nextBusinessDate()` / `previousBusinessDate()` と同じく、業務日は
+ * `YYYY-MM-DD` の連続した並びなので日締め時刻を再度考える必要は無い。
+ */
+export function shiftBusinessDate(businessDate: string, days: number): string {
+  const shifted = new Date(`${businessDate}T00:00:00.000Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+}
+
+/**
  * その瞬間の現地時刻を「0 時からの分」で返す（P2-14 の日報バッチが使う）。
  *
  * `localClockOf()` と同じ値を文字列ではなく数で返すもの。日締めからの

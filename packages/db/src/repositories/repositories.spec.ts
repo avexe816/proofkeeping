@@ -33,6 +33,7 @@ import {
 } from "../test-support/fake-d1.js";
 
 import * as auditRepo from "./audit.js";
+import * as baselineRepo from "./baseline.js";
 import * as checklistRepo from "./checklist.js";
 import * as cleaningTaskRepo from "./cleaningTask.js";
 import * as dailyReportRepo from "./dailyReport.js";
@@ -56,6 +57,7 @@ import * as userRepo from "./user.js";
 /** 検証対象のリポジトリモジュール。**新しいファイルを足したらここに追加する。** */
 const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   audit: auditRepo,
+  baseline: baselineRepo,
   checklist: checklistRepo,
   cleaningTask: cleaningTaskRepo,
   // P1-21 が登録した 2 モジュール。`taskPhoto` は P1-11 / P1-15 が足した
@@ -112,6 +114,8 @@ const OWN_ID = {
   dailyReport: generateId(TEST_ORG.orgShortId, "rpt"),
   // P3-03〜P3-07 / P3-11。
   observation: generateId(TEST_ORG.orgShortId, "obs"),
+  // P3-09 / P3-10。
+  baseline: generateId(TEST_ORG.orgShortId, "bsln"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -172,6 +176,8 @@ const OTHER_ID = {
   dailyReport: generateId(OTHER_ORG.orgShortId, "rpt"),
   // P3-03〜P3-07 / P3-11。
   observation: generateId(OTHER_ORG.orgShortId, "obs"),
+  // P3-09 / P3-10。
+  baseline: generateId(OTHER_ORG.orgShortId, "bsln"),
 } as const;
 
 /**
@@ -272,6 +278,48 @@ function CONFIG_INPUT(id: typeof OWN_ID | typeof OTHER_ID) {
  * **関数を追加したらここに 1 行足すこと。** 足し忘れは
  * 「全 export が登録されている」テストが検出する。
  */
+/** ベースライン置き換えの入力（P3-09 / PK-SPEC-P3 §5.2）。 */
+const BASELINE_REPLACE = (id: typeof OWN_ID | typeof OTHER_ID) =>
+  ({
+    propertyId: id.property,
+    computedFrom: "2026-06-15",
+    computedTo: "2026-09-12",
+    rows: [
+      {
+        roomTypeId: id.roomType,
+        guestCount: 2,
+        taskType: "CHECKOUT",
+        itemCode: "BATH_TOWEL",
+        sampleSize: 142,
+        medianQty: 2,
+        p10Qty: 2,
+        p90Qty: 3,
+        maxQty: 5,
+        stdDev: 0.4,
+        isReliable: true,
+      },
+    ],
+  }) as const;
+
+/** 除外記録置き換えの入力（同 §5.3）。 */
+const BASELINE_EXCLUSIONS = (id: typeof OWN_ID | typeof OTHER_ID) =>
+  ({
+    propertyId: id.property,
+    computedTo: "2026-09-12",
+    rows: [
+      {
+        observationId: id.observation,
+        businessDate: "2026-09-10",
+        roomTypeId: id.roomType,
+        guestCount: 2,
+        taskType: "CHECKOUT",
+        itemCode: "BATH_TOWEL",
+        reason: "OVER_MEDIAN_5X",
+        qty: 20,
+      },
+    ],
+  }) as const;
+
 const INVOCATIONS: Invocation[] = [
   {
     name: "audit.recordAudit",
@@ -1542,6 +1590,88 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => observationRepo.upsertObservationConfig(env, ctx, CONFIG_INPUT(OWN_ID)),
     crossTenant: (env, ctx) =>
       observationRepo.upsertObservationConfig(env, ctx, CONFIG_INPUT(OTHER_ID)),
+  },
+  {
+    name: "observation.listLinenRecordsInRange",
+    kind: "tenant",
+    run: (env, ctx) =>
+      observationRepo.listLinenRecordsInRange(env, ctx, {
+        propertyId: OWN_ID.property,
+        from: "2026-06-15",
+        to: "2026-09-12",
+      }),
+    crossTenant: (env, ctx) =>
+      observationRepo.listLinenRecordsInRange(env, ctx, {
+        propertyId: OTHER_ID.property,
+        from: "2026-06-15",
+        to: "2026-09-12",
+      }),
+  },
+  {
+    name: "roomPlan.listRoomPlansInRange",
+    kind: "tenant",
+    run: (env, ctx) =>
+      roomPlanRepo.listRoomPlansInRange(env, ctx, OWN_ID.property, "2026-06-15", "2026-09-12"),
+    crossTenant: (env, ctx) =>
+      roomPlanRepo.listRoomPlansInRange(env, ctx, OTHER_ID.property, "2026-06-15", "2026-09-12"),
+  },
+  // ── P3-09 / P3-10 / P3-12 ベースライン（PK-SPEC-P3 §2.4・§5）──
+  {
+    name: "baseline.listBaselines",
+    kind: "tenant",
+    run: (env, ctx) => baselineRepo.listBaselines(env, ctx, { propertyId: OWN_ID.property }),
+  },
+  {
+    name: "baseline.findBaselineById",
+    kind: "tenant",
+    run: (env, ctx) => baselineRepo.findBaselineById(env, ctx, OWN_ID.baseline),
+    crossTenant: (env, ctx) => baselineRepo.findBaselineById(env, ctx, OTHER_ID.baseline),
+  },
+  {
+    name: "baseline.replaceBaselines",
+    kind: "tenant",
+    run: (env, ctx) => baselineRepo.replaceBaselines(env, ctx, BASELINE_REPLACE(OWN_ID)),
+    crossTenant: (env, ctx) => baselineRepo.replaceBaselines(env, ctx, BASELINE_REPLACE(OTHER_ID)),
+  },
+  {
+    name: "baseline.setBaselineOverride",
+    kind: "tenant",
+    run: (env, ctx) =>
+      baselineRepo.setBaselineOverride(env, ctx, {
+        baselineId: OWN_ID.baseline,
+        manualOverride: 3,
+        reason: "連泊の多い時期で p90 が実態より低いため",
+      }),
+    crossTenant: (env, ctx) =>
+      baselineRepo.setBaselineOverride(env, ctx, {
+        baselineId: OTHER_ID.baseline,
+        manualOverride: 3,
+        reason: "連泊の多い時期で p90 が実態より低いため",
+      }),
+  },
+  {
+    name: "baseline.clearBaselineOverride",
+    kind: "tenant",
+    run: (env, ctx) => baselineRepo.clearBaselineOverride(env, ctx, OWN_ID.baseline),
+    crossTenant: (env, ctx) => baselineRepo.clearBaselineOverride(env, ctx, OTHER_ID.baseline),
+  },
+  {
+    name: "baseline.listBaselineExclusions",
+    kind: "tenant",
+    run: (env, ctx) =>
+      baselineRepo.listBaselineExclusions(env, ctx, {
+        propertyId: OWN_ID.property,
+        from: "2026-09-01",
+        to: "2026-09-30",
+      }),
+  },
+  {
+    name: "baseline.replaceBaselineExclusions",
+    kind: "tenant",
+    run: (env, ctx) =>
+      baselineRepo.replaceBaselineExclusions(env, ctx, BASELINE_EXCLUSIONS(OWN_ID)),
+    crossTenant: (env, ctx) =>
+      baselineRepo.replaceBaselineExclusions(env, ctx, BASELINE_EXCLUSIONS(OTHER_ID)),
   },
 ];
 

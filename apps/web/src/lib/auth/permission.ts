@@ -320,6 +320,32 @@ export const PERMISSION_ACTIONS = {
   "observationConfig.read": { write: false },
   /** 同上の変更。§6.1 の担当ロールどおり `ORG_ADMIN` 以上のみ。 */
   "observationConfig.write": { write: true },
+  /**
+   * 消耗ベースラインの閲覧（W-21 / §5・§6.1）。
+   *
+   * §6.1 の担当ロールは `ORG_ADMIN`。**施設責任者にも開く**（自分の施設で
+   * 何枚が通常なのかは、備品の手配をする側が知っている必要がある）。
+   * **`CLEANER` / `INSPECTOR` は `DENY`。** ベースラインは P4 の照合の
+   * 閾値そのもので、現場に見せると「この枚数までなら気づかれない」を
+   * 示すことになる（security.md §1 の差異レポートと同じ扱い）。
+   */
+  "baseline.read": { write: false },
+  /**
+   * p90 の手動上書き（§5.5 / W-21）。**`ORG_ADMIN` 以上のみ。**
+   *
+   * §5.5 が名指ししているロール。上書きは P4 の判定を動かすため、
+   * 施設責任者にも開かない。理由必須・監査ログ（security.md §6）。
+   */
+  "baseline.override": { write: true },
+  /**
+   * 入力品質の閲覧（W-22 / §6.3）。
+   *
+   * §6.1 の担当ロールは `ORG_ADMIN`。**施設責任者にも開く**（未記録率の
+   * フォローをするのは施設側）。**`VENDOR_ADMIN` は `DENY`。** スタッフ別の
+   * 入力率が含まれ、受託先が他社スタッフの記録状況を見る形になる。
+   * `AUDITOR` は読取のみ許す（内部統制の確認）。
+   */
+  "dataQuality.read": { write: false },
 } as const satisfies Record<string, { write: boolean }>;
 
 /** `PERMISSION_ACTIONS` に載っている操作だけを許す型。 */
@@ -846,6 +872,37 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+  },
+  // ── P3-09〜P3-12 ベースラインと入力品質（同 §5・§6.2・§6.3）──
+  // **現場ロールは到達しない。** 閾値は照合の内側の値（`PERMISSION_ACTIONS`
+  // の注記）。
+  "baseline.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  // §5.5「ORG_ADMIN はベースラインの p90 を手動で上書きできる」。
+  "baseline.override": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  "dataQuality.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
   },
 };
 

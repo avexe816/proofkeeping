@@ -817,3 +817,38 @@ a.pk-nav:hover {
   width: 18px;
   height: 18px;
 }
+
+/* W-21 ベースライン確認（P3-10 / PK-SPEC-P3 §6.2）。
+   信頼性 × の行はグレーで出す。**隠さない**（貯まっていない組み合わせが
+   見えないと、P3-13 の蓄積判断ができない）。 */
+.pk-grid tr.pk-row--muted th,
+.pk-grid tr.pk-row--muted td {
+  color: var(--muted);
+}
+
+/* W-22 データ品質（P3-12 / 同 §6.3）。指標を 1 行 1 件で並べる。 */
+.pk-meters {
+  margin: 12px 0;
+  list-style: none;
+}
+
+.pk-meter {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line2);
+}
+
+.pk-meter__label {
+  flex: 1 1 auto;
+}
+
+.pk-meter__value {
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-meter__note {
+  font-size: 12px;
+  color: var(--muted);
+}

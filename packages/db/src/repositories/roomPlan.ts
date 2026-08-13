@@ -9,7 +9,7 @@
  * （security.md §3 / INV。**人数だけで足りる**）。
  */
 
-import { eq } from "drizzle-orm";
+import { eq, gte, lte } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -39,6 +39,38 @@ export async function listRoomPlans(
         eq(dailyRoomPlan.businessDate, businessDate),
       ),
     );
+}
+
+/**
+ * 期間内の客室状況（ベースライン週次バッチ / P3-09）。
+ *
+ * ベースラインの集計キーは `guestCount` を含む（PK-SPEC-P3 §5.2）。
+ * 90 日ぶんの観察に人数を突き合わせるのに、`listRoomPlans()` を
+ * 日数ぶん呼ぶとクエリが 90 本になる。**期間で 1 本にする。**
+ */
+export async function listRoomPlansInRange(
+  env: Env,
+  ctx: TenantContext,
+  propertyId: string,
+  from: string,
+  to: string,
+) {
+  assertIdBelongsToTenant(propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select()
+    .from(dailyRoomPlan)
+    .where(
+      withTenantScope(
+        dailyRoomPlan,
+        ctx,
+        dailyRoomPlan.propertyId,
+        eq(dailyRoomPlan.propertyId, propertyId),
+        gte(dailyRoomPlan.businessDate, from),
+        lte(dailyRoomPlan.businessDate, to),
+      ),
+    )
+    .orderBy(dailyRoomPlan.businessDate, dailyRoomPlan.roomId);
 }
 
 /** 1 客室ぶんの入力。 */

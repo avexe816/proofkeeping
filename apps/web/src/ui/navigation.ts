@@ -166,6 +166,17 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "PLANNED",
   },
   // ── 資材と分析 ────────────────────────────────────────
+  // W-22 データ品質ダッシュボード（P3-12 / PK-SPEC-P3 §6.3）。
+  // **`scope` は `PROPERTY`。** 施設と月で見る画面で、URL に施設 ID を持つ。
+  {
+    key: "nav.dataQuality",
+    section: "analysis",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "dataQuality.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/data-quality`,
+  },
   {
     key: "nav.linen",
     section: "analysis",
@@ -248,6 +259,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
     scope: "ORGANIZATION",
     status: "READY",
     href: "/app/settings/observation",
+  },
+  // W-21 ベースライン確認・上書き（P3-10 / PK-SPEC-P3 §5.5・§6.1）。
+  // 担当ロールは `ORG_ADMIN`（上書きできるのはこのロールだけ / §5.5）。
+  // **`scope` は `ORGANIZATION`**（W-20 と同じ理由）。
+  {
+    key: "nav.baseline",
+    section: "settings",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "baseline.override",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/settings/baseline",
   },
   // W-11 事業者・税務設定（P0-16）。**`PLATFORM`。** 登録番号の設定は
   // 請求モジュールの契約が無くても要る（未設定でも画面は成立する / P0-16）。

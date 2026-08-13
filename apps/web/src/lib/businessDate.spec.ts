@@ -8,7 +8,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { businessDateOf, localClockOf, nextBusinessDate } from "./businessDate.js";
+import {
+  businessDateOf,
+  localClockOf,
+  nextBusinessDate,
+  shiftBusinessDate,
+} from "./businessDate.js";
 
 describe("businessDateOf — 日締め（§7）", () => {
   it("日締め後（JST 09:00）は当日", () => {
@@ -70,5 +75,31 @@ describe("localClockOf — 現地時刻（§19.4 の「現在ここ」）", () =
 
   it("午前 0 時は 00:00（24:00 にしない）", () => {
     expect(localClockOf(new Date("2026-08-09T15:00:00.000Z"))).toBe("00:00");
+  });
+});
+
+describe("shiftBusinessDate — 任意の日数（P3-09 の集計ウィンドウ）", () => {
+  it("正の値で進む", () => {
+    expect(shiftBusinessDate("2026-08-10", 3)).toBe("2026-08-13");
+  });
+
+  it("負の値で戻る", () => {
+    expect(shiftBusinessDate("2026-08-10", -3)).toBe("2026-08-07");
+  });
+
+  it("0 なら同じ日", () => {
+    expect(shiftBusinessDate("2026-08-10", 0)).toBe("2026-08-10");
+  });
+
+  it("89 日戻ると 90 日ぶんの窓になる（§5.4 の既定）", () => {
+    expect(shiftBusinessDate("2026-09-12", -89)).toBe("2026-06-15");
+  });
+
+  it("年をまたいで戻る", () => {
+    expect(shiftBusinessDate("2027-01-02", -3)).toBe("2026-12-30");
+  });
+
+  it("閏日をまたいで戻る", () => {
+    expect(shiftBusinessDate("2028-03-01", -1)).toBe("2028-02-29");
   });
 });

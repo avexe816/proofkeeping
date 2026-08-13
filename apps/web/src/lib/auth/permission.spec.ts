@@ -116,6 +116,11 @@ const EXPECTED: Record<PermissionAction, string> = {
   "observationConfig.read": "OOA---O",
   // §6.1 の担当ロールは ORG_ADMIN。施設責任者は読むだけ。
   "observationConfig.write": "OO-----",
+  // P3-09〜P3-12。ベースラインと入力品質（同 §5.5・§6.1・§6.3）。
+  // **現場ロール（INSPECTOR / CLEANER）は到達しない。**
+  "baseline.read": "OOA---O",
+  "baseline.override": "OO-----",
+  "dataQuality.read": "OOA---O",
 };
 
 const SYMBOL_TO_SCOPE: Record<string, PermissionScope> = {

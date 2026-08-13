@@ -130,8 +130,8 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   // `room_observation` / `observation_revision` / `linen_record` /
   // `observation_config` は P3-03〜P3-07 / P3-11 が関数を作り、
   // observation.spec.ts でカバーした。
-  consumption_baseline: "P3-01 は表のみ。読み書きは P3-09 / P3-10 が作る",
-  baseline_exclusion_log: "P3-01 は表のみ。書き込みは P3-09、閲覧は P3-12（W-22）",
+  // `consumption_baseline` / `baseline_exclusion_log` は P3-09 / P3-10 /
+  // P3-12 が関数を作り、baseline.spec.ts でカバーした。
 };
 
 describe("同一シャードの組織ペア（fixtures/shard-pairs.ts）", () => {

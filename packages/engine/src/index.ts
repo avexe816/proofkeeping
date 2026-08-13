@@ -355,3 +355,36 @@ export {
   type BaselineResult,
   type ObservationSample,
 } from "./baseline.js";
+
+// 観察記録をベースラインの入力へ平らにする（P3-09 / 同 §5.2）。
+// **1 タスク × 1 品目 = 1 サンプル。** 列・JSON・リネン記録の 3 経路に
+// 優先順位を付け、同じ観察が二重に効かないようにする。
+export {
+  OBSERVATION_ITEM_COLUMNS,
+  toObservationSamples,
+  type BaselineLinenInput,
+  type BaselineObservationInput,
+  type BaselineRoomPlanInput,
+  type BaselineSampleInput,
+  type BaselineSampleResult,
+  type BaselineTaskInput,
+} from "./baselineSamples.js";
+
+// 観察記録の入力品質（P3-12 / 同 §6.3 / W-22）。
+// **スタッフ別は入力率だけ・20 タスク未満は表示しない**（security.md §5）。
+export {
+  DATA_QUALITY_THRESHOLDS,
+  MINIMUM_TASKS_FOR_STAFF_RATE,
+  computeDataQuality,
+  dataQualityStatuses,
+  type BaselineMaturity,
+  type BaselineMaturityCombination,
+  type DataQuality,
+  type DataQualityBaselineInput,
+  type DataQualityInput,
+  type DataQualityObservationInput,
+  type DataQualityStatus,
+  type DataQualityTaskInput,
+  type InputDurationAverage,
+  type StaffInputRate,
+} from "./dataQuality.js";
