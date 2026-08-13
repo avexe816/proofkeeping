@@ -1651,3 +1651,36 @@
   `countPhotosByTask`（100 室の盤面）/ `setHousekeepingStatus` / `assignTasks`）。
   **並びを受け取るリポジトリ関数を足す task は
   `repositories/paramBudget.spec.ts` の `CASES` に 1 行足すこと。**
+
+## #076 必須 secret が無いときは 503 で名前を挙げて断る
+- 日付: 2026-08-13
+- 状態: 採用（P2-06 の実機確認で見つかった 3 つ目の不具合）
+- 背景: `apps/web/.dev.vars` を作らずに `pnpm dev` を起動すると
+  `env.SESSION_SECRET` が空文字になる。空文字は
+  `crypto.subtle.importKey()` が `Zero-length key is not supported` で
+  弾くため、ログインが `INTERNAL_ERROR`（500）で落ちる。
+  **応答にも例外にも「secret が無い」と書いていない。** `INTERNAL_ERROR` は
+  意図的に内訳を持たない設計（`packages/contracts/src/error.ts`）なので、
+  この経路だけは原因に辿り着けない。ローカルの立ち上げで必ず詰まる。
+- 決定: **要求は変えず、断り方を変える。** 最上位の middleware
+  （`app.use("*")`、`/api/health` より前）で `missingSecretNames()` を見て、
+  足りなければ 503 を返す。
+  - API … `{ "error": "CONFIGURATION_INCOMPLETE", "missing": ["SESSION_SECRET"] }`
+  - 画面 … 直し方（`cp apps/web/.dev.vars.example apps/web/.dev.vars`）を
+    そのまま読める本文
+- 理由: 「空鍵でも動くようにする」は鍵の無い署名を許すことで、直し方として
+  誤り。**設定の欠落は落とすのが正しく、落ち方だけが間違っていた。**
+  `/api/health` より前に置くのは、設定が欠けた Worker を監視に対して
+  「正常」と答えさせないため。
+- 影響: 500 → 503 に変わる（設定を入れれば直るので 5xx のままでよい）。
+  `INTERNAL_ERROR` の「内訳を持たせない」方針は崩していない。
+  **出すのは secret の名前だけで、値は応答にもログにも載せない**
+  （architecture.md §1 と同じ方針）。
+- 必須の範囲: **`SESSION_SECRET` だけ。** `RESEND_API_KEY`（メール送信 / P2 では
+  送らない）・`CREDENTIAL_ENCRYPTION_KEY`（外部連携 / P6）・`SENTRY_DSN`（任意。
+  `.dev.vars.example` も空）は入れていない。**前倒しで必須にすると、その機能を
+  使わない開発者の環境が理由なく起動しなくなる。** 使い始める task が
+  `REQUIRED_SECRETS` へ 1 行足す。
+- 検証: `.dev.vars` を消して `pnpm dev` → ログインが 503 と
+  `missing: ["SESSION_SECRET"]`、画面は直し方の本文。
+  `.dev.vars` を戻すと migrate → seed → ログイン 200。
