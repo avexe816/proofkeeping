@@ -8,19 +8,15 @@
  *   1. タスクを引く（施設は**資源から解決する** / INV-32）
  *   2. `assertPermission("task.write")`
  *   3. `clientId` の照合（再送なら R2 へ書かない / §7.5）
- *   4. 枚数・サイズ・形式の検査
- *   5. **EXIF を落とす**（`sanitizeImage()` / INV-11）
- *   6. R2 へ置く → メタデータを INSERT
+ *   4. 枚数の検査
+ *   5. `storePhoto()` … サイズ・形式の検査 → **EXIF 除去** → ハッシュ → R2
+ *   6. メタデータを INSERT
  *
- * **5 を 6 より前に置くこと。** 逆にすると、落とす前のバイト列が R2 に残る。
+ * **5 の中の順序は `lib/photo/pipeline.ts` に固定してある。** 4 経路
+ * （清掃 / 検査 / 忘れ物 / 不具合）が同じ手順を通る。
  */
 
-import {
-  MAX_PHOTOS_PER_TASK,
-  MAX_PHOTO_BYTES,
-  type PhotoErrorCode,
-  type PhotoKindValue,
-} from "@pk/contracts";
+import { MAX_PHOTOS_PER_TASK, type PhotoErrorCode, type PhotoKindValue } from "@pk/contracts";
 import {
   countTaskPhotos,
   createTaskPhoto,
@@ -32,9 +28,8 @@ import {
 } from "@pk/db";
 
 import { assertPermission, propertyTarget } from "../auth/permission.js";
-import { sha256Hex } from "../evidence/hash.js";
 
-import { sanitizeImage } from "./image.js";
+import { storePhoto } from "./pipeline.js";
 
 /** R2 のキーの接頭辞（security.md §4）。 */
 export const PHOTOS_PREFIX = "photos/";
@@ -141,50 +136,37 @@ export async function uploadPhoto(
     };
   }
 
-  if (input.bytes.byteLength > MAX_PHOTO_BYTES) {
-    return { kind: "REJECTED", error: "PHOTO_TOO_LARGE" };
-  }
-
   const count = await countTaskPhotos(env, ctx, input.taskId);
   if (count >= MAX_PHOTOS_PER_TASK) {
     return { kind: "REJECTED", error: "PHOTO_LIMIT_EXCEEDED" };
   }
 
-  // **ここで位置情報が落ちる。** 落とせない形式は受け付けない。
-  const sanitized = sanitizeImage(input.bytes);
-  if (sanitized === null) return { kind: "REJECTED", error: "UNSUPPORTED_IMAGE" };
-
   const photoId = newPhotoId(ctx);
-  const storageKey = photoStorageKey({
-    organizationId: ctx.organizationId,
-    propertyId: task.propertyId,
-    businessDate: task.businessDate,
-    taskId: task.id,
-    photoId,
-    extension: sanitized.format === "image/png" ? "png" : "jpg",
-  });
-
-  // **EXIF を落としたあとのバイト列をハッシュする**（§6.3）。落とす前を
-  // ハッシュすると、R2 に置いた実体と値が合わず照合が常に失敗する。
-  const sha256 = await sha256Hex(sanitized.bytes);
-
-  await env.PHOTOS.put(storageKey, sanitized.bytes, {
-    httpMetadata: { contentType: sanitized.format },
-    // **R2 側にも残す**（§6.3「DB の sha256 と R2 object metadata の双方へ保存」）。
-    customMetadata: { sha256 },
-  });
+  // 大きさの検査 → EXIF 除去 → ハッシュ → R2（`lib/photo/pipeline.ts`）。
+  // **順序はそこに固定してある。** ここで並べ替えないこと。
+  const stored = await storePhoto(env, input.bytes, (extension) =>
+    photoStorageKey({
+      organizationId: ctx.organizationId,
+      propertyId: task.propertyId,
+      businessDate: task.businessDate,
+      taskId: task.id,
+      photoId,
+      extension,
+    }),
+  );
+  if (stored.kind === "REJECTED") return stored;
 
   const created = await createTaskPhoto(env, ctx, {
     taskId: task.id,
     propertyId: task.propertyId,
     checklistItemId: input.checklistItemId ?? null,
     kind: input.kind,
-    storageKey,
+    storageKey: stored.photo.storageKey,
     photoId,
-    sha256,
-    width: sanitized.size.width,
-    height: sanitized.size.height,
-    fileSize: sanitized.bytes.byteLength,
+    sha256: stored.photo.sha256,
+    width: stored.photo.width,
+    height: stored.photo.height,
+    fileSize: stored.photo.fileSize,
     clientId: input.clientId,
     uploadedById: input.uploadedById,
   });

@@ -50,6 +50,12 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  * ── P2-07 が足した再清掃の画面 ──────────────────────────
  *   /m/task/:taskId/rework        M-12 再清掃
  *
+ * ── P2-13 が足した報告の画面 ────────────────────────────
+ *   /m/report?taskId=...          M-13 報告（忘れ物 / 不具合の 2 択）
+ *
+ * **`?taskId=` で客室を解決する。** 現場は「いまいる部屋」で報告するので
+ * 客室を選ばせない（`routes/m/report.tsx` の loader の注記）。
+ *
  * ── P2-09 が足した証跡の画面 ────────────────────────────
  *   /app/p/:propertyId/evidence          W-06 証跡一覧（1 業務日ぶん）
  *   /app/p/:propertyId/evidence/:taskId  W-07 証跡詳細（§12.2 の表示順）
@@ -80,6 +86,7 @@ export default [
     route("m/task/:taskId", "routes/m/task.tsx"),
     route("m/task/:taskId/checklist", "routes/m/checklist.tsx"),
     route("m/task/:taskId/rework", "routes/m/rework.tsx"),
+    route("m/report", "routes/m/report.tsx"),
     route("m/board", "routes/m/board.tsx"),
     route("m/me", "routes/m/me.tsx"),
     route("m/inspections", "routes/m/inspections.tsx"),

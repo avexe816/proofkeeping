@@ -17,10 +17,10 @@
  * 経路を分けてあるのは、現場・運営の画面が「解決」を 1 つの操作として
  * 扱えるようにするため。**判定は同じ関数を通る。**
  *
- * ── 写真の口が無い ──────────────────────────────────────
- * `lostItems.ts` 冒頭と同じ理由（OPEN_QUESTIONS #051）。§8.1 の
- * 「写真 1 枚以上」は表と `createIssuePhoto()` を用意してあるが、
- * 受け口は写真アップロードを共有する task が足す。
+ * ── 写真は 4 経路で同じ手順を通る ───────────────────────
+ * `POST /:id/photos` は `multipart/form-data`。EXIF 除去・ハッシュ・R2 は
+ * `lib/photo/pipeline.ts`（P2-13 が抽出 / OPEN_QUESTIONS #051 の回答）。
+ * **閉じた報告には足せない**（後から証跡を足せる形にしない）。
  */
 
 import {
@@ -28,11 +28,13 @@ import {
   issueStatusRequestSchema,
   type IssueError,
   type IssueReportSummary,
+  type PhotoError,
 } from "@pk/contracts";
 import {
   findIssueReportById,
   findRoomById,
   listIssueHistory,
+  listIssuePhotos,
   type IssueReportFilter,
   type IssueSeverity,
   type IssueStatus,
@@ -46,7 +48,9 @@ import {
   reportIssue,
   toIssueSummary,
 } from "../../../lib/report/issue.js";
-import { getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
+import { uploadIssuePhoto } from "../../../lib/photo/reportUpload.js";
+import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
+import { getNow, getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
 
 const issues = new Hono<AppEnv>();
 
@@ -197,5 +201,53 @@ async function runStatusChange(
   // `NOOP`（同じ状態への再送）も成功として返す（冪等 / testing.md §4）。
   return c.json({ status: to });
 }
+
+/** 写真の一覧（§8.1）。**15 分有効の署名付き URL**（security.md §4）。 */
+issues.get("/:issueId/photos", async (c) => {
+  const ctx = getTenant(c);
+  const row = await findIssueReportById(c.env, ctx, c.req.param("issueId"));
+  if (row === undefined) return c.notFound();
+  assertPermission(ctx, "issue.read", propertyTarget([row.propertyId]));
+  if (ctx.role === "CLEANER" && row.reportedById !== getSession(c).membershipId) {
+    return c.notFound();
+  }
+
+  const rows = await listIssuePhotos(c.env, ctx, row.id);
+  return c.json({
+    data: await Promise.all(
+      rows.map(async (photo) => ({
+        photoId: photo.id,
+        url: await signObjectUrl(c.env.SESSION_SECRET, photo.storageKey, getNow(c)),
+      })),
+    ),
+  });
+});
+
+/** 写真のアップロード（§8.1「写真 1 枚以上」）。**`multipart/form-data`。** */
+issues.post("/:issueId/photos", async (c) => {
+  let form: FormData;
+  try {
+    form = await c.req.formData();
+  } catch {
+    return c.json({ error: "INVALID_REQUEST" } satisfies PhotoError, 400);
+  }
+
+  const file = form.get("file");
+  if (!(file instanceof File)) {
+    return c.json({ error: "INVALID_REQUEST" } satisfies PhotoError, 400);
+  }
+
+  const outcome = await uploadIssuePhoto(c.env, getTenant(c), {
+    issueId: c.req.param("issueId"),
+    bytes: new Uint8Array(await file.arrayBuffer()),
+    uploadedById: getSession(c).membershipId,
+  });
+
+  if (outcome.kind === "REJECTED") {
+    if (outcome.error === "INVALID_REQUEST") return c.notFound();
+    return c.json({ error: outcome.error } satisfies PhotoError, 400);
+  }
+  return c.json({ photoId: outcome.photoId }, 201);
+});
 
 export default issues;
