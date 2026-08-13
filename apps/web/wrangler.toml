@@ -34,10 +34,12 @@
 # ここに「まだ」書いていないもの
 # ------------------------------------------------------------------------------
 #
-#   [[queues.consumers]]      queue() ハンドラが未実装。宣言すると wrangler が
-#                             起動しない。各コンシューマを実装する task
-#                             （P2-10 / P3-09 / P4-14 / P5-06 / P6-04 / P7-09）
-#                             が自分の分を追記する。
+#   [[queues.consumers]]      **P2-10 が evidence-export だけを宣言した。**
+#                             残り 6 キューはハンドラが未実装で、宣言すると
+#                             wrangler が起動しない。実装する task
+#                             （P3-09 / P4-14 / P5-06 / P6-04 / P7-09）が
+#                             自分の分を 4 環境ぶん追記し、同時に
+#                             src/index.ts の `queue()` へ分岐を足すこと。
 #
 #   InspectionLock            DO クラスが未実装。同上。P0-17 で
 #   PropertyBoard             DocumentSequencer だけを宣言した。残り 3 つは
@@ -174,6 +176,21 @@ queue = "pk-notification-local"
 binding = "QUEUE_ARCHIVE_RESTORE"
 queue = "pk-archive-restore-local"
 
+# --- Queues（consumer）------------------------------------------------------
+# ハンドラは apps/web/src/index.ts の `queue()`。**宣言したキューには
+# 必ず分岐があること**（無いと再送し続ける）。
+#
+# 証跡 ZIP の生成（P2-10 / PK-SPEC-P2 §6.5）。写真 20 枚の読み取りと
+# ハッシュはリクエストハンドラの CPU 予算に収まらない（architecture.md §5）。
+#
+# max_batch_size を 1 にしてあるのは、1 件で数 MB を扱うため。
+# まとめて処理するとコンシューマ 1 回のメモリが積み上がる。
+[[queues.consumers]]
+queue = "pk-evidence-export-local"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -295,6 +312,13 @@ queue = "pk-notification-preview"
 [[env.preview.queues.producers]]
 binding = "QUEUE_ARCHIVE_RESTORE"
 queue = "pk-archive-restore-preview"
+
+# Queues（consumer / P2-10）。理由は top-level の [[queues.consumers]] を参照。
+[[env.preview.queues.consumers]]
+queue = "pk-evidence-export-preview"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
 
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
@@ -419,6 +443,13 @@ queue = "pk-notification-staging"
 [[env.staging.queues.producers]]
 binding = "QUEUE_ARCHIVE_RESTORE"
 queue = "pk-archive-restore-staging"
+
+# Queues（consumer / P2-10）。理由は top-level の [[queues.consumers]] を参照。
+[[env.staging.queues.consumers]]
+queue = "pk-evidence-export-staging"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
 
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
@@ -617,6 +648,13 @@ queue = "pk-notification"
 [[env.production.queues.producers]]
 binding = "QUEUE_ARCHIVE_RESTORE"
 queue = "pk-archive-restore"
+
+# Queues（consumer / P2-10）。理由は top-level の [[queues.consumers]] を参照。
+[[env.production.queues.consumers]]
+queue = "pk-evidence-export"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
 
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが

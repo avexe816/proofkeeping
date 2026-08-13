@@ -256,10 +256,32 @@ describe("P0-02 wrangler.toml の構成", () => {
     }
   });
 
-  it("実装のない Queue コンシューマを宣言していない", () => {
-    // 宣言だけ先に置くと queue() ハンドラが無いまま wrangler が起動しない。
-    for (const { label, section } of ENVIRONMENTS) {
-      expect(section.queues?.consumers, label).toBeUndefined();
+  /**
+   * `queue()` に分岐のあるキュー（apps/web/src/index.ts）。
+   *
+   * 宣言だけ先に置くと queue() ハンドラが無いまま wrangler が起動しない。
+   * **コンシューマを実装する task がここへ 1 行足す。** 接尾辞は環境ごとに
+   * 違う（`-local` / `-preview` / `-staging` / 無し）ので前方一致で見る。
+   */
+  const IMPLEMENTED_CONSUMERS = ["pk-evidence-export"] as const;
+
+  it.each(ENVIRONMENTS)("$label: 実装済みの Queue コンシューマだけを宣言する", ({ section }) => {
+    const consumers = (section.queues?.consumers ?? []) as { queue?: string }[];
+    expect(consumers).toHaveLength(IMPLEMENTED_CONSUMERS.length);
+    for (const consumer of consumers) {
+      const queue = consumer.queue ?? "";
+      expect(
+        IMPLEMENTED_CONSUMERS.some((prefix) => queue.startsWith(prefix)),
+        queue,
+      ).toBe(true);
+    }
+  });
+
+  it.each(ENVIRONMENTS)("$label: コンシューマのキューは producer 側にも在る", ({ section }) => {
+    // producer だけ・consumer だけ、という食い違いを作らない。
+    const produced = new Set((section.queues?.producers ?? []).map((entry) => entry.queue));
+    for (const consumer of (section.queues?.consumers ?? []) as { queue?: string }[]) {
+      expect(produced.has(consumer.queue ?? ""), consumer.queue).toBe(true);
     }
   });
 

@@ -724,3 +724,69 @@ a.pk-nav:hover {
   display: inline;
   margin-left: 8px;
 }
+
+/* ------------------------------------------------------------------ */
+/* 証跡（W-06 / W-07 / P2-09）                                          */
+/* ------------------------------------------------------------------ */
+
+/* 一覧の絞り込み（業務日）。**並べ替えの口は置かない**（§1.3）。 */
+.pk-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.pk-input {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.pk-table {
+  width: 100%;
+  margin: 12px 0;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+
+.pk-table th,
+.pk-table td {
+  padding: 7px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line2);
+}
+
+.pk-table th {
+  font-size: 12px;
+  color: var(--ink2);
+  background: var(--surf2);
+}
+
+/* ハッシュと時刻。**桁がずれると突き合わせられない。** */
+.pk-mono {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+/* §12.3 のタイムライン。**経過時間を色で急かさない**（ui-writing.md §3）。 */
+.pk-timeline {
+  padding: 0;
+  margin: 12px 0;
+  list-style: none;
+}
+
+.pk-timeline li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--line2);
+}

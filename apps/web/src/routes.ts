@@ -50,6 +50,10 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  * ── P2-07 が足した再清掃の画面 ──────────────────────────
  *   /m/task/:taskId/rework        M-12 再清掃
  *
+ * ── P2-09 が足した証跡の画面 ────────────────────────────
+ *   /app/p/:propertyId/evidence          W-06 証跡一覧（1 業務日ぶん）
+ *   /app/p/:propertyId/evidence/:taskId  W-07 証跡詳細（§12.2 の表示順）
+ *
  * **`taskId` で開く。** 清掃者は差戻しの ID を知らない（M-02 の一覧から
  * 部屋を押して入る）。`/m/rework/:reworkCycleId` にしない理由は
  * `routes/m/rework.tsx` の loader の注記。
@@ -86,6 +90,8 @@ export default [
     route("app/p/:propertyId/board", "routes/app/propertyBoard.tsx"),
     route("app/p/:propertyId/tasks", "routes/app/propertyTasks.tsx"),
     route("app/p/:propertyId/plan", "routes/app/propertyPlan.tsx"),
+    route("app/p/:propertyId/evidence", "routes/app/evidenceList.tsx"),
+    route("app/p/:propertyId/evidence/:taskId", "routes/app/evidenceDetail.tsx"),
     route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
     route("app/settings/room-types", "routes/app/roomTypes.tsx"),

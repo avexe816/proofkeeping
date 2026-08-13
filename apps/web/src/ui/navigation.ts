@@ -144,13 +144,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
     scope: "PROPERTY",
     status: "PLANNED",
   },
+  // W-06 証跡一覧（P2-09 / PK-SPEC-P2 §12.1）。**`task.read`。**
+  // 中身はタスクの記録なので、それを読める相手が辿れる先にする
+  // （`routes/api/v1/tasks.ts` の `/evidence/verify` と同じ判断）。
+  // ZIP の持ち出しだけが別の権限（`evidence.export`）。
   {
     key: "nav.cleaningRecords",
     section: "records",
     moduleCode: "HOUSEKEEPING_CORE",
-    action: "property.read",
+    action: "task.read",
     scope: "PROPERTY",
-    status: "PLANNED",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/evidence`,
   },
   {
     key: "nav.inspection",
