@@ -294,6 +294,14 @@ export default function TaskDetailRoute(): React.ReactElement {
           </span>
         </Link>
 
+        {/* M-13 報告（P2-13 / §11.5）。**忘れ物と不具合の入口はここだけ。**
+            清掃中に見つけたものをその場で記録する導線で、作業の完了とは
+            独立している（完了後も開ける）。 */}
+        <Link className="pk-m-link" to={`/m/report?taskId=${data.taskId}`}>
+          {t("m.task.report")}
+          <span className="pk-m-link__count">›</span>
+        </Link>
+
         <div className="pk-m-section">
           <span>{t("m.task.photos")}</span>
           <span className="pk-m-section__count">

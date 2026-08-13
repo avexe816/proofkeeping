@@ -11,13 +11,11 @@
  *
  * task: docs/tasks/P2-11.md
  *
- * ── 写真の口をここに置いていない ────────────────────────
- * §14.3 は `POST /lost-items/:id/photos` を挙げるが、**写真の受け口は
- * 既存の `/api/v1/tasks/:taskId/photos`（P1-11）と同じ作りが要る**
- * （リサイズ済みバイナリの受け取り・EXIF 除去・R2 への書き込み）。
- * P2-11 の完了条件に写真は無く、`lostItemPhoto` 表と
- * `createLostItemPhoto()` は用意してある。**経路を足す task が
- * `lib/photo/upload.ts` を共有する形で足すこと**（OPEN_QUESTIONS #051）。
+ * ── 写真は 4 経路で同じ手順を通る ───────────────────────
+ * `POST /:id/photos` は `multipart/form-data`。サイズ・形式の検査から
+ * EXIF 除去・ハッシュ・R2 までは `lib/photo/pipeline.ts` に固定してあり、
+ * 清掃（P1-11）・検査（P2-04）・忘れ物・不具合が同じ順序を通る
+ * （P2-13 が抽出した / OPEN_QUESTIONS #051 の回答）。
  *
  * ── `owner-contacted` を足してある ──────────────────────
  * §7.4「連絡は PMS 側で行い、ProofKeeping には `ownerContactedAt` のみ
@@ -31,12 +29,14 @@ import {
   lostItemStatusRequestSchema,
   type LostItemError,
   type LostItemSummary,
+  type PhotoError,
 } from "@pk/contracts";
 import {
   findLostItemById,
   findPropertyById,
   findRoomById,
   listLostItemHistory,
+  listLostItemPhotos,
   markOwnerContacted,
   type LostItemFilter,
   type LostItemStatus,
@@ -51,6 +51,8 @@ import {
   registerLostItem,
   toLostItemSummary,
 } from "../../../lib/report/lostItem.js";
+import { uploadLostItemPhoto } from "../../../lib/photo/reportUpload.js";
+import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { getNow, getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
 
 const lostItems = new Hono<AppEnv>();
@@ -208,6 +210,63 @@ lostItems.post("/:lostItemId/owner-contacted", async (c) => {
 
   await markOwnerContacted(c.env, ctx, row.id);
   return c.json({ ownerContactedAtMs: getNow(c).getTime() });
+});
+
+/**
+ * 写真の一覧（§7.5）。**15 分有効の署名付き URL**（security.md §4）。
+ */
+lostItems.get("/:lostItemId/photos", async (c) => {
+  const ctx = getTenant(c);
+  const row = await findLostItemById(c.env, ctx, c.req.param("lostItemId"));
+  if (row === undefined) return c.notFound();
+  assertPermission(ctx, "lostItem.read", propertyTarget([row.propertyId]));
+  if (ctx.role === "CLEANER" && row.foundById !== getSession(c).membershipId) {
+    return c.notFound();
+  }
+
+  const rows = await listLostItemPhotos(c.env, ctx, row.id);
+  return c.json({
+    data: await Promise.all(
+      rows.map(async (photo) => ({
+        photoId: photo.id,
+        url: await signObjectUrl(c.env.SESSION_SECRET, photo.storageKey, getNow(c)),
+      })),
+    ),
+  });
+});
+
+/**
+ * 写真のアップロード（§7.5「忘れ物全体が分かる写真 1 枚を必須」）。
+ *
+ * **`multipart/form-data`。** `clientId`（冪等鍵）を取らない理由は
+ * `lib/photo/reportUpload.ts` の注記。EXIF の除去はサーバー側でも行う
+ * （クライアントの再エンコードと合わせて 2 重 / INV-11）。
+ */
+lostItems.post("/:lostItemId/photos", async (c) => {
+  let form: FormData;
+  try {
+    form = await c.req.formData();
+  } catch {
+    return c.json({ error: "INVALID_REQUEST" } satisfies PhotoError, 400);
+  }
+
+  const file = form.get("file");
+  if (!(file instanceof File)) {
+    return c.json({ error: "INVALID_REQUEST" } satisfies PhotoError, 400);
+  }
+
+  const outcome = await uploadLostItemPhoto(c.env, getTenant(c), {
+    lostItemId: c.req.param("lostItemId"),
+    bytes: new Uint8Array(await file.arrayBuffer()),
+    uploadedById: getSession(c).membershipId,
+  });
+
+  if (outcome.kind === "REJECTED") {
+    // 対象が無い・他人の登録は 404 へ寄せる（INV-31）。
+    if (outcome.error === "INVALID_REQUEST") return c.notFound();
+    return c.json({ error: outcome.error } satisfies PhotoError, 400);
+  }
+  return c.json({ photoId: outcome.photoId }, 201);
 });
 
 export default lostItems;
