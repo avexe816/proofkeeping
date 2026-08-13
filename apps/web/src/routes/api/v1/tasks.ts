@@ -34,6 +34,7 @@
 import {
   MAX_PHOTOS_PER_TASK,
   checklistResultUpdateRequestSchema,
+  inspectionOverrideRequestSchema,
   inspectionStartRequestSchema,
   photoUploadMetaSchema,
   taskActionSchema,
@@ -68,6 +69,7 @@ import { Hono } from "hono";
 import { assertPermission, propertyTarget } from "../../../lib/auth/permission.js";
 import { businessDateOf } from "../../../lib/businessDate.js";
 import { verifyTaskEvidence } from "../../../lib/evidence/verify.js";
+import { overrideInspection } from "../../../lib/inspection/override.js";
 import { startInspection } from "../../../lib/inspection/start.js";
 import { uploadPhoto } from "../../../lib/photo/upload.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
@@ -325,6 +327,38 @@ tasks.post("/:taskId/inspection/start", async (c) => {
     overrideReason: body.data.overrideReason,
     clientTs: body.data.clientTs,
     idempotencyKey: c.req.header("Idempotency-Key"),
+    ip: c.req.header("CF-Connecting-IP"),
+  });
+
+  if (outcome.kind === "REJECTED") {
+    return c.json({ error: outcome.error } satisfies InspectionError, 409);
+  }
+  return c.json(outcome.body);
+});
+
+/**
+ * 残存タスクの緊急上書き（PK-SPEC-P2 §13.3 / P2-16）。
+ *
+ * ```
+ * POST /api/v1/tasks/:taskId/inspection/override   { "reason": "..." }
+ * ```
+ *
+ * **1 件ずつしか受け取らない。** §13.1 で廃止した一括承認を、名前を変えて
+ * 戻さないため（`lib/inspection/override.ts` の注記）。理由が無ければ 400。
+ *
+ * `Idempotency-Key` は受け取らない。**冪等性は状態そのもので担保している**
+ * （2 回目は `COMPLETED` かつ `EMERGENCY_OVERRIDE` を見て `unchanged: true`）。
+ * 鍵を保存する表を増やしても、判定の材料は同じものになる。
+ */
+tasks.post("/:taskId/inspection/override", async (c) => {
+  const parsed = await readJson(c.req.raw);
+  const body = inspectionOverrideRequestSchema.safeParse(parsed ?? {});
+  if (!body.success) return c.json({ error: "INVALID_REQUEST" } satisfies InspectionError, 400);
+
+  const outcome = await overrideInspection(c.env, getTenant(c), {
+    taskId: c.req.param("taskId"),
+    actorId: getSession(c).membershipId,
+    reason: body.data.reason,
     ip: c.req.header("CF-Connecting-IP"),
   });
 

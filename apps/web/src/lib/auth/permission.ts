@@ -184,6 +184,17 @@ export const PERMISSION_ACTIONS = {
    */
   "rework.waive": { write: true },
   /**
+   * 検査待ちで取り残されたタスクを、検査せずに閉じる（§13.3 / P2-16）。
+   *
+   * §13.3 の「P2 リリース前に `AWAITING_INSPECTION` のタスクは**施設責任者が**
+   * 処理してから移行する」をそのまま写す。**`INSPECTOR` は DENY。**
+   * 検査担当が「検査しないで閉じる」を選べると、検査の記録を残さずに
+   * 検査を終わらせられる（§13.1 で廃止した一括承認と同じことが 1 件ずつ
+   * できてしまう）。**`VENDOR_ADMIN` も DENY**（`rework.waive` と同じ理由で、
+   * 受託側が自分の作業を検査なしで閉じられるようにしない）。
+   */
+  "inspection.emergencyOverride": { write: true },
+  /**
    * 証跡 ZIP の出力（§6.5 / W-07）。**閲覧は `task.read` のまま。**
    *
    * 証跡そのものの閲覧に別のアクションを足していない理由は
@@ -628,6 +639,18 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
   },
   // §4.7「PROPERTY_MANAGER 以上」。**`VENDOR_ADMIN` に広げない。**
   "rework.waive": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // ── P2-16: 残存タスクの緊急上書き（§13.3）────────────────
+  // `rework.waive` と同じ並び。「検査を経ずに客室を READY にする」判断は
+  // 施設責任者以上のものにする。
+  "inspection.emergencyOverride": {
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "ASSIGNED",

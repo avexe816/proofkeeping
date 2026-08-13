@@ -62,7 +62,7 @@ export const AUDIT_ACTIONS = {
   "user.roleChanged": { requiresReason: false },
   "user.deactivated": { requiresReason: false },
   "user.pinReset": { requiresReason: false },
-  // タスクの完了・検査合格・差戻し・一括承認（P1 以降で使う）
+  // タスクの完了・検査合格・差戻し（P1 以降で使う）
   "task.completed": { requiresReason: false },
   // 人員配分の変更（PK-SPEC-P1 §4.2「変更は AuditLog に記録する」）。
   "task.assigned": { requiresReason: false },
@@ -88,7 +88,16 @@ export const AUDIT_ACTIONS = {
   // 免除（同 §4.7）。**理由必須。** §4.7 が「理由必須」と明記している。
   // 関連する IssueReport は `after` に入れる（列は `waivedIssueId`）。
   "rework.waived": { requiresReason: true },
-  "task.bulkApproved": { requiresReason: false },
+  /**
+   * 検査待ちで残ったタスクを、検査せずに閉じた（PK-SPEC-P2 §13.3）。**理由必須。**
+   *
+   * **`task.bulkApproved`（一括承認）はここから消えた**（同 §13.1 / P2-16）。
+   * security.md §6 の列挙に「一括承認」の語は残っているが、操作そのものが
+   * P2 リリースで廃止された。**一度使った文字列を変えない**という上の規則の
+   * 例外に見えるが、`task.bulkApproved` は**一度も書き込まれていない**
+   * （P1 に到達経路が無かった）。既存の監査ログに現れない値なので消せる。
+   */
+  "inspection.emergencyOverride": { requiresReason: true },
   // 客室ステータスの手動上書き（**理由必須**）
   "room.statusOverridden": { requiresReason: true },
   // 観察記録の事後修正（**理由必須**。事後の書き換えは理由なしに残さない）

@@ -37,22 +37,33 @@ export type HousekeepingStatusValue = (typeof HOUSEKEEPING_STATUS_VALUES)[number
 /**
  * 客室ステータスを動かしうる出来事。
  *
- * `TaskAction` に 2 つ足してある。
+ * `TaskAction` に 1 つ足してある。
  *   - `generate` … タスク生成時（§11.1 の 1 行目）。操作ではないが表にある
- *   - `bulkApprove` … 一括承認（同 6 行目）。**P2 の検査フローが使う。**
- *     P1 に到達経路は無いが、§11.1 の表をここで閉じておかないと
- *     P2 が同じ判断を別の場所でやり直す
  *
  * P2-04 が 2 つ足した（PK-SPEC-P2 §4.4 / §4.5）。
  *   - `inspectionPass` … 検査合格 → `READY`
  *   - `inspectionFail` … 検査不合格 → `DIRTY`（再清掃へ戻る）
+ *
+ * P2-16 が 1 つ足し、1 つ消した（同 §13）。
+ *   - `emergencyOverride` … 検査待ちの残存タスクを検査せずに閉じる（§13.3）
+ *
+ * ── `bulkApprove` を消した（P2-16 / PK-SPEC-P2 §13.1）─────
+ * P1 §11.1 の表 6 行目「一括承認 → READY」に対応する値を置いていたが、
+ * **P2 リリースで一括承認そのものを廃止した。** P1 に到達経路は無く
+ * （API も画面も作らなかった）、「P2 の検査フローが使う」という当時の
+ * 見込みも外れた。**戻さないこと。** 「まとめて検査済にする」は、
+ * 検査していない客室を検査済として集計させる入口になる（§2.3）。
+ *
+ * `emergencyOverride` は同じ「検査せずに `READY`」だが、置き換えではない。
+ * **1 件ずつ・理由必須・監査ログ**で、§13.3 の残存タスクにしか使わない。
+ * まとめて閉じられないことがこの値の要点なので、複数件版を作らないこと。
  */
 export type RoomStatusTrigger =
   | TaskAction
   | "generate"
-  | "bulkApprove"
   | "inspectionPass"
-  | "inspectionFail";
+  | "inspectionFail"
+  | "emergencyOverride";
 
 /**
  * その出来事のあとの客室ステータス（§11.1）。
@@ -63,10 +74,11 @@ export type RoomStatusTrigger =
  * pause                 変えない
  * complete かつ検査不要 READY
  * complete かつ検査必要 INSPECTING
- * 一括承認              READY
  * block                 BLOCKED
  * cancel                変更しない
  * ```
+ *
+ * 表 6 行目の「一括承認 READY」は P2-16 で消えた（§13.1）。
  *
  * ── 表に無い操作 ────────────────────────────────────────
  * `assign` / `resume` は `null`（変えない）。割当は客室の状態ではないし、
@@ -93,11 +105,14 @@ export function housekeepingStatusFor(
       return "IN_PROGRESS";
     case "complete":
       return inspectionRequired ? "INSPECTING" : "READY";
-    case "bulkApprove":
-      return "READY";
     // PK-SPEC-P2 §4.4 / §4.5。**合格して初めて `READY`。**
     // 不合格は `DIRTY` へ戻す（再清掃の対象として客室ボードに出る）。
     case "inspectionPass":
+      return "READY";
+    // §13.3 の残存タスク。検査していないので「合格」ではないが、
+    // 客室は使える状態にある（清掃は終わっている）。`INSPECTING` のまま
+    // 残すと、二度と検査されない客室が客室ボードで作業中に見え続ける。
+    case "emergencyOverride":
       return "READY";
     case "inspectionFail":
       return "DIRTY";

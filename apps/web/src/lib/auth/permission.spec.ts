@@ -87,6 +87,10 @@ const EXPECTED: Record<PermissionAction, string> = {
   "rework.read": "OOAAAAO",
   "rework.write": "OOA-AA-",
   "rework.waive": "OOA----",
+  // P2-16。残存タスクの緊急上書き（§13.3）は「施設責任者」。
+  // **`INSPECTOR` は DENY。** 検査担当が「検査せずに閉じる」を選べると、
+  // §13.1 で廃止した一括承認と同じことが 1 件ずつできてしまう。
+  "inspection.emergencyOverride": "OOA----",
   // P2-10。証跡 ZIP の持ち出し（§6.5）。**閲覧は `task.read` のまま。**
   // `AUDITOR` の `-` は security.md §1「書き込み操作を一切できない」に
   // 沿った既定（OPEN_QUESTIONS #048）。

@@ -99,6 +99,27 @@ describe("P0-06 マイグレーション", () => {
     }
   });
 
+  it("P2-16 の移行が既存行を上書きしない（冪等）", () => {
+    // PK-SPEC-P2 §13.2。`property.inspection_required` → 検査方式の行。
+    // **`NOT EXISTS` を外すと、W-02 で設定済みの施設を P1 の真偽値で
+    // 潰す。** 2 回流しても同じ結果になることもこの条件が担っている。
+    const sql = readSql("0011_p2_16_inspection_policy_backfill");
+
+    expect(sql).toContain("NOT EXISTS");
+    expect(sql).toMatch(/INSERT INTO `property_inspection_policy`/);
+    // 上書き系の文を持たない（`UPDATE` / `ON CONFLICT ... DO UPDATE`）。
+    expect(sql).not.toMatch(/\bUPDATE\b/i);
+  });
+
+  it("P2-16 の移行が旧列を残す（3 段階の②）", () => {
+    // architecture.md §6。`property.inspection_required` を落とすのは
+    // 次リリース（③）。ここで消すと旧コードが動いているシャードが壊れる。
+    const sql = readSql("0011_p2_16_inspection_policy_backfill");
+
+    expect(sql).toContain("`inspection_required`");
+    expect(sql).not.toMatch(/ALTER\s+TABLE/i);
+  });
+
   it("破壊的な文を含まない", () => {
     // architecture.md §6: 後方互換のみ。列の削除・リネーム・型変更を
     // 単一リリースで行わない。DROP / RENAME が現れたら 3 段階手順の検討が要る。

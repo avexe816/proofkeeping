@@ -111,6 +111,7 @@ export {
 // **行が無いことに意味がある。** 読み取りのついでに既定行を作らない。
 export {
   findInspectionPolicy,
+  legacyPolicyValues,
   listInspectionPolicies,
   upsertInspectionPolicy,
   type InspectionPolicyInput,

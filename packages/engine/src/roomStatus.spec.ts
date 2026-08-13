@@ -35,10 +35,6 @@ describe("housekeepingStatusFor — §11.1 の表", () => {
     expect(housekeepingStatusFor("complete", true)).toBe("INSPECTING");
   });
 
-  it("一括承認で READY", () => {
-    expect(housekeepingStatusFor("bulkApprove", true)).toBe("READY");
-  });
-
   it("block で BLOCKED", () => {
     expect(housekeepingStatusFor("block", false)).toBe("BLOCKED");
   });
@@ -56,6 +52,31 @@ describe("housekeepingStatusFor — §11.1 の表", () => {
     // 抽出された 1 件だけを検査する施設（SAMPLE）でも、判定の意味は同じ。
     expect(housekeepingStatusFor("inspectionPass", false)).toBe("READY");
     expect(housekeepingStatusFor("inspectionFail", false)).toBe("DIRTY");
+  });
+
+  // ── P2-16（PK-SPEC-P2 §13.3）─────────────────────────
+  it("緊急上書きで READY（検査待ちのまま残さない）", () => {
+    expect(housekeepingStatusFor("emergencyOverride", true)).toBe("READY");
+    expect(housekeepingStatusFor("emergencyOverride", false)).toBe("READY");
+  });
+});
+
+/**
+ * 一括承認の削除（PK-SPEC-P2 §13.1）を回帰で守る。
+ *
+ * 型は実行時に消えるので、`RoomStatusTrigger` から `bulkApprove` を
+ * 抜いただけでは「戻された」ことに気づけない。**本文に語が現れないこと**
+ * を見る（`packages/engine/src/metrics.ts` と同じ手）。
+ */
+describe("一括承認は残っていない", () => {
+  it("`bulkApprove` を受け取っても READY にならない", () => {
+    // 型に無い値なので実装は `undefined` を返す（switch に case が無い）。
+    expect(
+      (housekeepingStatusFor as (trigger: string, required: boolean) => unknown)(
+        "bulkApprove",
+        true,
+      ),
+    ).toBeUndefined();
   });
 });
 

@@ -35,7 +35,9 @@ import type { Env } from "./env.js";
 import { createUlidFactory } from "./id.js";
 import { reserveOrgShortId } from "./orgDirectory.js";
 import { getTenantDb, type ShardContext } from "./router.js";
+import { legacyPolicyValues } from "./repositories/inspectionPolicy.js";
 import { checklistItem, checklistTemplate } from "./schema/checklist.js";
+import { propertyInspectionPolicy } from "./schema/inspection.js";
 import { organization, organizationTaxProfile } from "./schema/organization.js";
 import { building, floor, property, room, roomType } from "./schema/property.js";
 import { standardTime } from "./schema/task.js";
@@ -198,6 +200,21 @@ export async function seed(
         code: spec.code,
         name: spec.name,
         sortOrder: index,
+        ...stamps,
+      })
+      .onConflictDoNothing();
+
+    // 検査方式（P2-16 / PK-SPEC-P2 §13.2）。**施設と一組で入れる。**
+    // シードの施設は `inspectionRequired = false` なので `NONE` になる。
+    // 0011 のマイグレーションが既存施設へ入れる値と同じ規則で作る
+    // （シードは移行のあとに流れるので、マイグレーションでは埋まらない）。
+    await db
+      .insert(propertyInspectionPolicy)
+      .values({
+        id: id("ipol"),
+        organizationId,
+        propertyId,
+        ...legacyPolicyValues(false),
         ...stamps,
       })
       .onConflictDoNothing();
