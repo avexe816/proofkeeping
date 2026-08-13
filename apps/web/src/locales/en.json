@@ -200,5 +200,17 @@
   "m.today.futureReadOnly": "This is for a later day. View only — it cannot be started.",
   "m.task.propertyChange": "You are changing property",
   "m.me.byProperty": "By property (this month)",
-  "m.me.total": "Total"
+  "m.me.total": "Total",
+  "m.tab.inspections": "Inspect",
+  "m.inspections.title": "Waiting for inspection",
+  "m.inspections.start": "Inspect",
+  "m.inspections.empty": "No rooms are waiting",
+  "m.inspections.waited": "Waiting",
+  "m.inspections.minutes": " min",
+  "m.inspection.status.PASS": "Pass",
+  "m.inspection.status.FAIL": "Needs recleaning",
+  "m.inspection.status.NOT_APPLICABLE": "Not applicable",
+  "m.inspection.complete": "Finish inspection",
+  "m.inspection.photoAdd": "Take a photo",
+  "m.inspection.note": "What you noticed"
 }

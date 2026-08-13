@@ -184,3 +184,16 @@ export {
   type InspectionResultValue,
   type SelfInspectionVerdict,
 } from "./inspectionResult.js";
+
+// 検査待ちの並び（P2-05 / 同 §5.2・§5.3・§11.2）。**段を跨いだ入れ替えをしない。**
+export {
+  INSPECTION_QUEUE_TONES,
+  INSPECTION_URGENT_CHECKIN_MINUTES,
+  sortInspectionQueue,
+  summarizeInspectionQueue,
+  waitStateOf,
+  type InspectionQueueSummary,
+  type InspectionQueueTone,
+  type QueuedInspection,
+  type WaitingInspection,
+} from "./inspectionQueue.js";

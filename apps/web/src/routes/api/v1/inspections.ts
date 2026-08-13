@@ -2,6 +2,7 @@
  * 検査の API（PK-SPEC-P2 §4.2〜§4.5 / §14.1）。
  *
  * ```
+ * GET    /api/v1/inspections/waiting?propertyId=&businessDate=   M-08
  * GET    /api/v1/inspections/:inspectionId
  * PUT    /api/v1/inspections/:inspectionId/items      1 項目ずつ
  * POST   /api/v1/inspections/:inspectionId/photos     multipart/form-data
@@ -14,9 +15,10 @@
  * task: docs/tasks/P2-04.md
  *
  * ── この task が作らないもの ────────────────────────────
- *   - `GET /inspections/waiting`（検査待ち一覧）… P2-05（M-08）
  *   - `POST /reworks/:id/{start,complete,waive}` … P2-07
  *   - `EvidenceSnapshot` の生成 … P2-08
+ *
+ * `GET /inspections/waiting` は P2-05 が足した（M-08 と同じ並びを返す）。
  *
  * ── `Idempotency-Key` ───────────────────────────────────
  * §14.1 は「全状態変更 API に必須」。開始は `inspection.idempotencyKey` で
@@ -45,8 +47,10 @@ import {
 import { Hono } from "hono";
 
 import { assertPermission, propertyTarget } from "../../../lib/auth/permission.js";
+import { businessDateOf } from "../../../lib/businessDate.js";
 import { completeInspectionUseCase } from "../../../lib/inspection/complete.js";
 import { listInspectionItems, toInspection } from "../../../lib/inspection/detail.js";
+import { buildWaitingList } from "../../../lib/inspection/waiting.js";
 import { uploadInspectionPhoto } from "../../../lib/photo/inspectionUpload.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { getNow, getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
@@ -57,6 +61,31 @@ const inspections = new Hono<AppEnv>();
 function invalidRequest(): InspectionError {
   return { error: "INVALID_REQUEST" };
 }
+
+/**
+ * 検査待ち一覧（M-08 / §11.2）。
+ *
+ * ```
+ * GET /api/v1/inspections/waiting?propertyId=&businessDate=
+ * ```
+ *
+ * **`/:inspectionId` より前に登録すること。** Hono は登録順に照合するので、
+ * 先に `/:inspectionId` を置くと `waiting` が ID として吸われる
+ * （`routes/api/v1/tasks.ts` 冒頭の「登録の順序が意味を持つ」と同じ）。
+ */
+inspections.get("/waiting", async (c) => {
+  const ctx = getTenant(c);
+  const propertyId = c.req.query("propertyId");
+  const businessDate = c.req.query("businessDate") ?? businessDateOf(getNow(c));
+
+  if (propertyId === undefined) return c.json(invalidRequest(), 400);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) return c.json(invalidRequest(), 400);
+
+  // 施設は絞り込みに使い、**同じ値で権限も判定する**（担当外なら 404）。
+  assertPermission(ctx, "inspection.read", propertyTarget([propertyId]));
+
+  return c.json(await buildWaitingList(c.env, ctx, propertyId, businessDate, getNow(c)));
+});
 
 /** 検査 1 件（M-09 が読む）。**項目を必ず添える。** */
 inspections.get("/:inspectionId", async (c) => {

@@ -1025,3 +1025,97 @@
   color: var(--muted);
   background: var(--surf3);
 }
+
+/* ── 検査（M-08 / M-09。P2-05 / P2-06）───────────────── */
+
+/*
+ * 一覧の左帯（§11.2 / §5.2）。
+ *
+ * **赤はチェックイン期限にだけ使う。** 待ち時間の長さで赤くしない
+ * （ui-writing.md §3 が禁じているのは「経過時間超過の赤色表示」で、
+ * 人の作業の遅さを責める色。客の到着という外の締切は別）。
+ */
+.pk-m-card--URGENT {
+  border-left-color: var(--danger);
+}
+
+.pk-m-card--OVER_SLA {
+  border-left-color: var(--warn);
+}
+
+.pk-m-card--NORMAL {
+  border-left-color: var(--line);
+}
+
+.pk-m-head__count {
+  margin-left: auto;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 完了時に「足りない」と返ってきた項目（§4.3）。 */
+.pk-m-check__item--missing {
+  background: var(--warnbg);
+  border-left: 4px solid var(--warn);
+}
+
+/* 不合格の入力欄（§11.3 のワイヤー）。**不合格を選んだときだけ出る。** */
+.pk-m-defect {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  margin-top: 10px;
+  background: var(--surf2);
+  border-radius: 10px;
+}
+
+.pk-m-defect__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+
+.pk-m-defect__field select,
+.pk-m-defect__field textarea {
+  min-height: 48px;
+  padding: 10px 12px;
+  font-family: inherit;
+  /* **16px を下回らない。** iOS が拡大してしまう（ui-writing.md §3）。 */
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--surf);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+}
+
+.pk-m-defect__field input[type="checkbox"] {
+  width: 28px;
+  height: 28px;
+}
+
+/* 写真を撮る。**`label` にしてあるのは `input[type=file]` を隠すため。** */
+.pk-m-defect__camera {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surf);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+}
+
+.pk-m-defect__camera:has(input[disabled]) {
+  color: var(--ink2);
+  cursor: not-allowed;
+  background: var(--surf3);
+}

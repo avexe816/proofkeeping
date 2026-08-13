@@ -508,6 +508,105 @@ describe("POST /api/v1/tasks/:taskId/inspection/start", () => {
 });
 
 // ────────────────────────────────────────────────────────────
+// 検査待ち一覧（§11.2 / P2-05）
+// ────────────────────────────────────────────────────────────
+
+describe("GET /api/v1/inspections/waiting", () => {
+  /** 一覧の読み取りを積む。順序は `buildWaitingList()` の `Promise.all`。 */
+  function enqueueWaitingReads(ctx: Ctx, tasks: unknown[][]): void {
+    ctx.d1.enqueueRows(tasks); // cleaning_task（AWAITING_INSPECTION）
+    ctx.d1.enqueueRows([roomRow()]); // room
+    ctx.d1.enqueueRows([policyRow(false)]); // property_inspection_policy
+  }
+
+  it("**`waiting` が ID として吸われない**（登録順）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    enqueueWaitingReads(ctx, []);
+
+    const res = await ctx.app.request(
+      `/api/v1/inspections/waiting?propertyId=${PROPERTY_ID}&businessDate=2026-09-10`,
+      { headers: { Cookie: cookie } },
+      ctx.env,
+    );
+
+    // `/:inspectionId` に吸われていたら、`waiting` は自己記述 ID ではないので
+    // `assertIdBelongsToTenant()` が 404 にする。
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ businessDate: "2026-09-10" });
+  });
+
+  it("施設の指定が無ければ 400", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+
+    const res = await ctx.app.request(
+      "/api/v1/inspections/waiting",
+      { headers: { Cookie: cookie } },
+      ctx.env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "INVALID_REQUEST" });
+  });
+
+  it("CLEANER は 404（`inspection.read` が DENY）", async () => {
+    const ctx = setup("CLEANER");
+    const cookie = await ctx.cookie();
+
+    const res = await ctx.app.request(
+      `/api/v1/inspections/waiting?propertyId=${PROPERTY_ID}`,
+      { headers: { Cookie: cookie } },
+      ctx.env,
+    );
+
+    expect(res.status).toBe(404);
+    expect(ctx.d1.queries.filter((query) => query.sql.includes("cleaning_task"))).toEqual([]);
+  });
+
+  it("検査待ちのタスクだけを引き、待ち時間を添えて返す", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    enqueueWaitingReads(ctx, [taskRow("AWAITING_INSPECTION")]);
+
+    const res = await ctx.app.request(
+      `/api/v1/inspections/waiting?propertyId=${PROPERTY_ID}&businessDate=2026-09-10`,
+      { headers: { Cookie: cookie } },
+      ctx.env,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      summary: { total: number };
+      data: { roomNumber: string; tone: string; nextRound: number; slaMinutes: number }[];
+    }>();
+    expect(body.summary.total).toBe(1);
+    expect(body.data[0]).toMatchObject({ roomNumber: "302", tone: "NORMAL", nextRound: 1 });
+    // 施設の設定（`policyRow`）から SLA を取っている。
+    expect(body.data[0]?.slaMinutes).toBe(20);
+    // 一覧のクエリは `AWAITING_INSPECTION` で絞っている。
+    const taskQuery = ctx.d1.queries.find((query) => query.sql.includes("cleaning_task"));
+    expect(taskQuery?.params).toContain("AWAITING_INSPECTION");
+  });
+
+  it("**清掃担当者の名前を返さない**（判断の前に名前を見せない）", async () => {
+    const ctx = setup();
+    const cookie = await ctx.cookie();
+    enqueueWaitingReads(ctx, [taskRow("AWAITING_INSPECTION")]);
+
+    const res = await ctx.app.request(
+      `/api/v1/inspections/waiting?propertyId=${PROPERTY_ID}&businessDate=2026-09-10`,
+      { headers: { Cookie: cookie } },
+      ctx.env,
+    );
+
+    const text = await res.text();
+    expect(text).not.toContain(CLEANER_ID);
+    expect(text).not.toContain("assigneeId");
+  });
+});
+
+// ────────────────────────────────────────────────────────────
 // 検査項目（§4.3）
 // ────────────────────────────────────────────────────────────
 

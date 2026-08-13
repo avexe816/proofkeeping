@@ -97,6 +97,8 @@ export async function listInspectionItems(
     const judged = recordedByItem.get(row.itemId);
     return {
       checklistItemId: row.itemId,
+      // 写真のアップロード先。**答えるまでは `null`**（行がまだ無い）。
+      itemResultId: judged?.id ?? null,
       section: itemById.get(row.itemId)?.section ?? "",
       labels: itemById.get(row.itemId)?.labels ?? {},
       status: judged?.status ?? null,
