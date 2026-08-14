@@ -26,12 +26,16 @@
  * `bodyPreview` に残るのも同じ範囲。
  */
 
+import { parseDeliveryEvent } from "../lib/billing/webhookEvent.js";
 import {
   findInvoiceById,
   findReceiptById,
+  lookupOrganizationId,
   markInvoiceSent,
   markReceiptSent,
   recordDocumentDelivery,
+  setDeliveryProviderMessageId,
+  updateDocumentDeliveryStatus,
   type Env,
   type TenantContext,
 } from "@pk/db";
@@ -92,6 +96,12 @@ export function invoiceBody(input: { documentNo: string; periodFrom: string; per
   ].join("\n");
 }
 
+/** 送付ログの ID を載せるタグ名。**webhook がこれを見て行を引く。** */
+export const PK_DELIVERY_TAG = "pk_delivery_id";
+
+/** 同じものをヘッダにも載せる。 */
+export const PK_DELIVERY_HEADER = "X-PK-Delivery-Id";
+
 /** Resend の応答のうち使う部分。 */
 interface ResendResponse {
   id?: string;
@@ -107,7 +117,7 @@ interface ResendResponse {
  */
 async function sendViaResend(
   env: Env,
-  input: { to: string; cc: string[]; subject: string; body: string },
+  input: { to: string; cc: string[]; subject: string; body: string; deliveryId: string },
 ): Promise<{ ok: true; messageId: string | null } | { ok: false; reason: string }> {
   try {
     const response = await fetch("https://api.resend.com/emails", {
@@ -122,6 +132,13 @@ async function sendViaResend(
         cc: input.cc,
         subject: input.subject,
         text: input.body,
+        // **送付ログの ID を持たせる**（P5-10 / `lib/billing/webhookEvent.ts`）。
+        // webhook は組織を知らない。ID は自己記述（`{orgShortId}__dlv_{ulid}`）
+        // なので、これが返ってくればシャードを引ける。
+        // タグとヘッダの両方に入れるのは、Resend の webhook が
+        // どちらを載せるかが payload の種類で違うため（OPEN_QUESTIONS #077）。
+        tags: [{ name: PK_DELIVERY_TAG, value: input.deliveryId }],
+        headers: { [PK_DELIVERY_HEADER]: input.deliveryId },
       }),
     });
 
@@ -165,13 +182,8 @@ export async function deliverInvoice(
     periodTo: invoice.periodTo,
   });
 
-  const sent = await sendViaResend(env, {
-    to: message.toEmail,
-    cc: message.ccEmails,
-    subject,
-    body,
-  });
-
+  // **先に送付ログを起こしてから送る。** ID を Resend へ渡す必要があり、
+  // 送ってから採番すると webhook が先に届いたときに引けない。
   const { deliveryId } = await recordDocumentDelivery(env, ctx, {
     docType: "INVOICE",
     documentId: message.invoiceId,
@@ -181,12 +193,28 @@ export async function deliverInvoice(
     subject,
     // **本文の冒頭だけ。** 差異の詳細を入れない（ui-writing.md §6）。
     bodyPreview: body.slice(0, 120),
-    status: sent.ok ? "SENT" : "FAILED",
-    providerMessageId: sent.ok ? sent.messageId : null,
-    errorMessage: sent.ok ? null : sent.reason,
+    status: "QUEUED",
+    providerMessageId: null,
+    errorMessage: null,
     sentById: message.sentById,
-    sentAt: sent.ok ? ctx.now : null,
+    sentAt: null,
   });
+
+  const sent = await sendViaResend(env, {
+    to: message.toEmail,
+    cc: message.ccEmails,
+    subject,
+    body,
+    deliveryId,
+  });
+
+  await updateDocumentDeliveryStatus(env, ctx, deliveryId, {
+    status: sent.ok ? "SENT" : "FAILED",
+    ...(sent.ok ? {} : { errorMessage: sent.reason }),
+  });
+  if (sent.ok && sent.messageId !== null) {
+    await setDeliveryProviderMessageId(env, ctx, deliveryId, sent.messageId);
+  }
 
   if (!sent.ok) return { kind: "FAILED", reason: sent.reason };
 
@@ -199,6 +227,13 @@ export async function deliverInvoice(
 /** `pk-notification` キューの入口。 */
 export async function handleNotificationBatch(env: Env, batch: MessageBatch): Promise<void> {
   for (const message of batch.messages) {
+    // 送付イベント（P5-10 / §2.7）。**同じ notification キュー。**
+    if (isDeliveryEventMessage(message.body)) {
+      const eventOutcome = await handleDeliveryEvent(env, message.body);
+      if (eventOutcome.kind === "FAILED") message.retry();
+      else message.ack();
+      continue;
+    }
     if (isReceiptDeliveryMessage(message.body)) {
       const receiptOutcome = await deliverReceipt(env, message.body);
       if (receiptOutcome.kind === "FAILED") message.retry();
@@ -289,13 +324,6 @@ export async function deliverReceipt(
   const subject = receiptSubject(receipt.documentNo);
   const body = receiptBody(receipt.documentNo);
 
-  const sent = await sendViaResend(env, {
-    to: message.toEmail,
-    cc: message.ccEmails,
-    subject,
-    body,
-  });
-
   const { deliveryId } = await recordDocumentDelivery(env, ctx, {
     docType: "RECEIPT",
     documentId: message.receiptId,
@@ -304,16 +332,119 @@ export async function deliverReceipt(
     ccEmails: message.ccEmails,
     subject,
     bodyPreview: body.slice(0, 120),
-    status: sent.ok ? "SENT" : "FAILED",
-    providerMessageId: sent.ok ? sent.messageId : null,
-    errorMessage: sent.ok ? null : sent.reason,
+    status: "QUEUED",
+    providerMessageId: null,
+    errorMessage: null,
     sentById: message.sentById,
-    sentAt: sent.ok ? ctx.now : null,
+    sentAt: null,
   });
+
+  const sent = await sendViaResend(env, {
+    to: message.toEmail,
+    cc: message.ccEmails,
+    subject,
+    body,
+    deliveryId,
+  });
+
+  await updateDocumentDeliveryStatus(env, ctx, deliveryId, {
+    status: sent.ok ? "SENT" : "FAILED",
+    ...(sent.ok ? {} : { errorMessage: sent.reason }),
+  });
+  if (sent.ok && sent.messageId !== null) {
+    await setDeliveryProviderMessageId(env, ctx, deliveryId, sent.messageId);
+  }
 
   if (!sent.ok) return { kind: "FAILED", reason: sent.reason };
 
   await markReceiptSent(env, ctx, message.receiptId, ctx.now);
 
   return { kind: "OK", deliveryId };
+}
+
+
+// ────────────────────────────────────────────────────────────
+// 送付イベント（P5-10 / PK-SPEC-P5 §2.7）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * webhook が受けた 1 件。**署名の検証は受信側で済んでいる。**
+ *
+ * 生の payload をそのまま運ぶ。読み取り（どのイベントか・どの送付ログか）
+ * は**このコンシューマの中**で行う。受信側は 200 を即返すのが仕事
+ * （security.md §7）。
+ */
+export interface DeliveryEventMessage {
+  kind: "DELIVERY_EVENT";
+  /** Resend の payload。**形は信用しない**（`parseDeliveryEvent()` が絞る）。 */
+  payload: unknown;
+  receivedAtMs: number;
+}
+
+/** メッセージの形を確かめる。 */
+export function isDeliveryEventMessage(value: unknown): value is DeliveryEventMessage {
+  if (typeof value !== "object" || value === null) return false;
+  const message = value as Record<string, unknown>;
+  return (
+    message["kind"] === "DELIVERY_EVENT" &&
+    "payload" in message &&
+    typeof message["receivedAtMs"] === "number"
+  );
+}
+
+/**
+ * 送付イベントを 1 件処理する（§2.7）。
+ *
+ * ── 組織はここで引く ────────────────────────────────────
+ * `lookupOrganizationId()` は**リクエストハンドラから呼ばない**
+ * （`orgDirectory.ts` の注記）。コンシューマはセッションを持たない
+ * バッチ経路なので、ここが正しい置き場所。受信の口（`webhooks.ts`）は
+ * 署名を確かめて投げるだけ。
+ *
+ * ── 冪等（testing.md §4）─────────────────────────────────
+ * 同じイベントを 3 回処理しても結果が変わらない。`updateDocumentDelivery
+ * Status()` が**終端（`BOUNCED` / `FAILED`）から動かない**ので、
+ * 順序が入れ替わって届いても不達が配達済みに戻らない。
+ */
+export async function handleDeliveryEvent(
+  env: Env,
+  message: DeliveryEventMessage,
+): Promise<InvoiceDeliveryOutcome> {
+  const event = parseDeliveryEvent(message.payload, {
+    tag: PK_DELIVERY_TAG,
+    header: PK_DELIVERY_HEADER,
+  });
+  // 読めないイベント（知らない種別・送付ログの ID が無い）は
+  // **再送しても直らない。**
+  if (event === null) return { kind: "SKIPPED", reason: "UNREADABLE_EVENT" };
+
+  const orgShortId = event.deliveryId.split("__")[0] ?? "";
+  const organizationId = await lookupOrganizationId(env, orgShortId);
+  if (organizationId === null) return { kind: "SKIPPED", reason: "ORGANIZATION_NOT_FOUND" };
+
+  const now = new Date(message.receivedAtMs);
+  const ctx: TenantContext = {
+    organizationId,
+    orgShortId,
+    role: "ORG_ADMIN",
+    allowedPropertyIds: [],
+    now,
+  };
+
+  // 開封は状態を進めず `openedAt` だけを立てる（§2.7）。
+  if (event.type === "email.opened") {
+    await updateDocumentDeliveryStatus(env, ctx, event.deliveryId, {
+      status: "DELIVERED",
+      openedAt: now,
+    });
+    return { kind: "OK", deliveryId: event.deliveryId };
+  }
+
+  await updateDocumentDeliveryStatus(env, ctx, event.deliveryId, {
+    status: event.status,
+    ...(event.status === "DELIVERED" ? { deliveredAt: now } : {}),
+    ...(event.errorMessage === null ? {} : { errorMessage: event.errorMessage }),
+  });
+
+  return { kind: "OK", deliveryId: event.deliveryId };
 }

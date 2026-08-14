@@ -1,13 +1,13 @@
 # CONTINUE
 
 ## 最終状態
-- main HEAD: P5-09 のマージ後
-- 完了: **Phase 0〜4 と P5-01〜P5-09**（P4-08 を除く）
-- 次: **P5-10（送付ログと bounce 処理）**
+- main HEAD: P5-10 のマージ後
+- 完了: **Phase 0〜4 と P5-01〜P5-10**（P4-08 を除く）
+- 次: **P5-11（検索機能・電帳法対応）**
 
 ## 次にやること
 1. `git fetch origin && git checkout main && git pull`
-2. `docs/tasks/P5-10.md` を読む（依存 P5-07 は完了済み）
+2. `docs/tasks/P5-11.md` を読む（依存 P5-01 のみ。独立して進められる）
 3. 番号順に進める（P5-08 → P5-09 → P5-10 → P5-11 → P5-12 …）
 
 ### P5 の依存関係
@@ -43,16 +43,22 @@ P5-12 が来たら `POST /billing-periods/:id/agree` を足すこと。
   **P5-08 は別の鍵が要る**（`receipt.invoiceId` + `paymentId`？
   §4.2 の入金記録から起こすので、そこを一意にするのが素直）。
 
-### P5-10 に着手するときの注意
-- Resend の webhook を受ける。**HMAC-SHA256 署名を必須検証**、
-  タイムスタンプが 5 分以上ずれていたら拒否（security.md §7）。
-- **受信は 200 を即返し、処理は Queue へ**（同 §7）。
-- `documentDelivery.status` を `BOUNCED` / `DELIVERED` へ進める。
-  行は追記のみで、**消さない**（billing.md §2）。
-- 送付ログの読み取り（`listDocumentDeliveries()`）は P5-01 が用意済み。
-  `GET /api/v1/deliveries?docType=&documentId=`（§9）が未実装。
-- 不達の警告を画面に出す（完了条件）。API を先に作ること。
-- **`POST /api/v1/payments` の判断もここで**（OPEN_QUESTIONS #076）。
+### P5-11 に着手するときの注意
+- 電帳法の検索 3 項目（取引年月日・取引金額・取引先）は
+  **API 側が既にある**（`GET /invoices`・`GET /receipts` の
+  `from` / `to` / `minAmount` / `maxAmount` / `counterpartyId`）。
+  P5-11 は**画面**と、必要なら一覧の絞り込みの追加。
+- `GET /invoices/:id/download` も実装済み（15 分の署名付き URL）。
+  **`VOIDED` を弾かない**（§5.2 MUST）。
+- 送付ログの画面は `GET /api/v1/deliveries?docType=&documentId=` と
+  `GET /api/v1/deliveries/failed`（不達の警告）。
+
+### ⚠ 人間の作業が 1 つ増えた（P5-10）
+**実機で 1 通送って Resend の webhook payload を確かめること**
+（OPEN_QUESTIONS #077）。送付ログの ID をタグとヘッダの両方に載せて
+いるが、Resend が実際にどちらを返すか未確認。返らなければ bounce を
+送付ログへ写せない（イベントは 200 で受けるが行が更新されない）。
+併せて `RESEND_WEBHOOK_SECRET` の設定が要る（`wrangler secret put`）。
 
 ### P5-09 が置いたもの
 - `correctInvoice()` — 取消 → 赤伝 → 締めの差し戻し → PDF・送付。
@@ -72,6 +78,7 @@ P5-12 が来たら `POST /billing-periods/:id/agree` を足すこと。
   無いため。P5-09 か P5-11 で `payment` 表ごと判断すること。
 
 ### 未解決の問い（新しい順）
+- #077 Resend の webhook がタグとヘッダのどちらを返すか未確認 → 両方送る
 - #076 入金（Payment）を置く表が無い → 全額入金のみ。一部入金は 409
 - #075 帳票メールの差出人が組織ごとに設定できない → `[vars]` で環境ごと 1 つ
 - #074 §10.6 の「AGREED 必須の設定」に列が無い → **常に必須**（A 案）

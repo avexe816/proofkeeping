@@ -43,6 +43,7 @@ import {
   type BillingPeriodStatus,
   type DeliveryDocType,
   type InvoiceItemCode,
+  type DeliveryStatus,
   type InvoiceStatus,
   type PaymentMethod,
   type ReceiptStatus,
@@ -1198,6 +1199,111 @@ export async function voidInvoice(
         eq(invoice.id, invoiceId),
         // **取り消し済みからは進まない**（2 回押しても赤伝が 2 通出ない）。
         inArray(invoice.status, ["CONFIRMED", "SENT", "VIEWED", "PAID", "PARTIALLY_PAID", "OVERDUE"]),
+      ),
+    );
+
+  return result.meta.changes;
+}
+
+/**
+ * 送付ログの状態を進める（§2.7 / P5-10）。
+ *
+ * ── 追記に近い更新だけ ──────────────────────────────────
+ * 触れるのは `status` と 3 つの時刻、`errorMessage` まで。
+ * **宛先・件名・本文・`sentById` を書き換えない。** 誰にいつ何を
+ * 送ったかは電子取引の記録そのもの（billing.md §2）。
+ *
+ * ── 後戻りさせない ──────────────────────────────────────
+ * `BOUNCED` / `FAILED` は終端。webhook が順序どおり届く保証は無いので、
+ * **終端に達した行を `DELIVERED` へ戻さない。** 呼び出し側の
+ * 判断ではなく、ここの WHERE で固定する。
+ *
+ * @returns 更新した行数。0 は「既に終端だった」。
+ */
+export async function updateDocumentDeliveryStatus(
+  env: Env,
+  ctx: TenantContext,
+  deliveryId: string,
+  input: {
+    status: DeliveryStatus;
+    deliveredAt?: Date | undefined;
+    openedAt?: Date | undefined;
+    errorMessage?: string | null | undefined;
+  },
+): Promise<number> {
+  assertIdBelongsToTenant(deliveryId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(documentDelivery)
+    .set({
+      status: input.status,
+      ...(input.deliveredAt === undefined ? {} : { deliveredAt: input.deliveredAt }),
+      ...(input.openedAt === undefined ? {} : { openedAt: input.openedAt }),
+      ...(input.errorMessage === undefined ? {} : { errorMessage: input.errorMessage }),
+    })
+    .where(
+      and(
+        eq(documentDelivery.organizationId, ctx.organizationId),
+        eq(documentDelivery.id, deliveryId),
+        // **終端からは動かない。**
+        inArray(documentDelivery.status, ["QUEUED", "SENT", "DELIVERED"]),
+      ),
+    );
+
+  return result.meta.changes;
+}
+
+/**
+ * 不達（`BOUNCED` / `FAILED`）の送付ログを新しい順に返す（P5-10）。
+ *
+ * **画面の警告のためだけの口。** 「送ったのに届いていない」を
+ * 気づける状態にするのが目的（§11 の「メール不達に気づかない」への対策）。
+ */
+export async function listFailedDeliveries(
+  env: Env,
+  ctx: TenantContext,
+  filter: { limit?: number | undefined } = {},
+) {
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select()
+    .from(documentDelivery)
+    .where(
+      withTenantScope(
+        documentDelivery,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        inArray(documentDelivery.status, ["BOUNCED", "FAILED"]),
+      ),
+    )
+    .orderBy(desc(documentDelivery.queuedAt))
+    .limit(filter.limit ?? 100);
+}
+
+/**
+ * Resend が返したメッセージ ID を控える（P5-10）。
+ *
+ * **送付ログの他の列に触らない。** webhook が `email_id` で照会して
+ * きたときの手がかりとして持つだけ（第一の手がかりは送付ログの ID
+ * そのもの / `lib/billing/webhookEvent.ts`）。
+ */
+export async function setDeliveryProviderMessageId(
+  env: Env,
+  ctx: TenantContext,
+  deliveryId: string,
+  providerMessageId: string,
+): Promise<number> {
+  assertIdBelongsToTenant(deliveryId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(documentDelivery)
+    .set({ providerMessageId })
+    .where(
+      and(
+        eq(documentDelivery.organizationId, ctx.organizationId),
+        eq(documentDelivery.id, deliveryId),
       ),
     );
 

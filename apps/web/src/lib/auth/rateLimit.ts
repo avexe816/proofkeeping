@@ -29,6 +29,8 @@ export const RATE_LIMITS = {
   login: { limit: 10, windowSeconds: 60 },
   /** `/auth/pin-login`: 20 req/分/IP。P0-09 が使う。 */
   pinLogin: { limit: 20, windowSeconds: 60 },
+  /** Webhook 受信: 1200 req/分/integration（security.md §8）。P5-10 が使う。 */
+  webhook: { limit: 1200, windowSeconds: 60 },
 } as const;
 
 export type RateLimitBucket = keyof typeof RATE_LIMITS;

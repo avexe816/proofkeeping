@@ -53,7 +53,9 @@ import roomAccessLogs from "./routes/api/v1/roomAccessLogs.js";
 import ruleConfigs from "./routes/api/v1/ruleConfigs.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import billingPeriodsRoute from "./routes/api/v1/billingPeriods.js";
+import deliveriesRoute from "./routes/api/v1/deliveries.js";
 import invoicesRoute from "./routes/api/v1/invoices.js";
+import webhooksRoute from "./routes/api/v1/webhooks.js";
 import receiptsRoute from "./routes/api/v1/receipts.js";
 import counterparties from "./routes/api/v1/counterparties.js";
 import pricingRules from "./routes/api/v1/pricingRules.js";
@@ -128,6 +130,10 @@ app.route("/api/health", health);
 // 認証不要の dev 経路（シード投入）。本番では 404。
 // **`app` 側（認証 middleware の前）に置く。** 初期データが無いとログインできないため。
 app.route("/api/v1/dev", dev);
+
+// Webhook（P5-10 / PK-SPEC-P5 §2.7）。**セッションを持たない経路。**
+// 守っているのは署名（security.md §7）。認証 middleware の前段に置く。
+app.route("/api/v1/webhooks", webhooksRoute);
 
 // 認証だけはセッション middleware（P0-10）より前段に置く。
 // セッションを作る経路がセッションを要求すると入口が無くなる。
@@ -218,6 +224,8 @@ api.route("/billing-periods", billingPeriodsRoute);
 api.route("/invoices", invoicesRoute);
 // 領収書（P5-08 / 同 §4.2・§8.2）。**印紙貼付欄を持たない**（billing.md §3）。
 api.route("/receipts", receiptsRoute);
+// 送付ログ（P5-10 / 同 §2.7）。**追記のみ。消す口が無い。**
+api.route("/deliveries", deliveriesRoute);
 // 組織設定（P1-22 / §19.4）。施設選択画面を挟む閾値だけ。
 api.route("/organization", organization);
 app.route("/api/v1", api);

@@ -1090,3 +1090,21 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 - 決める人: P5-09（訂正）または P5-11。`payment` 表を足すのが素直だが、
   §2 に無いものを新設すると仕様の版上げが要る。`PARTIALLY_PAID` が
   語彙にある以上、いずれ必要になる。
+
+### #077 Resend の webhook がタグとヘッダのどちらを返すか確かめていない
+- 提起: 2026-08-14 / P5-10 実装中
+- 内容: webhook は「どのテナントの送付か」を知らない。一方こちらは
+  シャードを引くために `organizationId` が要り、**全シャード走査は
+  禁止**（architecture.md §3）。そこで**送付ログの ID を送信時に
+  `tags` と `headers` の両方へ載せ**、webhook が返した値から
+  `orgShortId` を取り出して `lookupOrganizationId()` で引いている。
+  ID は自己記述（`{orgShortId}__dlv_{ulid}`）なので新しい表が要らない。
+- 影響: **Resend が実際にどちらも返さなければ、bounce を送付ログへ
+  写せない**（イベントは 200 で受け取るが、行が更新されない）。
+- 暫定対応: タグとヘッダの両方を送り、受信側は両方を見る
+  （先に見つかったほうを使う）。どちらも無ければ ack して落とし、
+  `webhook-unreadable` としてログに出す。
+- 決める人: **実機で 1 通送って webhook の payload を見るだけで決まる**
+  （人間の作業）。返らない場合は、Resend の `email_id` →
+  `documentDelivery.providerMessageId` で引ける全局の索引が要る
+  （`org_directory` には業務データを置けないので別の表になる）。
