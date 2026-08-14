@@ -32,6 +32,7 @@ import {
   listCounterparties,
   listDocumentDeliveries,
   listInvoiceLines,
+  sumInvoiceLineAmountsByProperty,
   listInvoiceTaxSummaries,
   listInvoices,
   listPricingRules,
@@ -78,6 +79,19 @@ describeTenantIsolation({
   table: "invoice_line",
   list: (env, ctx) => listInvoiceLines(env, ctx, ownId(ctx, "inv")),
   entityPrefix: "invl",
+  propertyColumn: null,
+});
+
+/**
+ * 施設ごとの請求額（P5-14 / PK-SPEC-P5 §7.1）。
+ *
+ * **請求書と明細の 2 段で読む。** 組織条件は両方に載る。ここが漏れると
+ * 組織ダッシュボードが他社の請求額を「自社の清掃費用」として出す。
+ */
+describeTenantIsolation({
+  table: "invoice_line (施設別の集計)",
+  list: (env, ctx) =>
+    sumInvoiceLineAmountsByProperty(env, ctx, { from: "2026-09-01", to: "2026-09-30" }),
   propertyColumn: null,
 });
 

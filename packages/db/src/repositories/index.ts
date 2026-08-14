@@ -211,8 +211,19 @@ export {
   type UpdateRoomInput,
 } from "./room.js";
 
-// 日次集計（P0-21）。施設サマリーはここからのみ取る。
-export { findPropertyRollup, listPropertyRollups } from "./rollup.js";
+// 日次集計（P0-21 / P5-14）。施設サマリーはここからのみ取る。
+// **`count*ForRollup` は `rollup-update` のコンシューマ専用**（rollup.ts の注記）。
+// 画面・API から呼ばないこと。
+export {
+  countHighFindingsForRollup,
+  countOpenIssuesForRollup,
+  countTasksForRollup,
+  findPropertyRollup,
+  listPropertyRollups,
+  listRollupsInRange,
+  upsertPropertyRollup,
+  type RollupCounts,
+} from "./rollup.js";
 
 export {
   PASSWORD_HISTORY_GENERATIONS,
@@ -414,6 +425,7 @@ export {
   markReceiptSent,
   recordDocumentDelivery,
   setDeliveryProviderMessageId,
+  sumInvoiceLineAmountsByProperty,
   updateBillingPeriodStatus,
   updateDocumentDeliveryStatus,
   updateCounterparty,

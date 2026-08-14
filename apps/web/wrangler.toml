@@ -36,10 +36,11 @@
 #
 #   [[queues.consumers]]      **P2-10 が evidence-export、P2-14 が
 #                             pdf-generation、P3-09 が baseline-learning、
-#                             P4-05 が reconciliation を宣言した。**
-#                             残り 3 キューはハンドラが未実装で、宣言すると
+#                             P4-05 が reconciliation、P5-07 が notification、
+#                             P5-14 が rollup-update を宣言した。**
+#                             残り 2 キューはハンドラが未実装で、宣言すると
 #                             wrangler が起動しない。実装する task
-#                             （P4-14 / P6-04 / P6-09 / P7-09）が
+#                             （P6-04 / P6-09 / P7-09）が
 #                             自分の分を 4 環境ぶん追記し、同時に
 #                             src/index.ts の `queue()` へ分岐を足すこと。
 #
@@ -249,6 +250,18 @@ max_batch_size = 5
 max_batch_timeout = 5
 max_retries = 3
 
+# 日次集計の更新（P5-14 / PK-SPEC-P0 §19.6）。タスク完了・検査完了・照合完了の
+# たびに 1 施設 × 1 業務日を数え直して UPSERT する。**再計算方式**なので
+# 同じメッセージが重なっても結果が変わらない（§19.6 MUST）。
+#
+# max_batch_size = 10。1 件が軽く（数え直す 3 本 + UPSERT）、同じ施設・
+# 同じ業務日のメッセージが束になって届くことが多い。**束ねても結果は同じ。**
+[[queues.consumers]]
+queue = "pk-rollup-update-local"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -440,6 +453,13 @@ max_batch_size = 5
 max_batch_timeout = 5
 max_retries = 3
 
+# 日次集計の更新（P5-14 / PK-SPEC-P0 §19.6）。理由は top-level を参照。
+[[env.preview.queues.consumers]]
+queue = "pk-rollup-update-preview"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -618,6 +638,13 @@ max_retries = 3
 [[env.staging.queues.consumers]]
 queue = "pk-notification-staging"
 max_batch_size = 5
+max_batch_timeout = 5
+max_retries = 3
+
+# 日次集計の更新（P5-14 / PK-SPEC-P0 §19.6）。理由は top-level を参照。
+[[env.staging.queues.consumers]]
+queue = "pk-rollup-update-staging"
+max_batch_size = 10
 max_batch_timeout = 5
 max_retries = 3
 
@@ -873,6 +900,13 @@ max_retries = 3
 [[env.production.queues.consumers]]
 queue = "pk-notification"
 max_batch_size = 5
+max_batch_timeout = 5
+max_retries = 3
+
+# 日次集計の更新（P5-14 / PK-SPEC-P0 §19.6）。理由は top-level を参照。
+[[env.production.queues.consumers]]
+queue = "pk-rollup-update"
+max_batch_size = 10
 max_batch_timeout = 5
 max_retries = 3
 

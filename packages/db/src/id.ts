@@ -141,6 +141,10 @@ export const ENTITY_PREFIXES = [
   // P5-12 が足したもの。双方合意の履歴（`billing_period_review`）。
   // **仕様に無い表**（§6.2 MUST を満たす場所が他に無い / DECISIONS #127）。
   "bprv", // billingPeriodReview
+  // P5-14 が足したもの。日次集計（`daily_property_rollup`）の行 ID。
+  // **P0-21 で表だけ作り、書き込む側が無かったので接頭辞も無かった。**
+  // 再計算 UPSERT を入れる P5-14 が採番する側になったため足す。
+  "roll", // dailyPropertyRollup
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

@@ -28,10 +28,10 @@
  * `occupancy` が載らないだけ**で、B だけで判定できるルールは動く。
  * 3 系統が揃っていることを前提にした早期 return を書かないこと。
  *
- * ── rollup へはまだ投げない ─────────────────────────────
- * §5.3 の手順 9 は `rollup-update` への投入だが、**このキューには
- * コンシューマがまだ無い**（宣言すると wrangler が起動しない）。
- * 差異の集計を rollup に載せる task がここへ 1 行足すこと。
+ * ── rollup へ投げる（§5.3 の手順 9）─────────────────────
+ * P4-05 の時点では `rollup-update` にコンシューマが無く、この手順を
+ * 飛ばしていた。**P5-14 が繋いだ。** 照合が終わったら 1 施設 × 1 業務日を
+ * 数え直させる（`consumers/rollup.ts`）。失敗しても照合は成立している。
  */
 
 import {
@@ -78,6 +78,8 @@ import {
   type ReconciliationAcquireResult,
 } from "../durable/ReconciliationLock.js";
 import { businessDateOf, localClockOf, shiftBusinessDate } from "../lib/businessDate.js";
+
+import { enqueueRollupUpdate } from "./rollup.js";
 
 import { resolveRuleSettings, rulesetHashOf } from "../lib/reconciliation/ruleset.js";
 
@@ -456,6 +458,12 @@ async function reconcile(
     { runId: run.id, propertyId, businessDate },
     findings,
   );
+
+  // ── ⑨ 日次集計を数え直す（§5.3 の手順 9 / P5-14）─────────────
+  // **P4-05 が飛ばしていた手順。** `rollup-update` にコンシューマが
+  // 無かったため。P5-14 が入れたので繋ぐ。差異の件数（`findingsHigh`）が
+  // 組織ダッシュボード（PK-SPEC-P5 §7.1）の右端の列になる。
+  await enqueueRollupUpdate(env, ctx, { propertyId, businessDate, reason: "RECONCILIATION" });
 
   // ── ⑩ Run を閉じる（§5.3 の手順 10）─────────────────────────
   await finishReconciliationRun(env, ctx, {

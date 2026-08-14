@@ -29,6 +29,7 @@ import { and, desc, eq, gte, inArray, isNull, like, lte, or } from "drizzle-orm"
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
+import { chunkIdsForInArray } from "../limits.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import { documentSequence, TAX_ROUNDING_MODES } from "../schema/organization.js";
 import {
@@ -1467,4 +1468,71 @@ export async function setDeliveryProviderMessageId(
     );
 
   return result.meta.changes;
+}
+
+/**
+ * 施設ごとの請求額を、期間の請求書から集める（P5-14 / PK-SPEC-P5 §7.1）。
+ *
+ * ── なぜ rollup ではないのか ────────────────────────────
+ * §7.1 の MUST は「この画面のデータは `dailyPropertyRollup` から取得する。
+ * **タスクテーブルへの直接集計を行わない**」。金額は rollup に持たせて
+ * いない（DECISIONS #132）。持たせると、発行済み帳票と rollup という
+ * **金額の正が 2 つ**になり、ずれたときにどちらが正しいか誰も言えない
+ * （billing.md §6「マスタを変更しても過去の帳票が変わってはならない」）。
+ * ここが読むのは請求書の明細で、タスクテーブルではない。
+ *
+ * ── 数えるのは確定した請求書だけ ────────────────────────
+ * `DRAFT` を含めない。まだ動く数字を「清掃費用合計」として出さない。
+ * **赤伝（`isCreditNote`）は含める。** 訂正後の実額を出すため
+ * （赤伝の `amount` は負）。取り消した請求書（`VOIDED`）は除く。
+ *
+ * ── 期間の重なりで拾う ──────────────────────────────────
+ * 請求書は `periodFrom` / `periodTo` を持つ。月次締めなら月と一致するが、
+ * 締め日が月末でない取引先（`counterparty.closingDay`）ではずれる。
+ * **重なった請求書を丸ごと数える。** 日割りしない — 明細に日付の
+ * 内訳が無く、按分すると発行済み帳票に無い数字を作ることになる。
+ *
+ * @returns 施設 ID → 税抜の合計（整数・円）。
+ *   **`propertyId` を持たない明細（施設に紐づかない品目）は載らない。**
+ */
+export async function sumInvoiceLineAmountsByProperty(
+  env: Env,
+  ctx: TenantContext,
+  range: { from: string; to: string },
+): Promise<Map<string, number>> {
+  const db = await getTenantDb(env, ctx);
+  const invoices = await db
+    .select({ id: invoice.id })
+    .from(invoice)
+    .where(
+      withTenantScope(
+        invoice,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        inArray(invoice.status, ["CONFIRMED", "SENT", "PAID"]),
+        lte(invoice.periodFrom, range.to),
+        gte(invoice.periodTo, range.from),
+      ),
+    );
+  if (invoices.length === 0) return new Map();
+
+  const totals = new Map<string, number>();
+  for (const chunk of chunkIdsForInArray(invoices.map((row) => row.id))) {
+    const rows = await db
+      .select({ propertyId: invoiceLine.propertyId, amount: invoiceLine.amount })
+      .from(invoiceLine)
+      .where(
+        withTenantScope(
+          invoiceLine,
+          ctx,
+          NO_PROPERTY_SCOPE,
+          inArray(invoiceLine.invoiceId, [...chunk]),
+        ),
+      );
+    for (const row of rows) {
+      if (row.propertyId === null) continue;
+      totals.set(row.propertyId, (totals.get(row.propertyId) ?? 0) + row.amount);
+    }
+  }
+  return totals;
 }

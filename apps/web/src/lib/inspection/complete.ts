@@ -58,6 +58,7 @@ import {
   reasonSummaryOf,
 } from "@pk/engine";
 
+import { enqueueRollupUpdate } from "../../consumers/rollup.js";
 import { assertPermission, propertyTarget } from "../auth/permission.js";
 import { buildInspectionEvidence } from "../evidence/payload.js";
 import { recordEvidence } from "../evidence/record.js";
@@ -240,6 +241,15 @@ export async function completeInspectionUseCase(
     result,
     reworkCycleId,
     ip: input.ip,
+  });
+
+  // 日次集計の更新（P5-14 / PK-SPEC-P0 §19.6 の「検査完了」）。
+  // 初回検査合格率（PK-SPEC-P5 §7.1）はここが動かないと埋まらない。
+  // **失敗しても検査は成立している**（`enqueueRollupUpdate()` の注記）。
+  await enqueueRollupUpdate(env, ctx, {
+    propertyId: task.propertyId,
+    businessDate: task.businessDate,
+    reason: "INSPECTION",
   });
 
   // 錠を返す。**失敗しても検査は成立している**（`lock.ts` の注記）。

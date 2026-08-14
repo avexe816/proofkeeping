@@ -852,3 +852,66 @@ a.pk-nav:hover {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* --- 組織ダッシュボード（P5-14 / PK-SPEC-P5 §7.1）------------------------- */
+
+.pk-section__title {
+  margin: 24px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* 全社サマリー。**数字は等幅**（桁が揃わないと比較できない）。 */
+.pk-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.pk-stats__item {
+  padding: 10px 12px;
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+}
+
+.pk-stats__item dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pk-stats__item dd {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-stats__unit {
+  margin-left: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 要対応。件数と導線を 1 行に並べる。 */
+.pk-actions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pk-actions__item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line2);
+}
+
+.pk-actions__label {
+  flex: 1 1 auto;
+}
+
+.pk-actions__count {
+  font-variant-numeric: tabular-nums;
+}
