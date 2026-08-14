@@ -19,3 +19,13 @@ export { DAILY_REPORT_LABELS, AUDIT_REPORT_LABELS } from "./labels.js";
 // 月次監査レポート（P4-14 / PK-SPEC-P4 §7）。**免責文は差し替えられない。**
 export { buildAuditReportDocument, type AuditReportFont } from "./auditReport.js";
 export { renderAuditReportPdf } from "./render.js";
+
+// 請求書（P5-06 / PK-SPEC-P5 §8.1）。**適格請求書の 6 要件を満たす。**
+// 描画は Queue コンシューマ内でのみ行う（§8.3 MUST）。
+export {
+  buildInvoiceDocument,
+  type InvoiceFont,
+  type InvoiceSeal,
+} from "./invoice.js";
+export { renderInvoicePdf } from "./render.js";
+export { INVOICE_LABELS } from "./labels.js";

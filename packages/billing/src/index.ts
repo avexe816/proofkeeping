@@ -74,3 +74,13 @@ export {
   type BillingPeriodTransition,
   type CounterpartyPropertyScope,
 } from "./period.js";
+
+// 請求書 PDF に載せる値（P5-06 / 同 §8.1）。**テンプレートは計算しない。**
+export {
+  determineQualifiedInvoice,
+  isValidRegistrationNo,
+  type InvoiceCounterpartySnapshot,
+  type InvoiceIssuerSnapshot,
+  type InvoicePayload,
+  type InvoicePayloadLine,
+} from "./invoicePayload.js";

@@ -214,3 +214,38 @@ export const AUDIT_REPORT_LABELS = {
   findingColumns: ["業務日", "部屋", "ルール", "内容", "確信度", "状態"] as const,
   ruleColumns: ["ルール", "名称", "件数", "対象外", "対象外の割合"] as const,
 } as const;
+
+/**
+ * 請求書 PDF の固定文言（PK-SPEC-P5 §8.1 / P5-06）。
+ *
+ * **i18n キーにしない。** 帳票に固定される取引内容で、発行後に
+ * 翻訳し直してはならない（`packages/billing/src/vocabulary.ts` と同じ扱い。
+ * ui-writing.md §1 は JSX の規則）。
+ */
+export const INVOICE_LABELS = {
+  title: "請求書",
+  creditNoteTitle: "請求書（訂正）",
+  issueDate: "発行日",
+  honorific: "御中",
+  lead: "下記のとおりご請求申し上げます。",
+  totalDue: "ご請求金額",
+  dueDate: "お支払期限",
+  registrationNo: "登録番号",
+  tel: "TEL",
+  period: "対象期間",
+  /**
+   * 登録番号が未設定のときの但し書き（§1.1 MUST / billing.md §1）。
+   * **この文言を payload から差し替えられないこと。**
+   */
+  notQualified: "この請求書は適格請求書ではありません。",
+  bankAccount: "お振込先",
+  note: "備考",
+  subtotal: "小計",
+  taxTargetSuffix: "対象",
+  taxAmount: "消費税",
+  total: "合計",
+  reducedRate: "軽減",
+  none: "該当なし",
+  /** 明細の列（§8.1 の表）。 */
+  lineColumns: ["No", "内容", "数量", "単位", "単価", "金額", "税"] as const,
+} as const;

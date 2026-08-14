@@ -1,21 +1,22 @@
 # CONTINUE
 
 ## 最終状態
-- main HEAD: P5-05 のマージ後
-- 完了: **Phase 0〜4 と P5-01〜P5-05**（P4-08 を除く）
-- 次: **P5-06（請求書 PDF テンプレート）** → **P5-07（1 クリック発行）**
+- main HEAD: P5-06 のマージ後
+- 完了: **Phase 0〜4 と P5-01〜P5-06**（P4-08 を除く）
+- 次: **P5-07（1 クリック発行）★中核機能**
 
 ## 次にやること
 1. `git fetch origin && git checkout main && git pull`
-2. `docs/tasks/P5-06.md` と `docs/tasks/P5-07.md` を読む
-3. P5-06 → P5-07 は直列。**P5-07 は §4.1 の 10 手順で、①〜⑥ が
-   1 トランザクション。分割して着手しない**ので、2 つで 1 バッチが素直
+2. `docs/tasks/P5-07.md` を読む（依存 P5-06 は完了済み）
+3. **P5-07 は §4.1 の 10 手順で、①〜⑥ が 1 トランザクション。
+   分割して着手しない。** PDF を作る側（P5-06）は既にあり、
+   `QUEUE_PDF_GENERATION` へ `INVOICE_PDF` を投げれば繋がる
 
 ### P5 の依存関係
 ```
 P5-01 ✅ → P5-02 ✅ → P5-03 ✅ → P5-04 ✅ ┬→ P5-05 ✅ → P5-12 → P5-13
                                             │              └→ P5-14 → P5-15
-                                            └→ P5-06 → P5-07 ┬→ P5-08
+                                            └→ P5-06 ✅ → P5-07 ┬→ P5-08
                                                               ├→ P5-09
                                                               └→ P5-10
 P5-01 → P5-11（検索・電帳法対応。独立して進められる）
@@ -23,18 +24,22 @@ P5-01 → P5-11（検索・電帳法対応。独立して進められる）
 
 ## 申し送り
 
-### P5-06 に着手するときの注意
-- **PDF は `packages/pdf`。JSX を使わず `React.createElement` を直に呼ぶ**
-  （`dailyReport.ts` の冒頭の注記。`.tsx` にすると `pk/no-literal-string` が
-  帳票の固定文言に掛かる）。
-- **描画は Queue コンシューマ内だけ**（§8.3 MUST / CLAUDE.md §2）。
-  `renderInvoicePdf()` をリクエストハンドラから呼ばない。
-- 適格請求書の 6 要件（billing.md §1 / §1.1 の表）。登録番号が未設定なら
-  「適格請求書ではありません」＋ `isQualifiedInvoice = false`。
-- 角印は `SEAL_IMAGE`（contracts）が既にある。
-- **数値を PDF の中で再計算しない。** `dailyReport.ts` と同じで、
-  payload の値をそのまま出す。金額は `buildInvoiceDraft()` が出したもの。
-- 領収書 PDF（§8.2）は P5-08。**印紙貼付欄を作らない**（billing.md §3）。
+### P5-06 が置いたもの（P5-07 が繋ぐ）
+- `renderInvoicePdf(payload, font, seal)` — 適格請求書の 6 要件を満たす。
+  **Queue コンシューマ内でのみ呼ぶ**（§8.3 MUST）。
+- `consumers/invoicePdf.ts` — `QUEUE_PDF_GENERATION` に
+  `{ kind: "INVOICE_PDF", organizationId, orgShortId, invoiceId,
+  sealImageKey, requestedAtMs }` を投げれば PDF が R2 に載る。
+  **P5-07 がやるのは §4.1 の ⑦ でこれを投げること。**
+- R2 キーは `invoices/{orgId}/{documentNo}-r{revision}.pdf`。
+- `pdfSha256` の書き戻し（§4.1 の ⑧）は**コンシューマがやらない。**
+  帳票の列を書き換える経路をコンシューマに持たせていないので、
+  P5-07 が持つこと。
+- 発行元・取引先は**スナップショットから読む。** P5-07 が
+  `issuerSnapshot` に入れる項目: `legalName`（必須）/ `registrationNo`
+  / `postalCode` / `address` / `tel` / `bankAccountText`（#073）。
+  取引先側: `legalName`（必須）/ `postalCode` / `address1` / `address2`
+  / `department` / `contactName`。
 
 ### P5-07 に着手するときの注意
 - §4.1 の ①〜⑥ が 1 トランザクション、⑦以降は Queue（PDF → 送付）。
@@ -61,6 +66,7 @@ P5-01 → P5-11（検索・電帳法対応。独立して進められる）
 - P5 は P4-08 に技術的に依存しないので飛ばして進めている（workflow.md §2）。
 
 ### 未解決の問い（新しい順）
+- #073 請求書の振込先（口座情報）に対応する列が無い → 未設定なら節ごと出さない
 - #072 §9 の `request-review` に対応する状態が §2.8 に無い → 状態を増やさない
 - #071 取引先と施設の対応表が仕様に無い → 料金設定から導く
 - #070 「再清掃の有償設定」に対応する列が無い → `chargeRework` 既定 false

@@ -179,6 +179,9 @@ importers:
 
   packages/pdf:
     dependencies:
+      '@pk/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@pk/engine':
         specifier: workspace:*
         version: link:../engine
