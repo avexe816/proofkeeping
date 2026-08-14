@@ -80,6 +80,14 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  * 含み、差異は施設をまたいで一覧できる（`?propertyId=` で絞る）。
  * `CLEANER` / `INSPECTOR` は loader が 404 を投げる（§6.4 MUST）。
  *
+ * ── P5-15 が足した清掃会社の画面 ────────────────────────
+ *   /app/org/vendor-plan            §7.2 清掃会社プラン（請求状況・施設別収支）
+ *
+ * **`/app/org/dashboard` と別経路にした。** §7.1 はホテル側の見え方
+ * （1 室あたり原価）、§7.2 は清掃会社側の見え方（時間単価）で、同じ月を
+ * 逆の立場から読む。1 画面に混ぜると、どちらの立場の数字か分からなくなる
+ * （`routes/app/vendorPlan.tsx` の注記）。
+ *
  * ── P2-09 が足した証跡の画面 ────────────────────────────
  *   /app/p/:propertyId/evidence          W-06 証跡一覧（1 業務日ぶん）
  *   /app/p/:propertyId/evidence/:taskId  W-07 証跡詳細（§12.2 の表示順）
@@ -126,6 +134,7 @@ export default [
     route("app/p/:propertyId/evidence", "routes/app/evidenceList.tsx"),
     route("app/p/:propertyId/evidence/:taskId", "routes/app/evidenceDetail.tsx"),
     route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
+    route("app/org/vendor-plan", "routes/app/vendorPlan.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
     route("app/settings/room-types", "routes/app/roomTypes.tsx"),
     route("app/settings/checklists", "routes/app/checklists.tsx"),

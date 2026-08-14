@@ -101,6 +101,24 @@ async function get(ctx: Ctx, query: string, cookie: string | null): Promise<Resp
   );
 }
 
+async function getVendor(ctx: Ctx, query: string, cookie: string | null): Promise<Response> {
+  return ctx.app.request(
+    `/api/v1/dashboard/vendor${query}`,
+    { headers: cookie === null ? {} : { Cookie: cookie } },
+    ctx.env,
+  );
+}
+
+/**
+ * `VENDOR_PLAN` を契約済みにする（`isModuleEnabled()` が最初に引く 1 行）。
+ *
+ * **代役は行を積んだ順に返す。** ハンドラの最初のクエリが契約の判定なので、
+ * ここで 1 行積めば「契約済み」になる。
+ */
+function grantVendorPlan(ctx: Ctx): void {
+  ctx.d1.enqueueRows([[`${ORG_SHORT_ID}__ent_01JBXQ3ZK8N4P2VYR6ABCDEFGH`]]);
+}
+
 describe("GET /api/v1/dashboard/org", () => {
   it("認証が無ければ 401", async () => {
     const ctx = setup();
@@ -171,6 +189,128 @@ describe("GET /api/v1/dashboard/org", () => {
   it("テナント横断の JOIN を発行していない", async () => {
     const ctx = setup();
     await get(ctx, "?month=2026-09", await ctx.cookie());
+
+    for (const query of ctx.d1.queries) {
+      expect(query.sql, query.sql).not.toMatch(/\bjoin\b/i);
+    }
+  });
+});
+
+/**
+ * 清掃会社プラン（P5-15 / PK-SPEC-P5 §7.2）。
+ *
+ * ── 見ているもの ────────────────────────────────────────
+ *   - **請求を見られないロールは 404**（security.md §1「`INSPECTOR` は
+ *     請求情報を見られない」）。402 を先に返すと、契約状況を通じて
+ *     資源の存在が読める（`lib/entitlement.ts` の注記）
+ *   - 契約していなければ 402
+ *   - **全社ビューを持たないロールも 404**（§7.1 の 403 と違う。
+ *     判定を `billing.read` × 組織全体 の 1 つにまとめてある）
+ *   - **稼働の数字は rollup から**（§7.1 MUST を §7.2 にも掛ける）
+ *   - **個人が並ぶ問い合わせを出していない**（security.md §5）
+ */
+describe("GET /api/v1/dashboard/vendor", () => {
+  it("認証が無ければ 401", async () => {
+    const ctx = setup();
+    expect((await getVendor(ctx, "", null)).status).toBe(401);
+  });
+
+  it.each(["INSPECTOR", "CLEANER", "VENDOR_ADMIN"])(
+    "%s は 404（請求情報を見られない / security.md §1）",
+    async (role) => {
+      const ctx = setup(role);
+      grantVendorPlan(ctx);
+      const response = await getVendor(ctx, "", await ctx.cookie());
+      expect(response.status).toBe(404);
+    },
+  );
+
+  it("`PROPERTY_MANAGER` も 404（担当施設だけでは組織平均を出せない）", async () => {
+    // `/org` は 403 だが、こちらは `billing.read` を**組織全体**の対象で
+    // 問うので、担当施設のみのロールはそこで落ちる（判定を 1 つにまとめた）。
+    const ctx = setup("PROPERTY_MANAGER");
+    grantVendorPlan(ctx);
+    const response = await getVendor(ctx, "", await ctx.cookie());
+    expect(response.status).toBe(404);
+  });
+
+  it("契約していなければ 402", async () => {
+    const ctx = setup();
+    // 行を積まない = `module_entitlement` に該当が無い。
+    const response = await getVendor(ctx, "?month=2026-09", await ctx.cookie());
+    expect(response.status).toBe(402);
+  });
+
+  it("権限を先に判定する（402 が資源の存在を示唆しない）", async () => {
+    // 契約していない組織の `CLEANER`。**402 ではなく 404。**
+    const ctx = setup("CLEANER");
+    const response = await getVendor(ctx, "?month=2026-09", await ctx.cookie());
+    expect(response.status).toBe(404);
+  });
+
+  it.each(["OWNER", "ORG_ADMIN", "AUDITOR"])("%s は読める", async (role) => {
+    const ctx = setup(role);
+    grantVendorPlan(ctx);
+    const response = await getVendor(ctx, "?month=2026-09", await ctx.cookie());
+    expect(response.status).toBe(200);
+  });
+
+  it("対象月の形が違えば 400", async () => {
+    const ctx = setup();
+    grantVendorPlan(ctx);
+    expect((await getVendor(ctx, "?month=2026-9", await ctx.cookie())).status).toBe(400);
+  });
+
+  it("未指定なら業務日の月と、その月の閉区間を返す", async () => {
+    const ctx = setup();
+    grantVendorPlan(ctx);
+    const response = await getVendor(ctx, "", await ctx.cookie());
+    const body: { month: string; from: string; to: string } = await response.json();
+
+    expect(body).toMatchObject({ month: "2026-09", from: "2026-09-01", to: "2026-09-30" });
+  });
+
+  it("売上も未回収も、確定した請求書が無ければ null（0 円と書かない）", async () => {
+    const ctx = setup();
+    grantVendorPlan(ctx);
+    const response = await getVendor(ctx, "?month=2026-09", await ctx.cookie());
+    const body: { summary: { salesTotal: number | null; unpaidTotal: number | null } } =
+      await response.json();
+
+    expect(body.summary.salesTotal).toBeNull();
+    expect(body.summary.unpaidTotal).toBeNull();
+  });
+
+  it("**タスクテーブルを直接集計していない**（§7.1 MUST と同じ扱い）", async () => {
+    const ctx = setup();
+    grantVendorPlan(ctx);
+    await getVendor(ctx, "?month=2026-09", await ctx.cookie());
+
+    const aggregatesTasks = ctx.d1.queries.some(
+      (query) => query.sql.includes("cleaning_task") && /count\(|sum\(/i.test(query.sql),
+    );
+    expect(aggregatesTasks).toBe(false);
+    expect(ctx.d1.queries.some((query) => query.sql.includes("daily_property_rollup"))).toBe(true);
+  });
+
+  it("個人の一覧を引いていない（人数だけを数える / security.md §5）", async () => {
+    const ctx = setup();
+    grantVendorPlan(ctx);
+    await getVendor(ctx, "?month=2026-09", await ctx.cookie());
+
+    const membershipQueries = ctx.d1.queries.filter((query) => query.sql.includes("membership"));
+    expect(membershipQueries.length).toBeGreaterThan(0);
+    for (const query of membershipQueries) {
+      expect(query.sql, query.sql).toMatch(/count\(/i);
+    }
+    // ユーザー表そのものを引いていない（氏名・スタッフ番号を持ってこない）。
+    expect(ctx.d1.queries.some((query) => /\bfrom "user"/i.test(query.sql))).toBe(false);
+  });
+
+  it("テナント横断の JOIN を発行していない", async () => {
+    const ctx = setup();
+    grantVendorPlan(ctx);
+    await getVendor(ctx, "?month=2026-09", await ctx.cookie());
 
     for (const query of ctx.d1.queries) {
       expect(query.sql, query.sql).not.toMatch(/\bjoin\b/i);

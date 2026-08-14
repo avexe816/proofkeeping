@@ -212,6 +212,20 @@ export const NAV_ITEMS: readonly NavItem[] = [
     scope: "PROPERTY",
     status: "PLANNED",
   },
+  // §7.2 清掃会社プラン（P5-15）。**`moduleCode` は `VENDOR_PLAN`。**
+  // 受託の収支を見る画面で、請求書を作れること（`BILLING`）とは別に売る
+  // （PK-SPEC-P7 §3.1 のモジュール一覧に `VENDOR_PLAN` がある）。
+  // **`scope` は `ORGANIZATION`。** 受託施設を横断して組織平均と比べる
+  // 画面で、1 施設ぶんだけを出しても §7.2 MUST の判定が成り立たない。
+  {
+    key: "nav.vendorPlan",
+    section: "analysis",
+    moduleCode: "VENDOR_PLAN",
+    action: "billing.read",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/org/vendor-plan",
+  },
   // ── 設定 ──────────────────────────────────────────────
   // ここまで `/app/settings/*` の 3 画面（客室マスタ・事業者税務・そして
   // 今回の 2 つ）は**サイドバーに現れなかった。** ルートは実在するのに

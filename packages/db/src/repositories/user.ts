@@ -23,7 +23,7 @@
  * この層は行をそのまま返すため、**マスクは呼び出し側の責務**。
  */
 
-import { desc, eq, notInArray } from "drizzle-orm";
+import { count, desc, eq, notInArray } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -402,4 +402,36 @@ export async function findMembershipStartedAt(
     .limit(1);
   if (row === undefined) return undefined;
   return row.acceptedAt ?? row.createdAt;
+}
+
+/**
+ * ロールごとの在籍者数（P5-15 / PK-SPEC-P5 §7.2 の「稼働スタッフ 34名」）。
+ *
+ * ── 数えるだけで、誰かは返さない ────────────────────────
+ * `listUsers()` を呼んで画面で数えると、**画面が全員の氏名とスタッフ番号を
+ * 手にする**ことになる。表示するのは人数だけなので、人数だけを返す口を
+ * 置く（security.md §5「個人ランキング・自動評価を実装しない」の手前で、
+ * そもそも個人が並ぶ配列を渡さない）。
+ *
+ * ── 「その月に働いた人数」ではない ──────────────────────
+ * 有効な `membership` の数。稼働実績から数えるには、どのタスクを誰が
+ * やったかを月ぶん集計することになり、**個人単位の指標そのもの**になる
+ * （security.md §5 / docs/DECISIONS.md #135）。在籍で代える。
+ *
+ * 組織内の GROUP BY なので、テナント横断の集計にはあたらない
+ * （architecture.md §3 が禁じるのは組織をまたぐ集計）。
+ *
+ * @returns ロール → 人数。**0 人のロールは載らない。**
+ */
+export async function countActiveMembershipsByRole(
+  env: Env,
+  ctx: TenantContext,
+): Promise<Map<Role, number>> {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({ role: membership.role, count: count() })
+    .from(membership)
+    .where(withTenantScope(membership, ctx, NO_PROPERTY_SCOPE, eq(membership.isActive, true)))
+    .groupBy(membership.role);
+  return new Map(rows.map((row) => [row.role, row.count]));
 }

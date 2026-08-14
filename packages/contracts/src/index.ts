@@ -668,3 +668,19 @@ export {
   type OrgDashboardResponse,
   type OrgDashboardSummary,
 } from "./dashboard.js";
+
+// 清掃会社プラン（P5-15 / PK-SPEC-P5 §7.2）。**§7.1 と型を共有しない。**
+// 税込（請求状況）と税抜（施設別収支）が同じ画面に並ぶ（`vendorPlan.ts` の注記）。
+export {
+  LOW_HOURLY_RATE_PERCENT,
+  VENDOR_BILLING_STATES,
+  vendorBillingRowSchema,
+  vendorPlanResponseSchema,
+  vendorPlanSummarySchema,
+  vendorPropertyRowSchema,
+  type VendorBillingRow,
+  type VendorBillingState,
+  type VendorPlanResponse,
+  type VendorPlanSummary,
+  type VendorPropertyRow,
+} from "./vendorPlan.js";
