@@ -22,17 +22,19 @@
  * 揃える）。境界でここだけが変換を持つ。
  */
 
+import type { InvoicePayload } from "@pk/billing";
 import type { AuditReportPayload, DailyReportPayload } from "@pk/engine";
 import { Font, renderToBuffer } from "@react-pdf/renderer";
 
 import { buildAuditReportDocument, type AuditReportFont } from "./auditReport.js";
+import { buildInvoiceDocument, type InvoiceFont, type InvoiceSeal } from "./invoice.js";
 import { buildDailyReportDocument, type DailyReportFont } from "./dailyReport.js";
 
 /** この isolate で登録済みの family。**再登録を避けるためだけの記憶。** */
 const registeredFamilies = new Set<string>();
 
 /** 書体を登録する（登録済みなら何もしない）。 */
-export function registerFont(font: DailyReportFont | AuditReportFont): void {
+export function registerFont(font: DailyReportFont | AuditReportFont | InvoiceFont): void {
   if (font.kind !== "EMBEDDED") return;
   if (registeredFamilies.has(font.family)) return;
   Font.register({ family: font.family, src: font.dataUrl });
@@ -74,5 +76,27 @@ export async function renderAuditReportPdf(
 ): Promise<Uint8Array> {
   registerFont(font);
   const buffer = await renderToBuffer(buildAuditReportDocument(payload, font));
+  return new Uint8Array(buffer);
+}
+
+/**
+ * 請求書 PDF を作る（PK-SPEC-P5 §8.1 / P5-06）。
+ *
+ * **Queue コンシューマ内でのみ呼ぶ**（§8.3 MUST / 冒頭の注記）。
+ * 明細が数十行あり、書体の埋め込みと合わせてリクエストの CPU 予算を
+ * 超える。
+ *
+ * **payload の値をそのまま描く。** 金額の計算はここでも
+ * テンプレートでも行わない（`invoice.ts` の「数値を再計算しない」）。
+ *
+ * @param seal 角印。**未設定なら `null`**（枠を出さない）。
+ */
+export async function renderInvoicePdf(
+  payload: InvoicePayload,
+  font: InvoiceFont,
+  seal: InvoiceSeal = null,
+): Promise<Uint8Array> {
+  registerFont(font);
+  const buffer = await renderToBuffer(buildInvoiceDocument(payload, font, seal));
   return new Uint8Array(buffer);
 }
