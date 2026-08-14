@@ -143,7 +143,9 @@ export default function VendorPlan() {
             </thead>
             <tbody>
               {data.billing.map((row) => (
-                <tr key={`${row.counterpartyId}:${row.periodFrom}:${row.periodTo}`}>
+                // **取引先と期間だけでは一意にならない。** 同じ期間に
+                // 赤伝や改訂が並ぶ（§5）。行の身元は請求書か締めの ID。
+                <tr key={row.invoiceId ?? row.billingPeriodId ?? row.counterpartyId}>
                   <th scope="row">{row.counterpartyName}</th>
                   <td>
                     {row.periodFrom}
