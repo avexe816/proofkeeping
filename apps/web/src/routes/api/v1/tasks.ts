@@ -54,12 +54,10 @@ import {
   type TaskPhoto,
   type TaskPhotoListResponse,
   type TaskPhotoUploadResponse,
-  type TaskSummary,
 } from "@pk/contracts";
 import {
   findTaskById,
   listChecklistResults,
-  listRooms,
   listTaskPhotos,
   listTasks,
   listTemplateItems,
@@ -86,6 +84,7 @@ import { uploadPhoto } from "../../../lib/photo/upload.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { generateTasksForProperty } from "../../../lib/task/generate.js";
 import { buildMyDayResponse } from "../../../lib/task/myDay.js";
+import { toTaskSummaries } from "../../../lib/task/summary.js";
 import { runTransition } from "../../../lib/task/transition.js";
 import { getNow, getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
 
@@ -128,7 +127,7 @@ tasks.get("/", async (c) => {
 
   const body: TaskListResponse = {
     businessDate,
-    data: await toSummaries(c.env, ctx, rows),
+    data: await toTaskSummaries(c.env, ctx, rows),
   };
   return c.json(body);
 });
@@ -567,7 +566,7 @@ tasks.post("/:taskId/:action", async (c) => {
 
   const task = await findTaskById(c.env, ctx, outcome.taskId);
   if (task === undefined) return c.notFound();
-  const [summary] = await toSummaries(c.env, ctx, [task]);
+  const [summary] = await toTaskSummaries(c.env, ctx, [task]);
   if (summary === undefined) return c.notFound();
 
   return c.json({ data: summary, unchanged: outcome.unchanged });
@@ -662,46 +661,6 @@ async function buildChecklistResponse(
       sortOrder: row.sortOrder,
     })),
   };
-}
-
-/** `listTasks()` が返す 1 行のうち、応答に使う列だけ。 */
-type TaskRow = Awaited<ReturnType<typeof listTasks>>[number];
-
-/**
- * 一覧の応答へ写す。
- *
- * 客室番号は画面が必ず要る（M-02 は部屋番号で並ぶ）。
- * **タスクごとに客室を引かない。** 1 回で引いて突き合わせる。
- */
-async function toSummaries(
-  env: Env,
-  ctx: TenantContext,
-  rows: readonly TaskRow[],
-): Promise<TaskSummary[]> {
-  if (rows.length === 0) return [];
-
-  const rooms = await listRooms(env, ctx, {});
-  const roomById = new Map(rooms.map((room) => [room.id, room]));
-
-  return rows.map((task) => ({
-    taskId: task.id,
-    shortId: task.shortId,
-    propertyId: task.propertyId,
-    roomId: task.roomId,
-    roomNumber: roomById.get(task.roomId)?.roomNumber ?? "",
-    roomTypeName: null,
-    businessDate: task.businessDate,
-    taskType: task.taskType,
-    status: task.status,
-    priority: task.priority,
-    assigneeId: task.assigneeId,
-    standardMinutes: task.standardMinutes,
-    actualMinutes: task.actualMinutes,
-    pauseCount: task.pauseCount,
-    startedAt: task.startedAt?.getTime() ?? null,
-    completedAt: task.completedAt?.getTime() ?? null,
-    // 進捗は載せない。タスクごとに 1 クエリ増えるため（`taskSummarySchema` の注記）。
-  }));
 }
 
 /** JSON を読む。**壊れていたら `null`。** 例外を 500 にしない。 */

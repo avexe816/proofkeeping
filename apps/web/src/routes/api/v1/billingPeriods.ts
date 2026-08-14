@@ -5,6 +5,7 @@
  * GET  /api/v1/billing-periods?counterpartyId=&status=
  * POST /api/v1/billing-periods/:billingPeriodId/aggregate
  * GET  /api/v1/billing-periods/:billingPeriodId/lines      ★合意の画面が見る明細
+ * GET  /api/v1/billing-periods/:billingPeriodId/lines/tasks?lineKey=  ★証跡への入口
  * POST /api/v1/billing-periods/:billingPeriodId/request-review
  * POST /api/v1/billing-periods/:billingPeriodId/agree
  * POST /api/v1/billing-periods/:billingPeriodId/reject
@@ -12,6 +13,7 @@
  * ```
  *
  * task: docs/tasks/P5-05.md（一覧・集計）/ docs/tasks/P5-12.md（双方合意）
+ *       / docs/tasks/P5-13.md（証跡へのドリルダウン）
  *
  * ── 差戻しはコメント無しでは通らない（§6.2 MUST）─────────
  * `reject` は `comment` が空だと **400**。理由の無い差戻しが残ると、
@@ -42,6 +44,7 @@ import {
 import {
   BILLING_PERIOD_STATUSES,
   billingPeriodAgreeRequestSchema,
+  type BillingLineTasksResponse,
   billingPeriodRejectRequestSchema,
   billingPeriodRequestReviewRequestSchema,
   type BillingPeriodLinesResponse,
@@ -56,6 +59,7 @@ import {
   findCounterpartyById,
   listBillingPeriodReviews,
   listBillingPeriods,
+  listTasksByIds,
   recordAudit,
   updateBillingPeriodStatus,
   type BillingPeriodReviewLineComment,
@@ -66,6 +70,7 @@ import {
 import { Hono } from "hono";
 
 import { buildPeriodDraft } from "../../../lib/billing/draft.js";
+import { toTaskSummaries } from "../../../lib/task/summary.js";
 import { ORGANIZATION_TARGET, assertPermission } from "../../../lib/auth/permission.js";
 import { getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
 
@@ -272,6 +277,57 @@ billingPeriods.get("/:billingPeriodId/lines", async (c) => {
       taskCount: warning.taskCount,
       ...(warning.detail === undefined ? {} : { detail: warning.detail }),
     })),
+  };
+  return c.json(body);
+});
+
+/**
+ * `GET /:billingPeriodId/lines/tasks?lineKey=` — 明細行の集計元タスク（§6.3）。
+ *
+ * **請求機能の核心。** 「アウト清掃 / ツイン 95 室 ¥361,000」の 95 室が
+ * どのタスクだったのかを開き、そこから W-07（`GET /evidence/tasks/:taskId`）へ
+ * 進める。請求根拠が写真とタイムスタンプまで遡れる。
+ *
+ * ── 行は `lineKey` で指す。**クエリで受け取る。** ──────
+ * `lineKey` は `施設|清掃種別|客室タイプ` で `|` を含む。パスに置くと
+ * encode の有無で経路が割れる。`lineNo` を使わないのは P5-12 と同じ理由
+ * （再集計で位置が動く）。
+ *
+ * ── 明細を組み直す ──────────────────────────────────────
+ * 発行前の締めには保存された明細が無い。`buildPeriodDraft()` を通す
+ * （発行と同じ関数 / DECISIONS #129）。**発行済みの請求書は組み直さない** —
+ * そちらは `GET /invoices/:id/lines/:lineNo/tasks` が固定済みの
+ * `sourceRef` を読む。
+ *
+ * ── 証跡そのものは返さない ──────────────────────────────
+ * W-07 の口が既にある（P2-09）。写真の署名付き URL は 15 分で切れるので
+ * （security.md §4）、一覧で 95 件ぶんを先に発行しない。
+ */
+billingPeriods.get("/:billingPeriodId/lines/tasks", async (c) => {
+  const ctx = getTenant(c);
+  assertPermission(ctx, "billing.read", ORGANIZATION_TARGET);
+
+  const lineKey = c.req.query("lineKey");
+  if (lineKey === undefined || lineKey === "") return c.json(invalidRequest(), 400);
+
+  const loaded = await loadPeriodWithDraft(c.env, ctx, c.req.param("billingPeriodId"));
+  if (loaded === undefined) return c.json(notFound(), 404);
+
+  const line = loaded.draft.lines.find((candidate) => candidate.lineKey === lineKey);
+  // 明細に無い行。**404**（403 を作らない / DECISIONS #022）。差し戻しの
+  // あいだに元データが動いて行が消えることは実際に起こる。
+  if (line === undefined) return c.json(notFound(), 404);
+
+  // 施設スコープはリポジトリ層が掛ける。担当外施設のタスクは**返らない**。
+  const rows = await listTasksByIds(c.env, ctx, line.sourceRef.taskIds);
+
+  const body: BillingLineTasksResponse = {
+    lineNo: line.lineNo,
+    lineKey: line.lineKey,
+    description: line.description,
+    // 集計時に確定した件数。**返った行数と違うことがある**（上の注記）。
+    taskCount: line.sourceRef.taskIds.length,
+    data: await toTaskSummaries(c.env, ctx, rows),
   };
   return c.json(body);
 });

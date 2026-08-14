@@ -34,6 +34,7 @@ import {
   type InvoiceDetailResponse,
   type InvoiceListResponse,
   type InvoiceSummary,
+  type BillingLineTasksResponse,
 } from "@pk/contracts";
 import {
   findInvoiceById,
@@ -43,6 +44,7 @@ import {
   recordAudit,
   findTaxProfile,
   type InvoiceStatus,
+  listTasksByIds,
 } from "@pk/db";
 import { Hono } from "hono";
 
@@ -55,6 +57,7 @@ import {
 import { correctInvoice } from "../../../lib/billing/creditNote.js";
 import { enqueueInvoiceDelivery } from "../../../lib/billing/deliver.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
+import { toTaskSummaries } from "../../../lib/task/summary.js";
 import { getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
 
 const invoices = new Hono<AppEnv>();
@@ -163,6 +166,57 @@ invoices.get("/:invoiceId", async (c) => {
       taxAmount: summary.taxAmount,
       totalAmount: summary.totalAmount,
     })),
+  };
+  return c.json(body);
+});
+
+/**
+ * `GET /:invoiceId/lines/:lineNo/tasks` — 明細行の集計元タスク（§6.3）。
+ *
+ * ```
+ * 行2 アウト清掃 / ツイン 95室
+ *   → 対象タスク一覧（95件）      ← ここ
+ *     → 各タスクの証跡（W-07）    ← GET /evidence/tasks/:taskId
+ *       → 清掃時刻・検査結果・写真
+ * ```
+ *
+ * ── **組み直さない。** ──────────────────────────────────
+ * 読むのは発行時に固定した `invoiceLine.sourceRef.taskIds` だけ。
+ * 締めの明細（`GET /billing-periods/:id/lines/tasks`）は組み直すが、
+ * **発行済みの請求書は根拠が動いてはならない**（billing.md §6）。
+ * 料金設定やタスクが後から変わっても、この一覧は発行時のままになる。
+ *
+ * ── 行は `lineNo` で指す ────────────────────────────────
+ * 発行済みの明細は不変（`uq_inv_line` が `invoiceId` × `lineNo`）なので、
+ * 位置が動かない。締め側が `lineKey` を使うのは、あちらが組み直すたびに
+ * 行の増減で位置がずれるからで、ここには当てはまらない。
+ */
+invoices.get("/:invoiceId/lines/:lineNo/tasks", async (c) => {
+  const ctx = getTenant(c);
+  assertPermission(ctx, "billing.read", ORGANIZATION_TARGET);
+
+  const lineNo = Number(c.req.param("lineNo"));
+  if (!Number.isInteger(lineNo) || lineNo < 1) return c.json(invalidRequest(), 400);
+
+  const invoiceId = c.req.param("invoiceId");
+  const invoice = await findInvoiceById(c.env, ctx, invoiceId);
+  if (invoice === undefined) return c.json(notFound(), 404);
+
+  const lines = await listInvoiceLines(c.env, ctx, invoiceId);
+  const line = lines.find((candidate) => candidate.lineNo === lineNo);
+  if (line === undefined) return c.json(notFound(), 404);
+
+  const taskIds = taskIdsOf(line.sourceRef);
+  // 施設スコープはリポジトリ層が掛ける。担当外施設のタスクは**返らない**。
+  const rows = await listTasksByIds(c.env, ctx, taskIds);
+
+  const body: BillingLineTasksResponse = {
+    lineNo: line.lineNo,
+    // 発行済みの明細は `lineKey` を持たない（列が無い）。位置が正。
+    lineKey: null,
+    description: line.description,
+    taskCount: taskIds.length,
+    data: await toTaskSummaries(c.env, ctx, rows),
   };
   return c.json(body);
 });
