@@ -132,6 +132,19 @@ export const AUDIT_ACTIONS = {
    */
   "pricingRule.created": { requiresReason: false },
   "pricingRule.closed": { requiresReason: false },
+  /**
+   * 月次締めの状態変更（PK-SPEC-P5 §6.1 / P5-05）。
+   *
+   * security.md §6 の列挙には無いが、CLAUDE.md §5 の「破壊的操作には
+   * 必ず `recordAudit()`」に当たる。締めの状態は**請求書を出せるか
+   * どうかを決める**（`AGREED` でなければ発行できない / §6.1）ので、
+   * 誰がいつ進めたかが残らないと §6.2 MUST の「言った・言わない」を
+   * 発生させない仕組みが成り立たない。
+   *
+   * 差戻しのコメントはここに入れない。**コメントと修正履歴は
+   * 双方合意フロー（P5-12）が専用の表に持つ**（§6.2 MUST）。
+   */
+  "billingPeriod.statusChanged": { requiresReason: false },
   // 帳票の発行・訂正・送付
   "document.issued": { requiresReason: false },
   "document.corrected": { requiresReason: false },

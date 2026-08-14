@@ -386,6 +386,7 @@ export {
 // （billing.md §2。訂正は赤伝＋再発行）。
 export {
   closePricingRule,
+  ensureBillingPeriod,
   findBillingPeriodById,
   findCounterpartyById,
   findDocumentDeliveryById,
@@ -401,6 +402,7 @@ export {
   listInvoices,
   listPricingRules,
   listReceipts,
+  updateBillingPeriodStatus,
   updateCounterparty,
   upsertCounterparty,
   type BillingPeriodFilter,
@@ -409,6 +411,7 @@ export {
   type InvoiceFilter,
   type PricingRuleFilter,
   type ReceiptFilter,
+  type UpdateBillingPeriodStatusInput,
   type UpdateCounterpartyInput,
   type UpsertCounterpartyInput,
 } from "./invoice.js";

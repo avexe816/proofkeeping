@@ -604,3 +604,113 @@ export async function findBillingPeriodById(env: Env, ctx: TenantContext, period
     .limit(1);
   return rows[0];
 }
+
+/**
+ * 月次締めの行を用意する（P5-05 / §6.1 の `OPEN`）。**冪等。**
+ *
+ * 毎月 1 日 04:00 のバッチは、同じ月に 2 回走っても 2 行作ってはならない
+ * （testing.md §4）。`uq_period`（組織 × 取引先 × 期間）で 1 行に定まる
+ * ので、**既にあれば何もせず既存の ID を返す。**
+ *
+ * **状態を書き換えない。** 既に `REVIEWING` 以降へ進んでいる期間を
+ * `OPEN` へ戻さない。進めるのは `updateBillingPeriodStatus()` の仕事で、
+ * そちらが状態機械（`evaluateBillingPeriodTransition()`）を通す。
+ */
+export async function ensureBillingPeriod(
+  env: Env,
+  ctx: TenantContext,
+  input: { counterpartyId: string; periodFrom: string; periodTo: string },
+): Promise<{ id: string; created: boolean }> {
+  assertIdBelongsToTenant(input.counterpartyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const existing = await db
+    .select({ id: billingPeriod.id })
+    .from(billingPeriod)
+    .where(
+      and(
+        eq(billingPeriod.organizationId, ctx.organizationId),
+        eq(billingPeriod.counterpartyId, input.counterpartyId),
+        eq(billingPeriod.periodFrom, input.periodFrom),
+        eq(billingPeriod.periodTo, input.periodTo),
+      ),
+    )
+    .limit(1);
+
+  const found = existing[0];
+  if (found !== undefined) return { id: found.id, created: false };
+
+  const id = generateId(ctx.orgShortId, "bper");
+  await db.insert(billingPeriod).values({
+    id,
+    organizationId: ctx.organizationId,
+    counterpartyId: input.counterpartyId,
+    periodFrom: input.periodFrom,
+    periodTo: input.periodTo,
+    status: "OPEN",
+    createdAt: ctx.now,
+    updatedAt: ctx.now,
+  });
+  return { id, created: true };
+}
+
+/** `updateBillingPeriodStatus()` の入力。**状態と、その状態に伴う時刻だけ。** */
+export interface UpdateBillingPeriodStatusInput {
+  status: BillingPeriodStatus;
+  /** 集計した時刻（`OPEN → REVIEWING`）。 */
+  aggregatedAt?: Date | undefined;
+  /** 合意した時刻（`REVIEWING → AGREED`）。差戻しでは `null` へ戻す。 */
+  agreedAt?: Date | null | undefined;
+  agreedByCounterparty?: boolean | undefined;
+  /** 発行した請求書（`AGREED → INVOICED`）。P5-07 が渡す。 */
+  invoiceId?: string | undefined;
+}
+
+/**
+ * 月次締めの状態を進める（P5-05 / §6.1）。
+ *
+ * **遷移してよいかはここで判定しない。** `@pk/billing` の
+ * `evaluateBillingPeriodTransition()` が決め、呼び出し側が通す。
+ * リポジトリ層に状態機械を置くと、同じ判断が DB の近くと純粋関数の
+ * 両方に生まれる（`cleaningTask.ts` の `evaluateTransition()` と同じ扱い）。
+ *
+ * **金額の列を持たない。** §2.8 に小計・税額の列は無く、金額は
+ * 都度 `buildInvoiceDraft()` が出す（docs/DECISIONS.md #124）。
+ * ここに合計を書き込む関数を足さないこと。
+ *
+ * @returns 更新した行数。0 なら別のリクエストが先に進めている。
+ */
+export async function updateBillingPeriodStatus(
+  env: Env,
+  ctx: TenantContext,
+  periodId: string,
+  input: UpdateBillingPeriodStatusInput,
+  /** 楽観ロック。**この状態のときだけ進める。** 二重実行で 2 回進まない。 */
+  expectedStatus: BillingPeriodStatus,
+): Promise<number> {
+  assertIdBelongsToTenant(periodId, ctx);
+  if (input.invoiceId !== undefined) assertIdBelongsToTenant(input.invoiceId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(billingPeriod)
+    .set({
+      status: input.status,
+      ...(input.aggregatedAt === undefined ? {} : { aggregatedAt: input.aggregatedAt }),
+      ...(input.agreedAt === undefined ? {} : { agreedAt: input.agreedAt }),
+      ...(input.agreedByCounterparty === undefined
+        ? {}
+        : { agreedByCounterparty: input.agreedByCounterparty }),
+      ...(input.invoiceId === undefined ? {} : { invoiceId: input.invoiceId }),
+      updatedAt: ctx.now,
+    })
+    .where(
+      and(
+        eq(billingPeriod.organizationId, ctx.organizationId),
+        eq(billingPeriod.id, periodId),
+        eq(billingPeriod.status, expectedStatus),
+      ),
+    );
+
+  return result.meta.changes;
+}

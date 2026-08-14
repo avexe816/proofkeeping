@@ -21,6 +21,11 @@ import {
   BASELINE_LEARNING_CRON,
   dispatchBaselineLearning,
 } from "./lib/baseline/dispatch.js";
+import {
+  MONTHLY_CLOSE_CRON,
+  isMonthlyCloseMoment,
+  runMonthlyClose,
+} from "./lib/billing/monthlyClose.js";
 import { DAILY_REPORT_CRON, dispatchDailyReports } from "./lib/report/dispatch.js";
 import { dispatchReconciliation } from "./lib/reconciliation/dispatch.js";
 import { runNightlyGeneration } from "./lib/task/nightly.js";
@@ -46,6 +51,7 @@ import occupancy from "./routes/api/v1/occupancy.js";
 import roomAccessLogs from "./routes/api/v1/roomAccessLogs.js";
 import ruleConfigs from "./routes/api/v1/ruleConfigs.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
+import billingPeriodsRoute from "./routes/api/v1/billingPeriods.js";
 import counterparties from "./routes/api/v1/counterparties.js";
 import pricingRules from "./routes/api/v1/pricingRules.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
@@ -203,6 +209,8 @@ api.route("/checklist-templates", checklistTemplates);
 api.route("/counterparties", counterparties);
 // 料金設定（P5-03 / 同 §2.2・§3.2）。更新ではなく期間を閉じる。
 api.route("/pricing-rules", pricingRules);
+// 月次締め（P5-05 / 同 §2.8・§6.1）。合意と差戻しは P5-12。
+api.route("/billing-periods", billingPeriodsRoute);
 // 組織設定（P1-22 / §19.4）。施設選択画面を挟む閾値だけ。
 api.route("/organization", organization);
 app.route("/api/v1", api);
@@ -317,6 +325,19 @@ export default {
       console.log(
         `baseline-learning-dispatch organizations=${String(result.organizations)} ` +
           `queued=${String(result.queued)} failed=${String(result.failedOrganizations)}`,
+      );
+      return;
+    }
+
+    // 月次締め（P5-05 / PK-SPEC-P5 §6.1）。cron 式は UTC の月末を撃つので
+    // **JST の 1 日かどうかをここで確かめる**（`isMonthlyCloseMoment()`）。
+    if (controller.cron === MONTHLY_CLOSE_CRON) {
+      if (!isMonthlyCloseMoment(now)) return;
+      const result = await runMonthlyClose(env, now);
+      console.log(
+        `monthly-close organizations=${String(result.organizations)} ` +
+          `created=${String(result.created)} aggregated=${String(result.aggregated)} ` +
+          `failed=${String(result.failedOrganizations)}`,
       );
       return;
     }

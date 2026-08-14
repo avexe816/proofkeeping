@@ -2106,6 +2106,45 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => invoiceRepo.findBillingPeriodById(env, ctx, OWN_ID.billingPeriod),
     crossTenant: (env, ctx) => invoiceRepo.findBillingPeriodById(env, ctx, OTHER_ID.billingPeriod),
   },
+  // ── P5-05 が足したもの（PK-SPEC-P5 §2.8・§6.1）────────────
+  {
+    // 冪等。同じ期間で 2 回呼んでも 1 行（`uq_period`）。
+    name: "invoice.ensureBillingPeriod",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.ensureBillingPeriod(env, ctx, {
+        counterpartyId: OWN_ID.counterparty,
+        periodFrom: "2026-09-01",
+        periodTo: "2026-09-30",
+      }),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.ensureBillingPeriod(env, ctx, {
+        counterpartyId: OTHER_ID.counterparty,
+        periodFrom: "2026-09-01",
+        periodTo: "2026-09-30",
+      }),
+  },
+  {
+    // 楽観ロック付き。**状態機械の判定は `@pk/billing` 側。**
+    name: "invoice.updateBillingPeriodStatus",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.updateBillingPeriodStatus(
+        env,
+        ctx,
+        OWN_ID.billingPeriod,
+        { status: "REVIEWING", aggregatedAt: ctx.now },
+        "OPEN",
+      ),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.updateBillingPeriodStatus(
+        env,
+        ctx,
+        OTHER_ID.billingPeriod,
+        { status: "REVIEWING", aggregatedAt: ctx.now },
+        "OPEN",
+      ),
+  },
   // ── P4-06 / P4-07 / P4-10 が足したもの ────────────────────
   {
     // 状態ごとの件数（W-06 のヘッダー / §6.1）。施設は任意。

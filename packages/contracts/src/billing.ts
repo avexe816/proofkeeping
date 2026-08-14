@@ -259,3 +259,47 @@ export const pricingRuleListResponseSchema = z.object({
 });
 
 export type PricingRuleListResponse = z.infer<typeof pricingRuleListResponseSchema>;
+
+// ────────────────────────────────────────────────────────────
+// 月次締め（P5-05 / PK-SPEC-P5 §2.8・§6.1・§9）
+// ────────────────────────────────────────────────────────────
+
+/** 月次締めの状態（§2.8）。`packages/db` の `BILLING_PERIOD_STATUSES` と同じ。 */
+export const BILLING_PERIOD_STATUSES = [
+  "OPEN",
+  "REVIEWING",
+  "AGREED",
+  "INVOICED",
+  "CLOSED",
+] as const;
+
+/**
+ * 一覧の 1 件。**`organizationId` を含めない**（組織 ID を応答に出さない）。
+ *
+ * **金額を含めない。** §2.8 に金額の列は無く、集計はそのつど
+ * `buildInvoiceDraft()` が出す（docs/DECISIONS.md #124）。締めの一覧に
+ * 数字を載せるのは明細を組み立てる画面（P5-12）の仕事で、
+ * ここに合計を足すと「いつ集計した数字か」が説明できなくなる。
+ */
+export const billingPeriodSummarySchema = z.object({
+  billingPeriodId: z.string().min(1),
+  counterpartyId: z.string().min(1),
+  periodFrom: isoDateSchema,
+  periodTo: isoDateSchema,
+  status: z.enum(BILLING_PERIOD_STATUSES),
+  /** 集計バッチが通った時刻（ISO 8601 UTC）。未集計なら `null`。 */
+  aggregatedAt: z.string().nullable(),
+  agreedAt: z.string().nullable(),
+  agreedByCounterparty: z.boolean(),
+  /** 発行済みの請求書。**未発行なら `null`。** */
+  invoiceId: z.string().nullable(),
+});
+
+export type BillingPeriodSummary = z.infer<typeof billingPeriodSummarySchema>;
+
+/** `GET /api/v1/billing-periods?counterpartyId=&status=` の応答。 */
+export const billingPeriodListResponseSchema = z.object({
+  data: z.array(billingPeriodSummarySchema),
+});
+
+export type BillingPeriodListResponse = z.infer<typeof billingPeriodListResponseSchema>;
