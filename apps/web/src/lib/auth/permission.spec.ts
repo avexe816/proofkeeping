@@ -72,6 +72,8 @@ const EXPECTED: Record<PermissionAction, string> = {
   // **閲覧も施設責任者に開かない**（閾値は判定の内側の値）。
   "ruleConfig.read": "OO----O",
   "ruleConfig.write": "OO-----",
+  "integration.read": "OO----O",
+  "integration.write": "OO-----",
   "lostItem.readStorage": "OOAA-AO",
   "billing.read": "OOA---O",
   "billing.write": "OO-----",

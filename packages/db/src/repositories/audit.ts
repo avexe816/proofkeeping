@@ -167,6 +167,26 @@ export const AUDIT_ACTIONS = {
    * 変わった項目を載せる。
    */
   "occupancy.imported": { requiresReason: false },
+  /**
+   * 外部 ID と客室の対応の作成・無効化（PK-SPEC-P6 §2.3 / P6-05）。
+   *
+   * security.md §6 の列挙には無いが、CLAUDE.md §5 の「破壊的操作には必ず
+   * `recordAudit()`」に当たる。**対応を 1 行間違えると、302 号室の稼働記録が
+   * 303 号室に入る。** 取り違えた記録は差異レポートと請求の両方へ流れ、
+   * 事後に「いつからそうなっていたか」を対応表そのものからは辿れない
+   * （`external_mapping` は無効化しても行を残すが、いつ有効だったかは
+   * `createdAt` しか持たない）。
+   */
+  "integrationMapping.updated": { requiresReason: false },
+  /**
+   * 連携の状態変更（PK-SPEC-P6 §3.4 / P6-07）。
+   *
+   * サーキットブレーカーを人が閉じる操作（`ERROR` → `ACTIVE`）。
+   * **自動同期を再開させる操作**で、原因が直っていないのに閉じると
+   * 5 回失敗してまた開く。誰がいつ閉じたかが残らないと、
+   * その往復が運用の判断だったのか誤操作だったのか読めない。
+   */
+  "integration.statusChanged": { requiresReason: false },
   // データエクスポート・証跡 ZIP 出力
   "export.data": { requiresReason: false },
   "export.evidenceZip": { requiresReason: false },

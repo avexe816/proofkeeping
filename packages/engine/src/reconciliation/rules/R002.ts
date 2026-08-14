@@ -26,9 +26,24 @@
  * 入室記録があればそもそも `suppression.ts` が全ルールを抑える（§4.1）。
  * それでも早期 return を残すのは、**ルール単体で呼んでも同じ結論に
  * なるようにするため**（R001 と同じ方針）。
+ *
+ * ── P6-08 で変わったこと（PK-SPEC-P6 §4.3 / §4.4）───────
+ * ① **清掃タスクの前後 10 分の解錠を外す**（§4.4 MUST の「方法 2 を
+ *    既定とする」）。清掃スタッフの入室は正常な業務で、外さないと
+ *    清掃のたびに差異が立つ。
+ * ② **`actorType` 不明の解錠を数に入れ、確信度を 25 下げる**（§4.3）。
+ *    多くのロックは「誰が開けたか」を返さない。数えない実装にすると、
+ *    そういう機種では R002 が一度も立たない。**不明を `GUEST_KEY` と
+ *    みなすのではなく、不明のまま弱く出す。**
+ * どちらも `../staffKey.ts` に置いてある（R013 と共通）。
  */
 
-import type { FindingDraft, Rule, RuleContext, SignalFact } from "../types.js";
+import {
+  excludeStaffAccess,
+  isActorTypeUnknown,
+  unknownActorPenalty,
+} from "../staffKey.js";
+import type { FindingDraft, Rule, RuleContext, SignalFact, TaskFact } from "../types.js";
 
 /** 宿泊者の鍵とみなす種別（§3.3）。 */
 const GUEST_ACTOR_TYPES: ReadonlySet<string> = new Set(["GUEST_KEY", "MOBILE_KEY"]);
@@ -57,14 +72,34 @@ export function isLateNight(signal: SignalFact): boolean {
   return hour >= LATE_NIGHT_FROM_HOUR && hour < LATE_NIGHT_TO_HOUR;
 }
 
-/** 宿泊者の鍵による解錠。**並びは入力順のまま**（§10.1 の決定性）。 */
+/**
+ * 宿泊者の鍵、または種別不明による解錠（PK-SPEC-P6 §4.3）。
+ *
+ * **`STAFF_KEY` / `MASTER_KEY` は入らない。** §3.3 の「STAFF_KEY /
+ * MASTER_KEY のみではない」は、この絞り込みで満たされる。
+ *
+ * 並びは入力順のまま（§10.1 の決定性）。
+ */
 export function guestUnlocksOf(signals: readonly SignalFact[]): SignalFact[] {
   return signals.filter(
     (signal) =>
       signal.signalType === "DOOR_UNLOCK" &&
-      signal.actorType !== null &&
-      GUEST_ACTOR_TYPES.has(signal.actorType),
+      (isActorTypeUnknown(signal) ||
+        (signal.actorType !== null && GUEST_ACTOR_TYPES.has(signal.actorType))),
   );
+}
+
+/**
+ * 清掃スタッフの入室を外したうえで、宿泊者の鍵・種別不明の解錠を取る。
+ *
+ * **除外を先に掛ける。** 後に掛けても結果は同じだが、順序を固定して
+ * おくと「何を数えているか」が 1 行で読める。
+ */
+export function candidateUnlocksOf(
+  signals: readonly SignalFact[],
+  task: TaskFact | null,
+): SignalFact[] {
+  return guestUnlocksOf(excludeStaffAccess(signals, task));
 }
 
 export const R002: Rule = {
@@ -74,23 +109,31 @@ export const R002: Rule = {
   requires: ["occupancy", "signal"],
 
   evaluate(context: RuleContext): FindingDraft | null {
-    const { occupancy, signals, room, accessLogs } = context;
+    const { occupancy, signals, room, accessLogs, task } = context;
 
     if (occupancy === null || occupancy.isOccupied) return null;
     if (occupancy.isHouseUse || occupancy.isComplimentary) return null;
     if (room.saleStatus === "MAINTENANCE" || room.saleStatus === "OUT_OF_ORDER") return null;
     if (accessLogs.length > 0) return null; // 正当な入室が登録済み
 
-    // 「STAFF_KEY / MASTER_KEY のみではない」は、宿泊者の鍵の解錠を数えれば足りる。
-    const unlocks = guestUnlocksOf(signals);
+    // 清掃スタッフの入室を外し（§4.4）、宿泊者の鍵・種別不明の解錠を数える。
+    const unlocks = candidateUnlocksOf(signals, task);
     if (unlocks.length < R002_MIN_UNLOCKS) return null;
 
     const lateNight = unlocks.some(isLateNight);
+    // **不明のまま数えた解錠が混ざっているか**（§4.3）。W-07 が
+    // 「鍵の種別は取得できていません」を出す判断もこれを見る。
+    const actorTypeUnknown = unlocks.some(isActorTypeUnknown);
 
     let confidence = R002_BASE_CONFIDENCE;
     if (unlocks.length >= R002_MANY_UNLOCKS_THRESHOLD) confidence += R002_MANY_UNLOCKS_BONUS;
     if (lateNight) confidence += R002_LATE_NIGHT_BONUS;
+    // §4.3: `actorType` が取得できない場合は confidence を 25 減じる。
+    confidence += unknownActorPenalty(unlocks);
 
+    // **`matchedSignals` に不明を足さない。** ここの件数は §1.3 の
+    // 「単一シグナルで 80 以上を出さない」を解く鍵で、足すと
+    // *不明であることが確信度の上限を上げる*という逆立ちが起きる。
     const matchedSignals = ["GUEST_KEY_UNLOCK"];
     if (lateNight) matchedSignals.push("LATE_NIGHT_UNLOCK");
 
@@ -100,7 +143,7 @@ export const R002: Rule = {
       confidence,
       title: `${room.number} 号室：施錠解除と稼働記録の不一致`,
       summary:
-        `稼働記録では空室ですが、宿泊者の鍵による解錠が ` +
+        `稼働記録では空室ですが、清掃時間帯を除く解錠が ` +
         `${String(unlocks.length)} 回記録されています。`,
       matchedSignals,
       evidence: {
@@ -119,6 +162,8 @@ export const R002: Rule = {
         })),
         unlockCount: unlocks.length,
         lateNight,
+        /** §4.3: 画面に「鍵の種別は取得できていません」と明示するための旗。 */
+        actorTypeUnknown,
         room: { number: room.number, saleStatus: room.saleStatus },
       },
     };

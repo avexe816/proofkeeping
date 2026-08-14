@@ -436,6 +436,21 @@ export {
 // registry を通らずに 1 つだけ評価する形を作らないため。
 export { businessDateDiff } from "./reconciliation/rules/R004.js";
 
+// スタッフキーの除外と `actorType` 不明の扱い（P6-08 / PK-SPEC-P6 §4.3・§4.4）。
+// **R002 と R013 が共有する。** 呼び出し側（W-07）が見るのは
+// `UNKNOWN_ACTOR_CONFIDENCE_PENALTY` と `CLEANING_WINDOW_MINUTES` の 2 つ。
+export {
+  CLEANING_WINDOW_MINUTES,
+  CLEANING_WINDOW_MS,
+  STAFF_ACTOR_TYPES,
+  UNKNOWN_ACTOR_CONFIDENCE_PENALTY,
+  excludeStaffAccess,
+  isActorTypeUnknown,
+  isStaffActor,
+  isWithinCleaningWindow,
+  unknownActorPenalty,
+} from "./reconciliation/staffKey.js";
+
 export {
   RULES,
   findRule,

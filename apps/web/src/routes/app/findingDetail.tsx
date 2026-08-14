@@ -236,13 +236,26 @@ export default function FindingDetail() {
           {sources.signals === null ? (
             <p className="pk-muted">{t("finding.noData")}</p>
           ) : (
-            <ul className="pk-items">
-              {sources.signals.map((signal) => (
-                <li key={`${signal.signalType}|${String(signal.occurredAt)}`}>
-                  {`${signal.signalType} ${new Date(signal.occurredAt).toISOString()}`}
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="pk-items">
+                {sources.signals.map((signal) => (
+                  <li key={`${signal.signalType}|${String(signal.occurredAt)}`}>
+                    {`${signal.signalType} ${new Date(signal.occurredAt).toISOString()}`}
+                  </li>
+                ))}
+              </ul>
+              {/*
+                PK-SPEC-P6 §4.3 MUST「差異詳細画面に『鍵の種別は取得できて
+                いません』と明示する」。**取れているものと取れていないものを
+                混ぜて出さない。** 1 件でも不明なら出す（不明のぶんだけ
+                根拠が弱い / R002・R013 は確信度を 25 下げている）。
+              */}
+              {sources.signals.some(
+                (signal) => signal.actorType === null || signal.actorType === "UNKNOWN",
+              ) ? (
+                <p className="pk-muted">{t("finding.signal.actorTypeUnknown")}</p>
+              ) : null}
+            </>
           )}
         </section>
       </div>

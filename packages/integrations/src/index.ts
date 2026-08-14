@@ -8,6 +8,29 @@
  * P6-06 以降（実接続する PMS が確定してから / §3.2 MUST「想定で作らない」）。
  */
 
+// リトライとサーキットブレーカー（P6-07 / §3.4）。**連携先を知らない。**
+export {
+  CIRCUIT_OPEN_THRESHOLD,
+  MAX_RETRY_ATTEMPTS,
+  RETRY_DELAYS_MINUTES,
+  canRunScheduledSync,
+  circuitStateOf,
+  retryDelaySeconds,
+  shouldOpenCircuit,
+  shouldRetry,
+  type CircuitState,
+} from "./core/circuitBreaker.js";
+
+// 外部 ID の自動マッピング（P6-05 / §2.3・§7.2）。
+export {
+  autoMapRooms,
+  normalizeRoomKey,
+  type AutoMapCandidate,
+  type AutoMapInput,
+  type AutoMapPair,
+  type AutoMapResult,
+} from "./core/autoMapping.js";
+
 export {
   OCCUPANCY_CHANNEL_CODE_VALUES,
   SIGNAL_ACTOR_TYPE_VALUES,

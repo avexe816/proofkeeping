@@ -11,8 +11,10 @@
 
 import { describe, expect, it } from "vitest";
 
+import { UNKNOWN_ACTOR_CONFIDENCE_PENALTY } from "../staffKey.js";
+
 import { R013, R013_BASE_CONFIDENCE, lateNightGuestUnlocksOf } from "./R013.js";
-import { occupancyFact, ruleContext, signalFact } from "./testContext.js";
+import { occupancyFact, ruleContext, signalFact, taskFact } from "./testContext.js";
 
 /** 深夜帯の解錠。 */
 function lateNight(overrides: Parameters<typeof signalFact>[0] = {}) {
@@ -113,5 +115,62 @@ describe("lateNightGuestUnlocksOf", () => {
 
   it("空なら空", () => {
     expect(lateNightGuestUnlocksOf([])).toEqual([]);
+  });
+});
+
+/**
+ * P6-08 — スタッフキー除外と `actorType` 不明（PK-SPEC-P6 §4.3・§4.4）。
+ *
+ * 窓の境界そのものは `staffKey.spec.ts` が見る。ここは
+ * **R013 の結論がどう変わるか**だけを見る。
+ */
+describe("R013 — 清掃時刻による除外と種別不明", () => {
+  /** 深夜 2:30 の解錠を挟むように清掃したことにする（現実には起きないが窓の検証）。 */
+  const startedAt = Date.parse("2026-09-10T02:25:00+09:00");
+
+  it("清掃の前後 10 分の解錠は数えない（§4.4）", () => {
+    expect(
+      R013.evaluate(
+        context({ task: taskFact({ startedAt, completedAt: null }) }),
+      ),
+    ).toBeNull();
+  });
+
+  it("清掃の窓を外れていれば数える", () => {
+    const finding = R013.evaluate(
+      context({
+        task: taskFact({
+          startedAt: Date.parse("2026-09-09T10:00:00+09:00"),
+          completedAt: Date.parse("2026-09-09T10:40:00+09:00"),
+        }),
+      }),
+    );
+    expect(finding?.ruleCode).toBe("R013");
+  });
+
+  it("鍵の種別が無い深夜の解錠も数える（§4.3）", () => {
+    const finding = R013.evaluate(context({ signals: [lateNight({ actorType: null })] }));
+    expect(finding?.ruleCode).toBe("R013");
+  });
+
+  it("不明が混ざれば確信度が 25 下がる", () => {
+    const finding = R013.evaluate(context({ signals: [lateNight({ actorType: "UNKNOWN" })] }));
+    expect(finding?.confidence).toBe(R013_BASE_CONFIDENCE + UNKNOWN_ACTOR_CONFIDENCE_PENALTY);
+  });
+
+  it("種別が取れていれば減点しない", () => {
+    expect(R013.evaluate(context())?.confidence).toBe(R013_BASE_CONFIDENCE);
+  });
+
+  it("不明であることを根拠に残し、書き換えない（§4.3 MUST）", () => {
+    const finding = R013.evaluate(context({ signals: [lateNight({ actorType: null })] }));
+    expect(finding?.evidence["actorTypeUnknown"]).toBe(true);
+    expect(finding?.evidence["signals"]).toMatchObject([{ actorType: null }]);
+  });
+
+  it("スタッフの鍵は深夜でも数えない", () => {
+    expect(
+      R013.evaluate(context({ signals: [lateNight({ actorType: "MASTER_KEY" })] })),
+    ).toBeNull();
   });
 });

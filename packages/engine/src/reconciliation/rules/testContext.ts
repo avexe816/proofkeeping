@@ -23,6 +23,7 @@ import type {
   OccupancyFact,
   RuleContext,
   SignalFact,
+  TaskFact,
 } from "../types.js";
 
 /** テストの「いま」。**2026-09-10 05:10 JST**（日締め 05:00 の直後）。 */
@@ -85,6 +86,24 @@ export function signalFact(overrides: Partial<SignalFact> = {}): SignalFact {
     occurredAt: Date.parse("2026-09-09T22:00:00+09:00"),
     actorType: "GUEST_KEY",
     localHour: 22,
+    ...overrides,
+  };
+}
+
+/**
+ * 清掃タスク。**既定は「10:00 に始めて 10:40 に終えたアウト清掃」。**
+ *
+ * §4.4 の除外窓（前後 10 分）は `startedAt` / `completedAt` から決まる。
+ * 既定を `null` にすると、窓のテストが毎回両方を渡すことになる。
+ */
+export function taskFact(overrides: Partial<TaskFact> = {}): TaskFact {
+  return {
+    taskType: "CHECKOUT",
+    isCompleted: true,
+    startedAt: Date.parse("2026-09-09T10:00:00+09:00"),
+    completedAt: Date.parse("2026-09-09T10:40:00+09:00"),
+    actualMinutes: 40,
+    photoCount: 3,
     ...overrides,
   };
 }

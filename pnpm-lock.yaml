@@ -65,6 +65,9 @@ importers:
       '@pk/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@pk/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@pk/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf

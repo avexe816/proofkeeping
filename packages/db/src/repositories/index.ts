@@ -455,7 +455,7 @@ export {
   type UpsertCounterpartyInput,
 } from "./invoice.js";
 
-// 外部連携（P6-01 / P6-04 / PK-SPEC-P6 §2）。
+// 外部連携（P6-01 / P6-04 / P6-07 / PK-SPEC-P6 §2・§3.4）。
 // **資格情報そのものを返す関数が無い。** 返すのは KV の参照キーまでで、
 // 復号は `apps/web/src/lib/integration/credentials.ts` の責務（security.md §7）。
 export {
@@ -470,7 +470,9 @@ export {
   listOrgWideIntegrations,
   listSyncLogs,
   markIntegrationSynced,
+  openIntegrationCircuit,
   purgeSyncLogRawSamples,
+  reactivateIntegration,
   resolveExternalIds,
   startSyncLog,
   upsertExternalMappings,
