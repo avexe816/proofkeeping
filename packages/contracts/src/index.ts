@@ -451,3 +451,16 @@ export {
   type OccupancySnapshotUpsertRequest,
   type OccupancySourceValue,
 } from "./occupancy.js";
+
+// 稼働照合（P4-05 / PK-SPEC-P4 §5.4）。**差異を読む口はここに無い**（P4-06 / P4-07）。
+export {
+  RECONCILIATION_ERROR_CODES,
+  RECONCILIATION_MAX_LOOKBACK_DAYS,
+  reconciliationErrorSchema,
+  reconciliationRunRequestSchema,
+  reconciliationRunResponseSchema,
+  type ReconciliationError,
+  type ReconciliationErrorCode,
+  type ReconciliationRunRequest,
+  type ReconciliationRunResponse,
+} from "./reconciliation.js";

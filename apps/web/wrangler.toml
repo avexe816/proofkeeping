@@ -35,16 +35,17 @@
 # ------------------------------------------------------------------------------
 #
 #   [[queues.consumers]]      **P2-10 が evidence-export、P2-14 が
-#                             pdf-generation を宣言した。** 残り 5 キューは
-#                             ハンドラが未実装で、宣言すると wrangler が
-#                             起動しない。実装する task
-#                             （P3-09 / P4-14 / P6-04 / P7-09）が
+#                             pdf-generation、P3-09 が baseline-learning、
+#                             P4-05 が reconciliation を宣言した。**
+#                             残り 3 キューはハンドラが未実装で、宣言すると
+#                             wrangler が起動しない。実装する task
+#                             （P4-14 / P6-04 / P6-09 / P7-09）が
 #                             自分の分を 4 環境ぶん追記し、同時に
 #                             src/index.ts の `queue()` へ分岐を足すこと。
 #
-#   InspectionLock            DO クラスが未実装。同上。P0-17 で
-#   PropertyBoard             DocumentSequencer だけを宣言した。残り 3 つは
-#   ReconciliationLock        実装する task（P2 / P1 / P4）が
+#   PropertyBoard             DO クラスが未実装。同上。P0-17 で
+#                             DocumentSequencer だけを宣言した。残る 1 つは
+#                             実装する task（P1）が
 #                             [[durable_objects.bindings]] と
 #                             [[migrations]] の新しいタグを同時に足す。
 #                             **既存の tag = "v1" を書き換えないこと。**
@@ -56,6 +57,9 @@
 #   無料枠は 5 本まで。**現在 2 本。**
 #     0 17 * * *      P1-03 タスク自動生成（02:00 JST）
 #     */10 * * * *    P2-14 日報（日締め + 10 分の施設を拾う）
+#   **稼働照合（P4-05 / §5.1）は 02:00 JST の回に相乗りしている。**
+#   同じ時刻の cron を 2 本置いても振り分けられないため、`0 17 * * *` の
+#   分岐でタスク生成と照合の両方を走らせる（DECISIONS #113）。
 #   足す task は、この行の本数を数え直してから追記すること。
 #   cron 式は UTC 指定。日本時間で書かない（下の [triggers] の注記を参照）。
 #   **10 分ごとの回は施設ごとの日締め時刻と突き合わせて絞る**
@@ -221,6 +225,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 稼働照合バッチ（P4-05 / PK-SPEC-P4 §5）。1 施設 × 1 業務日ぶんの 3 系統を
+# 読んで突き合わせる。リクエストの CPU 予算（50ms / architecture.md §5）に
+# 収まらないのでここで処理する。**二重起動は ReconciliationLock が断る**（§5.2）。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[queues.consumers]]
+queue = "pk-reconciliation-local"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -234,6 +249,11 @@ class_name = "DocumentSequencer"
 name = "INSPECTION_LOCK"
 class_name = "InspectionLock"
 
+# 照合バッチの二重起動防止（P4-05 / PK-SPEC-P4 §5.2）。粒度は施設 × 業務日。
+[[durable_objects.bindings]]
+name = "RECONCILIATION_LOCK"
+class_name = "ReconciliationLock"
+
 # DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
 # クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
 [[migrations]]
@@ -243,6 +263,10 @@ new_sqlite_classes = ["DocumentSequencer"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["InspectionLock"]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["ReconciliationLock"]
 
 # --- Cron Triggers（P1-03）---------------------------------------------------
 # PK-SPEC-P1 §3.2: 02:00 に全アクティブ施設の翌業務日のタスクを生成する。
@@ -377,6 +401,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 稼働照合バッチ（P4-05 / PK-SPEC-P4 §5）。1 施設 × 1 業務日ぶんの 3 系統を
+# 読んで突き合わせる。リクエストの CPU 予算（50ms / architecture.md §5）に
+# 収まらないのでここで処理する。**二重起動は ReconciliationLock が断る**（§5.2）。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[env.preview.queues.consumers]]
+queue = "pk-reconciliation-preview"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -390,6 +425,11 @@ class_name = "DocumentSequencer"
 name = "INSPECTION_LOCK"
 class_name = "InspectionLock"
 
+# 照合バッチの二重起動防止（P4-05 / PK-SPEC-P4 §5.2）。粒度は施設 × 業務日。
+[[env.preview.durable_objects.bindings]]
+name = "RECONCILIATION_LOCK"
+class_name = "ReconciliationLock"
+
 # DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
 # クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
 [[env.preview.migrations]]
@@ -399,6 +439,10 @@ new_sqlite_classes = ["DocumentSequencer"]
 [[env.preview.migrations]]
 tag = "v2"
 new_sqlite_classes = ["InspectionLock"]
+
+[[env.preview.migrations]]
+tag = "v3"
+new_sqlite_classes = ["ReconciliationLock"]
 
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。
@@ -530,6 +574,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 稼働照合バッチ（P4-05 / PK-SPEC-P4 §5）。1 施設 × 1 業務日ぶんの 3 系統を
+# 読んで突き合わせる。リクエストの CPU 予算（50ms / architecture.md §5）に
+# 収まらないのでここで処理する。**二重起動は ReconciliationLock が断る**（§5.2）。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[env.staging.queues.consumers]]
+queue = "pk-reconciliation-staging"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -543,6 +598,11 @@ class_name = "DocumentSequencer"
 name = "INSPECTION_LOCK"
 class_name = "InspectionLock"
 
+# 照合バッチの二重起動防止（P4-05 / PK-SPEC-P4 §5.2）。粒度は施設 × 業務日。
+[[env.staging.durable_objects.bindings]]
+name = "RECONCILIATION_LOCK"
+class_name = "ReconciliationLock"
+
 # DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
 # クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
 [[env.staging.migrations]]
@@ -552,6 +612,10 @@ new_sqlite_classes = ["DocumentSequencer"]
 [[env.staging.migrations]]
 tag = "v2"
 new_sqlite_classes = ["InspectionLock"]
+
+[[env.staging.migrations]]
+tag = "v3"
+new_sqlite_classes = ["ReconciliationLock"]
 
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。
@@ -757,6 +821,17 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 稼働照合バッチ（P4-05 / PK-SPEC-P4 §5）。1 施設 × 1 業務日ぶんの 3 系統を
+# 読んで突き合わせる。リクエストの CPU 予算（50ms / architecture.md §5）に
+# 収まらないのでここで処理する。**二重起動は ReconciliationLock が断る**（§5.2）。
+#
+# max_batch_size = 1 は evidence-export と同じ理由（1 件が重い）。
+[[env.production.queues.consumers]]
+queue = "pk-reconciliation"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -770,6 +845,11 @@ class_name = "DocumentSequencer"
 name = "INSPECTION_LOCK"
 class_name = "InspectionLock"
 
+# 照合バッチの二重起動防止（P4-05 / PK-SPEC-P4 §5.2）。粒度は施設 × 業務日。
+[[env.production.durable_objects.bindings]]
+name = "RECONCILIATION_LOCK"
+class_name = "ReconciliationLock"
+
 # DO クラスの追加は migrations タグで宣言する。**既存のタグを書き換えない。**
 # クラスを増やすときは新しいタグ（v2, v3 …）を追記する。
 [[env.production.migrations]]
@@ -779,6 +859,10 @@ new_sqlite_classes = ["DocumentSequencer"]
 [[env.production.migrations]]
 tag = "v2"
 new_sqlite_classes = ["InspectionLock"]
+
+[[env.production.migrations]]
+tag = "v3"
+new_sqlite_classes = ["ReconciliationLock"]
 
 # Cron Triggers（P1-03）。理由と cron 式の根拠は top-level の [triggers] を参照。
 # [env.*] は top-level を継承しないため環境ごとに書く。

@@ -143,14 +143,13 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   //
   // P4-01 も表と migration までの task（P2-01 / P3-01 と同じ形）。
   // `occupancy_snapshot` は P4-02 が取込の関数を作り、occupancy.spec.ts で
-  // カバーした。残る 6 表は下の task が関数を作って行を消すこと。
-  // **表だけ足して放置しないこと。**
-  physical_signal: "受信口はまだ無い（PK-SPEC-P4 §8）。P4-10 が作る",
-  room_access_log: "登録・一覧の関数がまだ無い（同 §8）。P4-10 が作る",
-  reconciliation_run: "照合バッチがまだ無い（同 §5）。P4-05 が作る",
-  audit_finding: "差異の読み書きがまだ無い（同 §6）。P4-05 / P4-06 が作る",
-  detection_feedback: "誤検知の記録は差異のステータス変更に伴う。P4-07 が作る",
-  rule_config: "ルール設定の画面がまだ無い（同 §6）。P4-13 が作る",
+  // カバーした。`physical_signal` / `room_access_log` / `reconciliation_run` /
+  // `audit_finding` / `detection_feedback` は P4-05 が照合バッチの読み取りを
+  // 作り、reconciliation.spec.ts でカバーした。残る 1 表は下の task が
+  // 関数を作って行を消すこと。**表だけ足して放置しないこと。**
+  rule_config:
+    "施設の次元が任意（`propertyId = null` が組織既定）で施設スコープの検査を" +
+    "掛けられない。設定画面を作る P4-13 が形を決めて spec を足す",
 };
 
 describe("同一シャードの組織ペア（fixtures/shard-pairs.ts）", () => {

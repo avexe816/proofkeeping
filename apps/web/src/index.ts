@@ -5,6 +5,7 @@ import { createRequestHandler, RouterContextProvider } from "react-router";
 import { handleBaselineLearningBatch } from "./consumers/baselineLearning.js";
 import { handleDailyReportBatch } from "./consumers/dailyReport.js";
 import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
+import { handleReconciliationBatch } from "./consumers/reconciliation.js";
 import {
   missingSecretNames,
   missingSecretsMessage,
@@ -21,6 +22,7 @@ import {
   dispatchBaselineLearning,
 } from "./lib/baseline/dispatch.js";
 import { DAILY_REPORT_CRON, dispatchDailyReports } from "./lib/report/dispatch.js";
+import { dispatchReconciliation } from "./lib/reconciliation/dispatch.js";
 import { runNightlyGeneration } from "./lib/task/nightly.js";
 import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
@@ -35,6 +37,7 @@ import issues from "./routes/api/v1/issues.js";
 import lostItems from "./routes/api/v1/lostItems.js";
 import organization from "./routes/api/v1/organization.js";
 import properties from "./routes/api/v1/properties.js";
+import reconciliation from "./routes/api/v1/reconciliation.js";
 import reworks from "./routes/api/v1/reworks.js";
 import reports from "./routes/api/v1/reports.js";
 import observations from "./routes/api/v1/observations.js";
@@ -171,6 +174,9 @@ api.route("/baselines", baselines);
 // 稼働記録（P4-02 / PK-SPEC-P4 §8）。**削除の口が無い。**
 // 取込元（`source`）は口が決める。`PMS_API` を名乗る経路を作らない。
 api.route("/occupancy", occupancy);
+// 稼働照合（P4-05 / PK-SPEC-P4 §5.4）。**手動実行の口だけ。**
+// 差異の一覧・詳細（W-06 / W-07）は P4-06 / P4-07 が足す。
+api.route("/reconciliation", reconciliation);
 // 観察記録の入力品質（P3-12 / 同 §6.3 / W-22）。**読み取りだけ。**
 // スタッフ別は入力率だけを返す（security.md §5 / INV-07）。
 api.route("/data-quality", dataQuality);
@@ -216,6 +222,8 @@ app.all("*", async (c) => {
 export { DocumentSequencer } from "./durable/DocumentSequencer.js";
 // 検査開始の排他制御（P2-03）。binding は wrangler.toml の `INSPECTION_LOCK`。
 export { InspectionLock } from "./durable/InspectionLock.js";
+// 照合バッチの二重起動防止（P4-05 / PK-SPEC-P4 §5.2）。粒度は施設 × 業務日。
+export { ReconciliationLock } from "./durable/ReconciliationLock.js";
 
 /**
  * Workers の既定エクスポート。**`fetch` と `scheduled` の両方を持つ。**
@@ -261,6 +269,11 @@ export default {
       await handleBaselineLearningBatch(env, batch);
       return;
     }
+    // 稼働照合（P4-05 / PK-SPEC-P4 §5）。**二重起動は DO が断る。**
+    if (batch.queue.startsWith("pk-reconciliation")) {
+      await handleReconciliationBatch(env, batch);
+      return;
+    }
     // 知らないキュー。**ack も retry もしない**（既定の再送に任せる）。
     console.error(`queue-unhandled queue=${batch.queue}`);
   },
@@ -270,7 +283,8 @@ export default {
    * `controller.cron` は発火した cron 式そのもの。**式で振り分ける。**
    * 分岐を持たずに両方を毎回走らせると、10 分ごとにタスク生成が走る。
    *
-   *   `0 17 * * *`    02:00 JST      翌業務日のタスク生成（P1-03）
+   *   `0 17 * * *`    02:00 JST      翌業務日のタスク生成（P1-03）＋
+   *                                  当日の稼働照合（P4-05 / §5.1）
    *   `*&#47;10 * * * *`  10 分ごと      日締め + 10 分の施設の日報（P2-14）
    *   `0 18 * * 6`    日曜 03:00 JST ベースライン週次バッチ（P3-09）
    *
@@ -299,10 +313,20 @@ export default {
       return;
     }
 
+    // 02:00 JST の回。**2 つを続けて走らせる**（DECISIONS #113）。
+    // 照合（P4-05 / §5.1）は同じ時刻で、cron 式を分けられない。
+    // **どちらも `await` する。** 片方を投げっぱなしにすると打ち切られる。
     const result = await runNightlyGeneration(env, now);
     console.log(
       `nightly-generation properties=${String(result.properties)} ` +
         `created=${String(result.created)} failed=${String(result.failedProperties)}`,
+    );
+
+    const reconciliation = await dispatchReconciliation(env, now);
+    console.log(
+      `reconciliation-dispatch organizations=${String(reconciliation.organizations)} ` +
+        `queued=${String(reconciliation.queued)} ` +
+        `failed=${String(reconciliation.failedOrganizations)}`,
     );
   },
 } satisfies ExportedHandler<Env>;

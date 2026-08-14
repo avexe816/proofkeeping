@@ -415,6 +415,7 @@ export {
   RULES,
   findRule,
   implementedRuleCodes,
+  RECONCILIATION_ENGINE_VERSION,
 } from "./reconciliation/rules/registry.js";
 
 export {

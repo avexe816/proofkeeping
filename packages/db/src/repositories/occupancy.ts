@@ -26,7 +26,7 @@
  * **この関数は自分の `source` の行だけを触る。**
  */
 
-import { eq } from "drizzle-orm";
+import { eq, gte, lte } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -378,4 +378,47 @@ export async function findOccupancySnapshotById(
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+/**
+ * その施設に稼働記録が届いているか（PK-SPEC-P4 §4.1 の `occupancyLinked`）。
+ *
+ * ── 列ではなく事実から導く ──────────────────────────────
+ * `property` に `occupancyLinked` の列は無い（OPEN_QUESTIONS #063）。
+ * **「稼働記録の連携がある」＝「稼働記録が実際に届いている」**と読み、
+ * 直近の窓に 1 行でもあるかで判定する（DECISIONS #110）。列を足して
+ * 既定 `false` にすると、管理画面から切り替える経路（W-13 は P6）が
+ * 出来るまで照合が 1 件も動かない。
+ *
+ * ── 窓を取る理由 ────────────────────────────────────────
+ * **当日だけを見ない。** 当日の取込が丸ごと落ちた日に「連携なし」と
+ * 読んでしまうと、まさにそれを拾うための R006（§3.7）が黙る。
+ *
+ * @param from 窓の始まり（業務日 `YYYY-MM-DD`・含む）。
+ * @param to   窓の終わり（同・含む）。
+ */
+export async function hasOccupancySnapshotsInRange(
+  env: Env,
+  ctx: TenantContext,
+  filter: { propertyId: string; from: string; to: string },
+): Promise<boolean> {
+  assertIdBelongsToTenant(filter.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const rows = await db
+    .select({ id: occupancySnapshot.id })
+    .from(occupancySnapshot)
+    .where(
+      withTenantScope(
+        occupancySnapshot,
+        ctx,
+        occupancySnapshot.propertyId,
+        eq(occupancySnapshot.propertyId, filter.propertyId),
+        gte(occupancySnapshot.businessDate, filter.from),
+        lte(occupancySnapshot.businessDate, filter.to),
+      ),
+    )
+    .limit(1);
+
+  return rows.length > 0;
 }

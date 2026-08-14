@@ -59,6 +59,8 @@ const EXPECTED: Record<PermissionAction, string> = {
   "property.read": "OOAAAAO",
   "property.write": "OOA----",
   "finding.read": "OOA--AO",
+  // P4-05。手動再実行（PK-SPEC-P4 §6.4）は OWNER / ORG_ADMIN だけ。
+  "reconciliation.run": "OO-----",
   "lostItem.readStorage": "OOAA-AO",
   "billing.read": "OOA---O",
   // P1。清掃タスク（PK-SPEC-P1 §5.3）と設定画面（同 §10.1）。

@@ -330,6 +330,7 @@ export {
 export {
   MAX_AUDIT_CHANGES,
   findOccupancySnapshotById,
+  hasOccupancySnapshotsInRange,
   listOccupancySnapshots,
   upsertOccupancySnapshots,
   type OccupancyFieldChange,
@@ -338,3 +339,27 @@ export {
   type UpsertOccupancyParams,
   type UpsertOccupancyResult,
 } from "./occupancy.js";
+
+// 照合の実行と差異（P4-05 / PK-SPEC-P4 §2.4・§2.5・§5）。
+// **既にある差異には触らない**（同 §5.3 MUST）。人が付けた `status` を
+// 再実行が書き換えないことが、冪等性そのもの（同 §10.2）。
+export {
+  findFindingById,
+  findReconciliationRunById,
+  finishReconciliationRun,
+  insertFindings,
+  listFindings,
+  listPhysicalSignals,
+  listReconciliationRuns,
+  listRecentFalsePositives,
+  listRoomAccessLogs,
+  listRuleConfigs,
+  startReconciliationRun,
+  type FindingFilter,
+  type FindingInput,
+  type FinishRunInput,
+  type InsertFindingsParams,
+  type InsertFindingsResult,
+  type PropertyDateFilter,
+  type StartRunInput,
+} from "./reconciliation.js";

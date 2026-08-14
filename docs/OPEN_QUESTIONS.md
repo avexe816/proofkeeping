@@ -320,11 +320,16 @@ Claude Code はここに追記して作業を止める。人間が回答した�
   入力（`property.occupancyLinked` / `property.daysSinceOperationStart`）
   として受け取る形にした。**engine 側は既に効く。** 呼ぶ側が値を渡せない
   だけで、渡せるようになれば実装は変わらない。
-- 決める人: **P4-05（照合バッチの配線）の前。** 列を足すなら
-  `property.occupancy_linked`（既定 false）と `property.operation_started_at`。
-  前者は P6 の PMS 連携が有効化するまで false で、`integration` 側の
-  状態から導出する案もある。後者は既存施設のバックフィルが要る
-  （`property.createdAt` で代用するか、明示的に入れるか）。
+- **2026-08-14 追記（P4-05）— 列を足さずに導く形で配線した**（DECISIONS
+  #110）。`occupancyLinked` は**直近 30 日に稼働記録が 1 件でもあるか**、
+  運用開始日は `property.createdAt` を代用する。列を足して既定 `false` に
+  すると、切り替える画面（W-13 は P6）が出来るまで A 系統を要するルールが
+  1 つも動かない。**この追記で作業は止めていない。**
+- 決める人: **まだ開いている。** P6 で `integration` の状態が入ったら、
+  `occupancyLinked` をそちらから導くか、明示的な列
+  （`property.occupancy_linked` / `property.operation_started_at`）に
+  切り替えるかを決めること。engine は値を受け取るだけなので、
+  どちらでも**呼び出し側の 1 行**で済む。
 
 
 ---
