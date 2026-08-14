@@ -136,6 +136,15 @@ export interface SignalFact {
     | "MINIBAR_SENSOR";
   occurredAt: number;
   actorType: "GUEST_KEY" | "STAFF_KEY" | "MASTER_KEY" | "MOBILE_KEY" | "UNKNOWN" | null;
+  /**
+   * 施設の地域時刻での「時」（0〜23）。分からなければ `null`（P4-12 が追加）。
+   *
+   * **engine は時差を解けない。** §3.3 / §3.9 の「深夜帯（0:00-5:00）」は
+   * 施設の地域時刻での話で、`occurredAt`（epoch ミリ秒）から出すには
+   * タイムゾーンが要る。`Date` の地域変換を持ち込むと純粋性（§9 MUST）が
+   * 崩れるため、**変換済みの値を呼び出し側から受け取る。**
+   */
+  localHour: number | null;
 }
 
 /** 正当な入室の記録（§2.3）。**あれば抑制する**（§4.1）。 */
@@ -143,6 +152,32 @@ export interface AccessLogFact {
   purpose: "INSPECTION" | "MAINTENANCE" | "VENDOR_VISIT" | "SHOWING" | "TRAINING" | "OTHER";
   enteredAt: number;
   exitedAt: number | null;
+}
+
+/**
+ * 客室ステータスの手動上書き 1 件（R010 / §3.8）。
+ *
+ * 元は `auditLog`（`room.statusOverridden` / security.md §6）。
+ * **`actorId` は `membership.id` で、氏名を持たない。** 差異は運用手順の
+ * 問題を示すもので、個人を名指しする画面ではない（§3.8 の注記 /
+ * security.md §5）。
+ */
+export interface StatusOverrideFact {
+  roomId: string;
+  /** 上書きした人の `membership.id`。 */
+  actorId: string;
+  /** epoch ミリ秒。 */
+  at: number;
+  /** 上書き後の清掃ステータス。§3.8 が数えるのは `READY` への上書き。 */
+  toStatus: string;
+}
+
+/** 清掃完了後の稼働記録の取消（R014 / §3.10）。 */
+export interface OccupancyRevocationFact {
+  /** 取消が記録された時刻（epoch ミリ秒）。 */
+  at: number;
+  /** 清掃が完了した時刻（epoch ミリ秒）。**これより後の変更だけを拾う。** */
+  cleaningCompletedAt: number;
 }
 
 /** 清掃タスク（R004 / R006 / R011 / R012 が見る）。 */
@@ -196,6 +231,51 @@ export interface RuleContext {
    * （P4-12）が必要な事実をここへ足すこと。** 推測で欄を作っていない。
    */
   previousObservation: ObservationFact | null;
+  /**
+   * 前日の稼働記録（R005 の「2 日連続」）。無ければ `null`（P4-11 が追加）。
+   *
+   * **`previousObservation` と対で使う。** §3.6 の「上記が 2 日連続」は
+   * 観察だけでなく `isStayover` も 2 日ぶん要る。片方だけ渡すと、
+   * 前日が連泊だったのかが分からないまま「2 日連続」を名乗ることになる。
+   */
+  previousOccupancy: OccupancyFact | null;
+  /**
+   * 退室日の翌日から当日までに、他の稼働記録があったか（R004 / §3.5）。
+   *
+   * **`null` は「分からない」。** 稼働記録の連携が無い期間や、
+   * `checkOutAt` そのものが無い場合。R004 は `false`（＝その間に稼働が
+   * 無かったと確かめられた）のときだけ差異にする。**分からないものを
+   * 「無かった」側に倒さない**（§1.2）。
+   */
+  occupancyBetweenCheckOutAndToday: boolean | null;
+  /**
+   * `occupancy.checkOutAt` を業務日に直したもの（R004 / §3.5）。無ければ `null`。
+   *
+   * **engine は業務日を計算できない。** 施設の日締め時刻（architecture.md §7）を
+   * 知っているのは呼び出し側で、`Date` の地域変換をここへ持ち込むと
+   * 純粋性（§9 MUST）が崩れる。変換済みの `YYYY-MM-DD` を受け取る。
+   */
+  checkOutBusinessDate: string | null;
+  /**
+   * 客室ステータスの手動上書き（R010 / §3.8）。**施設ぶん・直近 7 日。**
+   *
+   * §3.8 の条件は「同一ユーザーが直近 7 日で 5 回以上」で、客室 1 室では
+   * 数えられない（1 室で 5 回上書きされることは稀）。**施設全体で数え、
+   * その人が当日この客室を上書きしていたら差異にする**（差異は客室 ×
+   * 業務日 × ルールで 1 件 / §2.5 の `uq_finding`）。
+   *
+   * これは個人を指摘するものではない（§3.8 の注記）。**運用手順の問題を
+   * 示す可能性**として出す。
+   */
+  statusOverrides: readonly StatusOverrideFact[];
+  /**
+   * 清掃完了後に稼働記録が `isOccupied: true → false` へ変わったか（R014 / §3.10）。
+   *
+   * **`null` は「分からない」。** 変更履歴は `auditLog` にしか無く、
+   * 監査ログを引けない経路（テスト・部分的な再評価）では判定できない。
+   * R014 は `true` のときだけ差異にする（§1.2）。
+   */
+  occupancyRevokedAfterCleaning: OccupancyRevocationFact | null;
   /**
    * このルールの閾値（`ruleConfig.thresholds`）。
    *

@@ -22,11 +22,15 @@
  * （`repositories/property.ts` の申し送り）。
  */
 
+import { eq, gte, inArray, lte } from "drizzle-orm";
+
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { serializeAuditPayload } from "../mask.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import { auditLog } from "../schema/audit.js";
+
+import { withTenantScope } from "./base.js";
 
 /**
  * 監査対象の操作。**閉じたレジストリ。**
@@ -209,4 +213,68 @@ export async function recordAudit(
     ip: input.ip ?? null,
     at: ctx.now,
   });
+}
+
+// ────────────────────────────────────────────────────────────
+// 読み取り（PK-SPEC-P4 §3.8 / §3.10）
+// ────────────────────────────────────────────────────────────
+
+/** `listAuditLogs()` の絞り込み。**操作種別と期間を必ず絞る。** */
+export interface AuditLogFilter {
+  propertyId: string;
+  /** `AUDIT_ACTIONS` の値。複数指定できる。 */
+  actions: readonly AuditAction[];
+  /** この時刻以降（含む）。 */
+  from: Date;
+  /** この時刻以前（含む）。 */
+  to: Date;
+  limit?: number | undefined;
+}
+
+/**
+ * 監査ログを読む（R010 / R014 の根拠）。
+ *
+ * ── 汎用の監査ログ閲覧ではない ──────────────────────────
+ * 照合が「客室ステータスの手動上書き」（§3.8）と「稼働記録の事後変更」
+ * （§3.10）を数えるための口。**期間と操作種別を必須にしてある**ので、
+ * 「全部読む」呼び出しが書けない。監査ログの閲覧画面（権限と監査 / P7）は
+ * 別の絞り込みが要るはずで、そのときにこの関数を広げないこと。
+ *
+ * ── 消す関数を作らない ──────────────────────────────────
+ * `db.delete(auditLog)` を書かない（INV-30）。監査ログは追記のみ。
+ *
+ * **古い順。** §3.8 は回数を数えるだけだが、§3.10 は「清掃完了より後」を
+ * 見るので時刻の並びに意味がある。
+ */
+export async function listAuditLogs(env: Env, ctx: TenantContext, filter: AuditLogFilter) {
+  assertIdBelongsToTenant(filter.propertyId, ctx);
+  if (filter.actions.length === 0) return [];
+
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select({
+      id: auditLog.id,
+      propertyId: auditLog.propertyId,
+      actorId: auditLog.actorId,
+      action: auditLog.action,
+      targetType: auditLog.targetType,
+      targetId: auditLog.targetId,
+      before: auditLog.before,
+      after: auditLog.after,
+      at: auditLog.at,
+    })
+    .from(auditLog)
+    .where(
+      withTenantScope(
+        auditLog,
+        ctx,
+        auditLog.propertyId,
+        eq(auditLog.propertyId, filter.propertyId),
+        inArray(auditLog.action, [...filter.actions]),
+        gte(auditLog.at, filter.from),
+        lte(auditLog.at, filter.to),
+      ),
+    )
+    .orderBy(auditLog.at, auditLog.id)
+    .limit(filter.limit ?? 1000);
 }

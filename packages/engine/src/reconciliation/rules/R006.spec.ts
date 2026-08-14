@@ -90,6 +90,11 @@ function context(overrides: Partial<RuleContext> = {}): RuleContext {
     accessLogs: [],
     baselines: [],
     previousObservation: null,
+    previousOccupancy: null,
+    occupancyBetweenCheckOutAndToday: null,
+    checkOutBusinessDate: null,
+    statusOverrides: [],
+    occupancyRevokedAfterCleaning: null,
     thresholds: {},
     ...overrides,
   };

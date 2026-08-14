@@ -72,6 +72,11 @@ function context(overrides: Partial<RuleContext> = {}): RuleContext {
     accessLogs: [],
     baselines: [],
     previousObservation: null,
+    previousOccupancy: null,
+    occupancyBetweenCheckOutAndToday: null,
+    checkOutBusinessDate: null,
+    statusOverrides: [],
+    occupancyRevokedAfterCleaning: null,
     thresholds: {},
     ...overrides,
   };
@@ -108,18 +113,39 @@ const NEVER_RULE: Rule = {
 };
 
 describe("registry", () => {
-  it("P4-04 の時点では R001 / R006 の 2 つだけ（残り 12 個を先回りしない）", () => {
-    expect(implementedRuleCodes()).toEqual(["R001", "R006"]);
-    expect(RULES).toHaveLength(2);
+  it("実装済みの 10 個が §3.1 の並びで載っている", () => {
+    // P4-04 が R001 / R006、P4-11 が R003 / R004 / R005、
+    // P4-12 が R002 / R010 / R012 / R013 / R014。
+    expect(implementedRuleCodes()).toEqual([
+      "R001",
+      "R002",
+      "R003",
+      "R004",
+      "R005",
+      "R006",
+      "R010",
+      "R012",
+      "R013",
+      "R014",
+    ]);
+    expect(RULES).toHaveLength(10);
   });
 
   it("実装済みのコードは引ける", () => {
     expect(findRule("R001")?.code).toBe("R001");
     expect(findRule("R006")?.code).toBe("R006");
+    expect(findRule("R014")?.code).toBe("R014");
   });
 
-  it("未実装のコードは undefined", () => {
-    expect(findRule("R003")).toBeUndefined();
+  it("条件が仕様に無い 4 つは載っていない（OPEN_QUESTIONS #066）", () => {
+    // §3.1 の一覧に名称・重要度・必要系統はあるが、**§3 に条件の記述が無い。**
+    // 閾値を推測して実装しない（CLAUDE.md §1.4）。
+    for (const code of ["R007", "R008", "R009", "R011"]) {
+      expect(findRule(code), code).toBeUndefined();
+    }
+  });
+
+  it("知らないコードは undefined", () => {
     expect(findRule("NOPE")).toBeUndefined();
   });
 });

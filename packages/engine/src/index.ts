@@ -409,7 +409,16 @@ export {
   type ConfidenceInputs,
 } from "./reconciliation/confidence.js";
 
-export { evaluate } from "./reconciliation/evaluate.js";
+export {
+  R001_R002_MERGE_BONUS,
+  evaluate,
+  mergeR001IntoR002,
+} from "./reconciliation/evaluate.js";
+
+// 個々のルールが公開する定数と補助関数（P4-11 / P4-12）。
+// **ルール本体（`R001` など）は re-export しない。** 呼び出し側が
+// registry を通らずに 1 つだけ評価する形を作らないため。
+export { businessDateDiff } from "./reconciliation/rules/R004.js";
 
 export {
   RULES,
@@ -440,12 +449,14 @@ export {
   type OccupancyFact,
   type PropertyFact,
   type ReconciliationSource,
+  type OccupancyRevocationFact,
   type RoomFact,
   type Rule,
   type RuleContext,
   type RuleSetting,
   type Severity,
   type SignalFact,
+  type StatusOverrideFact,
   type SuppressedRule,
   type SuppressionReason,
   type TaskFact,

@@ -1988,6 +1988,42 @@ const INVOCATIONS: Invocation[] = [
       }),
   },
   {
+    // 監査ログの読み取り（R010 / R014 の根拠 / PK-SPEC-P4 §3.8・§3.10）。
+    name: "audit.listAuditLogs",
+    kind: "tenant",
+    run: (env, ctx) =>
+      auditRepo.listAuditLogs(env, ctx, {
+        propertyId: OWN_ID.property,
+        actions: ["room.statusOverridden"],
+        from: new Date("2026-09-01T00:00:00Z"),
+        to: new Date("2026-09-10T00:00:00Z"),
+      }),
+    crossTenant: (env, ctx) =>
+      auditRepo.listAuditLogs(env, ctx, {
+        propertyId: OTHER_ID.property,
+        actions: ["room.statusOverridden"],
+        from: new Date("2026-09-01T00:00:00Z"),
+        to: new Date("2026-09-10T00:00:00Z"),
+      }),
+  },
+  {
+    // 期間ぶんの稼働記録（R004 の「その間に他の稼働記録がない」/ §3.5）。
+    name: "occupancy.listOccupancyInRange",
+    kind: "tenant",
+    run: (env, ctx) =>
+      occupancyRepo.listOccupancyInRange(env, ctx, {
+        propertyId: OWN_ID.property,
+        from: "2026-09-01",
+        to: "2026-09-09",
+      }),
+    crossTenant: (env, ctx) =>
+      occupancyRepo.listOccupancyInRange(env, ctx, {
+        propertyId: OTHER_ID.property,
+        from: "2026-09-01",
+        to: "2026-09-09",
+      }),
+  },
+  {
     name: "reconciliation.createRoomAccessLog",
     kind: "tenant",
     run: (env, ctx) =>

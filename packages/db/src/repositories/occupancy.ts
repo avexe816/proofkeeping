@@ -422,3 +422,45 @@ export async function hasOccupancySnapshotsInRange(
 
   return rows.length > 0;
 }
+
+/**
+ * 期間ぶんの稼働記録（R004 / PK-SPEC-P4 §3.5）。
+ *
+ * ── `listOccupancySnapshots()` と分けてある ──────────────
+ * あちらは 1 業務日ぶんで、照合の主経路が使う。こちらは
+ * 「退室から清掃までの間に稼働があったか」を見るためだけの口で、
+ * **返す列を 4 つに絞ってある**（判定に要るのはこれだけ）。
+ * 同じ関数に `from` / `to` を足すと、主経路が誤って期間で読む形になりうる。
+ *
+ * **取込元で畳まない。** 1 つでも「稼働していた」記録があれば、
+ * その日は空室ではない（R004 は「他の稼働記録がない」ことを条件にする）。
+ */
+export async function listOccupancyInRange(
+  env: Env,
+  ctx: TenantContext,
+  filter: { propertyId: string; from: string; to: string; limit?: number | undefined },
+) {
+  assertIdBelongsToTenant(filter.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  return db
+    .select({
+      roomId: occupancySnapshot.roomId,
+      businessDate: occupancySnapshot.businessDate,
+      isOccupied: occupancySnapshot.isOccupied,
+      source: occupancySnapshot.source,
+    })
+    .from(occupancySnapshot)
+    .where(
+      withTenantScope(
+        occupancySnapshot,
+        ctx,
+        occupancySnapshot.propertyId,
+        eq(occupancySnapshot.propertyId, filter.propertyId),
+        gte(occupancySnapshot.businessDate, filter.from),
+        lte(occupancySnapshot.businessDate, filter.to),
+      ),
+    )
+    .orderBy(occupancySnapshot.businessDate, occupancySnapshot.roomId)
+    .limit(filter.limit ?? 2000);
+}

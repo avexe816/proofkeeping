@@ -35,11 +35,15 @@
  */
 
 import {
+  countPhotosByTask,
   findPropertyById,
   hasOccupancySnapshotsInRange,
   insertFindings,
   finishReconciliationRun,
+  listAuditLogs,
+  listBaselines,
   listObservations,
+  listOccupancyInRange,
   listOccupancySnapshots,
   listPhysicalSignals,
   listRecentFalsePositives,
@@ -56,12 +60,16 @@ import {
 import {
   RECONCILIATION_ENGINE_VERSION,
   RULES,
+  businessDateDiff,
   evaluate,
+  type BaselineFact,
   type EvaluationOptions,
   type ObservationFact,
   type OccupancyFact,
+  type OccupancyRevocationFact,
   type ReconciliationSource,
   type RuleContext,
+  type StatusOverrideFact,
 } from "@pk/engine";
 
 import {
@@ -69,7 +77,7 @@ import {
   reconciliationLockName,
   type ReconciliationAcquireResult,
 } from "../durable/ReconciliationLock.js";
-import { shiftBusinessDate } from "../lib/businessDate.js";
+import { businessDateOf, localClockOf, shiftBusinessDate } from "../lib/businessDate.js";
 
 import { resolveRuleSettings, rulesetHashOf } from "../lib/reconciliation/ruleset.js";
 
@@ -83,6 +91,19 @@ export const OCCUPANCY_LINK_WINDOW_DAYS = 30;
 
 /** 誤検知の学習が見る窓（§4.2 の「直近 30 日」）。 */
 export const FALSE_POSITIVE_WINDOW_DAYS = 30;
+
+/** R010 が数える窓（§3.8 の「直近 7 日」）。 */
+export const STATUS_OVERRIDE_WINDOW_DAYS = 7;
+
+/**
+ * R004 が遡って稼働記録を確かめる幅（§3.5 の「その間に他の稼働記録がない」）。
+ *
+ * **無制限に遡らない。** 退室から何か月も空いた客室（長期の販売停止）で
+ * 数十日ぶんを読むことになる。ここを超えて空いている場合は
+ * `occupancyBetweenCheckOutAndToday` を `null`（分からない）にして、
+ * R004 を立てない（§1.2「分からないものを『無かった』に倒さない」）。
+ */
+export const CHECKOUT_GAP_MAX_DAYS = 14;
 
 /** キューへ載せるメッセージ。**組織の解決に要る値を全部持たせる。** */
 export interface ReconciliationMessage {
@@ -248,6 +269,30 @@ async function reconcile(
       listRuleConfigs(env, ctx, propertyId),
     ]);
 
+  // ── ①' P4-11 / P4-12 のルールが要る付帯情報 ────────────────────
+  // **前日ぶん**（R005 の「2 日連続」）。当日と同じ形で読む。
+  const previousDate = shiftBusinessDate(businessDate, -1);
+  const [previousOccupancyRows, previousObservationRows, baselineRows, auditRows] =
+    await Promise.all([
+      listOccupancySnapshots(env, ctx, { propertyId, businessDate: previousDate }),
+      listObservations(env, ctx, { propertyId, from: previousDate, to: previousDate }),
+      // R003（§3.4）が読む。**信頼性の絞りはリポジトリに無い**
+      // （W-21 は `isReliable = false` もグレーで出すため / `listBaselines()`
+      // の注記）。engine へ渡す前に `baselinesFor()` が落とす。
+      listBaselines(env, ctx, { propertyId }),
+      // R010（§3.8）と R014（§3.10）の根拠。**監査ログにしか無い。**
+      listAuditLogs(env, ctx, {
+        propertyId,
+        actions: ["room.statusOverridden", "occupancy.imported"],
+        from: new Date(ctx.now.getTime() - STATUS_OVERRIDE_WINDOW_DAYS * DAY_MS),
+        to: ctx.now,
+      }),
+    ]);
+
+  const previousFacts = groupRoomFacts(previousOccupancyRows, previousObservationRows, []);
+  const statusOverrides = statusOverridesOf(auditRows);
+  const revocations = occupancyRevocationsOf(auditRows, businessDate);
+
   // ── ② 施設の属性（OPEN_QUESTIONS #063 / DECISIONS #110）──────
   const occupancyLinked = await hasOccupancySnapshotsInRange(env, ctx, {
     propertyId,
@@ -283,6 +328,23 @@ async function reconcile(
   });
 
   const byRoom = groupRoomFacts(occupancyRows, observationRows, taskRows);
+
+  // 写真の枚数（R012）。**タスクごとに 1 クエリにしない**（§10.6 の応答時間）。
+  const photoCounts = await countPhotosByTask(
+    env,
+    ctx,
+    taskRows.map((row) => row.id),
+  );
+
+  // R004（§3.5）の「その間に他の稼働記録がない」。**退室が空いている
+  // 客室だけを調べる**（全客室ぶんを毎回読まない）。
+  const occupancyBetween = await collectOccupancyBetween(env, ctx, {
+    propertyId,
+    businessDate,
+    property,
+    rooms: rooms.map((room) => ({ id: room.id, occupancy: byRoom.get(room.id)?.occupancy ?? null })),
+  });
+
   const findings: FindingInput[] = [];
   let rulesEvaluated = 0;
   let findingsSuppressed = 0;
@@ -321,7 +383,9 @@ async function reconcile(
               isCompleted: task.status === "COMPLETED",
               completedAt: task.completedAt?.getTime() ?? null,
               actualMinutes: task.actualMinutes,
-              photoCount: 0,
+              // R012（§3.1「写真未添付での完了」）が見る。**0 を固定で
+              // 渡していた P4-05 の暫定をここで解いた。**
+              photoCount: photoCounts.get(task.id) ?? 0,
             },
       signals: signalRows
         .filter((row) => row.roomId === room.id)
@@ -329,6 +393,9 @@ async function reconcile(
           signalType: row.signalType,
           occurredAt: row.occurredAt.getTime(),
           actorType: row.actorType,
+          // **深夜帯（§3.3 / §3.9）は施設の地域時刻で決まる。** engine は
+          // 時差を解けない（純粋関数）ので、ここで変換して渡す。
+          localHour: localHourOf(row.occurredAt, property.timezone),
         })),
       accessLogs: accessRows
         .filter((row) => row.roomId === room.id)
@@ -337,11 +404,23 @@ async function reconcile(
           enteredAt: row.enteredAt.getTime(),
           exitedAt: row.exitedAt?.getTime() ?? null,
         })),
-      // **ベースラインを読むルールはまだ無い**（R003 / R008 / R009 は P4-11 /
-      // P4-12）。渡す経路を先に作ると、選び方（客室タイプ × 人数 × 作業種別）を
-      // 検証できないまま固定してしまう。そのルールを実装する task が足すこと。
-      baselines: [],
-      previousObservation: null,
+      // R003（§3.4）が読む。**信頼できる統計だけが入っている**（読み出し時に
+      // 絞ってある）。客室タイプ × 人数 × 作業種別で更に絞る。
+      baselines: baselinesFor(baselineRows, {
+        roomTypeId: room.roomTypeId ?? "",
+        guestCount: facts?.occupancy?.guestCount ?? null,
+        taskType: task?.taskType ?? null,
+      }),
+      previousObservation: previousFacts.get(room.id)?.observation ?? null,
+      previousOccupancy: previousFacts.get(room.id)?.occupancy ?? null,
+      checkOutBusinessDate: checkOutBusinessDateOf(facts?.occupancy ?? null, property),
+      occupancyBetweenCheckOutAndToday: occupancyBetween.get(room.id) ?? null,
+      statusOverrides,
+      occupancyRevokedAfterCleaning: revocationFor(
+        revocations,
+        room.id,
+        task?.completedAt?.getTime() ?? null,
+      ),
       thresholds: {},
     };
 
@@ -575,7 +654,226 @@ function ruleVersionOf(ruleCode: string): string {
 /** 日数の差（切り捨て）。**負にならない。** */
 export function daysBetween(from: Date, to: Date): number {
   const diff = to.getTime() - from.getTime();
-  return Math.max(0, Math.floor(diff / (24 * 60 * 60 * 1000)));
+  return Math.max(0, Math.floor(diff / DAY_MS));
+}
+
+/** 1 日のミリ秒。 */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// ────────────────────────────────────────────────────────────
+// P4-11 / P4-12 のルールが要る事実の組み立て
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 施設の地域時刻での「時」（0〜23）。**engine へ渡す値**（§3.3 / §3.9）。
+ *
+ * `localClockOf()` は `HH:MM` を返すので、時だけを取り出す。
+ * **`Date` の地域変換を engine へ持ち込まない**ための境界がここ。
+ */
+export function localHourOf(at: Date, timezone: string): number | null {
+  const clock = localClockOf(at, timezone);
+  const hour = Number.parseInt(clock.slice(0, 2), 10);
+  return Number.isFinite(hour) ? hour : null;
+}
+
+/**
+ * その客室に効くベースラインを選ぶ（R003 / §3.4）。
+ *
+ * ── 客室タイプ × 人数 × 作業種別で絞る ──────────────────
+ * PK-SPEC-P3 §5.2 の集計キー。**人数か作業種別が分からなければ空を返す。**
+ * 別の人数の基準値を当てると、2 名の部屋を 1 名の基準で見ることになる。
+ *
+ * ── 信頼できない統計を engine へ渡さない ────────────────
+ * PK-SPEC-P3 §2.4 MUST。**渡さないことが第一の防御**（ルール側の
+ * 早期 return は、ルール単体で呼んだときのための二重の守り）。
+ */
+export function baselinesFor(
+  rows: readonly {
+    roomTypeId: string;
+    guestCount: number;
+    taskType: string;
+    itemCode: string;
+    sampleSize: number;
+    medianQty: number;
+    p90Qty: number;
+    manualOverride: number | null;
+    isReliable: boolean;
+  }[],
+  key: { roomTypeId: string; guestCount: number | null; taskType: string | null },
+): BaselineFact[] {
+  if (key.roomTypeId === "" || key.guestCount === null || key.taskType === null) return [];
+  return rows
+    .filter(
+      (row) =>
+        row.isReliable &&
+        row.roomTypeId === key.roomTypeId &&
+        row.guestCount === key.guestCount &&
+        row.taskType === key.taskType,
+    )
+    .map((row) => ({
+      itemCode: row.itemCode,
+      sampleSize: row.sampleSize,
+      medianQty: row.medianQty,
+      // **手動上書きがあればそちらを使う**（PK-SPEC-P3 §5.5）。
+      // 上書きは「うちの実態はこう」という運用の宣言で、算出値より優先する。
+      p90Qty: row.manualOverride ?? row.p90Qty,
+      isReliable: row.isReliable,
+    }));
+}
+
+/** 監査ログの `after` を読む。**壊れていたら `null`**（例外にしない）。 */
+function parseAuditPayload(raw: string | null): Record<string, unknown> | null {
+  if (raw === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 監査ログの 1 行（`listAuditLogs()` が返す形の必要な部分）。 */
+type AuditRow = {
+  actorId: string;
+  action: string;
+  targetId: string | null;
+  after: string | null;
+  at: Date;
+};
+
+/**
+ * 客室ステータスの手動上書きを取り出す（R010 / §3.8）。
+ *
+ * 元は `room.statusOverridden`（security.md §6）。`targetId` が客室 ID で、
+ * `after` に更新後の状態が入る。**形が読めない行は落とす**
+ * （監査ログの形は書き手が決めており、ここで例外にすると照合全体が止まる）。
+ */
+export function statusOverridesOf(rows: readonly AuditRow[]): StatusOverrideFact[] {
+  const overrides: StatusOverrideFact[] = [];
+  for (const row of rows) {
+    if (row.action !== "room.statusOverridden" || row.targetId === null) continue;
+    const after = parseAuditPayload(row.after);
+    const toStatus = after?.["housekeepingStatus"];
+    if (typeof toStatus !== "string") continue;
+    overrides.push({ roomId: row.targetId, actorId: row.actorId, at: row.at.getTime(), toStatus });
+  }
+  return overrides;
+}
+
+/**
+ * 稼働記録の取消を取り出す（R014 / §3.10）。
+ *
+ * 元は `occupancy.imported` の `after.changes[]`
+ * （`{ roomId, field, before, after }` / `repositories/occupancy.ts`）。
+ * **`isOccupied` が `true → false` になった行だけ**を拾う。
+ *
+ * @returns 客室 ID → 取消の時刻（複数あれば最後の 1 つ）。
+ */
+export function occupancyRevocationsOf(
+  rows: readonly AuditRow[],
+  businessDate: string,
+): Map<string, number> {
+  const revoked = new Map<string, number>();
+  for (const row of rows) {
+    if (row.action !== "occupancy.imported") continue;
+    const after = parseAuditPayload(row.after);
+    // **その業務日ぶんの取込だけ。** 別の日の取込で同じ客室が変わっても関係ない。
+    if (after?.["businessDate"] !== businessDate) continue;
+
+    const changes = after["changes"];
+    if (!Array.isArray(changes)) continue;
+    for (const change of changes as { roomId?: unknown; field?: unknown; before?: unknown; after?: unknown }[]) {
+      if (change.field !== "isOccupied") continue;
+      if (change.before !== true || change.after !== false) continue;
+      if (typeof change.roomId !== "string") continue;
+      revoked.set(change.roomId, row.at.getTime());
+    }
+  }
+  return revoked;
+}
+
+/**
+ * その客室の取消を engine の形へ（R014）。
+ *
+ * **清掃が完了していなければ `null`。** §3.10 の条件は「清掃完了後に」で、
+ * 完了時刻が無ければ「後」を判定できない。
+ */
+export function revocationFor(
+  revocations: ReadonlyMap<string, number>,
+  roomId: string,
+  cleaningCompletedAt: number | null,
+): OccupancyRevocationFact | null {
+  const at = revocations.get(roomId);
+  if (at === undefined || cleaningCompletedAt === null) return null;
+  return { at, cleaningCompletedAt };
+}
+
+/** `occupancy.checkOutAt` を業務日へ（R004 / §3.5）。**無ければ `null`。** */
+export function checkOutBusinessDateOf(
+  occupancy: OccupancyFact | null,
+  property: { timezone: string; dayCutoffTime: string },
+): string | null {
+  if (occupancy?.checkOutAt == null) return null;
+  return businessDateOf(new Date(occupancy.checkOutAt), property.timezone, property.dayCutoffTime);
+}
+
+/**
+ * 退室日と当日の間に他の稼働記録があったか（R004 / §3.5）。
+ *
+ * ── 読むのは「空いている客室」だけ ──────────────────────
+ * 退室が当日か前日の客室（＝通常の運用）は調べない。**1 施設ぶんの
+ * 稼働記録を日数ぶん読むのは高い**（§10.6 の応答時間）ので、
+ * 該当する客室が 1 室も無ければクエリを 1 本も出さない。
+ *
+ * @returns 客室 ID → `true`（間に稼働があった）/ `false`（無かった）。
+ *   **調べなかった客室は Map に載せない**（呼び出し側で `null` になる）。
+ */
+async function collectOccupancyBetween(
+  env: Env,
+  ctx: TenantContext,
+  input: {
+    propertyId: string;
+    businessDate: string;
+    property: { timezone: string; dayCutoffTime: string };
+    rooms: readonly { id: string; occupancy: OccupancyFact | null }[];
+  },
+): Promise<Map<string, boolean>> {
+  const result = new Map<string, boolean>();
+
+  const candidates = input.rooms.flatMap((room) => {
+    const checkOutDate = checkOutBusinessDateOf(room.occupancy, input.property);
+    if (checkOutDate === null) return [];
+    const gap = businessDateDiff(checkOutDate, input.businessDate);
+    // 「翌営業日以降」＝ 2 日以上。**遠すぎるものは調べない**（冒頭の注記）。
+    if (gap === null || gap < 2 || gap > CHECKOUT_GAP_MAX_DAYS) return [];
+    return [{ roomId: room.id, checkOutDate }];
+  });
+  if (candidates.length === 0) return result;
+
+  // 対象の中で最も古い退室日から前日までを 1 回で読む。
+  const earliest = candidates.reduce(
+    (oldest, row) => (row.checkOutDate < oldest ? row.checkOutDate : oldest),
+    candidates[0]?.checkOutDate ?? input.businessDate,
+  );
+  const rows = await listOccupancyInRange(env, ctx, {
+    propertyId: input.propertyId,
+    from: shiftBusinessDate(earliest, 1),
+    to: shiftBusinessDate(input.businessDate, -1),
+  });
+
+  for (const candidate of candidates) {
+    const between = rows.some(
+      (row) =>
+        row.roomId === candidate.roomId &&
+        row.businessDate > candidate.checkOutDate &&
+        row.businessDate < input.businessDate &&
+        row.isOccupied,
+    );
+    result.set(candidate.roomId, between);
+  }
+  return result;
 }
 
 /**

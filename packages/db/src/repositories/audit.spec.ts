@@ -190,6 +190,14 @@ describe("INV-30: 監査ログを消せない", () => {
       }));
   }
 
+  /**
+   * `audit.ts` が公開してよい関数。**この並びが増えるのは根拠のあるときだけ。**
+   *
+   * テストの中で 2 度使うので定数にしてある（上のテストは「意図した一覧か」を、
+   * 下のテストは「実装が一覧と一致するか」を見る）。
+   */
+  const EXPECTED_FUNCTIONS = ["recordAudit", "listAuditLogs"];
+
   it("auditLog に対する update / delete がリポジトリに存在しない", () => {
     // INV-30 / PK-IMPL-CONTRACT §11.4。訂正は新レコードの追加で行う。
     for (const { file, code } of repositorySources()) {
@@ -198,13 +206,25 @@ describe("INV-30: 監査ログを消せない", () => {
     }
   });
 
-  it("audit.ts が公開するのは recordAudit と定数だけ", async () => {
-    // 読み取り・検索・エクスポートは P0-11 のスコープ外。
-    // 削除・更新の関数をここへ足さないこと。
+  it("audit.ts が公開するのは書き込み 1 つと絞り込み付きの読み取りだけ", () => {
+    // **削除・更新の関数をここへ足さないこと**（INV-30）。
+    //
+    // P4-12 が `listAuditLogs()` を足した。R010（客室ステータスの手動上書き
+    // 頻発 / PK-SPEC-P4 §3.8）と R014（稼働記録の事後変更 / §3.10）の根拠は
+    // 監査ログにしか無い。**期間と操作種別が必須**なので「全部読む」呼び出しは
+    // 書けない（`AuditLogFilter`）。
+    //
+    // ここは名前の一覧を固定するだけ。**汎用の閲覧・検索・エクスポートを
+    // 足すときは、この一覧に載せる前に権限（誰が監査ログを読めるか）を
+    // 決めること。**
+    expect(EXPECTED_FUNCTIONS).toEqual(["recordAudit", "listAuditLogs"]);
+  });
+
+  it("公開している関数が上の一覧と一致する", async () => {
     const module: Record<string, unknown> = await import("./audit.js");
     const functions = Object.entries(module)
       .filter(([, value]) => typeof value === "function")
       .map(([name]) => name);
-    expect(functions).toEqual(["recordAudit"]);
+    expect(functions).toEqual(EXPECTED_FUNCTIONS);
   });
 });
