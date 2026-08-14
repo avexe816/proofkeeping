@@ -391,6 +391,20 @@ const FINDING = (id: typeof OWN_ID | typeof OTHER_ID) => ({
   matchedSignals: ["BEDS_USED", "TRASH_PRESENT"],
 });
 
+/** 業務上の入室 1 件（P4-10 / 同 §2.3）。**宿泊者の情報を持たない。** */
+const ACCESS_LOG_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) =>
+  ({
+    propertyId: id.property,
+    roomId: id.room,
+    businessDate: "2026-09-09",
+    purpose: "INSPECTION",
+    enteredAt: new Date("2026-09-09T02:00:00Z"),
+    exitedAt: null,
+    actorName: null,
+    note: null,
+    registeredById: id.membership,
+  }) as const;
+
 const INVOCATIONS: Invocation[] = [
   {
     name: "audit.recordAudit",
@@ -523,6 +537,13 @@ const INVOCATIONS: Invocation[] = [
     kind: "tenant",
     run: (env, ctx) => roomRepo.findRoomById(env, ctx, OWN_ID.room),
     crossTenant: (env, ctx) => roomRepo.findRoomById(env, ctx, OTHER_ID.room),
+  },
+  {
+    // **`crossTenant` を置いていない。** まとめ引きなので越境 ID は例外に
+    // ならず、組織条件で落ちて Map に現れない（`listFindings()` と同じ形）。
+    name: "room.listRoomNumbersByIds",
+    kind: "tenant",
+    run: (env, ctx) => roomRepo.listRoomNumbersByIds(env, ctx, [OWN_ID.room]),
   },
   {
     name: "room.countSellableRoomsByProperty",
@@ -1910,6 +1931,69 @@ const INVOCATIONS: Invocation[] = [
     kind: "tenant",
     run: (env, ctx) => reconciliationRepo.findFindingById(env, ctx, OWN_ID.finding),
     crossTenant: (env, ctx) => reconciliationRepo.findFindingById(env, ctx, OTHER_ID.finding),
+  },
+  // ── P4-06 / P4-07 / P4-10 が足したもの ────────────────────
+  {
+    // 状態ごとの件数（W-06 のヘッダー / §6.1）。施設は任意。
+    name: "reconciliation.countFindingsByStatus",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.countFindingsByStatus(env, ctx, { propertyId: OWN_ID.property }),
+  },
+  {
+    // 抑制された差異の件数（§4.3）。
+    name: "reconciliation.sumSuppressedFindings",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.sumSuppressedFindings(env, ctx, { propertyId: OWN_ID.property }),
+  },
+  {
+    name: "reconciliation.updateFindingStatus",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.updateFindingStatus(env, ctx, {
+        findingId: OWN_ID.finding,
+        status: "REVIEWING",
+        resolutionCode: null,
+        resolutionNote: null,
+        resolvedById: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.updateFindingStatus(env, ctx, {
+        findingId: OTHER_ID.finding,
+        status: "REVIEWING",
+        resolutionCode: null,
+        resolutionNote: null,
+        resolvedById: OWN_ID.membership,
+      }),
+  },
+  {
+    name: "reconciliation.insertDetectionFeedback",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.insertDetectionFeedback(env, ctx, {
+        propertyId: OWN_ID.property,
+        roomId: OWN_ID.room,
+        ruleCode: "R001",
+        outcome: "FALSE_POSITIVE",
+        reasonCode: "DATA_ERROR",
+      }),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.insertDetectionFeedback(env, ctx, {
+        propertyId: OTHER_ID.property,
+        roomId: OTHER_ID.room,
+        ruleCode: "R001",
+        outcome: "FALSE_POSITIVE",
+        reasonCode: "DATA_ERROR",
+      }),
+  },
+  {
+    name: "reconciliation.createRoomAccessLog",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.createRoomAccessLog(env, ctx, ACCESS_LOG_INPUT(OWN_ID)),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.createRoomAccessLog(env, ctx, ACCESS_LOG_INPUT(OTHER_ID)),
   },
 ];
 

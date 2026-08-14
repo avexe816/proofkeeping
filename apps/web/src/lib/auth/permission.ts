@@ -87,6 +87,33 @@ export const PERMISSION_ACTIONS = {
    */
   "reconciliation.run": { write: true },
   /**
+   * 差異の状態変更（P4-07 / PK-SPEC-P4 §6.3・§6.4）。
+   *
+   * §6.4 の表で「状態の変更」が ○ なのは `OWNER` / `ORG_ADMIN` だけ。
+   * **`PROPERTY_MANAGER` は読めるが閉じられない**（`finding.read` は
+   * `ASSIGNED`）。差異を閉じる判断は組織の内部統制の話で、
+   * 差異の当事者になりうる施設側に委ねない。`AUDITOR` は
+   * security.md §1 の「書き込み操作を一切できない」。
+   */
+  "finding.write": { write: true },
+  /**
+   * 業務上の入室記録（P4-10 / PK-SPEC-P4 §2.3・§4.1）。
+   *
+   * **§6.4 の権限表にこの操作の行が無い**（あの表は差異レポートの
+   * 閲覧・状態変更・ルール設定・再実行・エクスポート）。DECISIONS #115 で
+   * 次のように決めた。
+   *
+   *   - 書き込みは `PROPERTY_MANAGER` 以上。**現場ロールに与えない。**
+   *     登録すると §4.1 でその客室・業務日の差異が抑制される。
+   *     照合の対象になる側が自分で抑制を作れる形にしない
+   *     （§11 の「清掃員が入力を歪める」と同じ筋）。
+   *   - `VENDOR_ADMIN` も DENY。受託した清掃会社が自社の作業日の差異を
+   *     消せると、差異レポートが清掃会社との合意の材料にならない。
+   *   - 閲覧は `AUDITOR` にも開く（読取専用・内部統制の確認）。
+   */
+  "roomAccess.read": { write: false },
+  "roomAccess.write": { write: true },
+  /**
    * 忘れ物の保管場所・返却先。**`CLEANER` は見られない**（security.md §1）。
    * 忘れ物そのものの記録とは別の操作。P0 に実体は無い。
    */
@@ -545,6 +572,36 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // PK-SPEC-P4 §6.4: 状態の変更は OWNER / ORG_ADMIN だけ（表のとおり）。
+  "finding.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // P4-10。**登録は抑制を作る操作**（§4.1）。現場ロールと受託側には与えない
+  // （`PERMISSION_ACTIONS` の注記 / DECISIONS #115）。
+  "roomAccess.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "roomAccess.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
     INSPECTOR: "DENY",
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",

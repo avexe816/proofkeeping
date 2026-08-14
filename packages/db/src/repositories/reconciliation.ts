@@ -21,7 +21,7 @@
  * 実態とずれる。P4-02 の取込と同じ判断。
  */
 
-import { and, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -33,10 +33,12 @@ import {
   reconciliationRun,
   roomAccessLog,
   ruleConfig,
+  type DetectionOutcome,
   type FindingSeverity,
   type FindingStatus,
   type ReconciliationRunStatus,
   type ReconciliationSource,
+  type RoomAccessPurpose,
   type RuleCode,
 } from "../schema/reconciliation.js";
 
@@ -87,22 +89,38 @@ export async function listPhysicalSignals(
     .orderBy(physicalSignal.occurredAt, physicalSignal.id);
 }
 
+/**
+ * `listRoomAccessLogs()` の絞り込み。
+ *
+ * **業務日は 1 日でも期間でも指定できる。** 照合は 1 日ぶん（`businessDate`）、
+ * 登録の一覧（W-06 の付随画面 / P4-10）は期間で読む。
+ */
+export interface RoomAccessFilter {
+  propertyId: string;
+  businessDate?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
+  roomId?: string | undefined;
+  limit?: number | undefined;
+}
+
 /** 正当な入室の記録（§2.3）。**あれば差異を抑制する**（§4.1）。 */
-export async function listRoomAccessLogs(
-  env: Env,
-  ctx: TenantContext,
-  filter: PropertyDateFilter,
-) {
+export async function listRoomAccessLogs(env: Env, ctx: TenantContext, filter: RoomAccessFilter) {
   assertIdBelongsToTenant(filter.propertyId, ctx);
   const db = await getTenantDb(env, ctx);
 
   return db
     .select({
       id: roomAccessLog.id,
+      propertyId: roomAccessLog.propertyId,
       roomId: roomAccessLog.roomId,
+      businessDate: roomAccessLog.businessDate,
       purpose: roomAccessLog.purpose,
       enteredAt: roomAccessLog.enteredAt,
       exitedAt: roomAccessLog.exitedAt,
+      actorName: roomAccessLog.actorName,
+      note: roomAccessLog.note,
+      registeredAt: roomAccessLog.registeredAt,
     })
     .from(roomAccessLog)
     .where(
@@ -111,10 +129,70 @@ export async function listRoomAccessLogs(
         ctx,
         roomAccessLog.propertyId,
         eq(roomAccessLog.propertyId, filter.propertyId),
-        eq(roomAccessLog.businessDate, filter.businessDate),
+        filter.businessDate === undefined
+          ? undefined
+          : eq(roomAccessLog.businessDate, filter.businessDate),
+        filter.from === undefined ? undefined : gte(roomAccessLog.businessDate, filter.from),
+        filter.to === undefined ? undefined : lte(roomAccessLog.businessDate, filter.to),
+        filter.roomId === undefined ? undefined : eq(roomAccessLog.roomId, filter.roomId),
       ),
     )
-    .orderBy(roomAccessLog.enteredAt, roomAccessLog.id);
+    .orderBy(roomAccessLog.enteredAt, roomAccessLog.id)
+    .limit(filter.limit ?? 500);
+}
+
+/** `createRoomAccessLog()` の入力。**業務日は呼び出し側が日締め時刻から決める。** */
+export interface CreateRoomAccessLogInput {
+  propertyId: string;
+  roomId: string;
+  businessDate: string;
+  purpose: RoomAccessPurpose;
+  enteredAt: Date;
+  exitedAt: Date | null;
+  /** 立ち入った担当者名。**宿泊者ではない**（security.md §3・§5）。 */
+  actorName: string | null;
+  note: string | null;
+  registeredById: string;
+}
+
+/**
+ * 入室記録を 1 件足す（§2.3）。
+ *
+ * ── 上書きも取消も無い ──────────────────────────────────
+ * `updateRoomAccessLog()` も `deleteRoomAccessLog()` も作らない。
+ * この表は**差異を抑制する根拠**（§4.1）なので、後から書き換えられると
+ * 「抑制されたのは登録があったからか、登録が消えたからか」が読めなくなる。
+ * 誤登録の訂正は、正しい記録を足したうえで `note` に残す運用にする。
+ */
+export async function createRoomAccessLog(
+  env: Env,
+  ctx: TenantContext,
+  input: CreateRoomAccessLogInput,
+): Promise<string> {
+  assertIdBelongsToTenant(input.propertyId, ctx);
+  assertIdBelongsToTenant(input.roomId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const id = generateId(ctx.orgShortId, "racc");
+  await db.insert(roomAccessLog).values({
+    id,
+    organizationId: ctx.organizationId,
+    propertyId: input.propertyId,
+    roomId: input.roomId,
+    businessDate: input.businessDate,
+    purpose: input.purpose,
+    enteredAt: input.enteredAt,
+    exitedAt: input.exitedAt,
+    // **`actorId` を書かない。** 立ち入るのは外部業者のこともあり、
+    // 組織内の `membership` に必ず対応するとは限らない。名前だけを残す。
+    actorId: null,
+    actorName: input.actorName,
+    note: input.note,
+    registeredById: input.registeredById,
+    registeredAt: ctx.now,
+  });
+
+  return id;
 }
 
 /**
@@ -513,6 +591,175 @@ export async function listFindings(env: Env, ctx: TenantContext, filter: Finding
     // 並べ替えは画面側（W-06 / P4-06）が語彙の順序を知って行う。
     .orderBy(desc(auditFinding.businessDate), desc(auditFinding.createdAt))
     .limit(filter.limit ?? 200);
+}
+
+/**
+ * 状態ごとの件数（W-06 の「未対応 12 ・ 確認中 3 ・ …」/ §6.1）。
+ *
+ * **一覧の `limit` に左右されない。** 画面が 200 件で切っていても、
+ * ヘッダーの件数はその期間の全件を数える。
+ */
+export async function countFindingsByStatus(
+  env: Env,
+  ctx: TenantContext,
+  filter: FindingFilter = {},
+): Promise<Map<FindingStatus, number>> {
+  const db = await getTenantDb(env, ctx);
+
+  const rows = await db
+    .select({ status: auditFinding.status, count: sql<number>`count(*)` })
+    .from(auditFinding)
+    .where(
+      withTenantScope(
+        auditFinding,
+        ctx,
+        auditFinding.propertyId,
+        filter.propertyId === undefined
+          ? undefined
+          : eq(auditFinding.propertyId, filter.propertyId),
+        filter.from === undefined ? undefined : gte(auditFinding.businessDate, filter.from),
+        filter.to === undefined ? undefined : lte(auditFinding.businessDate, filter.to),
+        filter.severity === undefined
+          ? undefined
+          : inArray(auditFinding.severity, [...filter.severity]),
+        filter.ruleCode === undefined ? undefined : eq(auditFinding.ruleCode, filter.ruleCode),
+      ),
+    )
+    .groupBy(auditFinding.status);
+
+  return new Map(rows.map((row) => [row.status, row.count]));
+}
+
+/**
+ * 抑制された差異の件数（§4.3 の「抑制された差異 N 件」）。
+ *
+ * ── 差異の表からは数えられない ──────────────────────────
+ * 抑制はルールを**呼ぶ前**に効く（`suppression.ts`）ので、
+ * `auditFinding` に行は残らない。数えられるのは
+ * `reconciliationRun.findingsSuppressed` だけ。
+ *
+ * ── 同じ日の複数 Run を足さない ─────────────────────────
+ * `engineVersion` が違えば同じ施設・同じ業務日に Run が 2 行できる
+ * （§5.4）。単純に合計すると同じ抑制を二重に数える。**施設 × 業務日の
+ * 最大値を採る**（最新のエンジンが見た抑制の数）。
+ */
+export async function sumSuppressedFindings(
+  env: Env,
+  ctx: TenantContext,
+  filter: { propertyId?: string | undefined; from?: string | undefined; to?: string | undefined },
+): Promise<number> {
+  const db = await getTenantDb(env, ctx);
+
+  const rows = await db
+    .select({
+      propertyId: reconciliationRun.propertyId,
+      businessDate: reconciliationRun.businessDate,
+      suppressed: sql<number>`max(${reconciliationRun.findingsSuppressed})`,
+    })
+    .from(reconciliationRun)
+    .where(
+      withTenantScope(
+        reconciliationRun,
+        ctx,
+        reconciliationRun.propertyId,
+        filter.propertyId === undefined
+          ? undefined
+          : eq(reconciliationRun.propertyId, filter.propertyId),
+        filter.from === undefined ? undefined : gte(reconciliationRun.businessDate, filter.from),
+        filter.to === undefined ? undefined : lte(reconciliationRun.businessDate, filter.to),
+      ),
+    )
+    .groupBy(reconciliationRun.propertyId, reconciliationRun.businessDate);
+
+  return rows.reduce((total, row) => total + row.suppressed, 0);
+}
+
+/** `updateFindingStatus()` の入力。**状態と理由しか変えられない。** */
+export interface UpdateFindingStatusInput {
+  findingId: string;
+  status: Exclude<FindingStatus, "SUPPRESSED">;
+  resolutionCode: string | null;
+  resolutionNote: string | null;
+  /** 変更した人の `membership.id`。 */
+  resolvedById: string;
+}
+
+/**
+ * 差異の状態を変える（§6.3）。
+ *
+ * ── 差異そのものは書き換えない ──────────────────────────
+ * `severity` / `confidence` / `title` / `summary` / `evidence` を
+ * 引数に取らない。照合が出した根拠を人が上書きできる形にしない。
+ *
+ * ── 閉じていない状態では解決の跡を残さない ──────────────
+ * `OPEN` / `REVIEWING` へ戻したときは `resolvedAt` / `resolvedById` /
+ * 解決コードを `null` に戻す。**「解決済みの時刻を持ったまま未対応」を
+ * 作らない。**
+ *
+ * @returns 更新できたら真。他組織の行・存在しない行なら偽。
+ */
+export async function updateFindingStatus(
+  env: Env,
+  ctx: TenantContext,
+  input: UpdateFindingStatusInput,
+): Promise<boolean> {
+  assertIdBelongsToTenant(input.findingId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const closed = input.status === "RESOLVED" || input.status === "FALSE_POSITIVE";
+  const result = await db
+    .update(auditFinding)
+    .set({
+      status: input.status,
+      resolutionCode: closed ? input.resolutionCode : null,
+      resolutionNote: closed ? input.resolutionNote : null,
+      resolvedAt: closed ? ctx.now : null,
+      resolvedById: closed ? input.resolvedById : null,
+    })
+    .where(
+      and(eq(auditFinding.organizationId, ctx.organizationId), eq(auditFinding.id, input.findingId)),
+    );
+
+  return result.meta.changes > 0;
+}
+
+/** `insertDetectionFeedback()` の入力。 */
+export interface DetectionFeedbackInput {
+  propertyId: string;
+  /** 施設全体の傾向として記録するときは null（§2.6）。 */
+  roomId: string | null;
+  ruleCode: RuleCode;
+  outcome: DetectionOutcome;
+  reasonCode: string | null;
+}
+
+/**
+ * 誤検知の学習を 1 件足す（§2.6 / §1.4）。
+ *
+ * **追記のみ。** 取り消したいときは反対の `outcome` を足す（schema の注記）。
+ * §4.2 が直近 30 日の `FALSE_POSITIVE` を数えて重要度を下げる。
+ */
+export async function insertDetectionFeedback(
+  env: Env,
+  ctx: TenantContext,
+  input: DetectionFeedbackInput,
+): Promise<string> {
+  assertIdBelongsToTenant(input.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const id = generateId(ctx.orgShortId, "dfb");
+  await db.insert(detectionFeedback).values({
+    id,
+    organizationId: ctx.organizationId,
+    propertyId: input.propertyId,
+    roomId: input.roomId,
+    ruleCode: input.ruleCode,
+    outcome: input.outcome,
+    reasonCode: input.reasonCode,
+    createdAt: ctx.now,
+  });
+
+  return id;
 }
 
 /** 1 件だけ引く。**越境 ID は DB へ行く前に `NotFoundError`（→ 404）。** */

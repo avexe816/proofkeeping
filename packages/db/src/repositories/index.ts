@@ -197,6 +197,7 @@ export {
   createRooms,
   findRoomById,
   listFloors,
+  listRoomNumbersByIds,
   listRooms,
   setHousekeepingStatus,
   setRoomSaleStatus,
@@ -344,9 +345,12 @@ export {
 // **既にある差異には触らない**（同 §5.3 MUST）。人が付けた `status` を
 // 再実行が書き換えないことが、冪等性そのもの（同 §10.2）。
 export {
+  countFindingsByStatus,
+  createRoomAccessLog,
   findFindingById,
   findReconciliationRunById,
   finishReconciliationRun,
+  insertDetectionFeedback,
   insertFindings,
   listFindings,
   listPhysicalSignals,
@@ -355,11 +359,17 @@ export {
   listRoomAccessLogs,
   listRuleConfigs,
   startReconciliationRun,
+  sumSuppressedFindings,
+  updateFindingStatus,
+  type CreateRoomAccessLogInput,
+  type DetectionFeedbackInput,
   type FindingFilter,
   type FindingInput,
   type FinishRunInput,
   type InsertFindingsParams,
   type InsertFindingsResult,
   type PropertyDateFilter,
+  type RoomAccessFilter,
   type StartRunInput,
+  type UpdateFindingStatusInput,
 } from "./reconciliation.js";
