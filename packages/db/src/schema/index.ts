@@ -193,8 +193,41 @@ export {
   type SignalType,
 } from "./reconciliation.js";
 
-// 外部システムとの ID 対応（P0-22 は定義のみ。使用は P6）。
-export { EXTERNAL_ENTITY_TYPES, externalMapping } from "./integration.js";
+// 外部連携（P6-01 / PK-SPEC-P6 §2・§6）。`externalMapping` は P0-22 が
+// 定義だけ置いた表で、読み書きは P6 から。
+// **平文の資格情報を持つ列が 1 つも無い**（security.md §7 / DECISIONS #138）。
+// 仕様 §2.1 の `webhookSecret` と §6.4 の `secret` は KV の参照キーに読み替えてある。
+export {
+  API_SCOPES,
+  EXTERNAL_ENTITY_TYPES,
+  INTEGRATION_KINDS,
+  INTEGRATION_STATUSES,
+  NOTIFICATION_CHANNELS,
+  NOTIFICATION_EVENT_CODES,
+  OUTBOUND_WEBHOOK_EVENTS,
+  SYNC_DIRECTIONS,
+  SYNC_MODES,
+  SYNC_STATUSES,
+  SYNC_TRIGGERS,
+  apiKey,
+  externalMapping,
+  integration,
+  notificationPreference,
+  outboundWebhook,
+  pushSubscription,
+  syncLog,
+  type ApiScope,
+  type ExternalEntityType,
+  type IntegrationKind,
+  type IntegrationStatus,
+  type NotificationChannel,
+  type NotificationEventCode,
+  type OutboundWebhookEvent,
+  type SyncDirection,
+  type SyncMode,
+  type SyncStatus,
+  type SyncTrigger,
+} from "./integration.js";
 
 // 請求・領収（P5-01 / PK-SPEC-P5 §2）。
 // **発行済み帳票は消せない**（billing.md §2）。訂正は赤伝＋再発行。

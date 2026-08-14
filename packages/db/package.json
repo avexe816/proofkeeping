@@ -10,7 +10,8 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260804.1",
     "@pk/billing": "workspace:*",
-    "@pk/config": "workspace:*"
+    "@pk/config": "workspace:*",
+    "@pk/integrations": "workspace:*"
   },
   "dependencies": {
     "@pk/contracts": "workspace:*",

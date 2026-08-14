@@ -270,6 +270,15 @@ export const physicalSignal = sqliteTable(
       t.signalType,
     ),
     index("idx_sig_time").on(t.organizationId, t.propertyId, t.occurredAt),
+    // P6-04 が足した重複排除の鍵（PK-SPEC-P6 §4.2 MUST:「同一イベントの重複
+    // 受信を `(deviceId, type, occurredAt)` で排除する」）。外部システムは
+    // 200 を受け取る前に切れれば同じイベントを再送する。
+    //
+    // **`deviceId` が NULL の行は重ならない**（SQLite の UNIQUE は NULL 同士を
+    // 等しいとみなさない）。受信口（`insertPhysicalSignals()`）は必ず
+    // `deviceId` を入れるので、抜けるのは機器 ID を持たない経路だけ。
+    // 手入力の経路を足すときは、この索引が効かないことを前提にすること。
+    uniqueIndex("uq_signal").on(t.organizationId, t.deviceId, t.signalType, t.occurredAt),
   ],
 );
 

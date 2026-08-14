@@ -8,6 +8,7 @@ import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
 import { handleNotificationBatch } from "./consumers/notification.js";
 import { handleReconciliationBatch } from "./consumers/reconciliation.js";
 import { handleRollupUpdateBatch } from "./consumers/rollup.js";
+import { handleSignalIngestBatch, isSignalIngestMessage } from "./consumers/signalIngest.js";
 import {
   missingSecretNames,
   missingSecretsMessage,
@@ -56,6 +57,7 @@ import roomPlans from "./routes/api/v1/roomPlans.js";
 import billingPeriodsRoute from "./routes/api/v1/billingPeriods.js";
 import deliveriesRoute from "./routes/api/v1/deliveries.js";
 import invoicesRoute from "./routes/api/v1/invoices.js";
+import integrationWebhooksRoute from "./routes/api/v1/integrationWebhooks.js";
 import webhooksRoute from "./routes/api/v1/webhooks.js";
 import receiptsRoute from "./routes/api/v1/receipts.js";
 import counterparties from "./routes/api/v1/counterparties.js";
@@ -136,6 +138,10 @@ app.route("/api/v1/dev", dev);
 // Webhook（P5-10 / PK-SPEC-P5 §2.7）。**セッションを持たない経路。**
 // 守っているのは署名（security.md §7）。認証 middleware の前段に置く。
 app.route("/api/v1/webhooks", webhooksRoute);
+
+// 汎用 Webhook 受信口（P6-04 / PK-SPEC-P6 §4.2）。**同じくセッションを持たない。**
+// 守っているのは `X-PK-Signature`（HMAC-SHA256）で、検証失敗は 401。
+app.route("/api/v1/integrations", integrationWebhooksRoute);
 
 // 認証だけはセッション middleware（P0-10）より前段に置く。
 // セッションを作る経路がセッションを要求すると入口が無くなる。
@@ -315,8 +321,24 @@ export default {
       return;
     }
     // 稼働照合（P4-05 / PK-SPEC-P4 §5）。**二重起動は DO が断る。**
+    //
+    // **このキューは 2 種類のメッセージを運ぶ。** P6-04 が受信した物理
+    // シグナルの取込（`SIGNAL_INGEST`）を相乗りさせている。8 本目のキューを
+    // 足すと 4 環境ぶんの Cloudflare リソース作成が要り、人手を待つ間
+    // 受信口が動かせないため（docs/DECISIONS.md #140）。**`kind` で分ける。**
     if (batch.queue.startsWith("pk-reconciliation")) {
-      await handleReconciliationBatch(env, batch);
+      const signalIngest = batch.messages.filter((message) =>
+        isSignalIngestMessage(message.body),
+      );
+      const reconciliation = batch.messages.filter(
+        (message) => !isSignalIngestMessage(message.body),
+      );
+      if (signalIngest.length > 0) {
+        await handleSignalIngestBatch(env, { ...batch, messages: signalIngest });
+      }
+      if (reconciliation.length > 0) {
+        await handleReconciliationBatch(env, { ...batch, messages: reconciliation });
+      }
       return;
     }
     // 帳票の送付（P5-07 / PK-SPEC-P5 §4.1 の ⑩〜⑫）。

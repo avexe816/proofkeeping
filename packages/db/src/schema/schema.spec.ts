@@ -67,8 +67,10 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("61 テーブルを定義している", () => {
+  it("68 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
+      // P6-01。公開 API のキー（PK-SPEC-P6 §6.1）。**平文のキーを保存しない。**
+      "apiKey",
       // P4-01。差異（PK-SPEC-P4 §2.5）。**不正の認定ではない**（同 §1.1）。
       "auditFinding",
       "auditLog",
@@ -102,13 +104,16 @@ describe("P0-06 スキーマ", () => {
       "documentSequence",
       // P2-01。証跡スナップショット（PK-SPEC-P2 §3.7）。**INSERT のみ。**
       "evidenceSnapshot",
-      // P0-22。**定義のみ。読み書きは P6**（§24.4）。
+      // P0-22 が定義し、P6-01 が P6 の語彙に揃えた（PK-SPEC-P6 §2.3）。
       "externalMapping",
       "floor",
       // P2-01。検査 1 回ぶんと、その項目別結果・写真（同 §3.2・§3.3）。
       "inspection",
       "inspectionItemResult",
       "inspectionPhoto",
+      // P6-01。外部連携 1 接続ぶんの設定（PK-SPEC-P6 §2.1）。
+      // **`config` に資格情報を入れない**（security.md §7）。
+      "integration",
       // P5-01。請求書と明細（同 §2.3〜§2.5）。**発行したら消せない**（billing.md §2）。
       // 訂正は赤伝＋再発行。税額は税率ごとに 1 回だけ端数処理する（§2.5 MUST）。
       "invoice",
@@ -126,6 +131,8 @@ describe("P0-06 スキーマ", () => {
       "lostItemPhoto",
       "membership",
       "moduleEntitlement",
+      // P6-01。利用者ごとの通知設定（PK-SPEC-P6 §2.5）。**行が無い = 既定のまま。**
+      "notificationPreference",
       // P3-01。施設ごとの観察設定と、観察記録の事後修正履歴（同 §2.6 / §2.2）。
       "observationConfig",
       "observationRevision",
@@ -133,6 +140,8 @@ describe("P0-06 スキーマ", () => {
       "occupancySnapshot",
       "organization",
       "organizationTaxProfile",
+      // P6-01。送信 Webhook の宛先（PK-SPEC-P6 §6.4）。署名鍵は KV（`secretRef`）。
+      "outboundWebhook",
       // P0-08。直近 3 世代の再利用禁止のためだけの表。
       "passwordHistory",
       // P4-01。物理の痕跡（PK-SPEC-P4 §2.2）。**外部機器からの受信のみ。**
@@ -143,6 +152,8 @@ describe("P0-06 スキーマ", () => {
       "propertyAssignment",
       // P2-01。施設ごとの検査方式（同 §2.1）。
       "propertyInspectionPolicy",
+      // P6-01。Web Push の購読（PK-SPEC-P6 §2.4）。**空でも業務は成立する。**
+      "pushSubscription",
       // P5-01。領収書（同 §2.6）。**印紙貼付欄を持たない**（billing.md §3）。
       "receipt",
       // P4-01。照合の実行記録（PK-SPEC-P4 §2.4）。
@@ -160,6 +171,8 @@ describe("P0-06 スキーマ", () => {
       // P1-01 / P1-02。標準時間マスタ（客室タイプ × 清掃種別）。
       "standardTime",
       "subscription",
+      // P6-01。1 回ぶんの同期の記録（PK-SPEC-P6 §2.2）。**失敗も 1 行として残す。**
+      "syncLog",
       // P1-01。実施結果・写真・作業時間ログ。
       "taskChecklistResult",
       "taskPhoto",

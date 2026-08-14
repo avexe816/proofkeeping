@@ -684,3 +684,23 @@ export {
   type VendorPlanSummary,
   type VendorPropertyRow,
 } from "./vendorPlan.js";
+
+// 汎用 Webhook 受信口（P6-04 / PK-SPEC-P6 §4.2）。**宿泊者の欄が 1 つも無い。**
+// 未知の種類は 1 件だけ落として受信そのものは成功させる（`integration.ts` の注記）。
+export {
+  MAX_ACTOR_REF_LENGTH,
+  MAX_DEVICE_ID_LENGTH,
+  MAX_WEBHOOK_BODY_BYTES,
+  MAX_WEBHOOK_EVENTS,
+  SIGNAL_ACTOR_TYPES,
+  SIGNAL_TYPES,
+  signalActorTypeSchema,
+  signalTypeSchema,
+  webhookAcceptedSchema,
+  webhookSignalBodySchema,
+  webhookSignalEventSchema,
+  type SignalTypeValue,
+  type WebhookAccepted,
+  type WebhookSignalBody,
+  type WebhookSignalEvent,
+} from "./integration.js";

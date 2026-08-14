@@ -41,6 +41,7 @@ import * as dailyRouteRepo from "./dailyRoute.js";
 import * as entitlementRepo from "./entitlement.js";
 import * as evidenceRepo from "./evidence.js";
 import * as inspectionRepo from "./inspection.js";
+import * as integrationRepo from "./integration.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
 import * as invoiceRepo from "./invoice.js";
 import * as issueReportRepo from "./issueReport.js";
@@ -78,6 +79,9 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // **INSERT と SELECT だけ**であることも下で検査する（発行済み帳票）。
   dailyReport: dailyReportRepo,
   entitlement: entitlementRepo,
+  // P6-01 / P6-04 が登録した外部連携（PK-SPEC-P6 §2）。
+  // **資格情報を返す関数が無い**（返すのは KV の参照キーまで / security.md §7）。
+  integration: integrationRepo,
   // P2-08 が登録した証跡。**INSERT と SELECT だけ**であることも下で検査する。
   evidence: evidenceRepo,
   // P2-02 が登録した検査方式。P2-04 が検査そのもの。
@@ -153,6 +157,10 @@ const OWN_ID = {
   delivery: generateId(TEST_ORG.orgShortId, "dlv"),
   billingPeriod: generateId(TEST_ORG.orgShortId, "bper"),
   billingPeriodReview: generateId(TEST_ORG.orgShortId, "bprv"),
+  // P6-01 / P6-04。外部連携（PK-SPEC-P6 §2）。
+  integration: generateId(TEST_ORG.orgShortId, "intg"),
+  syncLog: generateId(TEST_ORG.orgShortId, "slog"),
+  externalMapping: generateId(TEST_ORG.orgShortId, "xmap"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -227,6 +235,9 @@ const OTHER_ID = {
   delivery: generateId(OTHER_ORG.orgShortId, "dlv"),
   billingPeriod: generateId(OTHER_ORG.orgShortId, "bper"),
   billingPeriodReview: generateId(OTHER_ORG.orgShortId, "bprv"),
+  integration: generateId(OTHER_ORG.orgShortId, "intg"),
+  syncLog: generateId(OTHER_ORG.orgShortId, "slog"),
+  externalMapping: generateId(OTHER_ORG.orgShortId, "xmap"),
 } as const;
 
 /**
@@ -2625,6 +2636,203 @@ const INVOCATIONS: Invocation[] = [
       reconciliationRepo.createRoomAccessLog(env, ctx, ACCESS_LOG_INPUT(OWN_ID)),
     crossTenant: (env, ctx) =>
       reconciliationRepo.createRoomAccessLog(env, ctx, ACCESS_LOG_INPUT(OTHER_ID)),
+  },
+
+  // ── P6-01 / P6-04。外部連携（PK-SPEC-P6 §2・§4.2）───────────
+  {
+    name: "integration.listIntegrations",
+    kind: "tenant",
+    run: (env, ctx) => integrationRepo.listIntegrations(env, ctx, { kind: "SMART_LOCK" }),
+  },
+  {
+    name: "integration.listOrgWideIntegrations",
+    kind: "tenant",
+    run: (env, ctx) => integrationRepo.listOrgWideIntegrations(env, ctx, "PMS"),
+  },
+  {
+    name: "integration.findIntegrationById",
+    kind: "tenant",
+    run: (env, ctx) => integrationRepo.findIntegrationById(env, ctx, OWN_ID.integration),
+    crossTenant: (env, ctx) => integrationRepo.findIntegrationById(env, ctx, OTHER_ID.integration),
+  },
+  {
+    name: "integration.createIntegration",
+    kind: "tenant",
+    run: (env, ctx) =>
+      integrationRepo.createIntegration(env, ctx, {
+        propertyId: OWN_ID.property,
+        kind: "SMART_LOCK",
+        vendorCode: "api-generic",
+        displayName: "汎用 Webhook",
+      }),
+    crossTenant: (env, ctx) =>
+      integrationRepo.createIntegration(env, ctx, {
+        propertyId: OTHER_ID.property,
+        kind: "SMART_LOCK",
+        vendorCode: "api-generic",
+        displayName: "汎用 Webhook",
+      }),
+  },
+  {
+    name: "integration.markIntegrationSynced",
+    kind: "tenant",
+    run: (env, ctx) =>
+      integrationRepo.markIntegrationSynced(env, ctx, {
+        integrationId: OWN_ID.integration,
+        ok: true,
+      }),
+    crossTenant: (env, ctx) =>
+      integrationRepo.markIntegrationSynced(env, ctx, {
+        integrationId: OTHER_ID.integration,
+        ok: false,
+      }),
+  },
+  {
+    name: "integration.startSyncLog",
+    kind: "tenant",
+    run: (env, ctx) =>
+      integrationRepo.startSyncLog(env, ctx, {
+        integrationId: OWN_ID.integration,
+        direction: "INBOUND",
+        trigger: "WEBHOOK",
+      }),
+    crossTenant: (env, ctx) =>
+      integrationRepo.startSyncLog(env, ctx, {
+        integrationId: OTHER_ID.integration,
+        direction: "INBOUND",
+        trigger: "WEBHOOK",
+      }),
+  },
+  {
+    name: "integration.finishSyncLog",
+    kind: "tenant",
+    run: (env, ctx) =>
+      integrationRepo.finishSyncLog(env, ctx, {
+        syncLogId: OWN_ID.syncLog,
+        status: "SUCCESS",
+        startedAt: TEST_NOW,
+      }),
+    crossTenant: (env, ctx) =>
+      integrationRepo.finishSyncLog(env, ctx, {
+        syncLogId: OTHER_ID.syncLog,
+        status: "SUCCESS",
+        startedAt: TEST_NOW,
+      }),
+  },
+  {
+    name: "integration.listSyncLogs",
+    kind: "tenant",
+    run: (env, ctx) => integrationRepo.listSyncLogs(env, ctx, { integrationId: OWN_ID.integration }),
+    crossTenant: (env, ctx) =>
+      integrationRepo.listSyncLogs(env, ctx, { integrationId: OTHER_ID.integration }),
+  },
+  {
+    // `rawSample` の保持 7 日（security.md §3）。**行そのものは消さない。**
+    name: "integration.purgeSyncLogRawSamples",
+    kind: "tenant",
+    run: (env, ctx) => integrationRepo.purgeSyncLogRawSamples(env, ctx, TEST_NOW),
+  },
+  {
+    name: "integration.listExternalMappings",
+    kind: "tenant",
+    run: (env, ctx) =>
+      integrationRepo.listExternalMappings(env, ctx, { integrationId: OWN_ID.integration }),
+    crossTenant: (env, ctx) =>
+      integrationRepo.listExternalMappings(env, ctx, { integrationId: OTHER_ID.integration }),
+  },
+  {
+    // **未マッピングを例外にしない**（PK-SPEC-P6 §2.3 MUST）。
+    name: "integration.resolveExternalIds",
+    kind: "tenant",
+    run: (env, ctx) =>
+      integrationRepo.resolveExternalIds(env, ctx, {
+        integrationId: OWN_ID.integration,
+        entityType: "ROOM",
+        externalIds: ["LOCK-302"],
+      }),
+    crossTenant: (env, ctx) =>
+      integrationRepo.resolveExternalIds(env, ctx, {
+        integrationId: OTHER_ID.integration,
+        entityType: "ROOM",
+        externalIds: ["LOCK-302"],
+      }),
+  },
+  {
+    name: "integration.countUnmappedExternalIds",
+    kind: "tenant",
+    run: (env, ctx) =>
+      integrationRepo.countUnmappedExternalIds(env, ctx, {
+        integrationId: OWN_ID.integration,
+        entityType: "ROOM",
+        externalIds: ["LOCK-302", "LOCK-303"],
+      }),
+    crossTenant: (env, ctx) =>
+      integrationRepo.countUnmappedExternalIds(env, ctx, {
+        integrationId: OTHER_ID.integration,
+        entityType: "ROOM",
+        externalIds: ["LOCK-302"],
+      }),
+  },
+  {
+    name: "integration.listMappedInternalIds",
+    kind: "tenant",
+    run: (env, ctx) =>
+      integrationRepo.listMappedInternalIds(env, ctx, {
+        integrationId: OWN_ID.integration,
+        entityType: "ROOM",
+      }),
+    crossTenant: (env, ctx) =>
+      integrationRepo.listMappedInternalIds(env, ctx, {
+        integrationId: OTHER_ID.integration,
+        entityType: "ROOM",
+      }),
+  },
+  {
+    name: "integration.upsertExternalMappings",
+    kind: "tenant",
+    run: (env, ctx) =>
+      integrationRepo.upsertExternalMappings(env, ctx, OWN_ID.integration, [
+        { entityType: "ROOM", internalId: OWN_ID.room, externalId: "302" },
+      ]),
+    crossTenant: (env, ctx) =>
+      integrationRepo.upsertExternalMappings(env, ctx, OWN_ID.integration, [
+        { entityType: "ROOM", internalId: OTHER_ID.room, externalId: "302" },
+      ]),
+  },
+  {
+    name: "integration.deactivateExternalMapping",
+    kind: "tenant",
+    run: (env, ctx) =>
+      integrationRepo.deactivateExternalMapping(env, ctx, OWN_ID.externalMapping),
+    crossTenant: (env, ctx) =>
+      integrationRepo.deactivateExternalMapping(env, ctx, OTHER_ID.externalMapping),
+  },
+  {
+    // 物理シグナルの受信（PK-SPEC-P6 §4.2）。**重複は排除される。**
+    name: "reconciliation.insertPhysicalSignals",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.insertPhysicalSignals(env, ctx, [
+        {
+          propertyId: OWN_ID.property,
+          roomId: OWN_ID.room,
+          businessDate: "2026-09-09",
+          signalType: "DOOR_UNLOCK",
+          occurredAt: TEST_NOW,
+          deviceId: "LOCK-302",
+        },
+      ]),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.insertPhysicalSignals(env, ctx, [
+        {
+          propertyId: OTHER_ID.property,
+          roomId: OTHER_ID.room,
+          businessDate: "2026-09-09",
+          signalType: "DOOR_UNLOCK",
+          occurredAt: TEST_NOW,
+          deviceId: "LOCK-302",
+        },
+      ]),
   },
 ];
 

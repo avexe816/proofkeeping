@@ -145,6 +145,16 @@ export const ENTITY_PREFIXES = [
   // **P0-21 で表だけ作り、書き込む側が無かったので接頭辞も無かった。**
   // 再計算 UPSERT を入れる P5-14 が採番する側になったため足す。
   "roll", // dailyPropertyRollup
+  // P6-01 が決めたもの（docs/DECISIONS.md #139）。外部連携（PK-SPEC-P6 §2・§6）。
+  // `external_mapping` は P0-22 が表だけ置き、読み書きする task が無かったので
+  // 接頭辞も無かった。マッピングを作る側になる P6 が採番する。
+  "intg", // integration
+  "slog", // syncLog
+  "xmap", // externalMapping
+  "psub", // pushSubscription
+  "npref", // notificationPreference
+  "akey", // apiKey
+  "owh", // outboundWebhook
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

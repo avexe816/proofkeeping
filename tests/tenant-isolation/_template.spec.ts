@@ -119,6 +119,15 @@ const TENANT_TABLES = [
   // P5-12。双方合意の履歴（同 §6.2 MUST）。差戻しコメントは取引の交渉
   // そのもので、混ざれば他社の値引き交渉が自社の画面に出る。
   "billing_period_review",
+  // P6-01。外部連携（PK-SPEC-P6 §2・§6）。**他組織の連携が 1 件混ざれば
+  // 他社の稼働記録を自社の照合へ流し込むことになる**（§8.5 の「他組織の
+  // integrationId で Webhook を投げると 404」）。
+  "integration",
+  "sync_log",
+  "push_subscription",
+  "notification_preference",
+  "api_key",
+  "outbound_webhook",
 ] as const;
 
 /**
@@ -138,7 +147,6 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   module_entitlement: "P0-12 は判定のみ。一覧を返す関数が無い",
   password_history: "認証内部でのみ使う。ID を取る一覧関数が無い（P0-08）",
   property_assignment: "認証ブートストラップ専用（P0-07 の申し送り）",
-  external_mapping: "P0-22 は定義のみ。読み書きは P6（§24.4）",
   subscription: "リポジトリ関数がまだ無い（P7-04）",
   user: "listUsers / findUserById はあるが、施設の次元を持たない。P0-14 以降で足す",
   // P2-01 は表と migration までの task。読み書きの関数はこの後の task が作る。
@@ -163,6 +171,14 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   rule_config:
     "施設の次元が任意（`propertyId = null` が組織既定）で施設スコープの検査を" +
     "掛けられない。設定画面を作る P4-13 が形を決めて spec を足す",
+  // P6-01 も表と migration までの task（P2-01 / P3-01 / P4-01 と同じ形）。
+  // `integration` / `sync_log` / `external_mapping` は P6-04 が受信口の
+  // 読み書きを作り、integration.spec.ts でカバーした。残る 4 表は下の task が
+  // 関数を作って行を消すこと。**表だけ足して放置しないこと。**
+  push_subscription: "購読の登録・失効は P6-10（Web Push）",
+  notification_preference: "既定チャネルと静音時間の解決は P6-09（通知基盤）",
+  api_key: "作成・失効・認証は P6-12（公開 API）",
+  outbound_webhook: "登録と配信は P6-13（送信 Webhook）",
 };
 
 describe("同一シャードの組織ペア（fixtures/shard-pairs.ts）", () => {

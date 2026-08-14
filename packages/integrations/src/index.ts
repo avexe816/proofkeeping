@@ -1,2 +1,28 @@
-// PMS・スマートロック等の外部連携アダプタ。実体は P6-03 以降。
-export {};
+/**
+ * PMS・スマートロック等の外部連携アダプタ（PK-SPEC-P6 §3 / §4）。
+ *
+ * **連携先固有の分岐はこのパッケージの中だけ**（§1.1 MUST）。
+ * `if (vendor === "xxx")` がここより外に出たら設計ミス。
+ *
+ * P6-03 の段階で公開しているのは型とインターフェースだけ。実アダプタは
+ * P6-06 以降（実接続する PMS が確定してから / §3.2 MUST「想定で作らない」）。
+ */
+
+export {
+  OCCUPANCY_CHANNEL_CODE_VALUES,
+  SIGNAL_ACTOR_TYPE_VALUES,
+  SIGNAL_TYPE_VALUES,
+  type Adapter,
+  type AdapterConfig,
+  type ExternalDevice,
+  type ExternalRoom,
+  type NormalizedOccupancy,
+  type NormalizedSignal,
+  type OccupancyAdapter,
+  type OccupancyCapabilities,
+  type OccupancyChannelCode,
+  type SignalActorType,
+  type SignalAdapter,
+  type SignalType,
+  type TestResult,
+} from "./core/types.js";

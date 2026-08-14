@@ -2979,3 +2979,69 @@
     （billing.md §4）。しきい値は `LOW_HOURLY_RATE_PERCENT`（契約側）。
   - 平均が出せない月（全社の請求額か実働時間が無い）は**警告を出さない。**
     比べる相手が無いときに「低い」と言わない。
+
+## #138 外部連携の秘密は DB に列を作らず、KV の参照キーだけを持つ
+
+- 日付: 2026-08-14
+- task: P6-01 / P6-02
+- 文脈: PK-SPEC-P6 §2.1 は `webhookSecret`、§6.4 は `secret` を**平文の列**として
+  定義している。一方 security.md §7 は「API キー・パスワードを DB に平文保存
+  しない。Workers KV に暗号化して保管し `credentialRef` で参照する」と定め、
+  P6-01 の完了条件も「認証情報のカラムに平文を入れない設計になっている」。
+  仕様書とルールが正面から食い違う。
+- 選択肢:
+  1. 仕様どおり平文の列を置く
+  2. 列を KV の参照キーに読み替える（`webhookSecretRef` / `secretRef`）
+- 決定: 2。
+- 理由: §8.5 の受け入れ基準が「**認証情報が KV に暗号化保存され、DB に平文が
+  ない**」を明記している。同じ仕様書の中で §2.1 のスニペットと §8.5 の基準が
+  食い違っており、基準の側が意図。列を平文にすると D1 のバックアップ 1 本で
+  全顧客の外部システムへ到達できる。
+- 影響:
+  - `integration.webhookSecretRef` / `outboundWebhook.secretRef`。
+  - 実体は `CREDENTIALS` KV に AES-GCM で暗号化して置く
+    （`apps/web/src/lib/integration/credentials.ts`）。**AAD に参照キーを入れる**
+    ので、暗号文を別のキーへ移し替えても復号できない。
+  - `pushSubscription.p256dh` / `auth` は KV へ出さない。あれは端末が発行した
+    宛先の一部で、漏れて起きるのは「その端末へ通知を送れる」こと。
+    外部システムへのログイン情報と危険度が違う。
+  - `apiKey.keyHash` はハッシュなので列のまま。**平文のキーはどこにも残さない**
+    （§6.1 MUST）。
+
+## #139 外部連携の 7 表に entityPrefix を足す
+
+- 日付: 2026-08-14
+- task: P6-01
+- 文脈: `external_mapping` は P0-22 が表だけ置き、読み書きする task が無かった
+  ので接頭辞も無かった。P6 が読み書きする側になる。
+- 決定: `intg` / `slog` / `xmap` / `psub` / `npref` / `akey` / `owh` を足す。
+- 理由: ID は自己記述（`{orgShortId}__{prefix}_{ulid}` / architecture.md §2
+  第 2 層）。接頭辞が無い表は `generateId()` を通せず、越境 ID の検証
+  （`assertIdBelongsToTenant()`）も掛からない。
+- 影響: `ENTITY_PREFIXES` の末尾に 7 個。**並びと綴りを変えないこと**
+  （ID は永続データ）。
+
+## #140 物理シグナルの取込は専用キューを作らず `pk-reconciliation` に相乗りする
+
+- 日付: 2026-08-14
+- task: P6-04
+- 文脈: §4.2 は「受信は 200 を即返し、処理は Queue へ」と定める。しかし
+  architecture.md §5 のキューは 7 本で、`wrangler.toml` に静的宣言してある
+  （`tests/toolchain/wrangler.spec.ts` が本数を固定する）。8 本目を足すと
+  `wrangler queues create` を 4 環境ぶん人手で行う必要があり、**その間
+  受信口を出荷できない**（workflow.md §2 の「飛ばす条件」に当たる）。
+- 選択肢:
+  1. `pk-integration-inbound` を新設し、人手を待つ
+  2. `pk-reconciliation` に相乗りし、メッセージの `kind` で分ける
+- 決定: 2。
+- 理由: 物理シグナルは照合の C 系統の入力そのもので、宛先として離れていない。
+  `queue()` は全 binding 共通の入口で、もともと**キュー名で振り分けている**
+  （`apps/web/src/index.ts`）。1 段深く `kind` で分けるだけで、
+  `ReconciliationMessage` と同じ判別方式が使える。
+- 影響:
+  - `apps/web/src/index.ts` の `pk-reconciliation` 分岐が、バッチを
+    `isSignalIngestMessage()` で 2 つに割ってから両ハンドラを呼ぶ。
+  - **1 件ずつ ack / retry を決める**のは従来どおり。相乗りによって
+    「成功した受信まで照合し直す」ことは起きない。
+  - 受信量が照合バッチを圧迫するようになったら分離する。そのときは
+    このメッセージ型をそのまま新キューへ移すだけで済む。
