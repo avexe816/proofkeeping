@@ -2004,6 +2004,24 @@ const INVOCATIONS: Invocation[] = [
     kind: "tenant",
     run: (env, ctx) => invoiceRepo.upsertCounterparty(env, ctx, COUNTERPARTY_INPUT),
   },
+  // ── P5-02 / P5-03 が足したもの ─────────────────────────────
+  {
+    // **`code` を受けない**（鍵の付け替えは新しい取引先を作る操作）。
+    name: "invoice.updateCounterparty",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.updateCounterparty(env, ctx, OWN_ID.counterparty, { isActive: false }),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.updateCounterparty(env, ctx, OTHER_ID.counterparty, { isActive: false }),
+  },
+  {
+    // **`validTo` しか触らない**（値上げは行の追加 / PK-SPEC-P5 §2.2）。
+    name: "invoice.closePricingRule",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.closePricingRule(env, ctx, OWN_ID.pricingRule, "2026-09-30"),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.closePricingRule(env, ctx, OTHER_ID.pricingRule, "2026-09-30"),
+  },
   {
     name: "invoice.listPricingRules",
     kind: "tenant",

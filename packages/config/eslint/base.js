@@ -98,6 +98,11 @@ export default tseslint.config(
       "packages/pdf/**/*.{ts,tsx}",
       "packages/engine/src/reconciliation/**/*.ts",
       "apps/web/src/lib/reconciliation/**/*.ts",
+      // ── P5-04 が足した範囲（PK-SPEC-P5 §3.4）────────────────
+      // 請求明細の取引内容（`description`）は `packages/billing` が組み立て、
+      // `GET /api/v1/invoices/:id` と請求書 PDF（§8.1）にそのまま載る。
+      // 発行後は帳票に固定されて訂正できない（billing.md §2）。
+      "packages/billing/src/**/*.ts",
     ],
     ignores: ["**/*.spec.{ts,tsx}"],
     rules: {

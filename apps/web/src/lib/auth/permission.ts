@@ -129,8 +129,18 @@ export const PERMISSION_ACTIONS = {
    * 忘れ物そのものの記録とは別の操作。P0 に実体は無い。
    */
   "lostItem.readStorage": { write: false },
-  /** 請求情報。**`INSPECTOR` は見られない**（security.md §1）。P0 に実体は無い。 */
+  /** 請求情報。**`INSPECTOR` は見られない**（security.md §1）。 */
   "billing.read": { write: false },
+  /**
+   * 取引先マスタ・料金設定の登録と更新（P5-02 / P5-03 / PK-SPEC-P5 §2.1・§2.2）。
+   *
+   * **`billing.read` を書き込みへ広げない。** §9 の口は読みと書きが別で、
+   * 閲覧できる相手（`PROPERTY_MANAGER` / `AUDITOR`）に単価を書かせる根拠が
+   * security.md §1 にも §2 にも無い。**単価は売上そのもの**で、施設の
+   * 運用者が触れる範囲を超える（PK-IMPL-CONTRACT §11.5「管理職だから」で
+   * 広げない）。`AUDITOR` は書き込みを一切できない（security.md §1）。
+   */
+  "billing.write": { write: true },
   /**
    * 清掃タスクの閲覧（P1-05 / PK-SPEC-P1 §5.3・§9）。
    *
@@ -659,6 +669,20 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+  },
+  // 取引先・料金設定の書き込み（P5-02 / P5-03）。**組織の 2 ロールだけ。**
+  // 取引先も料金設定も `propertyId` を持たない組織のマスタで、
+  // `ASSIGNED` を与えても意味のある絞り込みにならない（料金設定の
+  // `propertyId` は null を取りうる列で、施設スコープを掛けると
+  // 「全施設」の行が消える / `listPricingRules()` の注記）。
+  "billing.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
   },
   // ── P1: 清掃タスク ──────────────────────────────────
   // `INSPECTOR` は検査担当。P2 で検査画面が入るまで自分の対象を見る必要がある

@@ -183,6 +183,49 @@ export async function upsertCounterparty(
   return { id, created: true };
 }
 
+/**
+ * `updateCounterparty()` の入力（P5-02）。
+ *
+ * **`code` を含めない。** 組織内で一意の鍵（`uq_cp`）で、料金設定と
+ * 過去の締めがこの取引先を指している。付け替えは新しい取引先を作る操作。
+ * `updateRoomType()` が `code` を受けないのと同じ理由。
+ */
+export type UpdateCounterpartyInput = {
+  [K in keyof Omit<UpsertCounterpartyInput, "code">]?: UpsertCounterpartyInput[K] | undefined;
+};
+
+/**
+ * 取引先を更新する（P5-02 / `PATCH /api/v1/counterparties/:id`）。
+ *
+ * **物理削除の口を作らない**（CLAUDE.md §4）。取引を終えた相手は
+ * `isActive = false`。過去の請求書は `counterpartySnapshot` を持つので
+ * 中身が変わっても壊れないが、行そのものは残す。
+ *
+ * @returns 更新した行があったか。無ければ呼び出し側が 404 を返す。
+ */
+export async function updateCounterparty(
+  env: Env,
+  ctx: TenantContext,
+  counterpartyId: string,
+  input: UpdateCounterpartyInput,
+): Promise<boolean> {
+  assertIdBelongsToTenant(counterpartyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(counterparty)
+    .set({ ...input, updatedAt: ctx.now })
+    .where(
+      and(
+        eq(counterparty.organizationId, ctx.organizationId),
+        eq(counterparty.id, counterpartyId),
+      ),
+    )
+    .returning({ id: counterparty.id });
+
+  return result.length > 0;
+}
+
 // ────────────────────────────────────────────────────────────
 // 料金設定（§2.2）
 // ────────────────────────────────────────────────────────────
@@ -237,7 +280,9 @@ export async function listPricingRules(
             ),
       ),
     )
-    .orderBy(desc(pricingRule.priority), pricingRule.validFrom, pricingRule.id);
+    // **`priority` は小さいほうが勝つ**（§3.2 / docs/DECISIONS.md #122）。
+    // 一覧の先頭が「競合したときに採られる行」になるよう昇順にする。
+    .orderBy(pricingRule.priority, desc(pricingRule.validFrom), pricingRule.id);
 }
 
 /** 1 件。**越境 ID は DB へ行く前に `NotFoundError`。** */
@@ -294,6 +339,37 @@ export async function insertPricingRule(
     updatedAt: ctx.now,
   });
   return id;
+}
+
+/**
+ * 料金設定の適用期間を閉じる（P5-03 / `PATCH /api/v1/pricing-rules/:id`）。
+ *
+ * **`validTo` しか触らない。** 単価・税率・対象を書き換える口を作らない
+ * （`insertPricingRule()` の注記）。値上げは行の追加で表し、古い行はここで
+ * 閉じる。既存の行の単価を書き換えると、過去の請求書の根拠が変わる。
+ *
+ * `validTo` は**その日まで有効**（`isEffectiveOn()` が両端を含む）。
+ *
+ * @returns 更新した行があったか。無ければ呼び出し側が 404 を返す。
+ */
+export async function closePricingRule(
+  env: Env,
+  ctx: TenantContext,
+  pricingRuleId: string,
+  validTo: string,
+): Promise<boolean> {
+  assertIdBelongsToTenant(pricingRuleId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(pricingRule)
+    .set({ validTo, updatedAt: ctx.now })
+    .where(
+      and(eq(pricingRule.organizationId, ctx.organizationId), eq(pricingRule.id, pricingRuleId)),
+    )
+    .returning({ id: pricingRule.id });
+
+  return result.length > 0;
 }
 
 // ────────────────────────────────────────────────────────────

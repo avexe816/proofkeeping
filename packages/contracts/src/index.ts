@@ -578,3 +578,30 @@ export {
   type AuditReportGenerateRequest,
   type AuditReportGenerateResponse,
 } from "./auditReport.js";
+
+// 取引先マスタと料金設定（P5-02 / P5-03 / PK-SPEC-P5 §2.1・§2.2・§9）。
+// **削除の口が無い。** 無効化は isActive、料金は期間を閉じる（billing.md §2）。
+export {
+  INVOICE_ITEM_CODES,
+  closingDaySchema,
+  counterpartyCodeSchema,
+  counterpartyCreateSchema,
+  counterpartyListResponseSchema,
+  counterpartySummarySchema,
+  counterpartyUpdateSchema,
+  paymentTermDaysSchema,
+  pricingRuleCloseSchema,
+  pricingRuleCreateSchema,
+  pricingRuleListResponseSchema,
+  pricingRuleSummarySchema,
+  taxRateSchema,
+  unitPriceSchema,
+  type CounterpartyCreate,
+  type CounterpartyListResponse,
+  type CounterpartySummary,
+  type CounterpartyUpdate,
+  type PricingRuleClose,
+  type PricingRuleCreate,
+  type PricingRuleListResponse,
+  type PricingRuleSummary,
+} from "./billing.js";

@@ -158,6 +158,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^5.20260804.1
         version: 5.20260811.1
+      '@pk/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@pk/config':
         specifier: workspace:*
         version: link:../config
