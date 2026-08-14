@@ -86,6 +86,8 @@ describe("登録簿の不変条件", () => {
       "nav.standardTimes",
       // P3-11 が足した W-20（観察項目の設定）。
       "nav.observationSettings",
+      // P4-13 が足した W-25（照合ルールの設定）。
+      "nav.rules",
       // P3-10 が足した W-21（ベースライン確認・上書き）。
       "nav.baseline",
       "nav.taxProfile",

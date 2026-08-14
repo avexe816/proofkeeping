@@ -1941,6 +1941,23 @@ const INVOCATIONS: Invocation[] = [
       reconciliationRepo.countFindingsByStatus(env, ctx, { propertyId: OWN_ID.property }),
   },
   {
+    // 月ごと・重要度ごとの件数（月次監査レポート §7.1 の「2.」）。
+    name: "reconciliation.countFindingsByMonth",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.countFindingsByMonth(env, ctx, {
+        propertyId: OWN_ID.property,
+        from: "2025-10-01",
+        to: "2026-09-30",
+      }),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.countFindingsByMonth(env, ctx, {
+        propertyId: OTHER_ID.property,
+        from: "2025-10-01",
+        to: "2026-09-30",
+      }),
+  },
+  {
     // 抑制された差異の件数（§4.3）。
     name: "reconciliation.sumSuppressedFindings",
     kind: "tenant",
@@ -2021,6 +2038,27 @@ const INVOCATIONS: Invocation[] = [
         propertyId: OTHER_ID.property,
         from: "2026-09-01",
         to: "2026-09-09",
+      }),
+  },
+  {
+    // ルール設定（W-25 / PK-SPEC-P4 §2.7）。**行が無ければ作る。**
+    name: "reconciliation.upsertRuleConfig",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.upsertRuleConfig(env, ctx, {
+        propertyId: OWN_ID.property,
+        ruleCode: "R001",
+        isEnabled: false,
+        severityOverride: null,
+        thresholds: {},
+      }),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.upsertRuleConfig(env, ctx, {
+        propertyId: OTHER_ID.property,
+        ruleCode: "R001",
+        isEnabled: false,
+        severityOverride: null,
+        thresholds: {},
       }),
   },
   {

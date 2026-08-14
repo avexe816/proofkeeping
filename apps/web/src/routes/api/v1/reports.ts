@@ -26,7 +26,10 @@
  */
 
 import {
+  auditReportGenerateRequestSchema,
   dailyReportGenerateRequestSchema,
+  type AuditReportDownloadResponse,
+  type AuditReportGenerateResponse,
   type DailyReportDownloadResponse,
   type DailyReportGenerateResponse,
   type DailyReportSummary,
@@ -39,7 +42,9 @@ import {
 } from "@pk/db";
 import { Hono } from "hono";
 
+import type { AuditReportMessage } from "../../../consumers/auditReport.js";
 import type { DailyReportMessage } from "../../../consumers/dailyReport.js";
+import { auditReportKey } from "../../../lib/report/auditReport.js";
 import { assertPermission, propertyTarget } from "../../../lib/auth/permission.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { getNow, getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
@@ -198,6 +203,79 @@ reports.get("/daily/:reportId/download", async (c) => {
     documentNo: row.documentNo,
     revision: row.revision,
     pdfSha256: row.pdfSha256,
+  };
+  return c.json(body);
+});
+
+/**
+ * 月次監査レポートを作る（PK-SPEC-P4 §7・§8）。
+ *
+ * ── 権限は差異レポートと同じ ────────────────────────────
+ * §6.4 の「エクスポート」（`OWNER` / `ORG_ADMIN` / `AUDITOR`）。
+ * 中身は差異の要約そのものなので、**差異を読めない相手に出さない**
+ * （`finding.read` / security.md §1）。
+ *
+ * ── 生成はここで行わない ────────────────────────────────
+ * Queue へ投げるだけ（architecture.md §5 / P4-14 の完了条件
+ * 「Queue コンシューマ内で生成される」）。
+ */
+reports.post("/audit/monthly", async (c) => {
+  const parsed = auditReportGenerateRequestSchema.safeParse(await readJson(c.req.raw));
+  if (!parsed.success) return c.json({ error: "INVALID_REQUEST" }, 400);
+
+  const ctx = getTenant(c);
+  const property = await findPropertyById(c.env, ctx, parsed.data.propertyId);
+  if (property === undefined) return c.notFound();
+  assertPermission(ctx, "finding.read", propertyTarget([property.id]));
+
+  const message: AuditReportMessage = {
+    kind: "AUDIT_REPORT",
+    organizationId: ctx.organizationId,
+    orgShortId: ctx.orgShortId,
+    propertyId: property.id,
+    month: parsed.data.month,
+    requestedById: getSession(c).membershipId,
+    requestedAtMs: getNow(c).getTime(),
+  };
+  await c.env.QUEUE_PDF_GENERATION.send(message);
+
+  const body: AuditReportGenerateResponse = {
+    status: "QUEUED",
+    propertyId: property.id,
+    month: parsed.data.month,
+  };
+  return c.json(body, 202);
+});
+
+/**
+ * 月次監査レポートを受け取る（§7）。
+ *
+ * **表に行が無い**（DECISIONS #119）ので、R2 のキーを直に見る。
+ * まだ作られていなければ 404（「作りました」と嘘をつかない）。
+ */
+reports.get("/audit/monthly/download", async (c) => {
+  const ctx = getTenant(c);
+  const propertyId = c.req.query("propertyId");
+  const month = c.req.query("month");
+  if (propertyId === undefined || month === undefined) {
+    return c.json({ error: "INVALID_REQUEST" }, 400);
+  }
+  if (!/^\d{4}-\d{2}$/.test(month)) return c.json({ error: "INVALID_REQUEST" }, 400);
+
+  assertPermission(ctx, "finding.read", propertyTarget([propertyId]));
+
+  const key = auditReportKey({
+    organizationId: ctx.organizationId,
+    propertyId,
+    month,
+  });
+  const object = await c.env.DOCUMENTS.head(key);
+  if (object === null) return c.notFound();
+
+  const body: AuditReportDownloadResponse = {
+    url: await signObjectUrl(c.env.SESSION_SECRET, key, getNow(c)),
+    propertyId,
+    month,
   };
   return c.json(body);
 });

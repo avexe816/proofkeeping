@@ -149,3 +149,68 @@ export function labelOf(table: Record<string, string>, value: string | null): st
   if (value === null) return "";
   return table[value] ?? value;
 }
+
+// ────────────────────────────────────────────────────────────
+// 月次監査レポート（P4-14 / PK-SPEC-P4 §7）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 重要度（§2.5）。**画面（`lib/reconciliation/labels.ts`）とは別に持つ。**
+ * 帳票の文言は i18n を通さない（`no-literal-string` の対象外 / 冒頭の注記）。
+ */
+export const SEVERITY_LABELS: Record<string, string> = {
+  HIGH: "重要度 高",
+  MEDIUM: "重要度 中",
+  LOW: "重要度 低",
+};
+
+/**
+ * 差異の状態（§2.5）。
+ *
+ * **`FALSE_POSITIVE` を「誤検知」と書かない**（ui-writing.md §2）。
+ * 帳票に出るのは「対象外」。
+ */
+export const FINDING_STATUS_LABELS: Record<string, string> = {
+  OPEN: "未対応",
+  REVIEWING: "確認中",
+  RESOLVED: "対応済",
+  FALSE_POSITIVE: "対象外",
+  SUPPRESSED: "抑制",
+};
+
+/**
+ * 月次監査レポートの固定文言（§7.1）。
+ *
+ * **免責文はここに無い。** `@pk/engine` の `AUDIT_REPORT_DISCLAIMER` が
+ * 唯一の出どころで、テンプレートが直に読む（§7.2 MUST）。
+ * ここへ写経しないこと。
+ */
+export const AUDIT_REPORT_LABELS = {
+  title: "ProofKeeping 稼働照合レポート",
+  property: "施設",
+  period: "対象期間",
+  engine: "エンジン / ルールセット",
+  section1: "1. サマリー",
+  section2: "2. 重要度別の推移（12か月）",
+  section3: "3. 重要度 高 の全件詳細",
+  section4: "4. 未対応項目一覧",
+  section5: "5. ルール別の件数と対象外の割合",
+  section6: "6. 免責事項",
+  roomDays: "評価対象客室日数",
+  sources: "利用可能な記録系統",
+  total: "抽出された差異",
+  suppressed: "抑制された差異",
+  resolved: "対応済",
+  dismissed: "対象外",
+  open: "未対応",
+  none: "該当なし",
+  noValue: "—",
+  sourceLabels: {
+    occupancy: "稼働記録",
+    observation: "現場観察",
+    signal: "物理信号",
+  } as Record<string, string>,
+  trendColumns: ["対象月", "重要度 高", "重要度 中", "重要度 低"] as const,
+  findingColumns: ["業務日", "部屋", "ルール", "内容", "確信度", "状態"] as const,
+  ruleColumns: ["ルール", "名称", "件数", "対象外", "対象外の割合"] as const,
+} as const;

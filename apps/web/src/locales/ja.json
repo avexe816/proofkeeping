@@ -696,6 +696,7 @@
   "obs.item.BOTTLED_WATER": "ミネラルウォーター",
   "m.obs.item.TEA_BAG": "お茶・コーヒー",
   "obs.item.TEA_BAG": "お茶・コーヒー",
+  "nav.rules": "照合ルール",
   "nav.baseline": "ベースライン",
   "nav.dataQuality": "記録の状況",
   "baseline.title": "ベースライン",
@@ -841,5 +842,22 @@
   "roomAccess.purpose.vendorVisit": "業者立入",
   "roomAccess.purpose.showing": "内覧",
   "roomAccess.purpose.training": "研修",
-  "roomAccess.purpose.other": "その他"
+  "roomAccess.purpose.other": "その他",
+
+  "ruleConfig.title": "照合ルールの設定",
+  "ruleConfig.intro": "施設ごとに、どのルールを使うかと重要度を調整できます。ルールの条件そのものは変更できません。",
+  "ruleConfig.noProperty": "施設を選択してください。",
+  "ruleConfig.saved": "保存しました",
+  "ruleConfig.save": "保存",
+  "ruleConfig.readOnly": "この画面から設定を変更できるのは、オーナーと運営管理者です。",
+  "ruleConfig.notImplemented": "（このルールはまだ動作しません）",
+  "ruleConfig.severityDefault": "既定のまま",
+  "ruleConfig.column.code": "コード",
+  "ruleConfig.column.name": "名称",
+  "ruleConfig.column.enabled": "使う / 重要度",
+  "ruleConfig.column.severity": "現在の重要度",
+  "ruleConfig.column.scope": "設定の出どころ",
+  "ruleConfig.scope.default": "未設定（既定）",
+  "ruleConfig.scope.property": "この施設",
+  "ruleConfig.scope.organization": "組織の既定"
 }

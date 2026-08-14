@@ -44,6 +44,7 @@ import reports from "./routes/api/v1/reports.js";
 import observations from "./routes/api/v1/observations.js";
 import occupancy from "./routes/api/v1/occupancy.js";
 import roomAccessLogs from "./routes/api/v1/roomAccessLogs.js";
+import ruleConfigs from "./routes/api/v1/ruleConfigs.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
 import session from "./routes/api/v1/session.js";
@@ -184,6 +185,9 @@ api.route("/findings", findings);
 // 業務上の入室記録（P4-10 / 同 §2.3・§4.1）。**更新・削除の口が無い。**
 // 登録は差異を抑制するので、書けるのは施設責任者以上（DECISIONS #115）。
 api.route("/room-access-logs", roomAccessLogs);
+// ルール設定（P4-13 / 同 §2.7 / W-25）。**engine を変えずに調整するための口。**
+// ルールの条件式を送る欄が無い。`OWNER` / `ORG_ADMIN` だけ（§6.4）。
+api.route("/rule-configs", ruleConfigs);
 // 観察記録の入力品質（P3-12 / 同 §6.3 / W-22）。**読み取りだけ。**
 // スタッフ別は入力率だけを返す（security.md §5 / INV-07）。
 api.route("/data-quality", dataQuality);

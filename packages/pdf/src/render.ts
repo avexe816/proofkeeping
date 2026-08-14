@@ -22,16 +22,17 @@
  * 揃える）。境界でここだけが変換を持つ。
  */
 
-import type { DailyReportPayload } from "@pk/engine";
+import type { AuditReportPayload, DailyReportPayload } from "@pk/engine";
 import { Font, renderToBuffer } from "@react-pdf/renderer";
 
+import { buildAuditReportDocument, type AuditReportFont } from "./auditReport.js";
 import { buildDailyReportDocument, type DailyReportFont } from "./dailyReport.js";
 
 /** この isolate で登録済みの family。**再登録を避けるためだけの記憶。** */
 const registeredFamilies = new Set<string>();
 
 /** 書体を登録する（登録済みなら何もしない）。 */
-export function registerFont(font: DailyReportFont): void {
+export function registerFont(font: DailyReportFont | AuditReportFont): void {
   if (font.kind !== "EMBEDDED") return;
   if (registeredFamilies.has(font.family)) return;
   Font.register({ family: font.family, src: font.dataUrl });
@@ -55,5 +56,23 @@ export async function renderDailyReportPdf(
 ): Promise<Uint8Array> {
   registerFont(font);
   const buffer = await renderToBuffer(buildDailyReportDocument(payload, payloadSha256, font));
+  return new Uint8Array(buffer);
+}
+
+/**
+ * 月次監査レポート PDF を作る（PK-SPEC-P4 §7 / P4-14）。
+ *
+ * **Queue コンシューマ内でのみ呼ぶ**（冒頭の注記）。§7 のレポートは
+ * 12 か月ぶんの推移と全件詳細を含み、日報より重い。
+ *
+ * 免責文（§7.2 MUST）はテンプレートが定数から読む。**ここでも
+ * payload からも差し替えられない。**
+ */
+export async function renderAuditReportPdf(
+  payload: AuditReportPayload,
+  font: AuditReportFont,
+): Promise<Uint8Array> {
+  registerFont(font);
+  const buffer = await renderToBuffer(buildAuditReportDocument(payload, font));
   return new Uint8Array(buffer);
 }

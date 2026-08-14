@@ -14,4 +14,8 @@ export {
   formatMinutes,
   formatReworkCount,
 } from "./format.js";
-export { DAILY_REPORT_LABELS } from "./labels.js";
+export { DAILY_REPORT_LABELS, AUDIT_REPORT_LABELS } from "./labels.js";
+
+// 月次監査レポート（P4-14 / PK-SPEC-P4 §7）。**免責文は差し替えられない。**
+export { buildAuditReportDocument, type AuditReportFont } from "./auditReport.js";
+export { renderAuditReportPdf } from "./render.js";

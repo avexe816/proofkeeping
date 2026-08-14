@@ -114,6 +114,17 @@ export const PERMISSION_ACTIONS = {
   "roomAccess.read": { write: false },
   "roomAccess.write": { write: true },
   /**
+   * ルール設定（W-25 / PK-SPEC-P4 §2.7・§6.4）。
+   *
+   * §6.4 の表で「ルール設定」が ○ なのは `OWNER` / `ORG_ADMIN` だけ。
+   * **閲覧も同じ 2 ロールに絞ってある。** 閾値は「この枚数までなら差異に
+   * ならない」を示す値で、`baseline.read` を現場ロールへ開かない理由
+   * （その注記）がそのまま当てはまる。`AUDITOR` には読み取りを許す
+   * （内部統制の確認。判定の設定を確かめられないと監査にならない）。
+   */
+  "ruleConfig.read": { write: false },
+  "ruleConfig.write": { write: true },
+  /**
    * 忘れ物の保管場所・返却先。**`CLEANER` は見られない**（security.md §1）。
    * 忘れ物そのものの記録とは別の操作。P0 に実体は無い。
    */
@@ -602,6 +613,26 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // PK-SPEC-P4 §6.4: ルール設定は OWNER / ORG_ADMIN だけ。
+  // **施設責任者にも開かない**（閾値は判定の内側の値）。
+  "ruleConfig.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "ruleConfig.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
     INSPECTOR: "DENY",
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
