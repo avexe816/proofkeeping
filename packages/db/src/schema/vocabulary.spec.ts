@@ -16,6 +16,11 @@
  */
 
 import {
+  OCCUPANCY_CHANNEL_CODE_VALUES,
+  SIGNAL_ACTOR_TYPE_VALUES,
+  SIGNAL_TYPE_VALUES,
+} from "@pk/integrations";
+import {
   BILLING_PERIOD_STATUS_VALUES,
   INVOICE_ITEM_CODE_VALUES,
   PAYMENT_METHOD_LABELS,
@@ -29,6 +34,11 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { BILLING_PERIOD_STATUSES, INVOICE_ITEM_CODES, PAYMENT_METHODS } from "./invoice.js";
+import {
+  OCCUPANCY_CHANNEL_CODES,
+  SIGNAL_ACTOR_TYPES,
+  SIGNAL_TYPES,
+} from "./reconciliation.js";
 import { TAX_ROUNDING_MODES } from "./organization.js";
 import { TASK_TYPES } from "./task.js";
 
@@ -82,5 +92,32 @@ describe("表示名と対応表", () => {
   it("RECHECK には品目コードが無い（§2.4 の表に対応する行が無い）", () => {
     // 近い名前へ寄せない。¥0 明細＋警告で残す（docs/OPEN_QUESTIONS.md #069）。
     expect(ITEM_CODE_BY_TASK_TYPE.RECHECK).toBeUndefined();
+  });
+});
+
+/**
+ * `packages/integrations` の語彙が schema と一致していることの検査（P6-03）。
+ *
+ * ── なぜ import ではなく比較なのか ──────────────────────
+ * アダプタ層は連携先ごとの差を吸収する場所で、**D1 を知らない**
+ * （PK-SPEC-P6 §1.1）。schema から import すると integrations → db の辺が
+ * でき、アダプタが直接テーブルを触れるようになる。`packages/billing` と
+ * 同じく値を写し、**片側だけ増えたらここが落ちる**形にしてある。
+ *
+ * ずれると何が起きるか: アダプタが返した `signalType` を `physical_signal`
+ * へ入れる段で落ちる。**受信の時点では通り、保存の時点で失敗する**ので、
+ * 外部システム側には 200 を返したあとに消える。それを防ぐ。
+ */
+describe("packages/integrations の語彙が schema と一致する（PK-SPEC-P6 §4.1）", () => {
+  it("物理シグナルの種類", () => {
+    expect([...SIGNAL_TYPE_VALUES]).toEqual([...SIGNAL_TYPES]);
+  });
+
+  it("鍵の種別", () => {
+    expect([...SIGNAL_ACTOR_TYPE_VALUES]).toEqual([...SIGNAL_ACTOR_TYPES]);
+  });
+
+  it("販売経路", () => {
+    expect([...OCCUPANCY_CHANNEL_CODE_VALUES]).toEqual([...OCCUPANCY_CHANNEL_CODES]);
   });
 });

@@ -165,6 +165,14 @@ describe("ENTITY_PREFIXES", () => {
       "bprv",
       // P5-14 の日次集計（docs/DECISIONS.md #131）。
       "roll",
+      // P6-01（PK-SPEC-P6 §2・§6）。
+      "intg",
+      "slog",
+      "xmap",
+      "psub",
+      "npref",
+      "akey",
+      "owh",
     ]);
   });
 

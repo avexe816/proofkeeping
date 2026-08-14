@@ -369,6 +369,7 @@ export {
   finishReconciliationRun,
   insertDetectionFeedback,
   insertFindings,
+  insertPhysicalSignals,
   listFindings,
   listPhysicalSignals,
   listReconciliationRuns,
@@ -386,6 +387,8 @@ export {
   type FinishRunInput,
   type InsertFindingsParams,
   type InsertFindingsResult,
+  type InsertPhysicalSignalsResult,
+  type PhysicalSignalInput,
   type PropertyDateFilter,
   type RoomAccessFilter,
   type StartRunInput,
@@ -451,3 +454,33 @@ export {
   type UpdateCounterpartyInput,
   type UpsertCounterpartyInput,
 } from "./invoice.js";
+
+// 外部連携（P6-01 / P6-04 / PK-SPEC-P6 §2）。
+// **資格情報そのものを返す関数が無い。** 返すのは KV の参照キーまでで、
+// 復号は `apps/web/src/lib/integration/credentials.ts` の責務（security.md §7）。
+export {
+  countUnmappedExternalIds,
+  createIntegration,
+  deactivateExternalMapping,
+  findIntegrationById,
+  finishSyncLog,
+  listExternalMappings,
+  listIntegrations,
+  listMappedInternalIds,
+  listOrgWideIntegrations,
+  listSyncLogs,
+  markIntegrationSynced,
+  purgeSyncLogRawSamples,
+  resolveExternalIds,
+  startSyncLog,
+  upsertExternalMappings,
+  type CreateIntegrationInput,
+  type ExternalMappingFilter,
+  type ExternalMappingInput,
+  type FinishSyncLogInput,
+  type IntegrationFilter,
+  type MarkIntegrationSyncedInput,
+  type StartSyncLogInput,
+  type SyncLogFilter,
+  type UpsertExternalMappingsResult,
+} from "./integration.js";

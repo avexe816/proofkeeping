@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `uq_signal` ON `physical_signal` (`organization_id`,`device_id`,`signal_type`,`occurred_at`);

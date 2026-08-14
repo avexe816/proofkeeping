@@ -164,6 +164,9 @@ importers:
       '@pk/config':
         specifier: workspace:*
         version: link:../config
+      '@pk/integrations':
+        specifier: workspace:*
+        version: link:../integrations
 
   packages/engine:
     devDependencies:
