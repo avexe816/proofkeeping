@@ -7,6 +7,7 @@ import { handleDailyReportBatch } from "./consumers/dailyReport.js";
 import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
 import { handleNotificationBatch } from "./consumers/notification.js";
 import { handleReconciliationBatch } from "./consumers/reconciliation.js";
+import { handleRollupUpdateBatch } from "./consumers/rollup.js";
 import {
   missingSecretNames,
   missingSecretsMessage,
@@ -58,6 +59,7 @@ import invoicesRoute from "./routes/api/v1/invoices.js";
 import webhooksRoute from "./routes/api/v1/webhooks.js";
 import receiptsRoute from "./routes/api/v1/receipts.js";
 import counterparties from "./routes/api/v1/counterparties.js";
+import dashboardRoute from "./routes/api/v1/dashboard.js";
 import pricingRules from "./routes/api/v1/pricingRules.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
 import session from "./routes/api/v1/session.js";
@@ -226,6 +228,9 @@ api.route("/invoices", invoicesRoute);
 api.route("/receipts", receiptsRoute);
 // 送付ログ（P5-10 / 同 §2.7）。**追記のみ。消す口が無い。**
 api.route("/deliveries", deliveriesRoute);
+// 組織ダッシュボード（P5-14 / PK-SPEC-P5 §7.1）。**稼働の数字は rollup だけ。**
+// 全社ビューを持たないロールは 403（`routes/api/v1/dashboard.ts` の注記）。
+api.route("/dashboard", dashboardRoute);
 // 組織設定（P1-22 / §19.4）。施設選択画面を挟む閾値だけ。
 api.route("/organization", organization);
 app.route("/api/v1", api);
@@ -317,6 +322,11 @@ export default {
     // 帳票の送付（P5-07 / PK-SPEC-P5 §4.1 の ⑩〜⑫）。
     if (batch.queue.startsWith("pk-notification")) {
       await handleNotificationBatch(env, batch);
+      return;
+    }
+    // 日次集計の更新（P5-14 / PK-SPEC-P0 §19.6）。**再計算方式。**
+    if (batch.queue.startsWith("pk-rollup-update")) {
+      await handleRollupUpdateBatch(env, batch);
       return;
     }
     // 知らないキュー。**ack も retry もしない**（既定の再送に任せる）。

@@ -29,8 +29,9 @@ import { primaryId, tenantColumn } from "./columns.js";
 /**
  * 施設 × 業務日の集計。
  *
- * 列は §19.6 の定義そのまま。**勝手に足さないこと。** 足すと再計算の
- * 責務がコンシューマ側で増え、冪等性の検証範囲が広がる。
+ * 列は §19.6 の定義＋**検査の 2 列**（P5-14 / DECISIONS #131）。
+ * それ以外を**勝手に足さないこと。** 足すと再計算の責務がコンシューマ側で
+ * 増え、冪等性の検証範囲が広がる。**金額の列は置かない**（DECISIONS #132）。
  *
  * `businessDate` は `YYYY-MM-DD`。カレンダー日ではなく施設の日締め時刻を
  * 基準にした業務日（architecture.md §7）。
@@ -46,6 +47,33 @@ export const dailyPropertyRollup = sqliteTable(
     completedTasks: integer("completed_tasks").notNull().default(0),
     reworkTasks: integer("rework_tasks").notNull().default(0),
     totalMinutes: integer("total_minutes").notNull().default(0),
+
+    /**
+     * その業務日に**検査の結果が確定した**タスクの数（P5-14 / DECISIONS #131）。
+     *
+     * 検査に回らなかったタスク（`inspectionSkipped`）を含めない。
+     * §7.1 の「初回検査合格率」の**分母**で、`completedTasks` を分母にすると
+     * 抽出率を上げ下げしただけで合格率が動く。
+     */
+    inspectedTasks: integer("inspected_tasks").notNull().default(0),
+
+    /**
+     * そのうち**1 回目の検査で合格した**タスクの数。§7.1 の分子。
+     *
+     * 「1 回目」は `reworkCount = 0` かつ `inspectionResult = "PASS"`。
+     * 差戻しののち合格したタスクは `inspectedTasks` にだけ載る。
+     */
+    firstPassTasks: integer("first_pass_tasks").notNull().default(0),
+
+    /**
+     * 未解決の設備不具合の数。
+     *
+     * **業務日で絞っていない**（OPEN_QUESTIONS #080）。`issueReport` に
+     * 業務日の列が無く、`reportedAt` から業務日を導くには施設のタイムゾーンと
+     * 日締め時刻でタイムスタンプの窓を作ることになる。その手段がコード側に
+     * 無いので、**再計算した時点でその施設に開いている件数**を入れる。
+     * 施設セレクタのバッジ（§23.3）が読むのは当日の行なので、意味は合う。
+     */
     openIssues: integer("open_issues").notNull().default(0),
     findingsHigh: integer("findings_high").notNull().default(0),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),

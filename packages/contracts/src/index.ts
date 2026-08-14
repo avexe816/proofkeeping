@@ -653,3 +653,18 @@ export {
   type ReceiptListResponse,
   type ReceiptSummary,
 } from "./billing.js";
+
+// 組織ダッシュボード（P5-14 / PK-SPEC-P5 §7.1）。**割合を返さない。**
+// 分子と分母を整数のまま返し、画面が割る（`dashboard.ts` の注記）。
+export {
+  LOST_ITEM_EXPIRY_WARNING_DAYS,
+  monthSchema,
+  orgDashboardActionsSchema,
+  orgDashboardPropertySchema,
+  orgDashboardResponseSchema,
+  orgDashboardSummarySchema,
+  type OrgDashboardActions,
+  type OrgDashboardProperty,
+  type OrgDashboardResponse,
+  type OrgDashboardSummary,
+} from "./dashboard.js";

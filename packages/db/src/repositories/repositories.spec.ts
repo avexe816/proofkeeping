@@ -102,6 +102,18 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   user: userRepo,
 };
 
+/** `upsertPropertyRollup()` に渡す数字。**中身は検証の対象ではない。** */
+const ROLLUP_COUNTS = {
+  totalTasks: 0,
+  completedTasks: 0,
+  reworkTasks: 0,
+  totalMinutes: 0,
+  inspectedTasks: 0,
+  firstPassTasks: 0,
+  openIssues: 0,
+  findingsHigh: 0,
+} as const;
+
 /** 自組織の ID。`assertIdBelongsToTenant()` を通る形式。 */
 const OWN_ID = {
   user: generateId(TEST_ORG.orgShortId, "usr"),
@@ -945,6 +957,54 @@ const INVOCATIONS: Invocation[] = [
     name: "rollup.findPropertyRollup",
     kind: "tenant",
     run: (env, ctx) => rollupRepo.findPropertyRollup(env, ctx, OWN_ID.property, "2026-08-12"),
+  },
+  // P5-14 が足した 4 本。**再計算 UPSERT と、その材料の 3 本。**
+  // 材料は `rollup-update` のコンシューマ専用だが、組織条件の検証は
+  // 他と同じに掛ける（rollup.ts の注記）。
+  {
+    name: "rollup.listRollupsInRange",
+    kind: "tenant",
+    run: (env, ctx) =>
+      rollupRepo.listRollupsInRange(env, ctx, { from: "2026-09-01", to: "2026-09-30" }),
+  },
+  {
+    name: "rollup.upsertPropertyRollup",
+    kind: "tenant",
+    run: (env, ctx) =>
+      rollupRepo.upsertPropertyRollup(env, ctx, {
+        propertyId: OWN_ID.property,
+        businessDate: "2026-09-10",
+        counts: ROLLUP_COUNTS,
+        now: TEST_NOW,
+      }),
+    crossTenant: (env, ctx) =>
+      rollupRepo.upsertPropertyRollup(env, ctx, {
+        propertyId: OTHER_ID.property,
+        businessDate: "2026-09-10",
+        counts: ROLLUP_COUNTS,
+        now: TEST_NOW,
+      }),
+  },
+  {
+    name: "rollup.countTasksForRollup",
+    kind: "tenant",
+    run: (env, ctx) => rollupRepo.countTasksForRollup(env, ctx, OWN_ID.property, "2026-09-10"),
+    crossTenant: (env, ctx) =>
+      rollupRepo.countTasksForRollup(env, ctx, OTHER_ID.property, "2026-09-10"),
+  },
+  {
+    name: "rollup.countOpenIssuesForRollup",
+    kind: "tenant",
+    run: (env, ctx) => rollupRepo.countOpenIssuesForRollup(env, ctx, OWN_ID.property),
+    crossTenant: (env, ctx) => rollupRepo.countOpenIssuesForRollup(env, ctx, OTHER_ID.property),
+  },
+  {
+    name: "rollup.countHighFindingsForRollup",
+    kind: "tenant",
+    run: (env, ctx) =>
+      rollupRepo.countHighFindingsForRollup(env, ctx, OWN_ID.property, "2026-09-10"),
+    crossTenant: (env, ctx) =>
+      rollupRepo.countHighFindingsForRollup(env, ctx, OTHER_ID.property, "2026-09-10"),
   },
   {
     name: "user.listUsers",
@@ -2256,6 +2316,16 @@ const INVOCATIONS: Invocation[] = [
     name: "invoice.listInvoices",
     kind: "tenant",
     run: (env, ctx) => invoiceRepo.listInvoices(env, ctx, { counterpartyId: OWN_ID.counterparty }),
+  },
+  // P5-14 の組織ダッシュボードが読む金額（PK-SPEC-P5 §7.1 / DECISIONS #132）。
+  {
+    name: "invoice.sumInvoiceLineAmountsByProperty",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.sumInvoiceLineAmountsByProperty(env, ctx, {
+        from: "2026-09-01",
+        to: "2026-09-30",
+      }),
   },
   {
     name: "invoice.findInvoiceById",

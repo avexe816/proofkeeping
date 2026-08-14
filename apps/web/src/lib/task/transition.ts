@@ -44,6 +44,7 @@ import {
   type TaskStatusValue,
 } from "@pk/engine";
 
+import { enqueueRollupUpdate } from "../../consumers/rollup.js";
 import { assertPermission, propertyTarget } from "../auth/permission.js";
 import { buildCleaningCompletionEvidence } from "../evidence/payload.js";
 import { recordEvidence } from "../evidence/record.js";
@@ -260,6 +261,17 @@ export async function runTransition(
   }
 
   await recordTransitionAudit(env, ctx, input, task.propertyId, task.status, decision.to);
+
+  // 日次集計の更新（P5-14 / PK-SPEC-P0 §19.6 の「タスク完了」）。
+  // **状態が動いた操作すべてで投げる。** `complete` だけにすると、
+  // 取り消し・差戻しで総数と再清掃率がずれたまま残る（数え直しは
+  // 状態を見て数えるので、どの操作から来ても結果は同じ / 再計算方式）。
+  // **失敗しても業務は止めない**（`enqueueRollupUpdate()` の注記）。
+  await enqueueRollupUpdate(env, ctx, {
+    propertyId: task.propertyId,
+    businessDate: task.businessDate,
+    reason: "TASK",
+  });
 
   return { kind: "OK", taskId: task.id, status: decision.to, unchanged: false };
 }
