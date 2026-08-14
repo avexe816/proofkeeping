@@ -42,6 +42,7 @@ function task(overrides: Partial<TaskFact> = {}): TaskFact {
   return {
     taskType: "CHECKOUT",
     isCompleted: true,
+    startedAt: null,
     completedAt: COMPLETED_AT,
     actualMinutes: 32,
     photoCount: 3,

@@ -58,6 +58,7 @@ import billingPeriodsRoute from "./routes/api/v1/billingPeriods.js";
 import deliveriesRoute from "./routes/api/v1/deliveries.js";
 import invoicesRoute from "./routes/api/v1/invoices.js";
 import integrationWebhooksRoute from "./routes/api/v1/integrationWebhooks.js";
+import integrations from "./routes/api/v1/integrations.js";
 import webhooksRoute from "./routes/api/v1/webhooks.js";
 import receiptsRoute from "./routes/api/v1/receipts.js";
 import counterparties from "./routes/api/v1/counterparties.js";
@@ -213,6 +214,10 @@ api.route("/room-access-logs", roomAccessLogs);
 // ルール設定（P4-13 / 同 §2.7 / W-25）。**engine を変えずに調整するための口。**
 // ルールの条件式を送る欄が無い。`OWNER` / `ORG_ADMIN` だけ（§6.4）。
 api.route("/rule-configs", ruleConfigs);
+// 連携の再接続（P6-07 / PK-SPEC-P6 §3.4）。**サーキットブレーカーを閉じる口。**
+// 受信口（`/api/v1/integrations/webhook/:id`）は上の認証前段にある。
+// こちらはセッションが要り、`OWNER` / `ORG_ADMIN` だけ（DECISIONS #143）。
+api.route("/integrations", integrations);
 // 観察記録の入力品質（P3-12 / 同 §6.3 / W-22）。**読み取りだけ。**
 // スタッフ別は入力率だけを返す（security.md §5 / INV-07）。
 api.route("/data-quality", dataQuality);

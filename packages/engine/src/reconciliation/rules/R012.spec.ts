@@ -18,6 +18,7 @@ function task(overrides: Record<string, unknown> = {}) {
   return {
     taskType: "CHECKOUT",
     isCompleted: true,
+    startedAt: null,
     completedAt: Date.parse("2026-09-09T13:00:00+09:00"),
     actualMinutes: 40,
     photoCount: 0,

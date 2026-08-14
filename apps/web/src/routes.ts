@@ -80,6 +80,13 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  * 含み、差異は施設をまたいで一覧できる（`?propertyId=` で絞る）。
  * `CLEANER` / `INSPECTOR` は loader が 404 を投げる（§6.4 MUST）。
  *
+ * ── P6-05 が足した連携の画面 ────────────────────────────
+ *   /app/settings/integrations/:integrationId/mappings  W-23 マッピング設定
+ *
+ * **W-13（連携設定 / §7.1）はまだ無い**（P6-14）。それまでこの画面へは
+ * URL で入る。`:integrationId` を URL に持つのは、対応表が連携ごとに
+ * 別物だから（同じ 302 号室が PMS では `302`、ロックでは `LOCK-302`）。
+ *
  * ── P5-15 が足した清掃会社の画面 ────────────────────────
  *   /app/org/vendor-plan            §7.2 清掃会社プラン（請求状況・施設別収支）
  *
@@ -145,6 +152,10 @@ export default [
     route("app/settings/baseline", "routes/app/baselineSettings.tsx"),
     route("app/p/:propertyId/data-quality", "routes/app/dataQuality.tsx"),
     route("app/settings/rules", "routes/app/ruleSettings.tsx"),
+    route(
+      "app/settings/integrations/:integrationId/mappings",
+      "routes/app/integrationMappings.tsx",
+    ),
     route("app/audit/findings", "routes/app/findings.tsx"),
     route("app/audit/findings/:findingId", "routes/app/findingDetail.tsx"),
   ]),

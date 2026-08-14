@@ -2688,6 +2688,21 @@ const INVOCATIONS: Invocation[] = [
       }),
   },
   {
+    // P6-07: サーキットブレーカー（§3.4）。
+    name: "integration.openIntegrationCircuit",
+    kind: "tenant",
+    run: (env, ctx) => integrationRepo.openIntegrationCircuit(env, ctx, OWN_ID.integration),
+    crossTenant: (env, ctx) =>
+      integrationRepo.openIntegrationCircuit(env, ctx, OTHER_ID.integration),
+  },
+  {
+    name: "integration.reactivateIntegration",
+    kind: "tenant",
+    run: (env, ctx) => integrationRepo.reactivateIntegration(env, ctx, OWN_ID.integration),
+    crossTenant: (env, ctx) =>
+      integrationRepo.reactivateIntegration(env, ctx, OTHER_ID.integration),
+  },
+  {
     name: "integration.startSyncLog",
     kind: "tenant",
     run: (env, ctx) =>

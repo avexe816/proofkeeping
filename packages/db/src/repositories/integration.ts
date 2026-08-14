@@ -22,7 +22,7 @@
  * W-13 が「未マッピング N 件」として見せる。
  */
 
-import { desc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { desc, eq, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -200,6 +200,86 @@ export async function markIntegrationSynced(
         ctx,
         NO_PROPERTY_SCOPE,
         eq(integration.id, input.integrationId),
+      ),
+    );
+}
+
+/**
+ * サーキットブレーカーを開く（§3.4 / P6-07）。
+ *
+ * `consecutiveFailures >= 5` になったら自動同期を止める。**判断は
+ * `@pk/integrations` の `shouldOpenCircuit()`** で、ここは書くだけ。
+ *
+ * 冪等。**既に `ERROR` の連携へ呼んでも何も変わらない**（`status` を
+ * `ERROR` に、`updatedAt` を進めるだけ）。呼び出し側が「今回開いたのか」を
+ * 知りたいときは、呼ぶ前の `status` を見ること（`integration.error` の
+ * 通知を毎回の失敗で送らないため）。
+ *
+ * **`SUSPENDED` は上書きしない。** あれは利用者が明示的に止めた状態で、
+ * 連携の失敗で「壊れているから止めた」に書き換えると、
+ * 再開の判断が誰のものだったか分からなくなる。
+ */
+export async function openIntegrationCircuit(
+  env: Env,
+  ctx: TenantContext,
+  integrationId: string,
+  errorMessage?: string | null,
+): Promise<void> {
+  assertIdBelongsToTenant(integrationId, ctx);
+  const db = await getTenantDb(env, ctx);
+  await db
+    .update(integration)
+    .set({
+      status: "ERROR",
+      lastErrorAt: ctx.now,
+      ...(errorMessage === undefined || errorMessage === null
+        ? {}
+        : { lastErrorMessage: errorMessage.slice(0, 200) }),
+      updatedAt: ctx.now,
+    })
+    .where(
+      withTenantScope(
+        integration,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(integration.id, integrationId),
+        ne(integration.status, "SUSPENDED"),
+      ),
+    );
+}
+
+/**
+ * サーキットブレーカーを閉じる（§3.4 の「手動で再接続テストに成功したら
+ * `status = ACTIVE` に戻る」/ P6-07）。
+ *
+ * **自動では戻さない。** 受信が 1 回通っただけで `ACTIVE` に戻すと、
+ * 断続的に落ちる連携が `ERROR` と `ACTIVE` の間を往復し、W-13 の
+ * 状態表示が信用できなくなる。戻すのは人の操作を通ったときだけ。
+ *
+ * `consecutiveFailures` も 0 に戻す。**戻さないと、次の 1 回の失敗で
+ * また閾値を超える。**
+ */
+export async function reactivateIntegration(
+  env: Env,
+  ctx: TenantContext,
+  integrationId: string,
+): Promise<void> {
+  assertIdBelongsToTenant(integrationId, ctx);
+  const db = await getTenantDb(env, ctx);
+  await db
+    .update(integration)
+    .set({
+      status: "ACTIVE",
+      consecutiveFailures: 0,
+      lastErrorMessage: null,
+      updatedAt: ctx.now,
+    })
+    .where(
+      withTenantScope(
+        integration,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(integration.id, integrationId),
       ),
     );
 }

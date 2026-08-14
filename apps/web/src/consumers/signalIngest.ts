@@ -48,6 +48,7 @@ import {
   lookupOrganizationId,
   markIntegrationSynced,
   maskSensitive,
+  openIntegrationCircuit,
   resolveExternalIds,
   startSyncLog,
   type Env,
@@ -55,6 +56,7 @@ import {
   type TenantContext,
 } from "@pk/db";
 import { MAX_WEBHOOK_EVENTS, webhookSignalEventSchema } from "@pk/contracts";
+import { retryDelaySeconds, shouldOpenCircuit } from "@pk/integrations";
 
 import { businessDateOf } from "../lib/businessDate.js";
 
@@ -105,7 +107,12 @@ export type SignalIngestOutcome =
   /** 再送しても直らない。**ack して落とす。** */
   | { kind: "DROPPED"; reason: string }
   /** 一時的な失敗。**retry。** */
-  | { kind: "FAILED"; reason: string };
+  | {
+      kind: "FAILED";
+      reason: string;
+      /** この回でサーキットブレーカーが開いたか（§3.4 / P6-07）。 */
+      circuitOpened: boolean;
+    };
 
 /**
  * 1 メッセージぶんを処理する。
@@ -195,7 +202,42 @@ export async function runSignalIngest(
       // **外部システムの応答をそのまま入れない。** 内部の例外名まで。
       errorMessage: reason.slice(0, 200),
     });
-    return { kind: "FAILED", reason };
+    // §3.4: 5 回連続で失敗したらサーキットブレーカーを開く（P6-07）。
+    // **`markIntegrationSynced()` の直後に読み直す。** あの関数は
+    // `consecutiveFailures` を SQL で 1 増やすので、増えた後の値は
+    // 引き直さないと分からない。
+    const opened = await openCircuitIfNeeded(env, ctx, message.integrationId, reason);
+    return { kind: "FAILED", reason, circuitOpened: opened };
+  }
+}
+
+/**
+ * 連続失敗が閾値に達していたら自動同期を止める（§3.4 / P6-07）。
+ *
+ * @returns **この呼び出しで開いたときだけ `true`。** 既に `ERROR` だった
+ *   ものは `false`。`integration.error` の通知（§5.1）を毎回の失敗で
+ *   送らないための区別で、通知そのものは P6-09。
+ *
+ * **ここで例外を投げない。** 開けなかったことで受信の処理結果まで
+ * 変えると、「連携が失敗した」の上に「失敗の記録に失敗した」が乗る。
+ */
+export async function openCircuitIfNeeded(
+  env: Env,
+  ctx: TenantContext,
+  integrationId: string,
+  reason: string,
+): Promise<boolean> {
+  try {
+    const current = await findIntegrationById(env, ctx, integrationId);
+    if (current === undefined) return false;
+    if (current.status === "ERROR" || current.status === "SUSPENDED") return false;
+    if (!shouldOpenCircuit(current.consecutiveFailures)) return false;
+    await openIntegrationCircuit(env, ctx, integrationId, reason);
+    // **画面に出るのは W-13 の状態表示。** ここでは記録だけ。
+    console.error(`integration-circuit-opened failures=${String(current.consecutiveFailures)}`);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -336,6 +378,17 @@ function parseEvent(event: unknown): ParsedEvent | null {
  *
  * **1 件ずつ ack / retry を決める。** バッチ全体を retry にすると、
  * 成功した受信まで取り込み直すことになる。
+ *
+ * ── リトライの間隔（§3.4 / P6-07）──────────────────────
+ * 5 分 → 15 分 → 60 分、最大 3 回（`retryDelaySeconds()`）。
+ * **4 回目は ack して落とす。** Cloudflare Queues の既定の再送は
+ * 数秒間隔で、外部システムが落ちている間に同じ失敗を数十回積む。
+ * `consecutiveFailures` が実際の障害の長さではなく再送の速さを映すと、
+ * サーキットブレーカーの 5 回が意味を失う。
+ *
+ * 落としたイベントは失われるが、**送り側は再送してくる**（webhook の
+ * 受信は 200 を返して初めて成功する / §4.2）。ここで無限に抱えるより、
+ * `sync_log` に失敗として残して手放す方が復旧の見通しが立つ。
  */
 export async function handleSignalIngestBatch(env: Env, batch: MessageBatch): Promise<void> {
   for (const message of batch.messages) {
@@ -348,7 +401,13 @@ export async function handleSignalIngestBatch(env: Env, batch: MessageBatch): Pr
     const outcome = await runSignalIngest(env, message.body);
     if (outcome.kind === "FAILED") {
       console.error(`signal-ingest-failed reason=${outcome.reason}`);
-      message.retry();
+      const delaySeconds = retryDelaySeconds(message.attempts);
+      if (delaySeconds === null) {
+        console.error("signal-ingest-retries-exhausted");
+        message.ack();
+      } else {
+        message.retry({ delaySeconds });
+      }
     } else {
       if (outcome.kind === "DROPPED") console.error(`signal-ingest-dropped reason=${outcome.reason}`);
       message.ack();

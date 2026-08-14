@@ -383,6 +383,9 @@ async function reconcile(
           : {
               taskType: task.taskType,
               isCompleted: task.status === "COMPLETED",
+              // PK-SPEC-P6 §4.4 の除外窓（前後 10 分）が読む。**清掃スタッフの
+              // 入室を解錠の記録から外すのに、開始時刻が要る**（P6-08）。
+              startedAt: task.startedAt?.getTime() ?? null,
               completedAt: task.completedAt?.getTime() ?? null,
               actualMinutes: task.actualMinutes,
               // R012（§3.1「写真未添付での完了」）が見る。**0 を固定で

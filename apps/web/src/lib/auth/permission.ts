@@ -125,6 +125,24 @@ export const PERMISSION_ACTIONS = {
   "ruleConfig.read": { write: false },
   "ruleConfig.write": { write: true },
   /**
+   * 外部連携の設定とマッピング（W-13 / W-23 / PK-SPEC-P6 §7.1・§7.2）。
+   *
+   * **§6.4 の権限表にも security.md §1 にもこの操作の行が無い。**
+   * `ruleConfig` と同じ 2 ロール（`OWNER` / `ORG_ADMIN`）に絞った
+   * （docs/DECISIONS.md #143）。理由:
+   *
+   *   - 連携の設定には `credentialRef` が付き、接続先そのものを差し替え
+   *     られる。**外部システムの資格情報に手が届く操作**は、閾値の設定
+   *     （`ruleConfig`）より弱くしてよい理由が無い。
+   *   - マッピングを書き換えると、**302 号室の稼働記録が 303 号室に入る。**
+   *     取り違えた記録は差異レポートと請求の両方へ流れる。施設責任者に
+   *     開く根拠が仕様に無い以上、狭い側へ倒す。
+   *   - `AUDITOR` は読み取りのみ。連携の状態を確かめられないと、
+   *     「その日の稼働記録がどこから来たか」を追えない。
+   */
+  "integration.read": { write: false },
+  "integration.write": { write: true },
+  /**
    * 忘れ物の保管場所・返却先。**`CLEANER` は見られない**（security.md §1）。
    * 忘れ物そのものの記録とは別の操作。P0 に実体は無い。
    */
@@ -640,6 +658,26 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     AUDITOR: "ORG",
   },
   "ruleConfig.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // PK-SPEC-P6 §7.1 / §7.2: 連携設定とマッピングは OWNER / ORG_ADMIN だけ
+  // （DECISIONS #143）。**マッピングの誤りは客室の取り違えになる。**
+  "integration.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "integration.write": {
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "DENY",

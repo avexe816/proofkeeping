@@ -180,10 +180,20 @@ export interface OccupancyRevocationFact {
   cleaningCompletedAt: number;
 }
 
-/** 清掃タスク（R004 / R006 / R011 / R012 が見る）。 */
+/** 清掃タスク（R004 / R006 / R011 / R012 / §4.4 の除外が見る）。 */
 export interface TaskFact {
   taskType: string;
   isCompleted: boolean;
+  /**
+   * 清掃を開始した時刻（epoch ミリ秒）。まだ開始していなければ `null`。
+   *
+   * **PK-SPEC-P6 §4.4 の「方法 2」が読む。** 清掃タスクの start / complete の
+   * 前後 10 分に落ちた解錠は、清掃スタッフの入室として除外する
+   * （`staffKey.ts`）。`actorType` を返さないロックでも効く唯一の方法なので、
+   * これが既定になっている。**`completedAt` から逆算しない**（実作業時間は
+   * 客室ごとに違い、逆算は推測になる）。
+   */
+  startedAt: number | null;
   completedAt: number | null;
   actualMinutes: number | null;
   photoCount: number;
