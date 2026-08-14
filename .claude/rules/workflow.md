@@ -127,12 +127,20 @@ gh pr merge <PR番号> --squash --delete-branch
 git ls-remote --heads origin <branch-name>   # 出力が空なら消えている
 ```
 
-本当に残っていたら、API を直接叩く。
+本当に残っていたら、API を直接叩く。**順に試す:**
 
 ```bash
+# 1. gh がある場合:
 gh api -X DELETE "repos/avexe816/proofkeeping/git/refs/heads/<branch-name>"
+
+# 2. gh が無い場合: curl で GitHub API を叩く
+curl -s -X DELETE \
+  -H "Authorization: token $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/avexe816/proofkeeping/git/refs/heads/<branch-name>"
 ```
 
+両方ダメなら PR 本文に「ブランチ削除失敗: <branch-name>」と書いて続ける。
 **他人のブランチ・他の作業中のブランチを消さない。** 消してよいのは
 自分がマージし終えた PR の head だけ。
 
