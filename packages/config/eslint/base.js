@@ -81,7 +81,25 @@ export default tseslint.config(
     // P0-15 で文言が locales/*.json へ移ったぶんは
     // apps/web/src/locales/locales.spec.ts が同じ語彙表で検査する
     // （rules/forbidden-words-list.js が両者の唯一の出どころ）。
-    files: ["**/*.tsx", "**/locales/**/*.{ts,tsx}", "packages/pdf/**/*.{ts,tsx}"],
+    //
+    // ── P4-15 が足した範囲（PK-SPEC-P4 §10.5）────────────────
+    // §10.5 は「UI・API レスポンス・PDF に『不正』という語が存在しない」を
+    // 出荷判定にしている。UI（.tsx）と PDF（packages/pdf）は元から対象だが、
+    // **API レスポンスに載る日本語は照合エンジンが作っていた**
+    // （`FindingDraft` の `title` / `summary` が `auditFinding` を経て
+    // `GET /api/v1/findings` と W-07 にそのまま出る）。
+    // その組み立てを行う 2 か所を足してある。
+    //
+    // **spec を外してある。** テストの `it("誤検知が 3 回以上なら…")` は
+    // 画面に出る文言ではない。
+    files: [
+      "**/*.tsx",
+      "**/locales/**/*.{ts,tsx}",
+      "packages/pdf/**/*.{ts,tsx}",
+      "packages/engine/src/reconciliation/**/*.ts",
+      "apps/web/src/lib/reconciliation/**/*.ts",
+    ],
+    ignores: ["**/*.spec.{ts,tsx}"],
     rules: {
       "pk/no-forbidden-words": "error",
     },

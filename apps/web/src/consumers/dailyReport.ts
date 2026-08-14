@@ -60,6 +60,8 @@ import {
 } from "../lib/report/dailyReportKey.js";
 import { DAILY_REPORT_FONT_KEY, loadDailyReportFont } from "../lib/report/font.js";
 
+import { generateAuditReport, isAuditReportMessage } from "./auditReport.js";
+
 /** キューへ載せるメッセージ。**組織の解決に要る値を全部持たせる。** */
 export interface DailyReportMessage {
   kind: "DAILY_REPORT";
@@ -261,12 +263,24 @@ async function issueReportNumber(
  *
  * **1 件ずつ ack / retry を決める。** バッチ全体を retry にすると、
  * 成功した日報の版が無駄に増える（`MANUAL` の再送は新しい版になる）。
+ *
+ * ── 1 本のキューに 2 種類が載る ─────────────────────────
+ * architecture.md §5 の `pdf-generation` は「日報・請求書・領収書・
+ * 監査レポート」の 1 本。**`kind` で振り分ける。**
+ * P4-14 が `AUDIT_REPORT` を足した。種別ごとにキューを増やさないこと
+ * （wrangler.toml の宣言が増え、無料枠の本数を使い切る）。
  */
 export async function handleDailyReportBatch(env: Env, batch: MessageBatch): Promise<void> {
   for (const message of batch.messages) {
+    if (isAuditReportMessage(message.body)) {
+      const outcome = await generateAuditReport(env, message.body);
+      if (outcome.kind === "FAILED") message.retry();
+      else message.ack();
+      continue;
+    }
     if (!isDailyReportMessage(message.body)) {
       // 形が違うものは**再送しても直らない。** ack して落とす。
-      console.error("daily-report-invalid-message");
+      console.error("pdf-generation-invalid-message");
       message.ack();
       continue;
     }

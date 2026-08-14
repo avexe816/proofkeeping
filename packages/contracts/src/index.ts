@@ -543,3 +543,38 @@ export {
   type RoomAccessLogSummary,
   type RoomAccessPurposeValue,
 } from "./roomAccess.js";
+
+// ルール設定（P4-13 / PK-SPEC-P4 §2.7 / W-25）。
+// **ルールの条件式を送る欄が無い。** 送れるのは有効・無効／重要度の上書き／
+// 閾値の 3 つだけで、判定そのものは `packages/engine` にある。
+export {
+  MAX_THRESHOLD_KEYS,
+  RULE_CODES,
+  RULE_CONFIG_ERROR_CODES,
+  ruleCodeSchema,
+  ruleConfigErrorSchema,
+  ruleConfigListResponseSchema,
+  ruleConfigSchema,
+  ruleConfigUpdateRequestSchema,
+  ruleConfigUpdateResponseSchema,
+  thresholdsSchema,
+  type RuleCodeValue,
+  type RuleConfigError,
+  type RuleConfigErrorCode,
+  type RuleConfigListResponse,
+  type RuleConfigSummary,
+  type RuleConfigUpdateRequest,
+  type RuleConfigUpdateResponse,
+} from "./ruleConfig.js";
+
+// 月次監査レポート（P4-14 / PK-SPEC-P4 §7・§8）。
+// **免責文を受け取る欄が無い**（§7.2 MUST）。版も持たない。
+export {
+  auditReportDownloadResponseSchema,
+  auditReportGenerateRequestSchema,
+  auditReportGenerateResponseSchema,
+  auditReportMonthSchema,
+  type AuditReportDownloadResponse,
+  type AuditReportGenerateRequest,
+  type AuditReportGenerateResponse,
+} from "./auditReport.js";

@@ -274,6 +274,17 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // W-21 ベースライン確認・上書き（P3-10 / PK-SPEC-P3 §5.5・§6.1）。
   // 担当ロールは `ORG_ADMIN`（上書きできるのはこのロールだけ / §5.5）。
   // **`scope` は `ORGANIZATION`**（W-20 と同じ理由）。
+  // W-25 ルール設定（P4-13 / PK-SPEC-P4 §2.7）。**`ruleConfig.read`。**
+  // §6.4 の表で `OWNER` / `ORG_ADMIN` だけ（`AUDITOR` は読み取り）。
+  {
+    key: "nav.rules",
+    section: "settings",
+    moduleCode: "AUDIT",
+    action: "ruleConfig.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: "/app/settings/rules",
+  },
   {
     key: "nav.baseline",
     section: "settings",

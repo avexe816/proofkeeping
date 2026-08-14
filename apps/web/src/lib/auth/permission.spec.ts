@@ -68,6 +68,10 @@ const EXPECTED: Record<PermissionAction, string> = {
   // **現場ロールと受託側には与えない**（DECISIONS #115）。
   "roomAccess.read": "OOA---O",
   "roomAccess.write": "OOA----",
+  // P4-13。ルール設定（同 §6.4）は OWNER / ORG_ADMIN だけ。
+  // **閲覧も施設責任者に開かない**（閾値は判定の内側の値）。
+  "ruleConfig.read": "OO----O",
+  "ruleConfig.write": "OO-----",
   "lostItem.readStorage": "OOAA-AO",
   "billing.read": "OOA---O",
   // P1。清掃タスク（PK-SPEC-P1 §5.3）と設定画面（同 §10.1）。

@@ -200,9 +200,16 @@ export async function createRoomAccessLog(
  *
  * どちらを採るかは呼び出し側（施設の行が優先）。ここで畳むと、
  * 「施設に設定が無い」のか「組織の既定と同じ」のかが読めなくなる。
+ *
+ * @param propertyId `null` なら**組織の既定だけ**（W-25 が組織の既定を
+ *   編集するときに使う / P4-13）。施設 ID を渡すと既定 + その施設の行。
  */
-export async function listRuleConfigs(env: Env, ctx: TenantContext, propertyId: string) {
-  assertIdBelongsToTenant(propertyId, ctx);
+export async function listRuleConfigs(
+  env: Env,
+  ctx: TenantContext,
+  propertyId: string | null,
+) {
+  if (propertyId !== null) assertIdBelongsToTenant(propertyId, ctx);
   const db = await getTenantDb(env, ctx);
 
   return db
@@ -218,10 +225,90 @@ export async function listRuleConfigs(env: Env, ctx: TenantContext, propertyId: 
     .where(
       and(
         eq(ruleConfig.organizationId, ctx.organizationId),
-        or(isNull(ruleConfig.propertyId), eq(ruleConfig.propertyId, propertyId)),
+        propertyId === null
+          ? isNull(ruleConfig.propertyId)
+          : or(isNull(ruleConfig.propertyId), eq(ruleConfig.propertyId, propertyId)),
       ),
     )
     .orderBy(ruleConfig.ruleCode);
+}
+
+/** `upsertRuleConfig()` の入力（W-25 / §2.7）。 */
+export interface UpsertRuleConfigInput {
+  /** `null` は組織の既定。施設の行があればそちらが優先（§2.7）。 */
+  propertyId: string | null;
+  ruleCode: RuleCode;
+  isEnabled: boolean;
+  severityOverride: FindingSeverity | null;
+  thresholds: Record<string, number>;
+}
+
+/**
+ * ルール設定を 1 件書く（W-25 / §2.7）。**無ければ作る。**
+ *
+ * ── なぜ upsert なのか ──────────────────────────────────
+ * `ruleConfig` は**行が無いのが既定の状態**（有効・上書きなし・閾値なし）。
+ * 設定画面で初めて何かを変えたときに行ができる。「先に全ルールぶんの行を
+ * 作っておく」形にすると、engine にルールを足すたびに全組織へ行を配る
+ * 移行が要る。
+ *
+ * ── 消す関数を作らない ──────────────────────────────────
+ * 既定へ戻すのは `isEnabled = true` / `severityOverride = null` /
+ * `thresholds = {}` を書くこと。**行を消すと「既定に戻した」のか
+ * 「一度も触っていない」のかが `rulesetHash`（§2.4）から読めなくなる。**
+ *
+ * @returns 作ったか更新したか。**呼び出し側が監査ログの内容を決める。**
+ */
+export async function upsertRuleConfig(
+  env: Env,
+  ctx: TenantContext,
+  input: UpsertRuleConfigInput,
+): Promise<{ id: string; created: boolean }> {
+  if (input.propertyId !== null) assertIdBelongsToTenant(input.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const existing = await db
+    .select({ id: ruleConfig.id })
+    .from(ruleConfig)
+    .where(
+      and(
+        eq(ruleConfig.organizationId, ctx.organizationId),
+        input.propertyId === null
+          ? isNull(ruleConfig.propertyId)
+          : eq(ruleConfig.propertyId, input.propertyId),
+        eq(ruleConfig.ruleCode, input.ruleCode),
+      ),
+    )
+    .limit(1);
+
+  const found = existing[0];
+  if (found !== undefined) {
+    await db
+      .update(ruleConfig)
+      .set({
+        isEnabled: input.isEnabled,
+        severityOverride: input.severityOverride,
+        thresholds: input.thresholds,
+        updatedAt: ctx.now,
+      })
+      .where(
+        and(eq(ruleConfig.organizationId, ctx.organizationId), eq(ruleConfig.id, found.id)),
+      );
+    return { id: found.id, created: false };
+  }
+
+  const id = generateId(ctx.orgShortId, "rcfg");
+  await db.insert(ruleConfig).values({
+    id,
+    organizationId: ctx.organizationId,
+    propertyId: input.propertyId,
+    ruleCode: input.ruleCode,
+    isEnabled: input.isEnabled,
+    severityOverride: input.severityOverride,
+    thresholds: input.thresholds,
+    updatedAt: ctx.now,
+  });
+  return { id, created: true };
 }
 
 /**
@@ -628,6 +715,43 @@ export async function countFindingsByStatus(
     .groupBy(auditFinding.status);
 
   return new Map(rows.map((row) => [row.status, row.count]));
+}
+
+/**
+ * 月ごと・重要度ごとの件数（月次監査レポート §7.1 の「2. 重要度別の推移」）。
+ *
+ * ── 12 か月ぶんを 1 回で読む ────────────────────────────
+ * 月ごとに `countFindingsByStatus()` を呼ぶと 12 クエリになる。
+ * **業務日の先頭 7 文字（`YYYY-MM`）で GROUP BY する。**
+ * 業務日は `YYYY-MM-DD` の text なので、切り出しで月になる
+ * （architecture.md §7 が形式を固定している）。
+ *
+ * 組織内の GROUP BY なので、テナント横断の集計にはあたらない
+ * （architecture.md §3 が禁じるのは組織をまたぐ集計）。
+ */
+export async function countFindingsByMonth(
+  env: Env,
+  ctx: TenantContext,
+  filter: { propertyId: string; from: string; to: string },
+): Promise<{ month: string; severity: FindingSeverity; count: number }[]> {
+  assertIdBelongsToTenant(filter.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const month = sql<string>`substr(${auditFinding.businessDate}, 1, 7)`;
+  return db
+    .select({ month, severity: auditFinding.severity, count: sql<number>`count(*)` })
+    .from(auditFinding)
+    .where(
+      withTenantScope(
+        auditFinding,
+        ctx,
+        auditFinding.propertyId,
+        eq(auditFinding.propertyId, filter.propertyId),
+        gte(auditFinding.businessDate, filter.from),
+        lte(auditFinding.businessDate, filter.to),
+      ),
+    )
+    .groupBy(month, auditFinding.severity);
 }
 
 /**

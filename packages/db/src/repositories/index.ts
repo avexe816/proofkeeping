@@ -348,6 +348,7 @@ export {
 // **既にある差異には触らない**（同 §5.3 MUST）。人が付けた `status` を
 // 再実行が書き換えないことが、冪等性そのもの（同 §10.2）。
 export {
+  countFindingsByMonth,
   countFindingsByStatus,
   createRoomAccessLog,
   findFindingById,
@@ -364,6 +365,7 @@ export {
   startReconciliationRun,
   sumSuppressedFindings,
   updateFindingStatus,
+  upsertRuleConfig,
   type CreateRoomAccessLogInput,
   type DetectionFeedbackInput,
   type FindingFilter,
@@ -375,4 +377,5 @@ export {
   type RoomAccessFilter,
   type StartRunInput,
   type UpdateFindingStatusInput,
+  type UpsertRuleConfigInput,
 } from "./reconciliation.js";

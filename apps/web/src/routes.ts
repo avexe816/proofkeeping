@@ -134,6 +134,7 @@ export default [
     route("app/settings/observation", "routes/app/observationSettings.tsx"),
     route("app/settings/baseline", "routes/app/baselineSettings.tsx"),
     route("app/p/:propertyId/data-quality", "routes/app/dataQuality.tsx"),
+    route("app/settings/rules", "routes/app/ruleSettings.tsx"),
     route("app/audit/findings", "routes/app/findings.tsx"),
     route("app/audit/findings/:findingId", "routes/app/findingDetail.tsx"),
   ]),

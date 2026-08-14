@@ -409,6 +409,22 @@ export {
   type ConfidenceInputs,
 } from "./reconciliation/confidence.js";
 
+// 月次監査レポート（P4-14 / PK-SPEC-P4 §7）。
+// **免責文は定数。** 差し替える引数を足さないこと（§7.2 MUST）。
+export {
+  AUDIT_REPORT_DISCLAIMER,
+  AUDIT_SEVERITIES,
+  buildAuditReportPayload,
+  buildRuleLines,
+  type AuditFindingLine,
+  type AuditMonthlyTrend,
+  type AuditReportInput,
+  type AuditReportPayload,
+  type AuditReportSummary,
+  type AuditRuleLine,
+  type AuditSeverity,
+} from "./reconciliation/auditReport.js";
+
 export {
   R001_R002_MERGE_BONUS,
   evaluate,

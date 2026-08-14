@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check forbidden words
+      - name: Check forbidden words (複合語・全体)
         run: |
           set +e
           PATTERN='不正検知|不正を検知|監視レポート|疑わしい取引|従業員の監視'
@@ -96,6 +96,30 @@ jobs:
                  apps packages 2>/dev/null)
           if [ -n "$HITS" ]; then
             echo "禁止語が検出されました:"
+            echo "$HITS"
+            exit 1
+          fi
+          echo "OK"
+
+      # P4-15（PK-SPEC-P4 §10.5「UI・API レスポンス・PDF に『不正』という語が
+      # 存在しない（grep で検証）」）。
+      #
+      # **対象は文言カタログだけ。** locales/*.json は画面に出る文字列しか
+      # 入っておらず、コメントも識別子も無い。**単語単位の grep を素で当てて
+      # 誤検出が出ない唯一の場所。**
+      #
+      # UI（.tsx）・PDF（packages/pdf）・API レスポンスに載る文言
+      # （packages/engine の照合ルールが作る title / summary）は、
+      # 同じ語彙表を使う ESLint（pk/no-forbidden-words）が lint ジョブで見る。
+      # あちらは**文字列リテラルだけ**を見るので、禁止語を説明した doc
+      # コメントに引っ掛からない。grep でそこまで賄おうとしないこと。
+      - name: Check forbidden words (単語・文言カタログ)
+        run: |
+          set +e
+          PATTERN='不正|監視|疑わしい|検知|異常'
+          HITS=$(grep -rnE "$PATTERN" apps/web/src/locales 2>/dev/null)
+          if [ -n "$HITS" ]; then
+            echo "文言カタログに禁止語が検出されました:"
             echo "$HITS"
             exit 1
           fi
