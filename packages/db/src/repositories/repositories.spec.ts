@@ -2168,6 +2168,32 @@ const INVOCATIONS: Invocation[] = [
     crossTenant: (env, ctx) =>
       invoiceRepo.recordDocumentDelivery(env, ctx, DELIVERY_INPUT(OTHER_ID)),
   },
+  // ── P5-10 が足したもの（PK-SPEC-P5 §2.7）──────────────────
+  {
+    // webhook から状態を進める。**終端からは動かない。**
+    name: "invoice.updateDocumentDeliveryStatus",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.updateDocumentDeliveryStatus(env, ctx, OWN_ID.delivery, { status: "DELIVERED" }),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.updateDocumentDeliveryStatus(env, ctx, OTHER_ID.delivery, {
+        status: "DELIVERED",
+      }),
+  },
+  {
+    name: "invoice.setDeliveryProviderMessageId",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.setDeliveryProviderMessageId(env, ctx, OWN_ID.delivery, "resend_msg_1"),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.setDeliveryProviderMessageId(env, ctx, OTHER_ID.delivery, "resend_msg_1"),
+  },
+  {
+    // 不達の一覧（画面の警告の材料）。
+    name: "invoice.listFailedDeliveries",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.listFailedDeliveries(env, ctx, {}),
+  },
   // ── P5-09 が足したもの（PK-SPEC-P5 §5）────────────────────
   {
     // 取消。**PDF に触らない**（元の PDF は閲覧できるまま / §5.2 MUST）。

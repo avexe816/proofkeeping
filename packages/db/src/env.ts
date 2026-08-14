@@ -141,6 +141,13 @@ export interface EnvSecrets {
   SESSION_SECRET: string;
   /** Resend の API キー。 */
   RESEND_API_KEY: string;
+  /**
+   * Resend の webhook 署名鍵（P5-10 / security.md §7）。
+   *
+   * Svix 形式（`whsec_` + base64）。**署名の検証を必須にする**ので、
+   * 未設定なら webhook は 401 を返す（検証を素通りさせない）。
+   */
+  RESEND_WEBHOOK_SECRET: string;
   /** CREDENTIALS KV に置く資格情報の暗号化鍵。 */
   CREDENTIAL_ENCRYPTION_KEY: string;
   /** Sentry の DSN。採用可否は PK-SPEC-P0 §20 で未決。 */
