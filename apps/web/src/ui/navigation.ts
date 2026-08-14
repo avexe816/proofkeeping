@@ -305,6 +305,20 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/settings/tax",
   },
+  // 取引先と料金（P5-02 / P5-03 / PK-SPEC-P5 §2.1・§2.2）。
+  // **`moduleCode` は `BILLING`。** 事業者・税務設定（`PLATFORM`）と違い、
+  // 請求モジュールの契約が無ければ使う場面が無い。
+  // `scope` は `ORGANIZATION` — 取引先は組織のマスタで、`billing.read` は
+  // `INSPECTOR` / `CLEANER` に配られていない（security.md §1）。
+  {
+    key: "nav.counterparties",
+    section: "settings",
+    moduleCode: "BILLING",
+    action: "billing.read",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/settings/counterparties",
+  },
   {
     key: "nav.propertySettings",
     section: "settings",

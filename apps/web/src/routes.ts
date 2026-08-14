@@ -131,6 +131,7 @@ export default [
     route("app/settings/checklists", "routes/app/checklists.tsx"),
     route("app/settings/standard-times", "routes/app/standardTimes.tsx"),
     route("app/settings/tax", "routes/app/taxProfile.tsx"),
+    route("app/settings/counterparties", "routes/app/counterparties.tsx"),
     route("app/settings/observation", "routes/app/observationSettings.tsx"),
     route("app/settings/baseline", "routes/app/baselineSettings.tsx"),
     route("app/p/:propertyId/data-quality", "routes/app/dataQuality.tsx"),
