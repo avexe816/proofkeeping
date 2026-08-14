@@ -134,6 +134,10 @@ export const ENTITY_PREFIXES = [
   "invt", // invoiceTaxSummary
   "dlv", // documentDelivery
   "bper", // billingPeriod
+  // P5-07 が足したもの。採番の控え（`document_sequence`）。**権威では
+  // ない**（採番の正は `DocumentSequencer` / billing.md §5）。行そのものを
+  // 指す ID が要るのは、発行トランザクションで upsert するため。
+  "dseq", // documentSequence
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

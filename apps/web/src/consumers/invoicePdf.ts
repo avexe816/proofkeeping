@@ -27,17 +27,20 @@
  *      同じ内容が載る。
  *   ② payload は発行時に固定された値から毎回組み直す。**差分を足さない。**
  *   ③ 行を作らないので、行が増えることもない。
- * `pdfSha256` の書き戻しはここで行わない（§4.1 の ⑧）。**帳票の列を
- * 書き換える経路をコンシューマに持たせない** — 書き戻しは発行フローが
- * 持ち、P5-07 が実装する。
+ * ⑧ の `pdfSha256` と ⑨ の R2 キーはここで書き戻す（P5-07 が足した）。
+ * **触ってよいのは `pdfStorageKey` / `pdfSha256` だけ**（`updateInvoicePdf()`）。
+ * 金額と明細に触れる経路をコンシューマに持たせない（billing.md §2）。
+ * 3 回処理しても同じキーに同じ値が入る。
  *
  * ── 消さない・上書きしない ──────────────────────────────
  * 版を上げた再発行は別のキーになる。元の PDF は**閲覧可能なまま
  * 維持する**（billing.md §2）。削除の経路をこのファイルへ足さないこと。
  */
 
-import { type Env, type TenantContext } from "@pk/db";
+import { updateInvoicePdf, type Env, type TenantContext } from "@pk/db";
 import { renderInvoicePdf } from "@pk/pdf";
+
+import { sha256Hex } from "../lib/evidence/hash.js";
 
 import { loadDailyReportFont } from "../lib/report/font.js";
 import { collectInvoicePayload, invoicePdfKey, loadInvoiceSeal } from "../lib/report/invoice.js";
@@ -120,6 +123,14 @@ export async function generateInvoicePdf(
 
     await env.DOCUMENTS.put(key, bytes, {
       httpMetadata: { contentType: "application/pdf" },
+    });
+
+    // ⑧⑨ 在り処とハッシュを書き戻す。**金額と明細には触らない。**
+    // R2 へ置いたあとに書く。**先に書くと、PDF が無いのに
+    // 「ある」と記録された請求書ができる。**
+    await updateInvoicePdf(env, ctx, message.invoiceId, {
+      pdfStorageKey: key,
+      pdfSha256: await sha256Hex(bytes),
     });
 
     return { kind: "OK", key, bytes: bytes.byteLength };

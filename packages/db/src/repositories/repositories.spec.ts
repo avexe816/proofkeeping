@@ -445,6 +445,74 @@ const PRICING_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) =>
     priority: 50,
   }) as const;
 
+/**
+ * 請求書 1 通ぶんの発行入力（P5-07 / 同 §4.1 の ③〜⑥）。
+ *
+ * **金額は呼び出し側が確定させたもの。** リポジトリは計算しない。
+ */
+const CREATE_INVOICE_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) => ({
+  counterpartyId: id.counterparty,
+  documentNo: "INV-2026-0042",
+  issueDate: "2026-10-01",
+  dueDate: "2026-10-31",
+  periodFrom: "2026-09-01",
+  periodTo: "2026-09-30",
+  counterpartyName: "サンプルホテル運営株式会社",
+  subtotalAmount: 651600,
+  taxAmount: 65160,
+  totalAmount: 716760,
+  isQualifiedInvoice: true,
+  issuerSnapshot: { legalName: "サンプル清掃株式会社" },
+  counterpartySnapshot: { legalName: "サンプルホテル運営株式会社" },
+  payloadSha256: "b".repeat(64),
+  note: null,
+  confirmedById: id.membership,
+  lines: [
+    {
+      lineNo: 1,
+      propertyId: id.property,
+      itemCode: "CLEAN_CHECKOUT" as const,
+      description: "サンプルホテル東京 / アウト清掃",
+      serviceDateFrom: "2026-09-01",
+      serviceDateTo: "2026-09-30",
+      quantity: 180,
+      unit: "室",
+      unitPrice: 3200,
+      amount: 576000,
+      taxRate: 10,
+      isReducedRate: false,
+      sourceRef: { taskIds: [id.task] },
+    },
+  ],
+  taxSummaries: [
+    {
+      taxRate: 10,
+      isReducedRate: false,
+      subtotalAmount: 651600,
+      taxAmount: 65160,
+      totalAmount: 716760,
+    },
+  ],
+  sequence: { documentType: "INVOICE" as const, fiscalYear: 2026, lastNumber: 42 },
+});
+
+/** 送付ログ 1 行（同 §2.7）。**差異の詳細を `bodyPreview` に入れない。** */
+const DELIVERY_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) =>
+  ({
+    docType: "INVOICE",
+    documentId: id.invoice,
+    channel: "EMAIL",
+    toEmail: "keiri@example.co.jp",
+    ccEmails: [],
+    subject: "請求書のご送付（INV-2026-0042）",
+    bodyPreview: "いつもお世話になっております。",
+    status: "SENT",
+    providerMessageId: null,
+    errorMessage: null,
+    sentById: id.membership,
+    sentAt: null,
+  }) satisfies invoiceRepo.RecordDocumentDeliveryInput;
+
 /** 業務上の入室 1 件（P4-10 / 同 §2.3）。**宿泊者の情報を持たない。** */
 const ACCESS_LOG_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) =>
   ({
@@ -2040,6 +2108,44 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => invoiceRepo.insertPricingRule(env, ctx, PRICING_INPUT(OWN_ID)),
     crossTenant: (env, ctx) => invoiceRepo.insertPricingRule(env, ctx, PRICING_INPUT(OTHER_ID)),
   },
+  // ── P5-07 が足したもの（PK-SPEC-P5 §4.1）──────────────────
+  {
+    // ③〜⑥ を 1 トランザクションで書く。**採番は呼び出し側。**
+    name: "invoice.createInvoice",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.createInvoice(env, ctx, CREATE_INVOICE_INPUT(OWN_ID)),
+    crossTenant: (env, ctx) => invoiceRepo.createInvoice(env, ctx, CREATE_INVOICE_INPUT(OTHER_ID)),
+  },
+  {
+    // ⑧⑨ の書き戻し。**金額に触れない。**
+    name: "invoice.updateInvoicePdf",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.updateInvoicePdf(env, ctx, OWN_ID.invoice, {
+        pdfStorageKey: "invoices/x/INV-2026-0042-r1.pdf",
+        pdfSha256: "a".repeat(64),
+      }),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.updateInvoicePdf(env, ctx, OTHER_ID.invoice, {
+        pdfStorageKey: "invoices/x/INV-2026-0042-r1.pdf",
+        pdfSha256: "a".repeat(64),
+      }),
+  },
+  {
+    // ⑫。**`CONFIRMED` のときだけ進む**（再送で状態が戻らない）。
+    name: "invoice.markInvoiceSent",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.markInvoiceSent(env, ctx, OWN_ID.invoice, ctx.now),
+    crossTenant: (env, ctx) => invoiceRepo.markInvoiceSent(env, ctx, OTHER_ID.invoice, ctx.now),
+  },
+  {
+    // ⑪ 送付ログ。**追記のみ。**
+    name: "invoice.recordDocumentDelivery",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.recordDocumentDelivery(env, ctx, DELIVERY_INPUT(OWN_ID)),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.recordDocumentDelivery(env, ctx, DELIVERY_INPUT(OTHER_ID)),
+  },
   {
     name: "invoice.listInvoices",
     kind: "tenant",
@@ -2461,13 +2567,40 @@ describe("発行済み帳票（PK-SPEC-P5 §2 / billing.md §2）", () => {
 
   // **金額を書き換える更新関数を作らない**（invoice.ts 冒頭の注記）。
   // 金額が変わるのは赤伝を切って作り直したとき。
+  //
+  // ── ファイル単位から `set()` 単位へ変えた（P5-07）──────
+  // 元は「`db.update(invoice)` と `totalAmount:` が同じファイルに在る」で
+  // 見ていた。**発行（`createInvoice()`）が入った時点で成り立たなくなる**
+  // — INSERT には当然 `totalAmount:` が要り、同じファイルに
+  // `updateInvoicePdf()` の `db.update(invoice)` も在るため。
+  // ファイルを分ければ通るが、それは検査を避けるための分割になる。
+  // **見るべきは「UPDATE の `set()` に金額が載っているか」**なので、
+  // そこだけを取り出して見る。INSERT は素通りする。
   it("請求書の金額を引数に取る更新関数が無い", () => {
-    const offenders = repositorySources().filter(
-      ({ code }) =>
-        /\.update\(\s*invoice\b/.test(code) &&
-        /(totalAmount|subtotalAmount|taxAmount)\s*:/.test(code),
-    );
+    const setBlocks = /\.update\(\s*invoice\s*\)[\s\S]{0,200}?\.set\(\{([\s\S]*?)\}\)/g;
+    const offenders = repositorySources().filter(({ code }) => {
+      for (const match of code.matchAll(setBlocks)) {
+        if (/(totalAmount|subtotalAmount|taxAmount)\s*:/.test(match[1] ?? "")) return true;
+      }
+      return false;
+    });
     expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  // 上の検査が本当に効いていることを確かめる（検査そのものの回帰）。
+  // **`set()` に金額を入れた形を見逃さない。**
+  it("金額を `set()` に入れた形なら上の検査が捕まえる", () => {
+    const sample = `
+      await db
+        .update(invoice)
+        .set({ totalAmount: 1, updatedAt: ctx.now })
+        .where(eq(invoice.id, invoiceId));
+    `;
+    const setBlocks = /\.update\(\s*invoice\s*\)[\s\S]{0,200}?\.set\(\{([\s\S]*?)\}\)/g;
+    const hit = [...sample.matchAll(setBlocks)].some((match) =>
+      /(totalAmount|subtotalAmount|taxAmount)\s*:/.test(match[1] ?? ""),
+    );
+    expect(hit).toBe(true);
   });
 });
 
