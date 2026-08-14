@@ -513,6 +513,28 @@ const DELIVERY_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) =>
     sentAt: null,
   }) satisfies invoiceRepo.RecordDocumentDeliveryInput;
 
+/** 領収書 1 通（P5-08 / 同 §4.2）。**印紙の値を持たない**（billing.md §3）。 */
+const CREATE_RECEIPT_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) =>
+  ({
+    invoiceId: id.invoice,
+    counterpartyId: id.counterparty,
+    documentNo: "RCP-2026-0018",
+    issueDate: "2026-10-28",
+    totalAmount: 716760,
+    counterpartyName: "サンプルホテル運営株式会社",
+    receivedAmount: 716760,
+    receivedDate: "2026-10-28",
+    paymentMethod: "BANK_TRANSFER",
+    purposeText: "清掃業務委託料として（2026年9月分）",
+    taxSummary: [
+      { taxRate: 10, isReducedRate: false, subtotalAmount: 651600, taxAmount: 65160, totalAmount: 716760 },
+    ],
+    isQualifiedInvoice: true,
+    issuerSnapshot: { legalName: "サンプル清掃株式会社" },
+    counterpartySnapshot: { legalName: "サンプルホテル運営株式会社" },
+    sequence: { fiscalYear: 2026, lastNumber: 18 },
+  }) satisfies invoiceRepo.CreateReceiptInput;
+
 /** 業務上の入室 1 件（P4-10 / 同 §2.3）。**宿泊者の情報を持たない。** */
 const ACCESS_LOG_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) =>
   ({
@@ -2146,6 +2168,41 @@ const INVOCATIONS: Invocation[] = [
     crossTenant: (env, ctx) =>
       invoiceRepo.recordDocumentDelivery(env, ctx, DELIVERY_INPUT(OTHER_ID)),
   },
+  // ── P5-08 が足したもの（PK-SPEC-P5 §4.2）──────────────────
+  {
+    // ① 入金の記録。**発行後・取消前のときだけ `PAID` へ進む。**
+    name: "invoice.markInvoicePaid",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.markInvoicePaid(env, ctx, OWN_ID.invoice, ctx.now),
+    crossTenant: (env, ctx) => invoiceRepo.markInvoicePaid(env, ctx, OTHER_ID.invoice, ctx.now),
+  },
+  {
+    // ③ 領収書の発行。**印紙の列を持たない**（billing.md §3）。
+    name: "invoice.createReceipt",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.createReceipt(env, ctx, CREATE_RECEIPT_INPUT(OWN_ID)),
+    crossTenant: (env, ctx) => invoiceRepo.createReceipt(env, ctx, CREATE_RECEIPT_INPUT(OTHER_ID)),
+  },
+  {
+    name: "invoice.updateReceiptPdf",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.updateReceiptPdf(env, ctx, OWN_ID.receipt, {
+        pdfStorageKey: "receipts/x/RCP-2026-0018-r1.pdf",
+        pdfSha256: "c".repeat(64),
+      }),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.updateReceiptPdf(env, ctx, OTHER_ID.receipt, {
+        pdfStorageKey: "receipts/x/RCP-2026-0018-r1.pdf",
+        pdfSha256: "c".repeat(64),
+      }),
+  },
+  {
+    name: "invoice.markReceiptSent",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.markReceiptSent(env, ctx, OWN_ID.receipt, ctx.now),
+    crossTenant: (env, ctx) => invoiceRepo.markReceiptSent(env, ctx, OTHER_ID.receipt, ctx.now),
+  },
   {
     name: "invoice.listInvoices",
     kind: "tenant",
@@ -2581,6 +2638,18 @@ describe("発行済み帳票（PK-SPEC-P5 §2 / billing.md §2）", () => {
     const offenders = repositorySources().filter(({ code }) => {
       for (const match of code.matchAll(setBlocks)) {
         if (/(totalAmount|subtotalAmount|taxAmount)\s*:/.test(match[1] ?? "")) return true;
+      }
+      return false;
+    });
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  // 領収書も同じ（金額を `set()` に入れる更新関数を作らない）。
+  it("領収書の金額を引数に取る更新関数が無い", () => {
+    const setBlocks = /\.update\(\s*receipt\s*\)[\s\S]{0,200}?\.set\(\{([\s\S]*?)\}\)/g;
+    const offenders = repositorySources().filter(({ code }) => {
+      for (const match of code.matchAll(setBlocks)) {
+        if (/(receivedAmount|totalAmount)\s*:/.test(match[1] ?? "")) return true;
       }
       return false;
     });

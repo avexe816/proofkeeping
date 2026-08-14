@@ -37,13 +37,19 @@
  * 維持する**（billing.md §2）。削除の経路をこのファイルへ足さないこと。
  */
 
-import { updateInvoicePdf, type Env, type TenantContext } from "@pk/db";
-import { renderInvoicePdf } from "@pk/pdf";
+import { updateInvoicePdf, updateReceiptPdf, type Env, type TenantContext } from "@pk/db";
+import { renderInvoicePdf, renderReceiptPdf } from "@pk/pdf";
 
 import { sha256Hex } from "../lib/evidence/hash.js";
 
 import { loadDailyReportFont } from "../lib/report/font.js";
-import { collectInvoicePayload, invoicePdfKey, loadInvoiceSeal } from "../lib/report/invoice.js";
+import {
+  collectInvoicePayload,
+  collectReceiptPayload,
+  invoicePdfKey,
+  loadInvoiceSeal,
+  receiptPdfKey,
+} from "../lib/report/invoice.js";
 
 /** キューへ載せるメッセージ。**組織の解決に要る値を全部持たせる。** */
 export interface InvoicePdfMessage {
@@ -139,6 +145,87 @@ export async function generateInvoicePdf(
     // 文書番号も出さない（取引の内容が推測できる）。
     const reason = error instanceof Error ? error.name : "UNKNOWN";
     console.error(`invoice-pdf-failed reason=${reason}`);
+    return { kind: "FAILED", reason };
+  }
+}
+
+
+// ────────────────────────────────────────────────────────────
+// 領収書（P5-08 / PK-SPEC-P5 §8.2・§4.2 の ④）
+// ────────────────────────────────────────────────────────────
+
+/** キューへ載せるメッセージ。**請求書と同じ `pk-pdf-generation`。** */
+export interface ReceiptPdfMessage {
+  kind: "RECEIPT_PDF";
+  organizationId: string;
+  orgShortId: string;
+  receiptId: string;
+  sealImageKey: string | null;
+  requestedAtMs: number;
+}
+
+/** メッセージの形を確かめる。 */
+export function isReceiptPdfMessage(value: unknown): value is ReceiptPdfMessage {
+  if (typeof value !== "object" || value === null) return false;
+  const message = value as Record<string, unknown>;
+  return (
+    message["kind"] === "RECEIPT_PDF" &&
+    typeof message["organizationId"] === "string" &&
+    typeof message["orgShortId"] === "string" &&
+    typeof message["receiptId"] === "string" &&
+    (message["sealImageKey"] === null || typeof message["sealImageKey"] === "string") &&
+    typeof message["requestedAtMs"] === "number"
+  );
+}
+
+/**
+ * 領収書 PDF を 1 通作る（§4.2 の ④）。
+ *
+ * **印紙貼付欄を持たない**（billing.md §3）。電子発行の注記は
+ * テンプレートが定数から出す。この関数から差し替える経路は無い。
+ */
+export async function generateReceiptPdf(
+  env: Env,
+  message: ReceiptPdfMessage,
+): Promise<InvoicePdfOutcome> {
+  const ctx: TenantContext = {
+    organizationId: message.organizationId,
+    orgShortId: message.orgShortId,
+    role: "ORG_ADMIN",
+    allowedPropertyIds: [],
+    now: new Date(message.requestedAtMs),
+  };
+
+  try {
+    const source = await collectReceiptPayload(env, ctx, message.receiptId);
+    if (source === null) return { kind: "SKIPPED", reason: "RECEIPT_NOT_FOUND" };
+    const { payload, revision } = source;
+
+    const font = await loadDailyReportFont(env);
+    if (font === null) return { kind: "FAILED", reason: "FONT_NOT_FOUND" };
+
+    const seal = await loadInvoiceSeal(env, message.sealImageKey);
+    const bytes = await renderReceiptPdf(payload, font, seal);
+    const key = receiptPdfKey({
+      organizationId: message.organizationId,
+      documentNo: payload.documentNo,
+      revision,
+    });
+
+    await env.DOCUMENTS.put(key, bytes, {
+      httpMetadata: { contentType: "application/pdf" },
+    });
+
+    // **R2 へ置いたあとに書く**（`generateInvoicePdf()` と同じ理由）。
+    await updateReceiptPdf(env, ctx, message.receiptId, {
+      pdfStorageKey: key,
+      pdfSha256: await sha256Hex(bytes),
+    });
+
+    return { kind: "OK", key, bytes: bytes.byteLength };
+  } catch (error) {
+    const reason = error instanceof Error ? error.name : "UNKNOWN";
+    console.error(`receipt-pdf-failed reason=${reason}`);
     return { kind: "FAILED", reason };
   }
 }

@@ -22,12 +22,13 @@
  * 揃える）。境界でここだけが変換を持つ。
  */
 
-import type { InvoicePayload } from "@pk/billing";
+import type { InvoicePayload, ReceiptPayload } from "@pk/billing";
 import type { AuditReportPayload, DailyReportPayload } from "@pk/engine";
 import { Font, renderToBuffer } from "@react-pdf/renderer";
 
 import { buildAuditReportDocument, type AuditReportFont } from "./auditReport.js";
 import { buildInvoiceDocument, type InvoiceFont, type InvoiceSeal } from "./invoice.js";
+import { buildReceiptDocument } from "./receipt.js";
 import { buildDailyReportDocument, type DailyReportFont } from "./dailyReport.js";
 
 /** この isolate で登録済みの family。**再登録を避けるためだけの記憶。** */
@@ -98,5 +99,23 @@ export async function renderInvoicePdf(
 ): Promise<Uint8Array> {
   registerFont(font);
   const buffer = await renderToBuffer(buildInvoiceDocument(payload, font, seal));
+  return new Uint8Array(buffer);
+}
+
+/**
+ * 領収書 PDF を作る（PK-SPEC-P5 §8.2 / P5-08）。
+ *
+ * **Queue コンシューマ内でのみ呼ぶ**（§8.3 MUST / 冒頭の注記）。
+ *
+ * **印紙貼付欄を持たない**（billing.md §3）。電子発行の注記は
+ * テンプレートが定数から読む。**ここでも payload からも差し替えられない。**
+ */
+export async function renderReceiptPdf(
+  payload: ReceiptPayload,
+  font: InvoiceFont,
+  seal: InvoiceSeal = null,
+): Promise<Uint8Array> {
+  registerFont(font);
+  const buffer = await renderToBuffer(buildReceiptDocument(payload, font, seal));
   return new Uint8Array(buffer);
 }

@@ -28,7 +28,9 @@
 
 import {
   findInvoiceById,
+  findReceiptById,
   markInvoiceSent,
+  markReceiptSent,
   recordDocumentDelivery,
   type Env,
   type TenantContext,
@@ -197,6 +199,12 @@ export async function deliverInvoice(
 /** `pk-notification` キューの入口。 */
 export async function handleNotificationBatch(env: Env, batch: MessageBatch): Promise<void> {
   for (const message of batch.messages) {
+    if (isReceiptDeliveryMessage(message.body)) {
+      const receiptOutcome = await deliverReceipt(env, message.body);
+      if (receiptOutcome.kind === "FAILED") message.retry();
+      else message.ack();
+      continue;
+    }
     if (!isInvoiceDeliveryMessage(message.body)) {
       // 形が違うものは**再送しても直らない。** ack して落とす。
       console.error("notification-invalid-message");
@@ -207,4 +215,105 @@ export async function handleNotificationBatch(env: Env, batch: MessageBatch): Pr
     if (outcome.kind === "FAILED") message.retry();
     else message.ack();
   }
+}
+
+
+// ────────────────────────────────────────────────────────────
+// 領収書の送付（P5-08 / PK-SPEC-P5 §4.2 の ⑤）
+// ────────────────────────────────────────────────────────────
+
+/** キューへ載せるメッセージ。**請求書と同じ `pk-notification`。** */
+export interface ReceiptDeliveryMessage {
+  kind: "RECEIPT_DELIVERY";
+  organizationId: string;
+  orgShortId: string;
+  receiptId: string;
+  toEmail: string;
+  ccEmails: string[];
+  sentById: string;
+  requestedAtMs: number;
+}
+
+/** メッセージの形を確かめる。 */
+export function isReceiptDeliveryMessage(value: unknown): value is ReceiptDeliveryMessage {
+  if (typeof value !== "object" || value === null) return false;
+  const message = value as Record<string, unknown>;
+  return (
+    message["kind"] === "RECEIPT_DELIVERY" &&
+    typeof message["organizationId"] === "string" &&
+    typeof message["orgShortId"] === "string" &&
+    typeof message["receiptId"] === "string" &&
+    typeof message["toEmail"] === "string" &&
+    Array.isArray(message["ccEmails"]) &&
+    typeof message["sentById"] === "string" &&
+    typeof message["requestedAtMs"] === "number"
+  );
+}
+
+/** 件名。**金額を件名に出さない**（請求書と同じ）。 */
+export function receiptSubject(documentNo: string): string {
+  return `領収書のご送付（${documentNo}）`;
+}
+
+/** 本文。**1 行要約だけ**（ui-writing.md §6）。 */
+export function receiptBody(documentNo: string): string {
+  return [
+    "いつもお世話になっております。",
+    `領収書（${documentNo}）をお送りします。`,
+    "詳細は添付の PDF をご確認ください。",
+  ].join("\n");
+}
+
+/**
+ * 領収書を 1 通送る（§4.2 の ⑤）。
+ *
+ * **送付ログは成功でも失敗でも残す**（§2.7）。`ISSUED` のときだけ
+ * `SENT` へ進む（2 回目は 0 行 / 冪等）。
+ */
+export async function deliverReceipt(
+  env: Env,
+  message: ReceiptDeliveryMessage,
+): Promise<InvoiceDeliveryOutcome> {
+  const ctx: TenantContext = {
+    organizationId: message.organizationId,
+    orgShortId: message.orgShortId,
+    role: "ORG_ADMIN",
+    allowedPropertyIds: [],
+    now: new Date(message.requestedAtMs),
+  };
+
+  const receipt = await findReceiptById(env, ctx, message.receiptId);
+  if (receipt === undefined) return { kind: "SKIPPED", reason: "RECEIPT_NOT_FOUND" };
+  if (receipt.status === "VOIDED") return { kind: "SKIPPED", reason: "RECEIPT_VOIDED" };
+
+  const subject = receiptSubject(receipt.documentNo);
+  const body = receiptBody(receipt.documentNo);
+
+  const sent = await sendViaResend(env, {
+    to: message.toEmail,
+    cc: message.ccEmails,
+    subject,
+    body,
+  });
+
+  const { deliveryId } = await recordDocumentDelivery(env, ctx, {
+    docType: "RECEIPT",
+    documentId: message.receiptId,
+    channel: "EMAIL",
+    toEmail: message.toEmail,
+    ccEmails: message.ccEmails,
+    subject,
+    bodyPreview: body.slice(0, 120),
+    status: sent.ok ? "SENT" : "FAILED",
+    providerMessageId: sent.ok ? sent.messageId : null,
+    errorMessage: sent.ok ? null : sent.reason,
+    sentById: message.sentById,
+    sentAt: sent.ok ? ctx.now : null,
+  });
+
+  if (!sent.ok) return { kind: "FAILED", reason: sent.reason };
+
+  await markReceiptSent(env, ctx, message.receiptId, ctx.now);
+
+  return { kind: "OK", deliveryId };
 }

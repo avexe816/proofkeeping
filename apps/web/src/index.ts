@@ -54,6 +54,7 @@ import ruleConfigs from "./routes/api/v1/ruleConfigs.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import billingPeriodsRoute from "./routes/api/v1/billingPeriods.js";
 import invoicesRoute from "./routes/api/v1/invoices.js";
+import receiptsRoute from "./routes/api/v1/receipts.js";
 import counterparties from "./routes/api/v1/counterparties.js";
 import pricingRules from "./routes/api/v1/pricingRules.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
@@ -215,6 +216,8 @@ api.route("/pricing-rules", pricingRules);
 api.route("/billing-periods", billingPeriodsRoute);
 // 請求書（P5-07 / 同 §4.1・§9）。**発行と送付は 1 本の口**（1 クリック）。
 api.route("/invoices", invoicesRoute);
+// 領収書（P5-08 / 同 §4.2・§8.2）。**印紙貼付欄を持たない**（billing.md §3）。
+api.route("/receipts", receiptsRoute);
 // 組織設定（P1-22 / §19.4）。施設選択画面を挟む閾値だけ。
 api.route("/organization", organization);
 app.route("/api/v1", api);

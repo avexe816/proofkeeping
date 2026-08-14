@@ -406,3 +406,58 @@ export const invoiceListResponseSchema = z.object({
 });
 
 export type InvoiceListResponse = z.infer<typeof invoiceListResponseSchema>;
+
+// ────────────────────────────────────────────────────────────
+// 領収書と入金（P5-08 / PK-SPEC-P5 §4.2・§9）
+// ────────────────────────────────────────────────────────────
+
+/** 入金方法（§2.6）。`packages/db` の `PAYMENT_METHODS` と同じ。 */
+export const PAYMENT_METHODS = ["BANK_TRANSFER", "CASH", "CARD", "OTHER"] as const;
+
+/** 領収書の状態（§2.6）。 */
+export const RECEIPT_STATUSES = ["ISSUED", "SENT", "VOIDED"] as const;
+
+/**
+ * `POST /api/v1/receipts/issue-and-send` の入力（§4.2）。
+ *
+ * **`receivedAmount` を受け取るのは「いくら入ったか」が事実だから。**
+ * ただし請求額と一致しない場合は 409 で断る（一部入金を置く列が
+ * 無い / docs/OPEN_QUESTIONS.md #076）。黙って全額として記録しない。
+ */
+export const receiptIssueRequestSchema = z.object({
+  invoiceId: z.string().min(1),
+  receivedAmount: z.number().int(),
+  receivedDate: isoDateSchema,
+  paymentMethod: z.enum(PAYMENT_METHODS),
+  /** 但し書き。省略時は請求書の対象期間から組み立てる。 */
+  purposeText: z.string().trim().min(1).max(120).optional(),
+});
+
+export type ReceiptIssueRequest = z.infer<typeof receiptIssueRequestSchema>;
+
+/** 一覧の 1 件。**`organizationId` と R2 のキーを含めない。** */
+export const receiptSummarySchema = z.object({
+  receiptId: z.string().min(1),
+  invoiceId: z.string().nullable(),
+  counterpartyId: z.string().min(1),
+  documentNo: z.string().min(1),
+  issueDate: isoDateSchema,
+  counterpartyName: z.string().min(1),
+  receivedAmount: z.number().int(),
+  receivedDate: isoDateSchema,
+  paymentMethod: z.enum(PAYMENT_METHODS),
+  totalAmount: z.number().int(),
+  isQualifiedInvoice: z.boolean(),
+  status: z.enum(RECEIPT_STATUSES),
+  hasPdf: z.boolean(),
+  sentAt: z.string().nullable(),
+});
+
+export type ReceiptSummary = z.infer<typeof receiptSummarySchema>;
+
+/** `GET /api/v1/receipts` の応答。**検索 3 項目は請求書と同じ。** */
+export const receiptListResponseSchema = z.object({
+  data: z.array(receiptSummarySchema),
+});
+
+export type ReceiptListResponse = z.infer<typeof receiptListResponseSchema>;

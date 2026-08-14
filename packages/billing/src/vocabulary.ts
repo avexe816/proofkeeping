@@ -92,3 +92,22 @@ export const ITEM_CODE_LABELS: Readonly<Record<InvoiceItemCodeValue, string>> = 
   HOLIDAY_SURCHARGE: "繁忙期割増",
   ADJUSTMENT: "調整",
 };
+
+/** 入金方法（§2.6）。`packages/db` の `PAYMENT_METHODS` と同じ語彙。 */
+export const PAYMENT_METHOD_VALUES = ["BANK_TRANSFER", "CASH", "CARD", "OTHER"] as const;
+
+export type PaymentMethodValue = (typeof PAYMENT_METHOD_VALUES)[number];
+
+/**
+ * 入金方法の表示名（§8.2 の「お支払方法 銀行振込」）。
+ *
+ * **UI 文言ではない。** 発行時に領収書へ固定される取引の事実で、
+ * 発行後に翻訳し直してはならない（`TASK_TYPE_LABELS` と同じ扱い。
+ * ui-writing.md §1 は JSX の規則）。
+ */
+export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethodValue, string>> = {
+  BANK_TRANSFER: "銀行振込",
+  CASH: "現金",
+  CARD: "クレジットカード",
+  OTHER: "その他",
+};
