@@ -268,6 +268,8 @@ describe("P0-02 wrangler.toml の構成", () => {
     "pk-pdf-generation",
     "pk-baseline-learning",
     "pk-reconciliation",
+    // 帳票の送付（P5-07 / PK-SPEC-P5 §4.1 の ⑩〜⑫）。
+    "pk-notification",
   ] as const;
 
   it.each(ENVIRONMENTS)("$label: 実装済みの Queue コンシューマだけを宣言する", ({ section }) => {

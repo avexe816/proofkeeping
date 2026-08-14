@@ -303,3 +303,106 @@ export const billingPeriodListResponseSchema = z.object({
 });
 
 export type BillingPeriodListResponse = z.infer<typeof billingPeriodListResponseSchema>;
+
+// ────────────────────────────────────────────────────────────
+// 請求書の発行と一覧（P5-07 / PK-SPEC-P5 §4.1・§9）
+// ────────────────────────────────────────────────────────────
+
+/** 請求書の状態（§2.3）。`packages/db` の `INVOICE_STATUSES` と同じ。 */
+export const INVOICE_STATUSES = [
+  "DRAFT",
+  "CONFIRMED",
+  "SENT",
+  "VIEWED",
+  "PAID",
+  "PARTIALLY_PAID",
+  "OVERDUE",
+  "VOIDED",
+] as const;
+
+/**
+ * `POST /api/v1/invoices/issue-and-send` の入力。
+ *
+ * **締めの ID だけ。** 金額・明細・期間をリクエストで受け取らない
+ * （§4.1 は締めから組み立てると定める）。人が金額を差し込める口を
+ * 作ると、請求根拠が証跡から切れる（§6.3 の意味が無くなる）。
+ */
+export const invoiceIssueRequestSchema = z.object({
+  billingPeriodId: z.string().min(1),
+});
+
+export type InvoiceIssueRequest = z.infer<typeof invoiceIssueRequestSchema>;
+
+/** 一覧の 1 件。**`organizationId` と R2 のキーを含めない。** */
+export const invoiceSummarySchema = z.object({
+  invoiceId: z.string().min(1),
+  counterpartyId: z.string().min(1),
+  documentNo: z.string().min(1),
+  issueDate: isoDateSchema,
+  dueDate: isoDateSchema,
+  periodFrom: isoDateSchema,
+  periodTo: isoDateSchema,
+  counterpartyName: z.string().min(1),
+  subtotalAmount: z.number().int(),
+  taxAmount: z.number().int(),
+  totalAmount: z.number().int(),
+  isQualifiedInvoice: z.boolean(),
+  isCreditNote: z.boolean(),
+  status: z.enum(INVOICE_STATUSES),
+  /** PDF ができているか。**R2 のキーそのものを返さない。** */
+  hasPdf: z.boolean(),
+  sentAt: z.string().nullable(),
+});
+
+export type InvoiceSummary = z.infer<typeof invoiceSummarySchema>;
+
+/** 明細 1 行。**税額の列を持たない**（§2.5 MUST）。 */
+export const invoiceLineSchema = z.object({
+  lineNo: z.number().int().min(1),
+  propertyId: z.string().nullable(),
+  itemCode: z.enum(INVOICE_ITEM_CODES),
+  description: z.string(),
+  serviceDateFrom: z.string().nullable(),
+  serviceDateTo: z.string().nullable(),
+  quantity: z.number(),
+  unit: z.string(),
+  unitPrice: z.number().int(),
+  amount: z.number().int(),
+  taxRate: z.number().int(),
+  isReducedRate: z.boolean(),
+  /**
+   * 集計元のタスク（§6.3 のドリルダウン）。
+   *
+   * **ここが ProofKeeping の請求機能の核心。** 明細から証跡へ辿れる。
+   * P5-13 がこの ID を使って W-07（証跡）へ繋ぐ。
+   */
+  taskIds: z.array(z.string()),
+});
+
+export type InvoiceLine = z.infer<typeof invoiceLineSchema>;
+
+/** 税区分サマリー 1 行（§2.5）。 */
+export const invoiceTaxSummarySchema = z.object({
+  taxRate: z.number().int(),
+  isReducedRate: z.boolean(),
+  subtotalAmount: z.number().int(),
+  taxAmount: z.number().int(),
+  totalAmount: z.number().int(),
+});
+
+export type InvoiceTaxSummary = z.infer<typeof invoiceTaxSummarySchema>;
+
+/** `GET /api/v1/invoices/:id` の応答。 */
+export const invoiceDetailResponseSchema = invoiceSummarySchema.extend({
+  lines: z.array(invoiceLineSchema),
+  taxSummaries: z.array(invoiceTaxSummarySchema),
+});
+
+export type InvoiceDetailResponse = z.infer<typeof invoiceDetailResponseSchema>;
+
+/** `GET /api/v1/invoices` の応答。 */
+export const invoiceListResponseSchema = z.object({
+  data: z.array(invoiceSummarySchema),
+});
+
+export type InvoiceListResponse = z.infer<typeof invoiceListResponseSchema>;

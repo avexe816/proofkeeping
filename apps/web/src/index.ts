@@ -5,6 +5,7 @@ import { createRequestHandler, RouterContextProvider } from "react-router";
 import { handleBaselineLearningBatch } from "./consumers/baselineLearning.js";
 import { handleDailyReportBatch } from "./consumers/dailyReport.js";
 import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
+import { handleNotificationBatch } from "./consumers/notification.js";
 import { handleReconciliationBatch } from "./consumers/reconciliation.js";
 import {
   missingSecretNames,
@@ -52,6 +53,7 @@ import roomAccessLogs from "./routes/api/v1/roomAccessLogs.js";
 import ruleConfigs from "./routes/api/v1/ruleConfigs.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import billingPeriodsRoute from "./routes/api/v1/billingPeriods.js";
+import invoicesRoute from "./routes/api/v1/invoices.js";
 import counterparties from "./routes/api/v1/counterparties.js";
 import pricingRules from "./routes/api/v1/pricingRules.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
@@ -211,6 +213,8 @@ api.route("/counterparties", counterparties);
 api.route("/pricing-rules", pricingRules);
 // 月次締め（P5-05 / 同 §2.8・§6.1）。合意と差戻しは P5-12。
 api.route("/billing-periods", billingPeriodsRoute);
+// 請求書（P5-07 / 同 §4.1・§9）。**発行と送付は 1 本の口**（1 クリック）。
+api.route("/invoices", invoicesRoute);
 // 組織設定（P1-22 / §19.4）。施設選択画面を挟む閾値だけ。
 api.route("/organization", organization);
 app.route("/api/v1", api);
@@ -297,6 +301,11 @@ export default {
     // 稼働照合（P4-05 / PK-SPEC-P4 §5）。**二重起動は DO が断る。**
     if (batch.queue.startsWith("pk-reconciliation")) {
       await handleReconciliationBatch(env, batch);
+      return;
+    }
+    // 帳票の送付（P5-07 / PK-SPEC-P5 §4.1 の ⑩〜⑫）。
+    if (batch.queue.startsWith("pk-notification")) {
+      await handleNotificationBatch(env, batch);
       return;
     }
     // 知らないキュー。**ack も retry もしない**（既定の再送に任せる）。

@@ -121,6 +121,14 @@ export interface EnvVars {
   /** 有効なシャード数。`Number()` で数値化して使う。local / preview は "1"。 */
   SHARD_COUNT: string;
   APP_BASE_URL: string;
+  /**
+   * 帳票メールの差出人（P5-07 / PK-SPEC-P5 §4.1 の ⑩）。
+   *
+   * **秘密ではないので `[vars]`。** Resend で検証済みのドメインの
+   * アドレスであること。組織ごとに変えられる形にはしていない
+   * （§2 に差出人を持つ列が無い / docs/OPEN_QUESTIONS.md #075）。
+   */
+  RESEND_FROM_ADDRESS: string;
 }
 
 /**

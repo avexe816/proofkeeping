@@ -104,6 +104,7 @@ directory = "build/client"
 ENVIRONMENT = "local"
 SHARD_COUNT = "1"
 APP_BASE_URL = "http://localhost:8787"
+RESEND_FROM_ADDRESS = "billing@example.invalid"
 
 # --- D1 ---------------------------------------------------------------------
 [[d1_databases]]
@@ -236,6 +237,18 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 帳票の送付（P5-07 / PK-SPEC-P5 §4.1 の ⑩〜⑫）。Resend への送信と
+# 送付ログの記録。**リクエストハンドラから送らない**（外部 API の
+# 応答待ちが CPU 予算とは別に待ち時間として乗る）。
+#
+# max_batch_size = 5。1 件が軽い（HTTP 1 往復）ので束ねてよいが、
+# **失敗した 1 件だけを retry したい**ので大きくしない。
+[[queues.consumers]]
+queue = "pk-notification-local"
+max_batch_size = 5
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -308,6 +321,7 @@ directory = "build/client"
 ENVIRONMENT = "preview"
 SHARD_COUNT = "1"
 APP_BASE_URL = "https://pk-preview.example.workers.dev"
+RESEND_FROM_ADDRESS = "billing@example.invalid"
 
 [[env.preview.d1_databases]]
 binding = "SHARD_00"
@@ -419,6 +433,13 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 帳票の送付（P5-07 / PK-SPEC-P5 §4.1 の ⑩〜⑫）。理由は top-level を参照。
+[[env.preview.queues.consumers]]
+queue = "pk-notification-preview"
+max_batch_size = 5
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -475,6 +496,7 @@ directory = "build/client"
 ENVIRONMENT = "staging"
 SHARD_COUNT = "2"
 APP_BASE_URL = "https://staging.proofkeeping.example"
+RESEND_FROM_ADDRESS = "billing@example.invalid"
 
 [[env.staging.d1_databases]]
 binding = "SHARD_00"
@@ -592,6 +614,13 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 
+# 帳票の送付（P5-07 / PK-SPEC-P5 §4.1 の ⑩〜⑫）。理由は top-level を参照。
+[[env.staging.queues.consumers]]
+queue = "pk-notification-staging"
+max_batch_size = 5
+max_batch_timeout = 5
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -653,6 +682,7 @@ directory = "build/client"
 ENVIRONMENT = "production"
 SHARD_COUNT = "16"
 APP_BASE_URL = "https://app.proofkeeping.example"
+RESEND_FROM_ADDRESS = "billing@example.invalid"
 
 [[env.production.d1_databases]]
 binding = "SHARD_00"
@@ -836,6 +866,13 @@ max_retries = 3
 [[env.production.queues.consumers]]
 queue = "pk-reconciliation"
 max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
+# 帳票の送付（P5-07 / PK-SPEC-P5 §4.1 の ⑩〜⑫）。理由は top-level を参照。
+[[env.production.queues.consumers]]
+queue = "pk-notification"
+max_batch_size = 5
 max_batch_timeout = 5
 max_retries = 3
 

@@ -30,7 +30,7 @@ import { and, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
-import { TAX_ROUNDING_MODES } from "../schema/organization.js";
+import { documentSequence, TAX_ROUNDING_MODES } from "../schema/organization.js";
 import {
   billingPeriod,
   counterparty,
@@ -713,4 +713,259 @@ export async function updateBillingPeriodStatus(
     );
 
   return result.meta.changes;
+}
+
+// ────────────────────────────────────────────────────────────
+// 発行（§4.1）— P5-07
+// ────────────────────────────────────────────────────────────
+
+/** `createInvoice()` の明細 1 行。**税額の列を持たない**（§2.5 MUST）。 */
+export interface CreateInvoiceLineInput {
+  lineNo: number;
+  propertyId: string | null;
+  itemCode: InvoiceItemCode;
+  description: string;
+  serviceDateFrom: string | null;
+  serviceDateTo: string | null;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  amount: number;
+  taxRate: number;
+  isReducedRate: boolean;
+  sourceRef: Record<string, unknown> | null;
+}
+
+/** `createInvoice()` の税区分 1 行（§2.5）。 */
+export interface CreateInvoiceTaxSummaryInput {
+  taxRate: number;
+  isReducedRate: boolean;
+  subtotalAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+}
+
+/**
+ * `createInvoice()` の入力。
+ *
+ * **金額は呼び出し側が確定させたもの。** ここで計算し直さない
+ * （計算は `@pk/billing` の `buildInvoiceDraft()`）。
+ */
+export interface CreateInvoiceInput {
+  counterpartyId: string;
+  documentNo: string;
+  issueDate: string;
+  dueDate: string;
+  periodFrom: string;
+  periodTo: string;
+  counterpartyName: string;
+  subtotalAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  isQualifiedInvoice: boolean;
+  issuerSnapshot: Record<string, unknown>;
+  counterpartySnapshot: Record<string, unknown>;
+  payloadSha256: string;
+  note: string | null;
+  confirmedById: string;
+  lines: readonly CreateInvoiceLineInput[];
+  taxSummaries: readonly CreateInvoiceTaxSummaryInput[];
+  /** 採番の控え（billing.md §5）。**権威は `DocumentSequencer`。** */
+  sequence: { documentType: "INVOICE" | "RECEIPT" | "REPORT"; fiscalYear: number; lastNumber: number };
+}
+
+/**
+ * 請求書を発行する（§4.1 の ③〜⑥）。**1 トランザクション。**
+ *
+ * ── なぜ `batch()` なのか ───────────────────────────────
+ * §4.1 MUST「③〜⑥ は同一トランザクション」。D1 の `batch()` は
+ * 全文が成功するか全文が失敗するかのどちらかになる。明細だけ入って
+ * 税区分が無い請求書、という状態を作らない。
+ *
+ * **PDF 生成とメール送信はこの外**（⑦以降 / 同 MUST「PDF 生成や
+ * メール送信の失敗で請求書レコードが消えてはならない」）。
+ *
+ * ── `status` は `CONFIRMED` で始まる（⑥）─────────────────
+ * `DRAFT` を経由しない。**採番した時点で番号が確定している**ので、
+ * 下書きとして残すと欠番の理由が説明できなくなる。
+ *
+ * ── 締めの行はここで触らない ────────────────────────────
+ * `billingPeriod` の `INVOICED` 化（①）は呼び出し側が
+ * `updateBillingPeriodStatus()` で**先に**行う。ロックを取ってから
+ * 採番する順序（§4.1）を、この関数の中に隠さない。
+ */
+export async function createInvoice(
+  env: Env,
+  ctx: TenantContext,
+  input: CreateInvoiceInput,
+): Promise<{ invoiceId: string }> {
+  assertIdBelongsToTenant(input.counterpartyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const invoiceId = generateId(ctx.orgShortId, "inv");
+
+  await db.batch([
+    db.insert(invoice).values({
+      id: invoiceId,
+      organizationId: ctx.organizationId,
+      counterpartyId: input.counterpartyId,
+      documentNo: input.documentNo,
+      revision: 1,
+      isCreditNote: false,
+      issueDate: input.issueDate,
+      totalAmount: input.totalAmount,
+      counterpartyName: input.counterpartyName,
+      periodFrom: input.periodFrom,
+      periodTo: input.periodTo,
+      dueDate: input.dueDate,
+      subtotalAmount: input.subtotalAmount,
+      taxAmount: input.taxAmount,
+      isQualifiedInvoice: input.isQualifiedInvoice,
+      issuerSnapshot: input.issuerSnapshot,
+      counterpartySnapshot: input.counterpartySnapshot,
+      status: "CONFIRMED",
+      payloadSha256: input.payloadSha256,
+      confirmedAt: ctx.now,
+      confirmedById: input.confirmedById,
+      note: input.note,
+      createdAt: ctx.now,
+      updatedAt: ctx.now,
+    }),
+    ...input.lines.map((line) =>
+      db.insert(invoiceLine).values({
+        id: generateId(ctx.orgShortId, "invl"),
+        organizationId: ctx.organizationId,
+        invoiceId,
+        ...line,
+      }),
+    ),
+    ...input.taxSummaries.map((summary) =>
+      db.insert(invoiceTaxSummary).values({
+        id: generateId(ctx.orgShortId, "invt"),
+        organizationId: ctx.organizationId,
+        invoiceId,
+        ...summary,
+      }),
+    ),
+    // 採番の控え（billing.md §5）。**権威ではない。** DO の状態が
+    // 失われたときの復元の起点。発行と同じトランザクションに入れる。
+    db
+      .insert(documentSequence)
+      .values({
+        id: generateId(ctx.orgShortId, "dseq"),
+        organizationId: ctx.organizationId,
+        documentType: input.sequence.documentType,
+        fiscalYear: input.sequence.fiscalYear,
+        lastNumber: input.sequence.lastNumber,
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+      })
+      .onConflictDoUpdate({
+        target: [
+          documentSequence.organizationId,
+          documentSequence.documentType,
+          documentSequence.fiscalYear,
+        ],
+        set: { lastNumber: input.sequence.lastNumber, updatedAt: ctx.now },
+      }),
+  ]);
+
+  return { invoiceId };
+}
+
+/**
+ * PDF の在り処とハッシュを書き戻す（§4.1 の ⑧⑨）。
+ *
+ * **金額と明細に触れない。** 触ってよいのは `pdfStorageKey` /
+ * `pdfSha256` だけ（billing.md §2 / このファイル冒頭の注記）。
+ * 再生成（§9 の `regenerate-pdf`）でも同じ関数を通る。
+ */
+export async function updateInvoicePdf(
+  env: Env,
+  ctx: TenantContext,
+  invoiceId: string,
+  input: { pdfStorageKey: string; pdfSha256: string },
+): Promise<number> {
+  assertIdBelongsToTenant(invoiceId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(invoice)
+    .set({ ...input, updatedAt: ctx.now })
+    .where(and(eq(invoice.organizationId, ctx.organizationId), eq(invoice.id, invoiceId)));
+
+  return result.meta.changes;
+}
+
+/**
+ * 送付が済んだことを記録する（§4.1 の ⑫）。
+ *
+ * **`CONFIRMED` のときだけ `SENT` へ進める。** 再送（§9 の `resend`）で
+ * 既に `PAID` や `VOIDED` になっている請求書を `SENT` へ引き戻さない。
+ *
+ * @returns 更新した行数。0 は「その状態ではなかった」。
+ */
+export async function markInvoiceSent(
+  env: Env,
+  ctx: TenantContext,
+  invoiceId: string,
+  sentAt: Date,
+): Promise<number> {
+  assertIdBelongsToTenant(invoiceId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(invoice)
+    .set({ status: "SENT", sentAt, updatedAt: ctx.now })
+    .where(
+      and(
+        eq(invoice.organizationId, ctx.organizationId),
+        eq(invoice.id, invoiceId),
+        eq(invoice.status, "CONFIRMED"),
+      ),
+    );
+
+  return result.meta.changes;
+}
+
+/** `recordDocumentDelivery()` の入力（§2.7）。 */
+export interface RecordDocumentDeliveryInput {
+  docType: DeliveryDocType;
+  documentId: string;
+  channel: "EMAIL" | "DOWNLOAD_LINK";
+  toEmail: string;
+  ccEmails: string[];
+  subject: string;
+  /** 本文の冒頭。**差異の詳細を入れない**（ui-writing.md §6）。 */
+  bodyPreview: string;
+  status: "QUEUED" | "SENT" | "DELIVERED" | "BOUNCED" | "FAILED";
+  providerMessageId: string | null;
+  errorMessage: string | null;
+  sentById: string;
+  sentAt: Date | null;
+}
+
+/**
+ * 送付ログを 1 行足す（§4.1 の ⑪ / §2.7）。**追記のみ。**
+ *
+ * 誰にいつ送ったかは電子取引の記録そのもの（billing.md §2）。
+ * **消す関数を作らないこと。**
+ */
+export async function recordDocumentDelivery(
+  env: Env,
+  ctx: TenantContext,
+  input: RecordDocumentDeliveryInput,
+): Promise<{ deliveryId: string }> {
+  assertIdBelongsToTenant(input.documentId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const deliveryId = generateId(ctx.orgShortId, "dlv");
+  await db.insert(documentDelivery).values({
+    id: deliveryId,
+    organizationId: ctx.organizationId,
+    ...input,
+    queuedAt: ctx.now,
+  });
+
+  return { deliveryId };
 }
