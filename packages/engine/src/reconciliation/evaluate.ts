@@ -22,13 +22,15 @@
  * 並びの順序を変えず、`Math.random()` を使わない。この 3 つが崩れると
  * §10.2 の「3 回実行しても Finding が重複しない」が成り立たなくなる。
  *
- * ── R001 と R002 の統合はここではない ───────────────────
- * §3.3 MUST は「R001 と R002 が同一客室・同一業務日で同時に発生したら
- * R002 に統合する」と定める。**R002 を実装する task（P4-11）が行う。**
- * 片方しか無い今の段階で統合の枝を書くと、検証できない分岐が残る。
+ * ── R001 と R002 の統合（§3.3 MUST）─────────────────────
+ * 「R001 と R002 が同一客室・同一業務日で同時に発生した場合、2 件を
+ * 別々に出さず、R002 に統合して `matchedSignals` に両方の根拠を含める」。
+ * **統合はここで行う**（`mergeR001IntoR002()`）。ルールどうしを
+ * 参照させると registry の並びに意味が生まれ、順番を変えただけで
+ * 結果が変わる形になる（§10.1 の決定性が並び順に依存してしまう）。
  */
 
-import { applyAdjustments } from "./confidence.js";
+import { applyAdjustments, clampConfidence } from "./confidence.js";
 import { RULES } from "./rules/registry.js";
 import { availableSourcesOf, suppressionReasonOf } from "./suppression.js";
 import type {
@@ -123,5 +125,50 @@ export function evaluate(
     );
   }
 
-  return { findings, suppressed, rulesEvaluated };
+  return { findings: mergeR001IntoR002(findings), suppressed, rulesEvaluated };
+}
+
+/** §3.3 の加点「観察でも使用痕跡があるなら +25（R001 と同時発生）」。 */
+export const R001_R002_MERGE_BONUS = 25;
+
+/**
+ * R001 を R002 へ畳む（§3.3 MUST）。
+ *
+ * ── なぜ R002 に寄せるのか ──────────────────────────────
+ * §3.3 がそう定めている。R002（施錠解除）は物理の記録で、
+ * R001（現場の観察）より一次に近い。**同じ日の同じ客室で 2 件出すと、
+ * 「別々の 2 つの差異」に見える。** 実際には 1 つの出来事に
+ * 2 系統の根拠が付いている状態。
+ *
+ * ── 両方の根拠を残す ────────────────────────────────────
+ * §3.3 MUST「`matchedSignals` に両方の根拠を含める」。R001 の
+ * `evidence.observation` も R002 側へ移す。**畳んだことで根拠が減らない。**
+ *
+ * @returns R002 が無ければ入力をそのまま返す。
+ */
+export function mergeR001IntoR002(findings: readonly FindingDraft[]): FindingDraft[] {
+  const r002 = findings.find((finding) => finding.ruleCode === "R002");
+  const r001 = findings.find((finding) => finding.ruleCode === "R001");
+  if (r002 === undefined || r001 === undefined) return [...findings];
+
+  const merged: FindingDraft = {
+    ...r002,
+    // **100 を超えさせない**（§1.3 の 0〜100）。単一シグナルの上限は
+    // 畳んだ時点で根拠が 2 つ以上になるため掛からない。
+    confidence: clampConfidence(r002.confidence + R001_R002_MERGE_BONUS),
+    matchedSignals: [...r002.matchedSignals, ...r001.matchedSignals],
+    evidence: {
+      ...r002.evidence,
+      // R001 が集めた観察の根拠。**上書きしない**（R002 は観察を持たない）。
+      observation: (r001.evidence as { observation?: unknown }).observation ?? null,
+      mergedFrom: ["R001"],
+    },
+  };
+
+  // **並びを保つ。** R002 の位置に畳んだものを置き、R001 を落とす。
+  return findings.flatMap((finding) => {
+    if (finding.ruleCode === "R001") return [];
+    if (finding.ruleCode === "R002") return [merged];
+    return [finding];
+  });
 }

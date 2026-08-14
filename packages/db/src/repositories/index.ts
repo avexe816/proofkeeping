@@ -23,8 +23,10 @@ export {
 
 export {
   AUDIT_ACTIONS,
+  listAuditLogs,
   recordAudit,
   type AuditAction,
+  type AuditLogFilter,
   type RecordAuditInput,
 } from "./audit.js";
 
@@ -332,6 +334,7 @@ export {
   MAX_AUDIT_CHANGES,
   findOccupancySnapshotById,
   hasOccupancySnapshotsInRange,
+  listOccupancyInRange,
   listOccupancySnapshots,
   upsertOccupancySnapshots,
   type OccupancyFieldChange,
