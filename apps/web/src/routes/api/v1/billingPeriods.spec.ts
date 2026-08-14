@@ -7,8 +7,18 @@
  *   `OPEN` 以外からの集計が **409**（締め直して金額が動かない / §2.8）
  *   越境した `billingPeriodId` が **404** になり、DB へ届かないこと
  *   状態変更が `AuditLog` に残ること（CLAUDE.md §5）
- *   **合意・差戻しの口が無いこと**（P5-12 の範囲 / §6.2 MUST）
- *   **物理削除の口が無いこと**（CLAUDE.md §4）
+ *   差戻しが**コメント無しでは通らない**こと（§6.2 MUST）
+ *   差戻しコメントが `lineKey` で行に付き、**知らない行なら 400** になること
+ *   合意・差戻し・確認依頼が**履歴に追記される**こと（同上）
+ *   `request-review` が**状態を変えない**こと（OPEN_QUESTIONS #072）
+ *   **物理削除の口が無いこと**（CLAUDE.md §4）。履歴にも更新の口が無いこと
+ *
+ * ── 明細の組み立ては差し替えてある ──────────────────────
+ * `lib/billing/draft.ts` は施設・客室・タスク・料金設定を 5 表ぶん引く。
+ * 代役 D1 でその行を全部並べても、見えるのは**代役の並び順**であって
+ * 明細の意味ではない。ここで見たいのは「差戻しコメントが行に付くか」
+ * なので、**明細そのものは既知の値に固定する。** 金額の計算は
+ * `packages/billing` の純粋関数テストが持つ（testing.md §3）。
  *
  * ── 代役の行は位置で組む ────────────────────────────────
  * `createFakeD1()` の `raw()` はそのまま drizzle へ渡る。**列の順序は
@@ -26,6 +36,85 @@ import { createFakeKv } from "../../../lib/auth/test-support/fake-kv.js";
 import { useTenantMiddleware, type AppEnv, type TenantDeps } from "../../../middleware/index.js";
 
 import billingPeriods from "./billingPeriods.js";
+
+/**
+ * 既知の明細（`buildPeriodDraft()` の差し替え）。
+ *
+ * 2 行。`lineKey` は `施設|清掃種別|客室タイプ` で、`@pk/billing` の
+ * `billingLineKeyOf()` が作るものと同じ形。**`vi.hoisted()` で組むのは、
+ * `vi.mock()` の工場が spec の const より先に走るため。**
+ */
+const { DRAFT, LINE_KEY_TWIN, LINE_KEY_SINGLE } = vi.hoisted(() => {
+  const propertyId = "a1b2c3__prop_01JBXQ3ZK8N4P2VYR6ABCDEFGH";
+  const twin = `${propertyId}|CHECKOUT|a1b2c3__rmtp_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
+  const single = `${propertyId}|STAYOVER|`;
+  return {
+    LINE_KEY_TWIN: twin,
+    LINE_KEY_SINGLE: single,
+    DRAFT: {
+      lines: [
+        {
+          lineNo: 1,
+          lineKey: twin,
+          propertyId,
+          itemCode: "CLEAN_CHECKOUT",
+          description: "サンプルホテル東京 / アウト清掃 / ツイン",
+          serviceDateFrom: "2026-09-01",
+          serviceDateTo: "2026-09-30",
+          quantity: 95,
+          unit: "室",
+          unitPrice: 3800,
+          amount: 361000,
+          taxRate: 10,
+          isReducedRate: false,
+          sourceRef: { taskIds: ["t1", "t2"], pricingRuleId: null, pricingStage: null },
+        },
+        {
+          lineNo: 2,
+          lineKey: single,
+          propertyId,
+          itemCode: "CLEAN_STAYOVER",
+          description: "サンプルホテル東京 / 滞在清掃",
+          serviceDateFrom: "2026-09-02",
+          serviceDateTo: "2026-09-28",
+          quantity: 42,
+          unit: "室",
+          unitPrice: 1800,
+          amount: 75600,
+          taxRate: 10,
+          isReducedRate: false,
+          sourceRef: { taskIds: ["t3"], pricingRuleId: null, pricingStage: null },
+        },
+      ],
+      taxSummaries: [
+        {
+          taxRate: 10,
+          isReducedRate: false,
+          subtotalAmount: 436600,
+          taxAmount: 43660,
+          totalAmount: 480260,
+        },
+      ],
+      subtotalAmount: 436600,
+      taxAmount: 43660,
+      totalAmount: 480260,
+      // §3.2 MUST。**単価が引けなかった行を黙って落とさない。**
+      warnings: [
+        {
+          code: "PRICE_NOT_FOUND",
+          propertyId,
+          taskType: "DEEP",
+          roomTypeId: null,
+          taskCount: 3,
+        },
+      ],
+    },
+  };
+});
+
+vi.mock("../../../lib/billing/draft.js", () => ({
+  buildPeriodDraft: () => Promise.resolve(DRAFT),
+}));
 
 const SECRET = "test-session-secret-not-used-anywhere-else";
 const NOW = new Date("2026-10-01T00:00:00.000Z");
@@ -153,6 +242,49 @@ async function post(
   cookie: string,
 ): Promise<Response> {
   return ctx.app.request(path, { method: "POST", headers: { cookie } }, ctx.env);
+}
+
+async function postJson(
+  ctx: ReturnType<typeof setup>,
+  path: string,
+  cookie: string,
+  body: unknown,
+): Promise<Response> {
+  return ctx.app.request(
+    path,
+    {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    ctx.env,
+  );
+}
+
+/** `billing_period_review` の 1 行。**列の順序は schema/invoice.ts の宣言順。** */
+function reviewRow(
+  seq: number,
+  action: string,
+  comment: string | null,
+  lineComments: unknown[] = [],
+): unknown[] {
+  return [
+    `${ORG_SHORT_ID}__bprv_01JBXQ3ZK8N4P2VYR6ABCDEF0${String(seq)}`,
+    ORGANIZATION_ID,
+    PERIOD_ID,
+    seq,
+    action,
+    comment,
+    JSON.stringify(lineComments),
+    "[]",
+    0,
+    "REVIEWING",
+    "REVIEWING",
+    1,
+    MEMBERSHIP_ID,
+    0,
+    0,
+  ];
 }
 
 describe("GET /api/v1/billing-periods", () => {
@@ -366,15 +498,395 @@ describe("POST /api/v1/billing-periods", () => {
   });
 });
 
+describe("GET /api/v1/billing-periods/:id/lines", () => {
+  it("明細を `lineKey` つきで返す。**組織 ID を含めない**", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("REVIEWING")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+
+    const response = await get(ctx, `/api/v1/billing-periods/${PERIOD_ID}/lines`, await ctx.cookie());
+    expect(response.status).toBe(200);
+
+    const body = await response.json<{
+      data: Record<string, unknown>[];
+      totalAmount: number;
+      warnings: unknown[];
+    }>();
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0]).toMatchObject({
+      lineNo: 1,
+      lineKey: LINE_KEY_TWIN,
+      quantity: 95,
+      unitPrice: 3800,
+      amount: 361000,
+      // 集計元は**件数だけ**（タスク ID の一覧は P5-13 のドリルダウン）。
+      taskCount: 2,
+    });
+    expect(body.totalAmount).toBe(480260);
+    // §3.2 MUST。単価が引けなかった作業を黙って落とさない。
+    expect(body.warnings).toHaveLength(1);
+    expect(JSON.stringify(body)).not.toContain(ORGANIZATION_ID);
+  });
+
+  it("タスク ID の一覧を返さない（P5-13 の範囲）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("REVIEWING")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+
+    const response = await get(ctx, `/api/v1/billing-periods/${PERIOD_ID}/lines`, await ctx.cookie());
+    const text = await response.text();
+    expect(text).not.toContain("sourceRef");
+    expect(text).not.toContain("taskIds");
+  });
+
+  it("`INSPECTOR` は 404（請求情報を見られない / security.md §1）", async () => {
+    const ctx = setup("INSPECTOR");
+    const response = await get(ctx, `/api/v1/billing-periods/${PERIOD_ID}/lines`, await ctx.cookie());
+    expect(response.status).toBe(404);
+    expect(ctx.d1.queries).toHaveLength(0);
+  });
+
+  it("越境した ID は DB へ届かない（404）", async () => {
+    const ctx = setup();
+    const response = await get(
+      ctx,
+      `/api/v1/billing-periods/${OTHER_PERIOD_ID}/lines`,
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(404);
+    expect(ctx.d1.queries).toHaveLength(0);
+  });
+});
+
+describe("POST /api/v1/billing-periods/:id/reject", () => {
+  it("**コメントが無ければ 400**（§6.2 MUST）", async () => {
+    const ctx = setup();
+    const response = await postJson(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/reject`,
+      await ctx.cookie(),
+      {},
+    );
+    expect(response.status).toBe(400);
+    // 状態を触っていない。**理由の無い差戻しを記録に残さない。**
+    expect(ctx.d1.queries).toHaveLength(0);
+  });
+
+  it("空白だけのコメントも 400", async () => {
+    const ctx = setup();
+    const response = await postJson(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/reject`,
+      await ctx.cookie(),
+      { comment: "   " },
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("明細行にコメントを付けて差し戻し、履歴に残す", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("AGREED")]); // findBillingPeriodById
+    ctx.d1.enqueueRows([counterpartyRow()]); // findCounterpartyById
+    ctx.d1.enqueueRows([]); // updateBillingPeriodStatus
+    ctx.d1.enqueueRows([]); // appendBillingPeriodReview: 直前の seq
+    ctx.d1.enqueueRows([]); // appendBillingPeriodReview: insert
+    ctx.d1.enqueueRows([]); // recordAudit
+
+    const response = await postJson(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/reject`,
+      await ctx.cookie(),
+      {
+        comment: "9月分をご確認ください。",
+        lineComments: [
+          {
+            lineKey: LINE_KEY_TWIN,
+            comment: "9/15 の 3 室は当方都合でキャンセルしています。ご確認ください。",
+          },
+        ],
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      billingPeriodId: PERIOD_ID,
+      status: "REVIEWING",
+      seq: 1,
+    });
+
+    const inserted = ctx.d1.queries.find((query) =>
+      query.sql.toLowerCase().includes("insert into \"billing_period_review\""),
+    );
+    expect(inserted).toBeDefined();
+    const params = JSON.stringify(inserted?.params);
+    expect(params).toContain("9/15 の 3 室");
+    // 行を指すのは `lineKey`。**そのときの `lineNo` と取引内容も一緒に残す。**
+    expect(params).toContain(LINE_KEY_TWIN);
+    expect(params).toContain("アウト清掃 / ツイン");
+    // 修正履歴（そのとき見えていた明細）。
+    expect(params).toContain("480260");
+  });
+
+  it("客室タイプを持たない行（共用部・滞在清掃）にもコメントが付く", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("REVIEWING")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+
+    const response = await postJson(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/reject`,
+      await ctx.cookie(),
+      {
+        comment: "滞在清掃の件数をご確認ください。",
+        lineComments: [{ lineKey: LINE_KEY_SINGLE, comment: "9/20 の 2 室は対象外です。" }],
+      },
+    );
+    expect(response.status).toBe(200);
+
+    const inserted = ctx.d1.queries.find((query) =>
+      query.sql.toLowerCase().includes('insert into "billing_period_review"'),
+    );
+    expect(JSON.stringify(inserted?.params)).toContain("滞在清掃");
+  });
+
+  it("`AGREED` から差し戻すと合意が取り消される（§6.1）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("AGREED")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+
+    await postJson(ctx, `/api/v1/billing-periods/${PERIOD_ID}/reject`, await ctx.cookie(), {
+      comment: "行2 をご確認ください。",
+    });
+
+    const update = ctx.d1.queries.find(
+      (query) =>
+        query.sql.toLowerCase().startsWith("update") && query.sql.includes("billing_period"),
+    );
+    expect(update?.sql).toContain("agreed_at");
+    expect(update?.sql).toContain("agreed_by_counterparty");
+    // `agreedAt` は null、`agreedByCounterparty` は 0 に戻る。
+    expect(update?.params).toContain(null);
+    expect(update?.params).toContain(0);
+  });
+
+  it("明細に無い `lineKey` は 400（消えた行への指摘を受け取らない）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("REVIEWING")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+
+    const response = await postJson(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/reject`,
+      await ctx.cookie(),
+      {
+        comment: "ご確認ください。",
+        lineComments: [{ lineKey: "a1b2c3__prop_XXXX|CHECKOUT|", comment: "この行です" }],
+      },
+    );
+    expect(response.status).toBe(400);
+    // 読んだだけ。**状態も履歴も動かさない。**
+    expect(
+      ctx.d1.queries.some((query) => query.sql.toLowerCase().startsWith("update")),
+    ).toBe(false);
+    expect(
+      ctx.d1.queries.some((query) => query.sql.toLowerCase().startsWith("insert")),
+    ).toBe(false);
+  });
+
+  it("`OPEN` からは差し戻せない（409）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("OPEN")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+
+    const response = await postJson(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/reject`,
+      await ctx.cookie(),
+      { comment: "まだ集計されていません。" },
+    );
+    expect(response.status).toBe(409);
+  });
+
+  it("`AUDITOR` は書けない（読取専用 / security.md §1）", async () => {
+    const ctx = setup("AUDITOR");
+    const response = await postJson(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/reject`,
+      await ctx.cookie(),
+      { comment: "ご確認ください。" },
+    );
+    expect(response.status).toBe(404);
+    expect(ctx.d1.queries).toHaveLength(0);
+  });
+});
+
+describe("POST /api/v1/billing-periods/:id/agree", () => {
+  it("`REVIEWING` を `AGREED` へ進め、そのときの明細を履歴に固定する", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("REVIEWING")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+    ctx.d1.enqueueRows([]); // update
+    ctx.d1.enqueueRows([]); // 直前の seq
+    ctx.d1.enqueueRows([]); // insert
+    ctx.d1.enqueueRows([]); // recordAudit
+
+    const response = await postJson(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/agree`,
+      await ctx.cookie(),
+      { byCounterparty: true },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ billingPeriodId: PERIOD_ID, status: "AGREED" });
+
+    const statements = ctx.d1.queries.map((query) => query.sql);
+    expect(statements.some((sql) => sql.includes("billing_period_review"))).toBe(true);
+    expect(statements.some((sql) => sql.includes("audit_log"))).toBe(true);
+
+    const inserted = ctx.d1.queries.find((query) =>
+      query.sql.toLowerCase().includes("insert into \"billing_period_review\""),
+    );
+    // 合意した数字が残る（あとで元データが動いても追える）。
+    expect(JSON.stringify(inserted?.params)).toContain("480260");
+  });
+
+  it("本文が無くても合意できる（既定は取引先の意思）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("REVIEWING")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+
+    const response = await post(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/agree`,
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(200);
+  });
+
+  it("`OPEN` からは合意できない（409）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("OPEN")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+
+    const response = await post(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/agree`,
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(409);
+  });
+
+  it("同時に 2 本来たら 1 本だけ通る（楽観ロック）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("REVIEWING")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+    ctx.d1.enqueueChanges(0); // update が 0 行 = 別のリクエストが先に進めた
+
+    const response = await post(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/agree`,
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(409);
+    // **履歴を書いていない。** 状態が動いていないのに合意が残ると履歴が嘘になる。
+    expect(
+      ctx.d1.queries.some((query) => query.sql.includes("billing_period_review")),
+    ).toBe(false);
+  });
+});
+
+describe("POST /api/v1/billing-periods/:id/request-review", () => {
+  it("**状態を変えない。** 依頼した事実だけを履歴に残す（OPEN_QUESTIONS #072）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("REVIEWING")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+    ctx.d1.enqueueRows([]); // 直前の seq
+    ctx.d1.enqueueRows([]); // insert
+
+    const response = await postJson(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/request-review`,
+      await ctx.cookie(),
+      { comment: "9月分の明細をご確認ください。" },
+    );
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ status: "REVIEWING", seq: 1 });
+
+    // `billing_period` を更新していない。
+    expect(
+      ctx.d1.queries.some(
+        (query) =>
+          query.sql.toLowerCase().startsWith("update") && query.sql.includes("billing_period\""),
+      ),
+    ).toBe(false);
+    expect(
+      ctx.d1.queries.some((query) => query.sql.includes("billing_period_review")),
+    ).toBe(true);
+  });
+
+  it("`OPEN` では依頼できない（409）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("OPEN")]);
+    ctx.d1.enqueueRows([counterpartyRow()]);
+
+    const response = await post(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/request-review`,
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(409);
+  });
+});
+
+describe("GET /api/v1/billing-periods/:id/reviews", () => {
+  it("履歴を古い順に返す", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([periodRow("REVIEWING")]);
+    ctx.d1.enqueueRows([
+      reviewRow(1, "REQUEST_REVIEW", "ご確認ください。"),
+      reviewRow(2, "REJECT", "行2 をご確認ください。", [
+        {
+          lineKey: LINE_KEY_TWIN,
+          lineNo: 2,
+          description: "サンプルホテル東京 / アウト清掃 / ツイン",
+          comment: "9/15 の 3 室は当方都合でキャンセルしています。",
+        },
+      ]),
+    ]);
+
+    const response = await get(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/reviews`,
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json<{ data: Record<string, unknown>[] }>();
+    expect(body.data.map((entry) => entry.seq)).toEqual([1, 2]);
+    expect(body.data[1]).toMatchObject({ action: "REJECT", byCounterparty: true });
+    expect(JSON.stringify(body)).toContain("9/15 の 3 室");
+    expect(JSON.stringify(body)).not.toContain(ORGANIZATION_ID);
+  });
+
+  it("`INSPECTOR` は 404", async () => {
+    const ctx = setup("INSPECTOR");
+    const response = await get(
+      ctx,
+      `/api/v1/billing-periods/${PERIOD_ID}/reviews`,
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(404);
+  });
+});
+
 describe("作ってはいけない口", () => {
-  it.each(["agree", "reject", "request-review"])(
-    "%s の口が無い（P5-12 の範囲 / §6.2 MUST）",
-    async (action) => {
+  it.each(["PATCH", "DELETE"])(
+    "履歴に %s が無い（追記だけ / DECISIONS #127）",
+    async (method) => {
       const ctx = setup();
-      const response = await post(
-        ctx,
-        `/api/v1/billing-periods/${PERIOD_ID}/${action}`,
-        await ctx.cookie(),
+      const response = await ctx.app.request(
+        `/api/v1/billing-periods/${PERIOD_ID}/reviews`,
+        { method, headers: { cookie: await ctx.cookie() } },
+        ctx.env,
       );
       expect(response.status).toBe(404);
       expect(ctx.d1.queries).toHaveLength(0);

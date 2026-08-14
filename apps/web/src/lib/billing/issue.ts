@@ -47,13 +47,10 @@
  */
 
 import {
-  buildInvoiceDraft,
   closedPeriodAsOf,
-  counterpartyPropertyScope,
   determineQualifiedInvoice,
   evaluateBillingPeriodTransition,
   fiscalYearOf,
-  type BillableTask,
   type InvoiceDraft,
 } from "@pk/billing";
 import {
@@ -62,17 +59,13 @@ import {
   findCounterpartyById,
   findInvoiceById,
   findTaxProfile,
-  listPricingRules,
-  listProperties,
-  listRoomTypes,
-  listRooms,
-  listTasks,
   updateBillingPeriodStatus,
   type Env,
   type TenantContext,
 } from "@pk/db";
 import { canonicalJson } from "@pk/engine";
 
+import { buildPeriodDraft } from "./draft.js";
 import { issueDocumentNumber } from "../document/sequencer.js";
 import { sha256HexOfText } from "../evidence/hash.js";
 import type { InvoicePdfMessage } from "../../consumers/invoicePdf.js";
@@ -115,69 +108,6 @@ export function dueDateOf(issueDate: string, paymentTermDays: number): string {
 }
 
 /**
- * 締めの期間に含まれる清掃タスクを集める（§3.1）。
- *
- * **施設の範囲は料金設定から導く**（`counterpartyPropertyScope()` /
- * OPEN_QUESTIONS #071）。除外の判断（`COMPLETED` 以外）は
- * `buildInvoiceDraft()` の中。ここでは絞らずに渡す。
- *
- * ── 客室タイプはタスクに載っていない ────────────────────
- * `cleaningTask` は `roomId` しか持たない（客室タイプは `room` 側）。
- * §3.4 の粒度（施設 × 清掃種別 × 客室タイプ）で畳むために、施設ごとに
- * 客室と客室タイプを 1 回ずつ引いて対応表を作る。**タスク 1 件ごとに
- * 引かない**（明細 300 件で 300 往復になる）。
- *
- * ── `isRework` は常に偽 ─────────────────────────────────
- * 再清掃は**同じタスクに対する巡回**（`reworkCycle` は `taskId` + `round`）で、
- * 別のタスクにはならない。つまり「再清掃のタスク」は存在しない。
- * §3.1 の「再清掃（ReworkCycle）※ 有償設定の場合のみ計上」を満たすには
- * `reworkCycle` を独立の明細（`REWORK` 品目）として起こす必要があるが、
- * その可否を決める**有償設定の列がまだ無い**（OPEN_QUESTIONS #070）。
- * 列ができるまで計上しない。**黙って落としているのではなく、
- * 起こす対象がまだ定義されていない。**
- */
-async function collectBillableTasks(
-  env: Env,
-  ctx: TenantContext,
-  input: { propertyIds: readonly string[]; periodFrom: string; periodTo: string },
-): Promise<BillableTask[]> {
-  const properties = await listProperties(env, ctx, { isActive: true });
-  const nameById = new Map(properties.map((property) => [property.id, property.name]));
-
-  const tasks: BillableTask[] = [];
-  for (const propertyId of input.propertyIds) {
-    const [rows, rooms, roomTypes] = await Promise.all([
-      listTasks(env, ctx, {
-        propertyId,
-        businessDateFrom: input.periodFrom,
-        businessDateTo: input.periodTo,
-      }),
-      listRooms(env, ctx, { propertyId }),
-      listRoomTypes(env, ctx, propertyId, {}),
-    ]);
-
-    const roomTypeIdByRoomId = new Map(rooms.map((room) => [room.id, room.roomTypeId]));
-    const roomTypeNameById = new Map(roomTypes.map((roomType) => [roomType.id, roomType.name]));
-
-    for (const row of rows) {
-      const roomTypeId = roomTypeIdByRoomId.get(row.roomId) ?? null;
-      tasks.push({
-        taskId: row.id,
-        propertyId: row.propertyId,
-        propertyName: nameById.get(row.propertyId) ?? row.propertyId,
-        roomTypeId,
-        roomTypeName: roomTypeId === null ? null : (roomTypeNameById.get(roomTypeId) ?? null),
-        taskType: row.taskType,
-        businessDate: row.businessDate,
-        status: row.status,
-        isRework: false,
-      });
-    }
-  }
-  return tasks;
-}
-
-/**
  * 請求書を 1 通発行する（§4.1 の ①〜⑦）。
  *
  * **PDF とメールはここで作らない。** Queue へ投げるところまで。
@@ -207,26 +137,14 @@ export async function issueInvoice(
   if (taxProfile === undefined) return { kind: "REJECTED", reason: "TAX_PROFILE_NOT_FOUND" };
 
   // 明細を組む。**採番より先。** 集計に失敗したときに番号を消費しない。
-  const pricingRules = await listPricingRules(env, ctx, {
+  // **合意の画面（§6.2 / P5-12）と同じ関数を通る。** 見て合意した数字と
+  // 送られた請求書の数字が食い違わないようにするため（`draft.ts` の注記）。
+  const draft = await buildPeriodDraft(env, ctx, {
     counterpartyId: period.counterpartyId,
-  });
-  const scope = counterpartyPropertyScope(pricingRules);
-  const propertyIds =
-    scope.kind === "ALL_PROPERTIES"
-      ? (await listProperties(env, ctx, { isActive: true })).map((property) => property.id)
-      : scope.propertyIds;
-
-  const tasks = await collectBillableTasks(env, ctx, {
-    propertyIds,
     periodFrom: period.periodFrom,
     periodTo: period.periodTo,
-  });
-
-  const draft = buildInvoiceDraft({
-    tasks,
-    pricingRules,
     taxRoundingMode: counterparty.taxRoundingMode,
-    chargeRework: input.chargeRework ?? false,
+    ...(input.chargeRework === undefined ? {} : { chargeRework: input.chargeRework }),
   });
 
   // ① 締めを `INVOICED` へロックする。**採番より先**（冒頭の注記）。

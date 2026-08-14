@@ -1,7 +1,7 @@
 /**
  * tenant isolation: counterparty / pricing_rule / invoice / invoice_line /
  *                   invoice_tax_summary / receipt / document_delivery /
- *                   billing_period
+ *                   billing_period / billing_period_review
  *
  * task:  docs/tasks/P5-01.md
  * ルール: .claude/rules/testing.md §2 / .claude/rules/billing.md §2
@@ -21,11 +21,13 @@
 
 import {
   findBillingPeriodById,
+  findBillingPeriodReviewById,
   findCounterpartyById,
   findDocumentDeliveryById,
   findInvoiceById,
   findPricingRuleById,
   findReceiptById,
+  listBillingPeriodReviews,
   listBillingPeriods,
   listCounterparties,
   listDocumentDeliveries,
@@ -108,5 +110,16 @@ describeTenantIsolation({
   list: (env, ctx) => listBillingPeriods(env, ctx, { counterpartyId: ownId(ctx, "cp") }),
   findById: (env, ctx, id) => findBillingPeriodById(env, ctx, id),
   entityPrefix: "bper",
+  propertyColumn: null,
+});
+
+// P5-12。双方合意の履歴（§6.2 MUST）。**追記だけ**（DECISIONS #127）。
+// 差戻しコメントは取引の交渉そのものなので、混ざれば他社の値引き交渉が
+// 自社の画面に出る。他の 8 表と同じ 3 パターンを掛ける。
+describeTenantIsolation({
+  table: "billing_period_review",
+  list: (env, ctx) => listBillingPeriodReviews(env, ctx, ownId(ctx, "bper")),
+  findById: (env, ctx, id) => findBillingPeriodReviewById(env, ctx, id),
+  entityPrefix: "bprv",
   propertyColumn: null,
 });

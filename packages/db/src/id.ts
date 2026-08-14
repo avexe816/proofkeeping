@@ -138,6 +138,9 @@ export const ENTITY_PREFIXES = [
   // ない**（採番の正は `DocumentSequencer` / billing.md §5）。行そのものを
   // 指す ID が要るのは、発行トランザクションで upsert するため。
   "dseq", // documentSequence
+  // P5-12 が足したもの。双方合意の履歴（`billing_period_review`）。
+  // **仕様に無い表**（§6.2 MUST を満たす場所が他に無い / DECISIONS #127）。
+  "bprv", // billingPeriodReview
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

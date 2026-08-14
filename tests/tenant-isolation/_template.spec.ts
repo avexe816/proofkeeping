@@ -116,6 +116,9 @@ const TENANT_TABLES = [
   "receipt",
   "document_delivery",
   "billing_period",
+  // P5-12。双方合意の履歴（同 §6.2 MUST）。差戻しコメントは取引の交渉
+  // そのもので、混ざれば他社の値引き交渉が自社の画面に出る。
+  "billing_period_review",
 ] as const;
 
 /**

@@ -2680,3 +2680,82 @@
   `lib/billing/creditNote.ts` が持つ（状態機械は状態しか見ない）。
   `CLOSED`（入金済み）からは戻せない。
   `updateBillingPeriodStatus()` が `invoiceId: null` を受けるようにした。
+
+## #127 双方合意の履歴を新しい表（`billing_period_review`）で持つ
+
+- 日付: 2026-08-14
+- task: P5-12
+- 文脈: §6.2 は MUST として「差戻しコメントと修正履歴を**すべて**保持する。
+  『言った・言わない』を発生させない」と定めるが、**それを置く表が §2 に
+  無い。** `billingPeriod`（§2.8）は 1 期間 1 行で、持っているのは
+  `agreedAt` と `agreedByCounterparty` だけ。差戻しは何度でも起こる。
+- 選択肢:
+  1. `billingPeriod` に列を足す（`rejectComment` / `rejectedAt` …）
+  2. 追記専用の表を新設し、1 出来事 = 1 行にする
+  3. `auditLog` に寄せる（既存の監査ログに差戻しコメントを書く）
+- 決定: 2。`billing_period_review`（entityPrefix `bprv`）。
+- 理由: 1 は**2 回目の差戻しが 1 回目を上書きする。** MUST の
+  「すべて保持する」がその時点で成り立たない。3 は `auditLog` が
+  「誰が何をしたか」の記録で、**取引先との合意という業務上の事実を
+  混ぜる場所ではない**（保持期間も検索の要件も違う。監査ログを引かないと
+  請求の経緯が読めない形にすると、画面が監査ログを業務データとして
+  使い始める）。2 なら 1 出来事 1 行で、順序（`seq`）も残る。
+- 影響:
+  - 表は**追記だけ。** UPDATE も DELETE も無い（`evidenceSnapshot` と同じ
+    扱い / CLAUDE.md §4）。`updateBillingPeriodReview()` を足さないこと。
+  - 出来事のたびに**そのとき見えていた明細**を `linesSnapshot` に固定する。
+    これが §6.2 の「修正履歴」。金額は `billingPeriod` には書かない
+    （#124 のまま）。
+  - 行を指すのは `lineNo` ではなく `lineKey`
+    （`@pk/billing` の `billingLineKeyOf()` = 施設 × 清掃種別 × 客室タイプ）。
+    再集計で行が増減しても、コメントが別の行へ移らない。
+  - 越境テストは他の請求 8 表と同じ 3 パターン（施設スコープは掛けない）。
+
+## #128 `request-review` は状態を増やさず、出来事として履歴に残す
+
+- 日付: 2026-08-14
+- task: P5-12
+- 文脈: §9 の API 一覧に `POST /billing-periods/:id/request-review` が
+  あるが、**§2.8 の状態は 5 つで「ホテルの確認待ち」に当たる値が無い。**
+  §6.1 の図も「清掃会社が『ホテルへ確認依頼』」の先を（ホテル側に通知）と
+  書くだけで状態を増やしていない。docs/OPEN_QUESTIONS.md #072 が
+  「P5-12 で決める」としていたもの。
+- 選択肢:
+  1. `AWAITING_APPROVAL` のような状態を §2.8 へ足す
+  2. 状態を増やさず、`billing_period_review` に `REQUEST_REVIEW` の
+     出来事として残す
+  3. 口を作らない
+- 決定: 2。
+- 理由: 1 は**仕様に根拠のない状態の追加**（workflow.md §6 の停止条件）。
+  状態が増えると `evaluateBillingPeriodTransition()` の遷移表・画面の
+  絞り込み・`billing_period.status` の索引まで波及し、あとで仕様が
+  別の名前を決めたときに移行が要る。3 は §9 にある口を落とすことになる。
+  2 なら「いつ・誰が・どの数字で確認を頼んだか」が履歴に残り、状態は
+  §2.8 のまま。**確認依頼は通知の送信であって状態遷移ではない**、という
+  #072 の読みをそのまま実装にした。
+- 影響: `POST /request-review` は `REVIEWING` のときだけ 201 を返し、
+  `billing_period` を UPDATE しない。**メールは送っていない**
+  （OPEN_QUESTIONS #078）。
+
+## #129 締めの明細は発行と合意で同じ関数を通す
+
+- 日付: 2026-08-14
+- task: P5-12
+- 文脈: 明細（`invoiceLine`）は**請求書を発行した瞬間に作られる。**
+  合意（§6.2）は発行の前に行うので、合意の画面が見る明細はどこにも
+  保存されていない。P5-07 は `issueInvoice()` の中で明細を組み立てていた。
+- 選択肢:
+  1. 集計（`aggregate`）のときに明細を表へ書き、合意はそれを見る
+  2. 組み立てを `lib/billing/draft.ts` に切り出し、発行も合意も同じ
+     関数を都度呼ぶ
+- 決定: 2。`buildPeriodDraft()`。
+- 理由: 1 は「保存した明細」と「発行時に組み直す明細」の 2 つの真実を
+  作る。差戻し → 修正 → 再集計のたびに書き直すことになり、書き直しを
+  忘れた経路が 1 つでもあれば**合意した数字と請求書が食い違う。**
+  §0.2 の出荷判定は「同じ明細を見て相違なく合意できる」なので、
+  ここが割れると出荷判定そのものが崩れる。2 なら計算は 1 か所
+  （`@pk/billing` の `buildInvoiceDraft()`）で、都度引き直す。
+- 影響: `GET /billing-periods/:id/lines` と `issueInvoice()` が
+  同じ `buildPeriodDraft()` を通る。**合意した瞬間の数字**は
+  `billingPeriodReview.linesSnapshot` に固定するので、あとから元データが
+  動いても「何に合意したか」は追える。

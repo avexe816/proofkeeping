@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { buildInvoiceDraft, type BillableTask } from "./aggregate.js";
+import { billingLineKeyOf, buildInvoiceDraft, type BillableTask } from "./aggregate.js";
 import type { PricingRuleCandidate } from "./pricing.js";
 
 function task(overrides: Partial<BillableTask> = {}): BillableTask {
@@ -417,5 +417,107 @@ describe("buildInvoiceDraft — 金額はすべて整数（billing.md §4 MUST�
       taxRoundingMode: "FLOOR",
     });
     expect(draft.totalAmount).toBe(draft.subtotalAmount + draft.taxAmount);
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 明細行を指す鍵（§6.2 の行単位コメント / P5-12）
+// ────────────────────────────────────────────────────────────
+
+describe("billingLineKeyOf — 行を指す鍵（P5-12）", () => {
+  it("施設 × 清掃種別 × 客室タイプ で決まる", () => {
+    expect(billingLineKeyOf({ propertyId: "prop_tokyo", taskType: "CHECKOUT", roomTypeId: "rt_twin" }))
+      .toBe("prop_tokyo|CHECKOUT|rt_twin");
+  });
+
+  it("客室タイプが無い作業（共用部）も鍵になる", () => {
+    expect(
+      billingLineKeyOf({ propertyId: "prop_tokyo", taskType: "COMMON_AREA", roomTypeId: null }),
+    ).toBe("prop_tokyo|COMMON_AREA|");
+  });
+
+  it("軸が 1 つ違えば別の鍵", () => {
+    const base = { propertyId: "prop_tokyo", taskType: "CHECKOUT", roomTypeId: "rt_twin" } as const;
+    expect(billingLineKeyOf({ ...base, propertyId: "prop_osaka" })).not.toBe(billingLineKeyOf(base));
+    expect(billingLineKeyOf({ ...base, taskType: "STAYOVER" })).not.toBe(billingLineKeyOf(base));
+    expect(billingLineKeyOf({ ...base, roomTypeId: "rt_single" })).not.toBe(billingLineKeyOf(base));
+  });
+
+  it("客室タイプ無しと空文字の客室タイプが同じ鍵にならない形にしてある", () => {
+    // 客室タイプ ID は `{orgShortId}__rmtp_{ulid}` で、空文字にはならない。
+    // null だけが空の位置を取る。
+    expect(
+      billingLineKeyOf({ propertyId: "p", taskType: "CHECKOUT", roomTypeId: null }),
+    ).toBe("p|CHECKOUT|");
+  });
+
+  it("同じ入力なら常に同じ鍵（冪等）", () => {
+    const source = { propertyId: "p", taskType: "CHECKOUT", roomTypeId: "rt" } as const;
+    expect(billingLineKeyOf(source)).toBe(billingLineKeyOf(source));
+  });
+});
+
+describe("buildInvoiceDraft — `lineKey` は行が増減しても動かない（P5-12）", () => {
+  it("明細に `lineKey` が付く", () => {
+    const draft = buildInvoiceDraft({
+      tasks: tasks(3),
+      pricingRules: [rule({ itemCode: "CLEAN_CHECKOUT" })],
+      taxRoundingMode: "FLOOR",
+    });
+    expect(draft.lines[0]?.lineKey).toBe("prop_tokyo|CHECKOUT|rt_single");
+  });
+
+  it("**行が増えても既存の行の `lineKey` が変わらない**（`lineNo` は動く）", () => {
+    const before = buildInvoiceDraft({
+      tasks: tasks(3, { roomTypeId: "rt_twin", roomTypeName: "ツイン" }),
+      pricingRules: [rule({ itemCode: "CLEAN_CHECKOUT" })],
+      taxRoundingMode: "FLOOR",
+    });
+    // 名前が前に来る客室タイプを足す。並びが変わり、`lineNo` がずれる。
+    const after = buildInvoiceDraft({
+      tasks: [
+        ...tasks(3, { roomTypeId: "rt_twin", roomTypeName: "ツイン" }),
+        ...tasks(2, { roomTypeId: "rt_single", roomTypeName: "シングル" }).map((t, i) => ({
+          ...t,
+          taskId: `extra_${String(i)}`,
+        })),
+      ],
+      pricingRules: [rule({ itemCode: "CLEAN_CHECKOUT" })],
+      taxRoundingMode: "FLOOR",
+    });
+
+    const twinBefore = before.lines[0];
+    const twinAfter = after.lines.find((line) => line.lineKey === twinBefore?.lineKey);
+    expect(twinAfter).toBeDefined();
+    // 位置は動いた。**鍵は動いていない。** ここが差戻しコメントの拠り所。
+    expect(twinAfter?.lineNo).not.toBe(twinBefore?.lineNo);
+    expect(twinAfter?.quantity).toBe(3);
+  });
+
+  it("¥0 明細（単価が引けない行）にも `lineKey` が付く", () => {
+    const draft = buildInvoiceDraft({
+      tasks: tasks(2),
+      pricingRules: [],
+      taxRoundingMode: "FLOOR",
+    });
+    expect(draft.lines[0]?.unitPrice).toBe(0);
+    expect(draft.lines[0]?.lineKey).toBe("prop_tokyo|CHECKOUT|rt_single");
+  });
+
+  it("`lineKey` が明細のなかで重複しない（§3.4 の粒度と同じ鍵）", () => {
+    const draft = buildInvoiceDraft({
+      tasks: [
+        ...tasks(2),
+        ...tasks(2, { roomTypeId: "rt_twin", roomTypeName: "ツイン" }).map((t, i) => ({
+          ...t,
+          taskId: `x_${String(i)}`,
+        })),
+        ...tasks(1, { taskType: "STAYOVER" }).map((t) => ({ ...t, taskId: "y_0" })),
+      ],
+      pricingRules: [rule({ itemCode: "CLEAN_CHECKOUT" }), rule({ itemCode: "CLEAN_STAYOVER" })],
+      taxRoundingMode: "FLOOR",
+    });
+    const keys = draft.lines.map((line) => line.lineKey);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

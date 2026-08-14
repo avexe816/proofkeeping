@@ -385,17 +385,20 @@ export {
 // **`invoice` / `receipt` を消す関数も、金額を書き換える関数も無い**
 // （billing.md §2。訂正は赤伝＋再発行）。
 export {
+  appendBillingPeriodReview,
   closePricingRule,
   createInvoice,
   createReceipt,
   ensureBillingPeriod,
   findBillingPeriodById,
+  findBillingPeriodReviewById,
   findCounterpartyById,
   findDocumentDeliveryById,
   findInvoiceById,
   findPricingRuleById,
   findReceiptById,
   insertPricingRule,
+  listBillingPeriodReviews,
   listBillingPeriods,
   listCounterparties,
   listDocumentDeliveries,
@@ -417,6 +420,7 @@ export {
   updateReceiptPdf,
   voidInvoice,
   upsertCounterparty,
+  type AppendBillingPeriodReviewInput,
   type BillingPeriodFilter,
   type CreateInvoiceInput,
   type CreateInvoiceLineInput,
