@@ -29,3 +29,8 @@ export {
 } from "./invoice.js";
 export { renderInvoicePdf } from "./render.js";
 export { INVOICE_LABELS } from "./labels.js";
+
+// 領収書（P5-08 / PK-SPEC-P5 §8.2）。**印紙貼付欄を持たない**（billing.md §3）。
+export { buildReceiptDocument } from "./receipt.js";
+export { renderReceiptPdf } from "./render.js";
+export { RECEIPT_LABELS } from "./labels.js";

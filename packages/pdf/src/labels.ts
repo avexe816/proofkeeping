@@ -249,3 +249,33 @@ export const INVOICE_LABELS = {
   /** 明細の列（§8.1 の表）。 */
   lineColumns: ["No", "内容", "数量", "単位", "単価", "金額", "税"] as const,
 } as const;
+
+/**
+ * 領収書 PDF の固定文言（PK-SPEC-P5 §8.2 / P5-08）。
+ *
+ * **印紙に関する語をここへ足さないこと**（billing.md §3）。
+ * 「収入印紙」「印紙貼付」の欄を作らない。
+ */
+export const RECEIPT_LABELS = {
+  title: "領収書",
+  issueDate: "発行日",
+  honorific: "様",
+  purposePrefix: "但し",
+  received: "上記正に領収いたしました。",
+  breakdown: "内訳",
+  taxTargetSuffix: "対象",
+  taxAmount: "消費税",
+  paymentMethod: "お支払方法",
+  receivedDate: "入金日",
+  targetInvoice: "対象請求書",
+  registrationNo: "登録番号",
+  reducedRate: "軽減",
+  /**
+   * 電子発行の注記（§8.2 / billing.md §3 MUST「固定表示」）。
+   *
+   * **payload から差し替えられないこと。** テンプレートがこの定数を
+   * 直に読む。文言を変える経路を作らない。
+   */
+  electronicNotice: "本領収書は電子的に発行されたため、収入印紙の貼付を要しません。",
+  notQualified: "この領収書は適格請求書ではありません。",
+} as const;

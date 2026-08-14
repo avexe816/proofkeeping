@@ -122,3 +122,38 @@ export function isValidRegistrationNo(value: string | null): value is string {
 export function determineQualifiedInvoice(registrationNo: string | null): boolean {
   return isValidRegistrationNo(registrationNo);
 }
+
+// ────────────────────────────────────────────────────────────
+// 領収書（P5-08 / PK-SPEC-P5 §8.2）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 領収書 1 通ぶん。**この型だけで紙が組める**（DB を引き直さない）。
+ *
+ * ── 印紙の欄を持たない（billing.md §3）────────────────────
+ * PDF で発行・送付する領収書は課税文書に該当せず、**収入印紙は不要。**
+ * 5 万円超でも同じ。`stampAmount` のような項目を足さないこと。
+ * 代わりに `RECEIPT_LABELS.electronicNotice` が固定表示される。
+ *
+ * ── 発行元・宛先は請求書と同じ扱い ──────────────────────
+ * 発行時のスナップショット（billing.md §6）。マスタを引き直さない。
+ */
+export interface ReceiptPayload {
+  documentNo: string;
+  /** `YYYY-MM-DD`。 */
+  issueDate: string;
+  /** 領収した金額（税込・整数）。 */
+  receivedAmount: number;
+  receivedDate: string;
+  /** 入金方法の表示名（`銀行振込` など）。**語彙は `packages/db` と同じ。** */
+  paymentMethod: string;
+  /** 但し書き（§8.2 の「但し 清掃業務委託料として（2026年9月分）」）。 */
+  purposeText: string;
+  /** 対象の請求書番号。**前受金など紐づかない領収書では `null`。** */
+  invoiceDocumentNo: string | null;
+  isQualifiedInvoice: boolean;
+  issuer: InvoiceIssuerSnapshot;
+  counterparty: InvoiceCounterpartySnapshot;
+  /** 税率ごとの内訳（§8.2 の「内訳」）。**税率の高い順。** */
+  taxSummaries: TaxSummaryEntry[];
+}

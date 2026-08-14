@@ -61,7 +61,12 @@ import {
 import { DAILY_REPORT_FONT_KEY, loadDailyReportFont } from "../lib/report/font.js";
 
 import { generateAuditReport, isAuditReportMessage } from "./auditReport.js";
-import { generateInvoicePdf, isInvoicePdfMessage } from "./invoicePdf.js";
+import {
+  generateInvoicePdf,
+  generateReceiptPdf,
+  isInvoicePdfMessage,
+  isReceiptPdfMessage,
+} from "./invoicePdf.js";
 
 /** キューへ載せるメッセージ。**組織の解決に要る値を全部持たせる。** */
 export interface DailyReportMessage {
@@ -282,6 +287,13 @@ export async function handleDailyReportBatch(env: Env, batch: MessageBatch): Pro
     // 請求書 PDF（P5-06 / PK-SPEC-P5 §8.3）。**同じ pdf-generation キュー。**
     if (isInvoicePdfMessage(message.body)) {
       const outcome = await generateInvoicePdf(env, message.body);
+      if (outcome.kind === "FAILED") message.retry();
+      else message.ack();
+      continue;
+    }
+    // 領収書 PDF（P5-08 / 同 §8.2）。
+    if (isReceiptPdfMessage(message.body)) {
+      const outcome = await generateReceiptPdf(env, message.body);
       if (outcome.kind === "FAILED") message.retry();
       else message.ack();
       continue;

@@ -20,9 +20,16 @@
  * §8.3 MUST。リクエストハンドラから呼ばない。
  */
 
-import type { InvoiceCounterpartySnapshot, InvoiceIssuerSnapshot, InvoicePayload } from "@pk/billing";
+import {
+  PAYMENT_METHOD_LABELS,
+  type InvoiceCounterpartySnapshot,
+  type InvoiceIssuerSnapshot,
+  type InvoicePayload,
+  type ReceiptPayload,
+} from "@pk/billing";
 import {
   findInvoiceById,
+  findReceiptById,
   listInvoiceLines,
   listInvoiceTaxSummaries,
   type Env,
@@ -213,4 +220,98 @@ function base64Of(bytes: Uint8Array): string {
     binary += String.fromCharCode(...bytes.subarray(index, index + CHUNK));
   }
   return btoa(binary);
+}
+
+
+// ────────────────────────────────────────────────────────────
+// 領収書（P5-08 / PK-SPEC-P5 §8.2）
+// ────────────────────────────────────────────────────────────
+
+/** `DOCUMENTS` バケットの領収書の接頭辞。**請求書とは別。** */
+export const RECEIPT_PDF_PREFIX = "receipts";
+
+/**
+ * 領収書 PDF の R2 キー。**版を含める**（`invoicePdfKey()` と同じ理由）。
+ */
+export function receiptPdfKey(input: {
+  organizationId: string;
+  documentNo: string;
+  revision: number;
+}): string {
+  return (
+    `${RECEIPT_PDF_PREFIX}/${input.organizationId}/${input.documentNo}` +
+    `-r${String(input.revision)}.pdf`
+  );
+}
+
+/** PDF を作るのに要るもの（`InvoicePdfSource` と同じ理由で版を外へ出す）。 */
+export interface ReceiptPdfSource {
+  payload: ReceiptPayload;
+  revision: number;
+}
+
+/** 税区分の JSON（`receipt.taxSummary`）を読む。**形が違う要素は落とす。** */
+function readTaxSummaries(value: Record<string, unknown>[]): ReceiptPayload["taxSummaries"] {
+  return value.flatMap((entry) => {
+    const taxRate = entry["taxRate"];
+    const subtotalAmount = entry["subtotalAmount"];
+    const taxAmount = entry["taxAmount"];
+    const totalAmount = entry["totalAmount"];
+    if (
+      typeof taxRate !== "number" ||
+      typeof subtotalAmount !== "number" ||
+      typeof taxAmount !== "number" ||
+      typeof totalAmount !== "number"
+    ) {
+      return [];
+    }
+    return [
+      {
+        taxRate,
+        isReducedRate: entry["isReducedRate"] === true,
+        subtotalAmount,
+        taxAmount,
+        totalAmount,
+      },
+    ];
+  });
+}
+
+/**
+ * 領収書 1 通ぶんの payload を組む。**見つからなければ `null`。**
+ *
+ * 発行元・宛先はスナップショットから読む（マスタを引き直さない /
+ * billing.md §6）。対象の請求書番号だけは請求書の行から引く
+ * （`receipt` は `invoiceId` しか持たず、番号は持たない）。
+ */
+export async function collectReceiptPayload(
+  env: Env,
+  ctx: TenantContext,
+  receiptId: string,
+): Promise<ReceiptPdfSource | null> {
+  const receipt = await findReceiptById(env, ctx, receiptId);
+  if (receipt === undefined) return null;
+
+  const issuer = readIssuerSnapshot(receipt.issuerSnapshot);
+  const counterparty = readCounterpartySnapshot(receipt.counterpartySnapshot);
+  if (issuer === null || counterparty === null) return null;
+
+  const invoice =
+    receipt.invoiceId === null ? undefined : await findInvoiceById(env, ctx, receipt.invoiceId);
+
+  const payload: ReceiptPayload = {
+    documentNo: receipt.documentNo,
+    issueDate: receipt.issueDate,
+    receivedAmount: receipt.receivedAmount,
+    receivedDate: receipt.receivedDate,
+    paymentMethod: PAYMENT_METHOD_LABELS[receipt.paymentMethod],
+    purposeText: receipt.purposeText,
+    invoiceDocumentNo: invoice?.documentNo ?? null,
+    isQualifiedInvoice: receipt.isQualifiedInvoice,
+    issuer,
+    counterparty,
+    taxSummaries: readTaxSummaries(receipt.taxSummary),
+  };
+
+  return { payload, revision: receipt.revision };
 }

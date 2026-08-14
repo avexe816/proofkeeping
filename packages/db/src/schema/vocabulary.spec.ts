@@ -18,6 +18,8 @@
 import {
   BILLING_PERIOD_STATUS_VALUES,
   INVOICE_ITEM_CODE_VALUES,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHOD_VALUES,
   ITEM_CODE_BY_TASK_TYPE,
   ITEM_CODE_LABELS,
   TASK_TYPE_LABELS,
@@ -26,7 +28,7 @@ import {
 } from "@pk/billing";
 import { describe, expect, it } from "vitest";
 
-import { BILLING_PERIOD_STATUSES, INVOICE_ITEM_CODES } from "./invoice.js";
+import { BILLING_PERIOD_STATUSES, INVOICE_ITEM_CODES, PAYMENT_METHODS } from "./invoice.js";
 import { TAX_ROUNDING_MODES } from "./organization.js";
 import { TASK_TYPES } from "./task.js";
 
@@ -45,6 +47,16 @@ describe("packages/billing の語彙が schema と一致する", () => {
 
   it("月次締めの状態（PK-SPEC-P5 §2.8）", () => {
     expect([...BILLING_PERIOD_STATUS_VALUES]).toEqual([...BILLING_PERIOD_STATUSES]);
+  });
+
+  it("入金方法（同 §2.6）", () => {
+    expect([...PAYMENT_METHOD_VALUES]).toEqual([...PAYMENT_METHODS]);
+  });
+
+  it("すべての入金方法に表示名がある", () => {
+    for (const method of PAYMENT_METHODS) {
+      expect(PAYMENT_METHOD_LABELS[method]).toBeTruthy();
+    }
   });
 });
 

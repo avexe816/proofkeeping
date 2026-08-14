@@ -44,6 +44,7 @@ import {
   type DeliveryDocType,
   type InvoiceItemCode,
   type InvoiceStatus,
+  type PaymentMethod,
   type ReceiptStatus,
 } from "../schema/invoice.js";
 
@@ -968,4 +969,173 @@ export async function recordDocumentDelivery(
   });
 
   return { deliveryId };
+}
+
+// ────────────────────────────────────────────────────────────
+// 領収書の発行（§4.2）— P5-08
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 入金を記録する（§4.2 の ①）。
+ *
+ * ── 入金の表が無い ──────────────────────────────────────
+ * §4.2 は「Payment を記録」と書くが、**§2 に `payment` 表が無い。**
+ * 全額入金なら `invoice.status = PAID` と `paidAt` で表せるので、
+ * 表を新設せずそこへ書く（docs/OPEN_QUESTIONS.md #076）。
+ * **一部入金（`PARTIALLY_PAID`）は金額を置く列が無いので扱わない。**
+ * 呼び出し側が全額かを確かめること。
+ *
+ * **`PAID` へ進めてよいのは発行後・取消前。** `CONFIRMED` / `SENT` /
+ * `VIEWED` / `OVERDUE` から進む。`VOIDED` からは進まない。
+ *
+ * @returns 更新した行数。0 は「その状態ではなかった」。
+ */
+export async function markInvoicePaid(
+  env: Env,
+  ctx: TenantContext,
+  invoiceId: string,
+  paidAt: Date,
+): Promise<number> {
+  assertIdBelongsToTenant(invoiceId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(invoice)
+    .set({ status: "PAID", paidAt, updatedAt: ctx.now })
+    .where(
+      and(
+        eq(invoice.organizationId, ctx.organizationId),
+        eq(invoice.id, invoiceId),
+        inArray(invoice.status, ["CONFIRMED", "SENT", "VIEWED", "OVERDUE"]),
+      ),
+    );
+
+  return result.meta.changes;
+}
+
+/** `createReceipt()` の入力。**金額は呼び出し側が確定させたもの。** */
+export interface CreateReceiptInput {
+  /** null = 請求書に紐づかない領収（前受金など / §2.6）。 */
+  invoiceId: string | null;
+  counterpartyId: string;
+  documentNo: string;
+  issueDate: string;
+  totalAmount: number;
+  counterpartyName: string;
+  receivedAmount: number;
+  receivedDate: string;
+  paymentMethod: PaymentMethod;
+  purposeText: string;
+  taxSummary: Record<string, unknown>[];
+  isQualifiedInvoice: boolean;
+  issuerSnapshot: Record<string, unknown>;
+  counterpartySnapshot: Record<string, unknown>;
+  sequence: { fiscalYear: number; lastNumber: number };
+}
+
+/**
+ * 領収書を発行する（§4.2 の ②③）。**発行したら消せない**（billing.md §2）。
+ *
+ * ── 印紙の列を持たない（billing.md §3）──────────────────
+ * `stampAmount` のような引数を足さないこと。電子発行の領収書は
+ * 課税文書に該当せず、収入印紙は不要。
+ *
+ * ── 採番の控えを同じ束に入れる ──────────────────────────
+ * `createInvoice()` と同じ形。**権威は `DocumentSequencer`。**
+ */
+export async function createReceipt(
+  env: Env,
+  ctx: TenantContext,
+  input: CreateReceiptInput,
+): Promise<{ receiptId: string }> {
+  assertIdBelongsToTenant(input.counterpartyId, ctx);
+  if (input.invoiceId !== null) assertIdBelongsToTenant(input.invoiceId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const receiptId = generateId(ctx.orgShortId, "rcp");
+  const { sequence, ...values } = input;
+
+  await db.batch([
+    db.insert(receipt).values({
+      id: receiptId,
+      organizationId: ctx.organizationId,
+      ...values,
+      revision: 1,
+      status: "ISSUED",
+      createdAt: ctx.now,
+      updatedAt: ctx.now,
+    }),
+    db
+      .insert(documentSequence)
+      .values({
+        id: generateId(ctx.orgShortId, "dseq"),
+        organizationId: ctx.organizationId,
+        documentType: "RECEIPT",
+        fiscalYear: sequence.fiscalYear,
+        lastNumber: sequence.lastNumber,
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+      })
+      .onConflictDoUpdate({
+        target: [
+          documentSequence.organizationId,
+          documentSequence.documentType,
+          documentSequence.fiscalYear,
+        ],
+        set: { lastNumber: sequence.lastNumber, updatedAt: ctx.now },
+      }),
+  ]);
+
+  return { receiptId };
+}
+
+/**
+ * 領収書の PDF の在り処とハッシュを書き戻す（§4.2 の ④）。
+ *
+ * **金額と内訳に触れない。** 触ってよいのは `pdfStorageKey` /
+ * `pdfSha256` だけ（`updateInvoicePdf()` と同じ）。
+ */
+export async function updateReceiptPdf(
+  env: Env,
+  ctx: TenantContext,
+  receiptId: string,
+  input: { pdfStorageKey: string; pdfSha256: string },
+): Promise<number> {
+  assertIdBelongsToTenant(receiptId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(receipt)
+    .set({ ...input, updatedAt: ctx.now })
+    .where(and(eq(receipt.organizationId, ctx.organizationId), eq(receipt.id, receiptId)));
+
+  return result.meta.changes;
+}
+
+/**
+ * 送付が済んだことを記録する（§4.2 の ⑤）。
+ *
+ * **`ISSUED` のときだけ `SENT` へ進める**（`markInvoiceSent()` と同じ理由）。
+ */
+export async function markReceiptSent(
+  env: Env,
+  ctx: TenantContext,
+  receiptId: string,
+  sentAt: Date,
+): Promise<number> {
+  assertIdBelongsToTenant(receiptId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(receipt)
+    .set({ status: "SENT", sentAt, updatedAt: ctx.now })
+    .where(
+      and(
+        eq(receipt.organizationId, ctx.organizationId),
+        eq(receipt.id, receiptId),
+        eq(receipt.status, "ISSUED"),
+      ),
+    );
+
+  return result.meta.changes;
 }

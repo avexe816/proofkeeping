@@ -18,12 +18,15 @@ export {
 export {
   INVOICE_ITEM_CODE_VALUES,
   ITEM_CODE_BY_TASK_TYPE,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHOD_VALUES,
   ITEM_CODE_LABELS,
   TASK_TYPE_LABELS,
   TASK_TYPE_VALUES,
   TAX_ROUNDING_MODE_VALUES,
   type BillableTaskType,
   type InvoiceItemCodeValue,
+  type PaymentMethodValue,
   type TaxRoundingModeValue,
 } from "./vocabulary.js";
 
@@ -83,4 +86,5 @@ export {
   type InvoiceIssuerSnapshot,
   type InvoicePayload,
   type InvoicePayloadLine,
+  type ReceiptPayload,
 } from "./invoicePayload.js";
