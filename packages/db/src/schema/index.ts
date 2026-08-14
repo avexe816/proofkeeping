@@ -158,5 +158,40 @@ export {
   type TrashLevel,
 } from "./observation.js";
 
+// 稼働照合（P4-01 / PK-SPEC-P4 §2）。
+// **`auditFinding` は差異であって不正の認定ではない**（§1.1）。
+// `occupancySnapshot` に宿泊者の氏名・連絡先の列は無い（§2.1 MUST）。
+export {
+  DETECTION_OUTCOMES,
+  FINDING_SEVERITIES,
+  FINDING_STATUSES,
+  OCCUPANCY_CHANNEL_CODES,
+  OCCUPANCY_SOURCES,
+  RECONCILIATION_RUN_STATUSES,
+  RECONCILIATION_SOURCES,
+  ROOM_ACCESS_PURPOSES,
+  RULE_CODES,
+  SIGNAL_ACTOR_TYPES,
+  SIGNAL_TYPES,
+  auditFinding,
+  detectionFeedback,
+  occupancySnapshot,
+  physicalSignal,
+  reconciliationRun,
+  roomAccessLog,
+  ruleConfig,
+  type DetectionOutcome,
+  type FindingSeverity,
+  type FindingStatus,
+  type OccupancyChannelCode,
+  type OccupancySource,
+  type ReconciliationRunStatus,
+  type ReconciliationSource,
+  type RoomAccessPurpose,
+  type RuleCode,
+  type SignalActorType,
+  type SignalType,
+} from "./reconciliation.js";
+
 // 外部システムとの ID 対応（P0-22 は定義のみ。使用は P6）。
 export { EXTERNAL_ENTITY_TYPES, externalMapping } from "./integration.js";

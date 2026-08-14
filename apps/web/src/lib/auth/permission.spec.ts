@@ -71,6 +71,8 @@ const EXPECTED: Record<PermissionAction, string> = {
   "standardTime.write": "OO-----",
   "roomPlan.read": "OOA---O",
   "roomPlan.write": "OOA----",
+  "occupancy.read": "OOA---O",
+  "occupancy.write": "OOA----",
   // P1-16。客室ステータスの手動上書きは「施設責任者」（§11.2）。
   "room.statusOverride": "OOA----",
   // P1-17。**全ロールが自分の記録を見られる**（security.md §5 MUST）。

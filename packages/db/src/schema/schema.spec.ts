@@ -67,8 +67,10 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("45 テーブルを定義している", () => {
+  it("52 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
+      // P4-01。差異（PK-SPEC-P4 §2.5）。**不正の認定ではない**（同 §1.1）。
+      "auditFinding",
       "auditLog",
       // P3-01。ベースライン集計から除外した観察の記録（PK-SPEC-P3 §5.3）。
       "baselineExclusionLog",
@@ -87,6 +89,8 @@ describe("P0-06 スキーマ", () => {
       "dailyRoomPlan",
       // P1-21。当日の施設訪問順（§19.5）。**未登録でも一覧は動く。**
       "dailyRoute",
+      // P4-01。誤検知の学習（PK-SPEC-P4 §2.6）。**追記のみ。**
+      "detectionFeedback",
       "documentSequence",
       // P2-01。証跡スナップショット（PK-SPEC-P2 §3.7）。**INSERT のみ。**
       "evidenceSnapshot",
@@ -112,20 +116,30 @@ describe("P0-06 スキーマ", () => {
       // P3-01。施設ごとの観察設定と、観察記録の事後修正履歴（同 §2.6 / §2.2）。
       "observationConfig",
       "observationRevision",
+      // P4-01。稼働記録（PK-SPEC-P4 §2.1）。**宿泊者の氏名・連絡先を持たない。**
+      "occupancySnapshot",
       "organization",
       "organizationTaxProfile",
       // P0-08。直近 3 世代の再利用禁止のためだけの表。
       "passwordHistory",
+      // P4-01。物理の痕跡（PK-SPEC-P4 §2.2）。**外部機器からの受信のみ。**
+      "physicalSignal",
       "property",
       "propertyAssignment",
       // P2-01。施設ごとの検査方式（同 §2.1）。
       "propertyInspectionPolicy",
+      // P4-01。照合の実行記録（PK-SPEC-P4 §2.4）。
+      "reconciliationRun",
       // P2-01。差戻しサイクル（同 §3.4）。
       "reworkCycle",
       "room",
+      // P4-01。正当な入室の記録（PK-SPEC-P4 §2.3）。**誤検知を減らすための表。**
+      "roomAccessLog",
       // P3-01。入室時の観察記録（同 §2.1）。**1 タスク 1 行。**
       "roomObservation",
       "roomType",
+      // P4-01。ルールの施設別設定（PK-SPEC-P4 §2.7）。
+      "ruleConfig",
       // P1-01 / P1-02。標準時間マスタ（客室タイプ × 清掃種別）。
       "standardTime",
       "subscription",

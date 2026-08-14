@@ -421,3 +421,33 @@ export {
   type DataQualityStatusValue,
   type StaffInputRateSummary,
 } from "./baseline.js";
+
+// 稼働記録（P4-02 / PK-SPEC-P4 §2.1・§8）。
+// **宿泊者に関する欄が 1 つも無い**（同 §2.1 MUST / security.md §3）。
+export {
+  MAX_GUEST_COUNT,
+  MAX_NIGHTS,
+  MAX_OCCUPANCY_CSV_LENGTH,
+  MAX_RESERVATION_REF_LENGTH,
+  OCCUPANCY_CHANNEL_CODES,
+  OCCUPANCY_ERROR_CODES,
+  OCCUPANCY_SOURCES,
+  occupancyChannelCodeSchema,
+  occupancyErrorSchema,
+  occupancyImportRequestSchema,
+  occupancyImportResponseSchema,
+  occupancyListResponseSchema,
+  occupancySnapshotEntrySchema,
+  occupancySnapshotSchema,
+  occupancySnapshotUpsertRequestSchema,
+  occupancySourceSchema,
+  type OccupancyChannelCodeValue,
+  type OccupancyError,
+  type OccupancyImportRequest,
+  type OccupancyImportResponse,
+  type OccupancyListResponse,
+  type OccupancySnapshot,
+  type OccupancySnapshotEntry,
+  type OccupancySnapshotUpsertRequest,
+  type OccupancySourceValue,
+} from "./occupancy.js";

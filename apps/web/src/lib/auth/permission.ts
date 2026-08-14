@@ -113,6 +113,18 @@ export const PERMISSION_ACTIONS = {
   "roomPlan.read": { write: false },
   "roomPlan.write": { write: true },
   /**
+   * 稼働記録（A 系統 / PK-SPEC-P4 §2.1・§8.1）。
+   *
+   * **§6.4 の権限表に稼働記録の行が無い。** あの表は差異レポートの
+   * 閲覧・状態変更・ルール設定・再実行・エクスポートで、取込は載っていない。
+   * 当日の客室状況（`roomPlan.*`）と同じ「その日の稼働を入れる操作」なので
+   * 同じ配り方にした。**`CLEANER` / `INSPECTOR` は DENY。** 稼働記録は
+   * 差異の根拠そのもので、現場に見せる理由が無い（§11 の
+   * 「清掃員が入力を歪める」への対策）。
+   */
+  "occupancy.read": { write: false },
+  "occupancy.write": { write: true },
+  /**
    * 客室ステータスの手動上書き（W-03 / M-10）。§11.2 の「施設責任者」。
    *
    * **`property.write`（客室マスタ）と分けてある。** 当日の状態を直すことと、
@@ -625,6 +637,26 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     AUDITOR: "ORG",
   },
   "roomPlan.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // PK-SPEC-P4 §8.1 の取込。`roomPlan.*` と同じ配り方（上の注記）。
+  // `VENDOR_ADMIN`（清掃会社）は稼働記録の持ち主ではないため DENY。
+  "occupancy.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "occupancy.write": {
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "ASSIGNED",

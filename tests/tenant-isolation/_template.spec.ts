@@ -98,6 +98,14 @@ const TENANT_TABLES = [
   "consumption_baseline",
   "observation_config",
   "baseline_exclusion_log",
+  // P4-01。稼働照合（PK-SPEC-P4 §2）。
+  "occupancy_snapshot",
+  "physical_signal",
+  "room_access_log",
+  "reconciliation_run",
+  "audit_finding",
+  "detection_feedback",
+  "rule_config",
 ] as const;
 
 /**
@@ -132,6 +140,17 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   // observation.spec.ts でカバーした。
   // `consumption_baseline` / `baseline_exclusion_log` は P3-09 / P3-10 /
   // P3-12 が関数を作り、baseline.spec.ts でカバーした。
+  //
+  // P4-01 も表と migration までの task（P2-01 / P3-01 と同じ形）。
+  // `occupancy_snapshot` は P4-02 が取込の関数を作り、occupancy.spec.ts で
+  // カバーした。残る 6 表は下の task が関数を作って行を消すこと。
+  // **表だけ足して放置しないこと。**
+  physical_signal: "受信口はまだ無い（PK-SPEC-P4 §8）。P4-10 が作る",
+  room_access_log: "登録・一覧の関数がまだ無い（同 §8）。P4-10 が作る",
+  reconciliation_run: "照合バッチがまだ無い（同 §5）。P4-05 が作る",
+  audit_finding: "差異の読み書きがまだ無い（同 §6）。P4-05 / P4-06 が作る",
+  detection_feedback: "誤検知の記録は差異のステータス変更に伴う。P4-07 が作る",
+  rule_config: "ルール設定の画面がまだ無い（同 §6）。P4-13 が作る",
 };
 
 describe("同一シャードの組織ペア（fixtures/shard-pairs.ts）", () => {

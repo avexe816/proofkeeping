@@ -388,3 +388,64 @@ export {
   type InputDurationAverage,
   type StaffInputRate,
 } from "./dataQuality.js";
+
+// 稼働照合エンジンの骨格（P4-03 / PK-SPEC-P4 §9）。
+// **ルールの実体はまだ 1 つも無い**（R001 / R006 は P4-04）。
+// 現在時刻は `RuleContext.now` で注入する。`Date.now()` を持ち込まない。
+export {
+  FALSE_POSITIVE_DOWNGRADE_THRESHOLD,
+  NEW_OPERATION_DAYS,
+  NEW_OPERATION_PENALTY,
+  SINGLE_SIGNAL_CONFIDENCE_CAP,
+  SMALL_SAMPLE_MAX,
+  SMALL_SAMPLE_MIN,
+  SMALL_SAMPLE_PENALTY,
+  USED_DEFAULTS_PENALTY,
+  adjustConfidence,
+  applyAdjustments,
+  capSingleSignal,
+  clampConfidence,
+  downgradeSeverity,
+  type ConfidenceInputs,
+} from "./reconciliation/confidence.js";
+
+export { evaluate } from "./reconciliation/evaluate.js";
+
+export {
+  RULES,
+  findRule,
+  implementedRuleCodes,
+} from "./reconciliation/rules/registry.js";
+
+export {
+  NEW_PROPERTY_SUPPRESSION_DAYS,
+  availableSourcesOf,
+  suppressionReasonOf,
+  type SuppressionInputs,
+} from "./reconciliation/suppression.js";
+
+export {
+  MAX_CONFIDENCE,
+  MIN_CONFIDENCE,
+  RECONCILIATION_SOURCES,
+  SEVERITIES,
+  SUPPRESSION_REASONS,
+  type AccessLogFact,
+  type BaselineFact,
+  type EvaluationOptions,
+  type EvaluationResult,
+  type FindingDraft,
+  type ObservationFact,
+  type OccupancyFact,
+  type PropertyFact,
+  type ReconciliationSource,
+  type RoomFact,
+  type Rule,
+  type RuleContext,
+  type RuleSetting,
+  type Severity,
+  type SignalFact,
+  type SuppressedRule,
+  type SuppressionReason,
+  type TaskFact,
+} from "./reconciliation/types.js";

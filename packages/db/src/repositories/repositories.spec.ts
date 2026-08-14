@@ -45,6 +45,7 @@ import * as inspectionPolicyRepo from "./inspectionPolicy.js";
 import * as issueReportRepo from "./issueReport.js";
 import * as lostItemRepo from "./lostItem.js";
 import * as observationRepo from "./observation.js";
+import * as occupancyRepo from "./occupancy.js";
 import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
 import * as rollupRepo from "./rollup.js";
@@ -57,6 +58,9 @@ import * as userRepo from "./user.js";
 /** 検証対象のリポジトリモジュール。**新しいファイルを足したらここに追加する。** */
 const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   audit: auditRepo,
+  // P4-02 が登録した稼働記録（PK-SPEC-P4 §2.1）。
+  // **取込元（`source`）ごとに別の行**（DECISIONS #106）。
+  occupancy: occupancyRepo,
   baseline: baselineRepo,
   checklist: checklistRepo,
   cleaningTask: cleaningTaskRepo,
@@ -116,6 +120,8 @@ const OWN_ID = {
   observation: generateId(TEST_ORG.orgShortId, "obs"),
   // P3-09 / P3-10。
   baseline: generateId(TEST_ORG.orgShortId, "bsln"),
+  // P4-02。
+  occupancy: generateId(TEST_ORG.orgShortId, "occ"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -178,6 +184,8 @@ const OTHER_ID = {
   observation: generateId(OTHER_ORG.orgShortId, "obs"),
   // P3-09 / P3-10。
   baseline: generateId(OTHER_ORG.orgShortId, "bsln"),
+  // P4-02。
+  occupancy: generateId(OTHER_ORG.orgShortId, "occ"),
 } as const;
 
 /**
@@ -318,6 +326,36 @@ const BASELINE_EXCLUSIONS = (id: typeof OWN_ID | typeof OTHER_ID) =>
         qty: 20,
       },
     ],
+  }) as const;
+
+/** 稼働記録の取込先（P4-02 / PK-SPEC-P4 §8.1）。 */
+const OCCUPANCY_PARAMS = (id: typeof OWN_ID | typeof OTHER_ID) =>
+  ({
+    propertyId: id.property,
+    businessDate: "2026-09-09",
+    source: "CSV_IMPORT",
+    importedById: id.membership,
+  }) as const;
+
+/** 稼働記録 1 室ぶん。**宿泊者の欄が 1 つも無い**（同 §2.1 MUST）。 */
+const OCCUPANCY_ENTRY = (id: typeof OWN_ID | typeof OTHER_ID) =>
+  ({
+    roomId: id.room,
+    isOccupied: true,
+    guestCount: 2,
+    adultCount: 0,
+    childCount: 0,
+    reservationRef: "RSV-8891",
+    channelCode: null,
+    checkInAt: null,
+    checkOutAt: null,
+    isStayover: false,
+    nightsTotal: null,
+    nightIndex: null,
+    ratePlanCode: null,
+    isComplimentary: false,
+    isHouseUse: false,
+    rawPayload: null,
   }) as const;
 
 const INVOCATIONS: Invocation[] = [
@@ -1672,6 +1710,38 @@ const INVOCATIONS: Invocation[] = [
       baselineRepo.replaceBaselineExclusions(env, ctx, BASELINE_EXCLUSIONS(OWN_ID)),
     crossTenant: (env, ctx) =>
       baselineRepo.replaceBaselineExclusions(env, ctx, BASELINE_EXCLUSIONS(OTHER_ID)),
+  },
+  {
+    name: "occupancy.upsertOccupancySnapshots",
+    kind: "tenant",
+    run: (env, ctx) => occupancyRepo.upsertOccupancySnapshots(env, ctx, OCCUPANCY_PARAMS(OWN_ID), [
+      OCCUPANCY_ENTRY(OWN_ID),
+    ]),
+    crossTenant: (env, ctx) =>
+      occupancyRepo.upsertOccupancySnapshots(env, ctx, OCCUPANCY_PARAMS(OTHER_ID), [
+        OCCUPANCY_ENTRY(OTHER_ID),
+      ]),
+  },
+  {
+    name: "occupancy.listOccupancySnapshots",
+    kind: "tenant",
+    run: (env, ctx) =>
+      occupancyRepo.listOccupancySnapshots(env, ctx, {
+        propertyId: OWN_ID.property,
+        businessDate: "2026-09-09",
+      }),
+    crossTenant: (env, ctx) =>
+      occupancyRepo.listOccupancySnapshots(env, ctx, {
+        propertyId: OTHER_ID.property,
+        businessDate: "2026-09-09",
+      }),
+  },
+  {
+    name: "occupancy.findOccupancySnapshotById",
+    kind: "tenant",
+    run: (env, ctx) => occupancyRepo.findOccupancySnapshotById(env, ctx, OWN_ID.occupancy),
+    crossTenant: (env, ctx) =>
+      occupancyRepo.findOccupancySnapshotById(env, ctx, OTHER_ID.occupancy),
   },
 ];
 
