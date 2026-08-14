@@ -145,10 +145,13 @@ describe("AUDIT_ACTIONS", () => {
     // security.md §1 が「緊急時の例外は理由必須＋監査ログ」と書いている。
     // P2-07 が 1 つ足した: 差戻しの免除（同 §4.7 が「理由必須」と明記）。
     // P2-16 が 1 つ足した: 残存タスクの緊急上書き（同 §13.3）。
+    // P5-09 が 1 つ足した: 帳票の訂正（PK-SPEC-P5 §5.2 の 2 が
+    // 「訂正理由を入力（必須）」と明記）。
     const required = Object.entries(AUDIT_ACTIONS)
       .filter(([, meta]) => meta.requiresReason)
       .map(([action]) => action);
     expect(required.sort()).toEqual([
+      "document.corrected",
       "inspection.emergencyOverride",
       "inspection.selfApproved",
       "observation.amended",

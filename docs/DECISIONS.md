@@ -2653,3 +2653,30 @@
   発火するため、式だけでは撃ち分けられない。
 - 影響: `MONTHLY_CLOSE_CRON = "0 19 28-31 * *"`（wrangler.toml の 4 環境と
   `lib/billing/monthlyClose.ts` が一致すること）。cron は 4 本になった。
+
+## #126 訂正のために締めを差し戻す遷移（REOPEN）を足す
+
+- 日付: 2026-08-14
+- task: P5-09
+- 文脈: §5.2 の訂正は 6 手順で、3 で赤伝を切って元請求書を `VOIDED` に
+  したあと、**4〜5 で「新しい請求書の編集画面が開く」→「修正して発行」**
+  と続く。しかし **§6.1 の状態遷移図に `INVOICED` から戻る矢印が無い。**
+  請求書は締め（`billingPeriod`）から組み立てるので、締めが `INVOICED` の
+  ままだと再発行できない（`issueInvoice()` は `AGREED` からしか通らず、
+  `billingPeriod.invoiceId` も埋まったまま）。
+- 選択肢:
+  1. 遷移を足さず、訂正は赤伝を切るところで止める
+  2. `REOPEN`（`INVOICED → REVIEWING`）を足し、`invoiceId` を外す
+  3. 締めを新しく起こし直す（同じ期間の 2 行目を作る）
+- 決定: 2。
+- 理由: 1 は**訂正が完了しない。** 赤伝は出せるが正しい請求書を出せず、
+  取引先には「取り消した」通知だけが届く。3 は `uq_period`
+  （組織 × 取引先 × 期間）に反するうえ、同じ月の締めが 2 行あると
+  どちらが正か決められない。2 は既存の状態語彙の中で閉じており、
+  差し戻し（`REJECT`）が既に `AGREED → REVIEWING` を通っているので
+  戻り先も既存のもの。
+- 影響: `BILLING_PERIOD_ACTIONS` に `REOPEN` を追加。
+  **呼べるのは元の請求書を `VOIDED` にしたときだけ**で、その判定は
+  `lib/billing/creditNote.ts` が持つ（状態機械は状態しか見ない）。
+  `CLOSED`（入金済み）からは戻せない。
+  `updateBillingPeriodStatus()` が `invoiceId: null` を受けるようにした。

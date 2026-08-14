@@ -461,3 +461,20 @@ export const receiptListResponseSchema = z.object({
 });
 
 export type ReceiptListResponse = z.infer<typeof receiptListResponseSchema>;
+
+
+// ────────────────────────────────────────────────────────────
+// 訂正（P5-09 / PK-SPEC-P5 §5）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * `POST /api/v1/invoices/:id/credit-note` の入力（§5.2 の 2）。
+ *
+ * **理由は必須。** 空文字を通さない。誰がなぜ取り消したかが残らないと、
+ * 「訂正・削除の履歴が残るシステム」（billing.md §2）が成り立たない。
+ */
+export const invoiceCorrectRequestSchema = z.object({
+  reason: z.string().trim().min(1).max(200),
+});
+
+export type InvoiceCorrectRequest = z.infer<typeof invoiceCorrectRequestSchema>;

@@ -2168,6 +2168,19 @@ const INVOCATIONS: Invocation[] = [
     crossTenant: (env, ctx) =>
       invoiceRepo.recordDocumentDelivery(env, ctx, DELIVERY_INPUT(OTHER_ID)),
   },
+  // ── P5-09 が足したもの（PK-SPEC-P5 §5）────────────────────
+  {
+    // 取消。**PDF に触らない**（元の PDF は閲覧できるまま / §5.2 MUST）。
+    name: "invoice.voidInvoice",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.voidInvoice(env, ctx, OWN_ID.invoice, { reason: "金額誤り", voidedAt: ctx.now }),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.voidInvoice(env, ctx, OTHER_ID.invoice, {
+        reason: "金額誤り",
+        voidedAt: ctx.now,
+      }),
+  },
   // ── P5-08 が足したもの（PK-SPEC-P5 §4.2）──────────────────
   {
     // ① 入金の記録。**発行後・取消前のときだけ `PAID` へ進む。**
@@ -2638,6 +2651,21 @@ describe("発行済み帳票（PK-SPEC-P5 §2 / billing.md §2）", () => {
     const offenders = repositorySources().filter(({ code }) => {
       for (const match of code.matchAll(setBlocks)) {
         if (/(totalAmount|subtotalAmount|taxAmount)\s*:/.test(match[1] ?? "")) return true;
+      }
+      return false;
+    });
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  // **取消が PDF に触らない**（§5.2 MUST「元の PDF は R2 に残し、
+  // 閲覧できる状態を維持する」）。`status = VOIDED` を書く `set()` に
+  // `pdfStorageKey` / `pdfSha256` が入っていないこと。
+  it("請求書を取り消す更新関数が PDF の列に触らない", () => {
+    const setBlocks = /\.update\(\s*invoice\s*\)[\s\S]{0,200}?\.set\(\{([\s\S]*?)\}\)/g;
+    const offenders = repositorySources().filter(({ code }) => {
+      for (const match of code.matchAll(setBlocks)) {
+        const body = match[1] ?? "";
+        if (/"VOIDED"/.test(body) && /(pdfStorageKey|pdfSha256)\s*:/.test(body)) return true;
       }
       return false;
     });

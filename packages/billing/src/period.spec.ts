@@ -120,6 +120,8 @@ describe("evaluateBillingPeriodTransition", () => {
     ["INVOICED", "CLOSE", "CLOSED"],
     ["REVIEWING", "REJECT", "REVIEWING"],
     ["AGREED", "REJECT", "REVIEWING"],
+    // 訂正（§5.2 の 4）。**赤伝を切ったあと再発行できる状態へ戻す。**
+    ["INVOICED", "REOPEN", "REVIEWING"],
   ] as const)("%s に %s は許される → %s", (from, action, to) => {
     expect(evaluateBillingPeriodTransition(from, action)).toEqual({ allowed: true, next: to });
   });
@@ -141,6 +143,12 @@ describe("evaluateBillingPeriodTransition", () => {
     // 閉じたあとは何も起こらない。
     ["CLOSED", "AGREE"],
     ["CLOSED", "ISSUE_INVOICE"],
+    // **入金まで終わった締めを差し戻さない。** 訂正は請求書を
+    // 取り消したときだけで、`CLOSED` からは戻れない。
+    ["CLOSED", "REOPEN"],
+    ["REVIEWING", "REOPEN"],
+    ["AGREED", "REOPEN"],
+    ["OPEN", "REOPEN"],
   ] as const)("%s に %s は許されない", (from, action) => {
     expect(evaluateBillingPeriodTransition(from, action)).toEqual({
       allowed: false,

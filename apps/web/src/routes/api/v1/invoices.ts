@@ -29,6 +29,7 @@
  */
 
 import {
+  invoiceCorrectRequestSchema,
   invoiceIssueRequestSchema,
   type InvoiceDetailResponse,
   type InvoiceListResponse,
@@ -51,7 +52,9 @@ import {
   findSendableInvoice,
   issueInvoice,
 } from "../../../lib/billing/issue.js";
+import { correctInvoice } from "../../../lib/billing/creditNote.js";
 import { enqueueInvoiceDelivery } from "../../../lib/billing/deliver.js";
+import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
 
 const invoices = new Hono<AppEnv>();
@@ -277,6 +280,86 @@ invoices.post("/:invoiceId/resend", async (c) => {
   });
 
   return c.json({ invoiceId, queued: true });
+});
+
+/**
+ * 訂正（§5.2）。**赤伝を切り、元請求書を取り消す。**
+ *
+ * ── 元の請求書を消さない・書き換えない（§5.1 / billing.md §2）──
+ * 変わるのは `status` / `voidedAt` / `voidReason` だけ。**金額も明細も
+ * PDF も動かない。** 元の PDF は R2 に残り、`download` から引き続き
+ * 取れる（§5.2 MUST）。
+ *
+ * ── 番号は欠番のまま（§5.3）─────────────────────────────
+ * 赤伝は新しい番号を採る。元の番号は再利用しない。
+ */
+invoices.post("/:invoiceId/credit-note", async (c) => {
+  const parsed = invoiceCorrectRequestSchema.safeParse(await readJson(c.req.raw));
+  if (!parsed.success) return c.json(invalidRequest(), 400);
+
+  const ctx = getTenant(c);
+  assertPermission(ctx, "billing.write", ORGANIZATION_TARGET);
+
+  const invoiceId = c.req.param("invoiceId");
+  const outcome = await correctInvoice(c.env, ctx, {
+    invoiceId,
+    reason: parsed.data.reason,
+    actorId: getSession(c).membershipId,
+    issueDate: todayInJst(ctx.now),
+  });
+
+  if (outcome.kind === "REJECTED") {
+    if (outcome.reason === "INVOICE_NOT_FOUND") return c.json(notFound(), 404);
+    return c.json({ error: outcome.reason }, 409);
+  }
+
+  // 監査ログ（security.md §6「帳票の訂正」）。**理由を残す。**
+  await recordAudit(c.env, ctx, {
+    actorId: getSession(c).membershipId,
+    action: "document.corrected",
+    targetType: "invoice",
+    targetId: invoiceId,
+    reason: parsed.data.reason,
+    after: {
+      creditNoteId: outcome.creditNoteId,
+      creditNoteDocumentNo: outcome.creditNoteDocumentNo,
+      periodReopened: outcome.periodReopened,
+    },
+    ...ipOf(c.req.header("CF-Connecting-IP")),
+  });
+
+  return c.json(
+    {
+      creditNoteId: outcome.creditNoteId,
+      creditNoteDocumentNo: outcome.creditNoteDocumentNo,
+      periodReopened: outcome.periodReopened,
+    },
+    201,
+  );
+});
+
+/**
+ * PDF のダウンロード（§9）。**15 分有効の署名付き URL**（security.md §4）。
+ *
+ * ── 取り消した請求書も取れる（§5.2 MUST）────────────────
+ * 「元の PDF は R2 に残し、閲覧できる状態を維持する。ダウンロード
+ * リンクを無効化しない」。**`VOIDED` を弾かないこと。**
+ * `findSendableInvoice()` を使わないのはそのため（あれは送付の判定）。
+ */
+invoices.get("/:invoiceId/download", async (c) => {
+  const ctx = getTenant(c);
+  assertPermission(ctx, "billing.read", ORGANIZATION_TARGET);
+
+  const invoiceId = c.req.param("invoiceId");
+  const invoice = await findInvoiceById(c.env, ctx, invoiceId);
+  if (invoice === undefined) return c.json(notFound(), 404);
+  // PDF がまだ無い（`CONFIRMED` のまま）。**再生成できる**ので 409。
+  if (invoice.pdfStorageKey === null) return c.json({ error: "PDF_NOT_READY" as const }, 409);
+
+  return c.json({
+    url: await signObjectUrl(c.env.SESSION_SECRET, invoice.pdfStorageKey, ctx.now),
+    documentNo: invoice.documentNo,
+  });
 });
 
 /** 集計元のタスク ID（§6.3）。形が違えば空。 */

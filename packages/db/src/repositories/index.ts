@@ -412,6 +412,7 @@ export {
   updateCounterparty,
   updateInvoicePdf,
   updateReceiptPdf,
+  voidInvoice,
   upsertCounterparty,
   type BillingPeriodFilter,
   type CreateInvoiceInput,
