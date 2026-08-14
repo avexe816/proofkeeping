@@ -79,6 +79,14 @@ export const PERMISSION_ACTIONS = {
    */
   "finding.read": { write: false },
   /**
+   * 照合の手動再実行（P4-05 / PK-SPEC-P4 §5.4・§6.4）。
+   *
+   * §6.4 の表で「手動再実行」が ○ なのは `OWNER` / `ORG_ADMIN` だけ。
+   * **施設責任者にも与えない。** 過去 90 日を遡って走らせられる操作で、
+   * 差異の再評価は組織全体の運用判断に関わる。
+   */
+  "reconciliation.run": { write: true },
+  /**
    * 忘れ物の保管場所・返却先。**`CLEANER` は見られない**（security.md §1）。
    * 忘れ物そのものの記録とは別の操作。P0 に実体は無い。
    */
@@ -531,6 +539,16 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+  },
+  // PK-SPEC-P4 §6.4: 手動再実行は OWNER / ORG_ADMIN だけ。
+  "reconciliation.run": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
   },
   // security.md §1: `CLEANER` は保管場所・返却先を見られない。
   "lostItem.readStorage": {

@@ -42,6 +42,8 @@ const OCCUPANCY: OccupancyFact = {
   isOccupied: false,
   guestCount: 0,
   reservationRef: null,
+  source: "CSV_IMPORT",
+  importedAt: Date.parse("2026-09-10T02:14:00+09:00"),
   checkInAt: null,
   checkOutAt: null,
   isStayover: false,

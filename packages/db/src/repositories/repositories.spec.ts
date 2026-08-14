@@ -46,6 +46,7 @@ import * as issueReportRepo from "./issueReport.js";
 import * as lostItemRepo from "./lostItem.js";
 import * as observationRepo from "./observation.js";
 import * as occupancyRepo from "./occupancy.js";
+import * as reconciliationRepo from "./reconciliation.js";
 import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
 import * as rollupRepo from "./rollup.js";
@@ -61,6 +62,9 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // P4-02 が登録した稼働記録（PK-SPEC-P4 §2.1）。
   // **取込元（`source`）ごとに別の行**（DECISIONS #106）。
   occupancy: occupancyRepo,
+  // P4-05 が登録した照合の実行と差異（PK-SPEC-P4 §2.4・§2.5）。
+  // **DELETE が無い**ことも下で検査する（再実行は差分の追加 / 同 §5.3）。
+  reconciliation: reconciliationRepo,
   baseline: baselineRepo,
   checklist: checklistRepo,
   cleaningTask: cleaningTaskRepo,
@@ -122,6 +126,9 @@ const OWN_ID = {
   baseline: generateId(TEST_ORG.orgShortId, "bsln"),
   // P4-02。
   occupancy: generateId(TEST_ORG.orgShortId, "occ"),
+  // P4-05。
+  run: generateId(TEST_ORG.orgShortId, "run"),
+  finding: generateId(TEST_ORG.orgShortId, "find"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -186,6 +193,9 @@ const OTHER_ID = {
   baseline: generateId(OTHER_ORG.orgShortId, "bsln"),
   // P4-02。
   occupancy: generateId(OTHER_ORG.orgShortId, "occ"),
+  // P4-05。
+  run: generateId(OTHER_ORG.orgShortId, "run"),
+  finding: generateId(OTHER_ORG.orgShortId, "find"),
 } as const;
 
 /**
@@ -357,6 +367,29 @@ const OCCUPANCY_ENTRY = (id: typeof OWN_ID | typeof OTHER_ID) =>
     isHouseUse: false,
     rawPayload: null,
   }) as const;
+
+/** 照合の実行 1 件（P4-05 / PK-SPEC-P4 §2.4）。 */
+const RUN_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) =>
+  ({
+    propertyId: id.property,
+    businessDate: "2026-09-09",
+    engineVersion: "1.0",
+    rulesetHash: "00000000",
+    availableSources: ["occupancy", "observation"],
+  }) as const;
+
+/** 差異 1 件（同 §2.5）。**不正の認定ではない**（同 §1.1）。 */
+const FINDING = (id: typeof OWN_ID | typeof OTHER_ID) => ({
+  roomId: id.room,
+  ruleCode: "R001" as const,
+  ruleVersion: "1.0",
+  severity: "HIGH" as const,
+  confidence: 80,
+  title: "302 号室：稼働記録のない使用痕跡",
+  summary: "",
+  evidence: {},
+  matchedSignals: ["BEDS_USED", "TRASH_PRESENT"],
+});
 
 const INVOCATIONS: Invocation[] = [
   {
@@ -1742,6 +1775,141 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => occupancyRepo.findOccupancySnapshotById(env, ctx, OWN_ID.occupancy),
     crossTenant: (env, ctx) =>
       occupancyRepo.findOccupancySnapshotById(env, ctx, OTHER_ID.occupancy),
+  },
+  {
+    name: "occupancy.hasOccupancySnapshotsInRange",
+    kind: "tenant",
+    run: (env, ctx) =>
+      occupancyRepo.hasOccupancySnapshotsInRange(env, ctx, {
+        propertyId: OWN_ID.property,
+        from: "2026-08-10",
+        to: "2026-09-09",
+      }),
+    crossTenant: (env, ctx) =>
+      occupancyRepo.hasOccupancySnapshotsInRange(env, ctx, {
+        propertyId: OTHER_ID.property,
+        from: "2026-08-10",
+        to: "2026-09-09",
+      }),
+  },
+  // P4-05。照合の実行と差異（PK-SPEC-P4 §2.4・§2.5・§5）。
+  {
+    name: "reconciliation.listPhysicalSignals",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.listPhysicalSignals(env, ctx, {
+        propertyId: OWN_ID.property,
+        businessDate: "2026-09-09",
+      }),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.listPhysicalSignals(env, ctx, {
+        propertyId: OTHER_ID.property,
+        businessDate: "2026-09-09",
+      }),
+  },
+  {
+    name: "reconciliation.listRoomAccessLogs",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.listRoomAccessLogs(env, ctx, {
+        propertyId: OWN_ID.property,
+        businessDate: "2026-09-09",
+      }),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.listRoomAccessLogs(env, ctx, {
+        propertyId: OTHER_ID.property,
+        businessDate: "2026-09-09",
+      }),
+  },
+  {
+    name: "reconciliation.listRuleConfigs",
+    kind: "tenant",
+    run: (env, ctx) => reconciliationRepo.listRuleConfigs(env, ctx, OWN_ID.property),
+    crossTenant: (env, ctx) => reconciliationRepo.listRuleConfigs(env, ctx, OTHER_ID.property),
+  },
+  {
+    name: "reconciliation.listRecentFalsePositives",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.listRecentFalsePositives(env, ctx, {
+        propertyId: OWN_ID.property,
+        from: new Date("2026-08-10T00:00:00Z"),
+      }),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.listRecentFalsePositives(env, ctx, {
+        propertyId: OTHER_ID.property,
+        from: new Date("2026-08-10T00:00:00Z"),
+      }),
+  },
+  {
+    name: "reconciliation.startReconciliationRun",
+    kind: "tenant",
+    run: (env, ctx) => reconciliationRepo.startReconciliationRun(env, ctx, RUN_INPUT(OWN_ID)),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.startReconciliationRun(env, ctx, RUN_INPUT(OTHER_ID)),
+  },
+  {
+    name: "reconciliation.finishReconciliationRun",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.finishReconciliationRun(env, ctx, {
+        runId: OWN_ID.run,
+        status: "COMPLETED",
+        roomsEvaluated: 0,
+      }),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.finishReconciliationRun(env, ctx, {
+        runId: OTHER_ID.run,
+        status: "COMPLETED",
+        roomsEvaluated: 0,
+      }),
+  },
+  {
+    name: "reconciliation.listReconciliationRuns",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.listReconciliationRuns(env, ctx, { propertyId: OWN_ID.property }),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.listReconciliationRuns(env, ctx, { propertyId: OTHER_ID.property }),
+  },
+  {
+    name: "reconciliation.findReconciliationRunById",
+    kind: "tenant",
+    run: (env, ctx) => reconciliationRepo.findReconciliationRunById(env, ctx, OWN_ID.run),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.findReconciliationRunById(env, ctx, OTHER_ID.run),
+  },
+  {
+    name: "reconciliation.insertFindings",
+    kind: "tenant",
+    run: (env, ctx) =>
+      reconciliationRepo.insertFindings(
+        env,
+        ctx,
+        { runId: OWN_ID.run, propertyId: OWN_ID.property, businessDate: "2026-09-09" },
+        [FINDING(OWN_ID)],
+      ),
+    crossTenant: (env, ctx) =>
+      reconciliationRepo.insertFindings(
+        env,
+        ctx,
+        { runId: OTHER_ID.run, propertyId: OTHER_ID.property, businessDate: "2026-09-09" },
+        [FINDING(OTHER_ID)],
+      ),
+  },
+  {
+    // **`crossTenant` を置いていない。** `listFindings()` は `propertyId` を
+    // 任意で受ける一覧で、別組織の施設 ID を渡しても例外ではなく 0 件になる
+    // （組織条件が必ず AND される / `listBaselines()` と同じ形）。
+    name: "reconciliation.listFindings",
+    kind: "tenant",
+    run: (env, ctx) => reconciliationRepo.listFindings(env, ctx, { propertyId: OWN_ID.property }),
+  },
+  {
+    name: "reconciliation.findFindingById",
+    kind: "tenant",
+    run: (env, ctx) => reconciliationRepo.findFindingById(env, ctx, OWN_ID.finding),
+    crossTenant: (env, ctx) => reconciliationRepo.findFindingById(env, ctx, OTHER_ID.finding),
   },
 ];
 

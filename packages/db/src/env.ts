@@ -111,6 +111,8 @@ export interface DurableObjectBindings {
   DOCUMENT_SEQUENCER: DurableObjectNamespace;
   /** 検査開始の排他制御（P2-03 / PK-SPEC-P2 §4.2）。粒度はタスク。 */
   INSPECTION_LOCK: DurableObjectNamespace;
+  /** 照合バッチの二重起動防止（P4-05 / PK-SPEC-P4 §5.2）。粒度は施設 × 業務日。 */
+  RECONCILIATION_LOCK: DurableObjectNamespace;
 }
 
 /** wrangler.toml の `[vars]`。値はすべて文字列で渡る。 */

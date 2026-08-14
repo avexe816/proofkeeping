@@ -74,6 +74,13 @@ export interface OccupancyFact {
   isOccupied: boolean;
   guestCount: number;
   reservationRef: string | null;
+  /**
+   * 取込元と取込時刻（§2.1）。**根拠として画面に出る**
+   * （§6.2 の「PMS / CSV取込 09/10 02:14」）。§3.2 の R001 が
+   * `evidence.occupancy` に写す 2 つ。`importedAt` は epoch ミリ秒。
+   */
+  source: "PMS_API" | "CSV_IMPORT" | "MANUAL";
+  importedAt: number;
   /** epoch ミリ秒。 */
   checkInAt: number | null;
   checkOutAt: number | null;
@@ -104,6 +111,16 @@ export interface ObservationFact {
   amenitiesUsed: Readonly<Record<string, number | boolean>>;
   /** 既定値のまま確定したか（§4.2 で確信度 −20）。 */
   usedDefaults: boolean;
+  /**
+   * 記録の時刻（epoch ミリ秒）と記録者の `membership.id`。
+   * **根拠として画面に出る**（§6.2 の「清掃 田中 / 09/09 10:22 記録」）。
+   *
+   * **個人の評価に使わない**（security.md §5）。差異の根拠として
+   * 「誰がいつ記録したか」を示すためだけに持つ。スキップした場合は
+   * 記録そのものが無いので `recordedAt = 0` / `recordedById = ""`。
+   */
+  recordedAt: number;
+  recordedById: string;
 }
 
 /** C 系統 — 物理の痕跡（§2.2）。`occurredAt` は epoch ミリ秒。 */

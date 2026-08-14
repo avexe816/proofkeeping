@@ -46,6 +46,8 @@ function observation(overrides: Partial<ObservationFact> = {}): ObservationFact 
     extraFutonUsed: 0,
     amenitiesUsed: {},
     usedDefaults: false,
+    recordedAt: Date.parse("2026-09-09T10:22:00+09:00"),
+    recordedById: "o7k2m9__mbr_01JBXQ3ZK8N4P2VYR6ABCDEFGH",
     ...overrides,
   };
 }

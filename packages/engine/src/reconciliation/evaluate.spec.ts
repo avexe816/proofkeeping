@@ -3,9 +3,9 @@
  *
  * ルール: .claude/rules/testing.md §3
  *
- * **ルールの実体はまだ無い**（R001 / R006 は P4-04）。ここで固定するのは
- * 骨格の性質だけ ——「登録するだけで動く」「抑制はルールを呼ばない」
- * 「調整が必ず掛かる」「同じ入力から同じ出力」。
+ * ここで固定するのは骨格の性質だけ ——「登録するだけで動く」「抑制は
+ * ルールを呼ばない」「調整が必ず掛かる」「同じ入力から同じ出力」。
+ * **ルール個々の正例・負例は `rules/R001.spec.ts` / `rules/R006.spec.ts`。**
  */
 
 import { describe, expect, it } from "vitest";
@@ -31,6 +31,8 @@ function observation(overrides: Partial<ObservationFact> = {}): ObservationFact 
     extraFutonUsed: 0,
     amenitiesUsed: {},
     usedDefaults: false,
+    recordedAt: NOW.getTime(),
+    recordedById: "o7k2m9__mbr_01JBXQ3ZK8N4P2VYR6ABCDEFGH",
     ...overrides,
   };
 }
@@ -54,6 +56,8 @@ function context(overrides: Partial<RuleContext> = {}): RuleContext {
       isOccupied: false,
       guestCount: 0,
       reservationRef: null,
+      source: "CSV_IMPORT",
+      importedAt: NOW.getTime(),
       checkInAt: null,
       checkOutAt: null,
       isStayover: false,
@@ -104,13 +108,18 @@ const NEVER_RULE: Rule = {
 };
 
 describe("registry", () => {
-  it("P4-03 の時点で 1 つも登録していない（R001 / R006 は P4-04）", () => {
-    expect(RULES).toEqual([]);
-    expect(implementedRuleCodes()).toEqual([]);
+  it("P4-04 の時点では R001 / R006 の 2 つだけ（残り 12 個を先回りしない）", () => {
+    expect(implementedRuleCodes()).toEqual(["R001", "R006"]);
+    expect(RULES).toHaveLength(2);
+  });
+
+  it("実装済みのコードは引ける", () => {
+    expect(findRule("R001")?.code).toBe("R001");
+    expect(findRule("R006")?.code).toBe("R006");
   });
 
   it("未実装のコードは undefined", () => {
-    expect(findRule("R001")).toBeUndefined();
+    expect(findRule("R003")).toBeUndefined();
     expect(findRule("NOPE")).toBeUndefined();
   });
 });

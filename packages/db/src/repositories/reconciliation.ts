@@ -1,0 +1,532 @@
+/**
+ * 照合の実行と差異のリポジトリ（PK-SPEC-P4 §2.4 / §2.5 / §5）。
+ *
+ * task: docs/tasks/P4-05.md
+ *
+ * ── 消す関数を作らない ──────────────────────────────────
+ * `db.delete(auditFinding)` も `db.delete(reconciliationRun)` も書かない。
+ * 再実行は**差分の追加**であって置き換えではない（§5.3 MUST）。
+ * `repositories.spec.ts` がソースを走査して固定する。
+ *
+ * ── 人が付けた判断を上書きしない ────────────────────────
+ * `insertFindings()` は既存の `(roomId, businessDate, ruleCode)` に当たったら
+ * **その行に一切触らない**（§5.3 MUST）。確信度が上がっていても、
+ * 文言が変わっていても、`status` を人が動かした行を書き換えない。
+ * 「3 回再実行しても Finding が重複しない」（§10.2）はこの 1 点で成り立つ。
+ *
+ * ── 冪等は一意索引だけに頼っていない ────────────────────
+ * `uq_finding` はあるが、**既存行を先に読んでから足す。** D1 に
+ * `ON CONFLICT DO NOTHING` を投げて件数だけ見る形にすると、「新規に作った
+ * 差異」と「既にあった差異」を区別できず、`findingsCreated`（§2.4）が
+ * 実態とずれる。P4-02 の取込と同じ判断。
+ */
+
+import { and, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
+
+import type { Env } from "../env.js";
+import { assertIdBelongsToTenant, generateId } from "../id.js";
+import { getTenantDb, type TenantContext } from "../router.js";
+import {
+  auditFinding,
+  detectionFeedback,
+  physicalSignal,
+  reconciliationRun,
+  roomAccessLog,
+  ruleConfig,
+  type FindingSeverity,
+  type FindingStatus,
+  type ReconciliationRunStatus,
+  type ReconciliationSource,
+  type RuleCode,
+} from "../schema/reconciliation.js";
+
+import { withTenantScope } from "./base.js";
+
+// ────────────────────────────────────────────────────────────
+// 読み取り（照合の入力）
+// ────────────────────────────────────────────────────────────
+
+/** 施設 × 業務日で引く共通の絞り込み。 */
+export interface PropertyDateFilter {
+  propertyId: string;
+  businessDate: string;
+}
+
+/**
+ * C 系統 — 物理の痕跡（§2.2）。**発生順に返す。**
+ *
+ * 並びを固定するのは §10.1 の決定性のため。同じ日を 2 回照合したときに
+ * ルールの見る順が変わらない。
+ */
+export async function listPhysicalSignals(
+  env: Env,
+  ctx: TenantContext,
+  filter: PropertyDateFilter,
+) {
+  assertIdBelongsToTenant(filter.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  return db
+    .select({
+      id: physicalSignal.id,
+      roomId: physicalSignal.roomId,
+      signalType: physicalSignal.signalType,
+      occurredAt: physicalSignal.occurredAt,
+      actorType: physicalSignal.actorType,
+    })
+    .from(physicalSignal)
+    .where(
+      withTenantScope(
+        physicalSignal,
+        ctx,
+        physicalSignal.propertyId,
+        eq(physicalSignal.propertyId, filter.propertyId),
+        eq(physicalSignal.businessDate, filter.businessDate),
+      ),
+    )
+    .orderBy(physicalSignal.occurredAt, physicalSignal.id);
+}
+
+/** 正当な入室の記録（§2.3）。**あれば差異を抑制する**（§4.1）。 */
+export async function listRoomAccessLogs(
+  env: Env,
+  ctx: TenantContext,
+  filter: PropertyDateFilter,
+) {
+  assertIdBelongsToTenant(filter.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  return db
+    .select({
+      id: roomAccessLog.id,
+      roomId: roomAccessLog.roomId,
+      purpose: roomAccessLog.purpose,
+      enteredAt: roomAccessLog.enteredAt,
+      exitedAt: roomAccessLog.exitedAt,
+    })
+    .from(roomAccessLog)
+    .where(
+      withTenantScope(
+        roomAccessLog,
+        ctx,
+        roomAccessLog.propertyId,
+        eq(roomAccessLog.propertyId, filter.propertyId),
+        eq(roomAccessLog.businessDate, filter.businessDate),
+      ),
+    )
+    .orderBy(roomAccessLog.enteredAt, roomAccessLog.id);
+}
+
+/**
+ * ルール設定（§2.7）。**組織の既定と施設の行を両方返す。**
+ *
+ * どちらを採るかは呼び出し側（施設の行が優先）。ここで畳むと、
+ * 「施設に設定が無い」のか「組織の既定と同じ」のかが読めなくなる。
+ */
+export async function listRuleConfigs(env: Env, ctx: TenantContext, propertyId: string) {
+  assertIdBelongsToTenant(propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  return db
+    .select({
+      id: ruleConfig.id,
+      propertyId: ruleConfig.propertyId,
+      ruleCode: ruleConfig.ruleCode,
+      isEnabled: ruleConfig.isEnabled,
+      severityOverride: ruleConfig.severityOverride,
+      thresholds: ruleConfig.thresholds,
+    })
+    .from(ruleConfig)
+    .where(
+      and(
+        eq(ruleConfig.organizationId, ctx.organizationId),
+        or(isNull(ruleConfig.propertyId), eq(ruleConfig.propertyId, propertyId)),
+      ),
+    )
+    .orderBy(ruleConfig.ruleCode);
+}
+
+/**
+ * 直近の誤検知（§4.2 の「直近 30 日に 3 回以上」）。
+ *
+ * **客室ごと・ルールごとに数える。** 施設全体の傾向として記録された行
+ * （`roomId = null`）は、その施設のどの客室にも効く。
+ *
+ * @param from これ以降に記録された行だけを見る（epoch ミリ秒ではなく `Date`）。
+ */
+export async function listRecentFalsePositives(
+  env: Env,
+  ctx: TenantContext,
+  filter: { propertyId: string; from: Date },
+) {
+  assertIdBelongsToTenant(filter.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  return db
+    .select({
+      roomId: detectionFeedback.roomId,
+      ruleCode: detectionFeedback.ruleCode,
+    })
+    .from(detectionFeedback)
+    .where(
+      withTenantScope(
+        detectionFeedback,
+        ctx,
+        detectionFeedback.propertyId,
+        eq(detectionFeedback.propertyId, filter.propertyId),
+        eq(detectionFeedback.outcome, "FALSE_POSITIVE"),
+        gte(detectionFeedback.createdAt, filter.from),
+      ),
+    );
+}
+
+// ────────────────────────────────────────────────────────────
+// 実行（§2.4）
+// ────────────────────────────────────────────────────────────
+
+/** `startReconciliationRun()` の入力。 */
+export interface StartRunInput {
+  propertyId: string;
+  businessDate: string;
+  engineVersion: string;
+  /** 適用した設定の指紋。設定変更を後から追える（§2.4）。 */
+  rulesetHash: string;
+  availableSources: readonly ReconciliationSource[];
+}
+
+/**
+ * 実行を開始する。**同じ `(施設, 業務日, engineVersion)` は 1 行**（`uq_run`）。
+ *
+ * 既にあれば作らずにその行を返す。再実行は同じ Run に**差分を足す**
+ * （§5.3 MUST）ので、走るたびに Run が増える形にしない。
+ *
+ * @returns `created` が偽なら再実行。
+ */
+export async function startReconciliationRun(
+  env: Env,
+  ctx: TenantContext,
+  input: StartRunInput,
+): Promise<{ id: string; created: boolean; previousStatus: ReconciliationRunStatus | null }> {
+  assertIdBelongsToTenant(input.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const existing = await db
+    .select({ id: reconciliationRun.id, status: reconciliationRun.status })
+    .from(reconciliationRun)
+    .where(
+      withTenantScope(
+        reconciliationRun,
+        ctx,
+        reconciliationRun.propertyId,
+        eq(reconciliationRun.propertyId, input.propertyId),
+        eq(reconciliationRun.businessDate, input.businessDate),
+        eq(reconciliationRun.engineVersion, input.engineVersion),
+      ),
+    )
+    .limit(1);
+
+  const found = existing[0];
+  if (found !== undefined) {
+    // **再実行。** `RUNNING` に戻し、開始時刻を更新する。集計値は
+    // 完了時に書き直すので、ここでは触らない。
+    await db
+      .update(reconciliationRun)
+      .set({ status: "RUNNING", startedAt: ctx.now, finishedAt: null, errorMessage: null })
+      .where(
+        and(
+          eq(reconciliationRun.organizationId, ctx.organizationId),
+          eq(reconciliationRun.id, found.id),
+        ),
+      );
+    return { id: found.id, created: false, previousStatus: found.status };
+  }
+
+  const id = generateId(ctx.orgShortId, "run");
+  await db.insert(reconciliationRun).values({
+    id,
+    organizationId: ctx.organizationId,
+    propertyId: input.propertyId,
+    businessDate: input.businessDate,
+    engineVersion: input.engineVersion,
+    rulesetHash: input.rulesetHash,
+    status: "RUNNING",
+    availableSources: [...input.availableSources],
+    startedAt: ctx.now,
+  });
+
+  return { id, created: true, previousStatus: null };
+}
+
+/** `finishReconciliationRun()` の入力。**件数は毎回すべて書き直す。** */
+export interface FinishRunInput {
+  runId: string;
+  status: Extract<ReconciliationRunStatus, "COMPLETED" | "FAILED" | "SKIPPED">;
+  roomsEvaluated?: number;
+  rulesEvaluated?: number;
+  findingsCreated?: number;
+  findingsSuppressed?: number;
+  availableSources?: readonly ReconciliationSource[];
+  skipReason?: string | null;
+  errorMessage?: string | null;
+}
+
+/**
+ * 実行を閉じる。
+ *
+ * **件数は加算しない。** 再実行では「その回に評価した数」で置き換える
+ * （インクリメント方式にしない / architecture.md §3 と同じ理由）。
+ * 差異の累計は `auditFinding` を数えれば出る。
+ */
+export async function finishReconciliationRun(
+  env: Env,
+  ctx: TenantContext,
+  input: FinishRunInput,
+): Promise<void> {
+  assertIdBelongsToTenant(input.runId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  await db
+    .update(reconciliationRun)
+    .set({
+      status: input.status,
+      finishedAt: ctx.now,
+      ...(input.roomsEvaluated === undefined ? {} : { roomsEvaluated: input.roomsEvaluated }),
+      ...(input.rulesEvaluated === undefined ? {} : { rulesEvaluated: input.rulesEvaluated }),
+      ...(input.findingsCreated === undefined ? {} : { findingsCreated: input.findingsCreated }),
+      ...(input.findingsSuppressed === undefined
+        ? {}
+        : { findingsSuppressed: input.findingsSuppressed }),
+      ...(input.availableSources === undefined
+        ? {}
+        : { availableSources: [...input.availableSources] }),
+      ...(input.skipReason === undefined ? {} : { skipReason: input.skipReason }),
+      ...(input.errorMessage === undefined ? {} : { errorMessage: input.errorMessage }),
+    })
+    .where(
+      and(
+        eq(reconciliationRun.organizationId, ctx.organizationId),
+        eq(reconciliationRun.id, input.runId),
+      ),
+    );
+}
+
+/** 実行の一覧（W-06 の「最終実行」表示・手動実行の重複確認）。**新しい順。** */
+export async function listReconciliationRuns(
+  env: Env,
+  ctx: TenantContext,
+  filter: { propertyId: string; from?: string; to?: string; limit?: number },
+) {
+  assertIdBelongsToTenant(filter.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  return db
+    .select()
+    .from(reconciliationRun)
+    .where(
+      withTenantScope(
+        reconciliationRun,
+        ctx,
+        reconciliationRun.propertyId,
+        eq(reconciliationRun.propertyId, filter.propertyId),
+        filter.from === undefined ? undefined : gte(reconciliationRun.businessDate, filter.from),
+        filter.to === undefined ? undefined : lte(reconciliationRun.businessDate, filter.to),
+      ),
+    )
+    .orderBy(desc(reconciliationRun.businessDate), desc(reconciliationRun.startedAt))
+    .limit(filter.limit ?? 30);
+}
+
+/** 1 件だけ引く。**越境 ID は DB へ行く前に `NotFoundError`（→ 404）。** */
+export async function findReconciliationRunById(env: Env, ctx: TenantContext, runId: string) {
+  assertIdBelongsToTenant(runId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const rows = await db
+    .select()
+    .from(reconciliationRun)
+    .where(
+      withTenantScope(
+        reconciliationRun,
+        ctx,
+        reconciliationRun.propertyId,
+        eq(reconciliationRun.id, runId),
+      ),
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+// ────────────────────────────────────────────────────────────
+// 差異（§2.5）
+// ────────────────────────────────────────────────────────────
+
+/** 書き込む差異 1 件。 */
+export interface FindingInput {
+  roomId: string;
+  ruleCode: RuleCode;
+  ruleVersion: string;
+  severity: FindingSeverity;
+  confidence: number;
+  title: string;
+  summary: string;
+  evidence: Record<string, unknown>;
+  matchedSignals: string[];
+}
+
+/** `insertFindings()` の宛先。 */
+export interface InsertFindingsParams {
+  runId: string;
+  propertyId: string;
+  businessDate: string;
+}
+
+/** `insertFindings()` の結果。 */
+export interface InsertFindingsResult {
+  /** 新しく作った差異の数（`reconciliationRun.findingsCreated`）。 */
+  created: number;
+  /** 既にあったので触らなかった数。**再実行はここに寄る。** */
+  existing: number;
+}
+
+/**
+ * 差異を書く。**既にある差異には一切触らない**（§5.3 MUST / §10.2）。
+ *
+ * ── なぜ更新しないのか ──────────────────────────────────
+ * 同じ客室・同じ業務日・同じルールの差異は 1 件（`uq_finding`）。2 回目の
+ * 照合で確信度が変わっていても上書きしない。**人が `status` を動かした行を
+ * 書き換えないため**で、これは「ステータス変更済みの Finding が保護される」
+ * （task の完了条件）そのもの。更新したい場合は新しい `engineVersion` で
+ * 別の Run として記録する（§5.4）。
+ */
+export async function insertFindings(
+  env: Env,
+  ctx: TenantContext,
+  params: InsertFindingsParams,
+  findings: readonly FindingInput[],
+): Promise<InsertFindingsResult> {
+  assertIdBelongsToTenant(params.propertyId, ctx);
+  assertIdBelongsToTenant(params.runId, ctx);
+  if (findings.length === 0) return { created: 0, existing: 0 };
+
+  const db = await getTenantDb(env, ctx);
+
+  // 既にある鍵を先に読む。**書き込みの前に 1 回だけ。**
+  const roomIds = [...new Set(findings.map((finding) => finding.roomId))];
+  const existingRows = await db
+    .select({ roomId: auditFinding.roomId, ruleCode: auditFinding.ruleCode })
+    .from(auditFinding)
+    .where(
+      withTenantScope(
+        auditFinding,
+        ctx,
+        auditFinding.propertyId,
+        eq(auditFinding.propertyId, params.propertyId),
+        eq(auditFinding.businessDate, params.businessDate),
+        inArray(auditFinding.roomId, roomIds),
+      ),
+    );
+
+  const taken = new Set(existingRows.map((row) => `${row.roomId} ${row.ruleCode}`));
+
+  const rows = [];
+  let existing = 0;
+  for (const finding of findings) {
+    const key = `${finding.roomId} ${finding.ruleCode}`;
+    // **同じ照合の中で同じ鍵が 2 度来ても 1 行しか作らない。**
+    if (taken.has(key)) {
+      existing += 1;
+      continue;
+    }
+    taken.add(key);
+    rows.push({
+      id: generateId(ctx.orgShortId, "find"),
+      organizationId: ctx.organizationId,
+      runId: params.runId,
+      propertyId: params.propertyId,
+      roomId: finding.roomId,
+      businessDate: params.businessDate,
+      ruleCode: finding.ruleCode,
+      ruleVersion: finding.ruleVersion,
+      severity: finding.severity,
+      confidence: finding.confidence,
+      title: finding.title,
+      summary: finding.summary,
+      evidence: finding.evidence,
+      matchedSignals: finding.matchedSignals,
+      status: "OPEN" as const,
+      createdAt: ctx.now,
+    });
+  }
+
+  if (rows.length > 0) await db.insert(auditFinding).values(rows);
+  return { created: rows.length, existing };
+}
+
+/** `listFindings()` の絞り込み（W-06 / §6.1）。 */
+export interface FindingFilter {
+  propertyId?: string | undefined;
+  businessDate?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
+  status?: readonly FindingStatus[] | undefined;
+  severity?: readonly FindingSeverity[] | undefined;
+  ruleCode?: RuleCode | undefined;
+  limit?: number | undefined;
+}
+
+/**
+ * 差異の一覧。**重要度の高い順・新しい順。**
+ *
+ * `CLEANER` / `INSPECTOR` はこの関数に到達しない。**権限判定は呼び出し側**
+ * （`assertPermission(ctx, "finding.read", ...)` / security.md §1）。
+ * リポジトリは施設スコープだけを見る。
+ */
+export async function listFindings(env: Env, ctx: TenantContext, filter: FindingFilter = {}) {
+  const db = await getTenantDb(env, ctx);
+
+  return db
+    .select()
+    .from(auditFinding)
+    .where(
+      withTenantScope(
+        auditFinding,
+        ctx,
+        auditFinding.propertyId,
+        filter.propertyId === undefined
+          ? undefined
+          : eq(auditFinding.propertyId, filter.propertyId),
+        filter.businessDate === undefined
+          ? undefined
+          : eq(auditFinding.businessDate, filter.businessDate),
+        filter.from === undefined ? undefined : gte(auditFinding.businessDate, filter.from),
+        filter.to === undefined ? undefined : lte(auditFinding.businessDate, filter.to),
+        filter.status === undefined ? undefined : inArray(auditFinding.status, [...filter.status]),
+        filter.severity === undefined
+          ? undefined
+          : inArray(auditFinding.severity, [...filter.severity]),
+        filter.ruleCode === undefined ? undefined : eq(auditFinding.ruleCode, filter.ruleCode),
+      ),
+    )
+    // **重要度で並べない。** `severity` は text なので昇順が
+    // `HIGH < LOW < MEDIUM` になり、意図した並びにならない。重要度順の
+    // 並べ替えは画面側（W-06 / P4-06）が語彙の順序を知って行う。
+    .orderBy(desc(auditFinding.businessDate), desc(auditFinding.createdAt))
+    .limit(filter.limit ?? 200);
+}
+
+/** 1 件だけ引く。**越境 ID は DB へ行く前に `NotFoundError`（→ 404）。** */
+export async function findFindingById(env: Env, ctx: TenantContext, findingId: string) {
+  assertIdBelongsToTenant(findingId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const rows = await db
+    .select()
+    .from(auditFinding)
+    .where(
+      withTenantScope(auditFinding, ctx, auditFinding.propertyId, eq(auditFinding.id, findingId)),
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+}
