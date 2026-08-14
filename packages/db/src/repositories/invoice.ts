@@ -663,8 +663,13 @@ export interface UpdateBillingPeriodStatusInput {
   /** 合意した時刻（`REVIEWING → AGREED`）。差戻しでは `null` へ戻す。 */
   agreedAt?: Date | null | undefined;
   agreedByCounterparty?: boolean | undefined;
-  /** 発行した請求書（`AGREED → INVOICED`）。P5-07 が渡す。 */
-  invoiceId?: string | undefined;
+  /**
+   * 発行した請求書（`AGREED → INVOICED`）。P5-07 が渡す。
+   *
+   * **`null` を渡せる。** 訂正（§5）で請求書を取り消したとき、締めを
+   * 差し戻して再発行できるようにするため（P5-09 / DECISIONS #126）。
+   */
+  invoiceId?: string | null | undefined;
 }
 
 /**
@@ -690,7 +695,9 @@ export async function updateBillingPeriodStatus(
   expectedStatus: BillingPeriodStatus,
 ): Promise<number> {
   assertIdBelongsToTenant(periodId, ctx);
-  if (input.invoiceId !== undefined) assertIdBelongsToTenant(input.invoiceId, ctx);
+  if (input.invoiceId !== undefined && input.invoiceId !== null) {
+    assertIdBelongsToTenant(input.invoiceId, ctx);
+  }
   const db = await getTenantDb(env, ctx);
 
   const result = await db
@@ -769,6 +776,10 @@ export interface CreateInvoiceInput {
   payloadSha256: string;
   note: string | null;
   confirmedById: string;
+  /** 赤伝（マイナス伝票 / §5）。**元の行を書き換えず、新しい行として作る。** */
+  isCreditNote?: boolean;
+  /** 赤伝が取り消す対象の請求書。 */
+  creditNoteForId?: string | null;
   lines: readonly CreateInvoiceLineInput[];
   taxSummaries: readonly CreateInvoiceTaxSummaryInput[];
   /** 採番の控え（billing.md §5）。**権威は `DocumentSequencer`。** */
@@ -801,6 +812,9 @@ export async function createInvoice(
   input: CreateInvoiceInput,
 ): Promise<{ invoiceId: string }> {
   assertIdBelongsToTenant(input.counterpartyId, ctx);
+  if (input.creditNoteForId !== undefined && input.creditNoteForId !== null) {
+    assertIdBelongsToTenant(input.creditNoteForId, ctx);
+  }
   const db = await getTenantDb(env, ctx);
 
   const invoiceId = generateId(ctx.orgShortId, "inv");
@@ -812,7 +826,8 @@ export async function createInvoice(
       counterpartyId: input.counterpartyId,
       documentNo: input.documentNo,
       revision: 1,
-      isCreditNote: false,
+      isCreditNote: input.isCreditNote ?? false,
+      creditNoteForId: input.creditNoteForId ?? null,
       issueDate: input.issueDate,
       totalAmount: input.totalAmount,
       counterpartyName: input.counterpartyName,
@@ -1134,6 +1149,55 @@ export async function markReceiptSent(
         eq(receipt.organizationId, ctx.organizationId),
         eq(receipt.id, receiptId),
         eq(receipt.status, "ISSUED"),
+      ),
+    );
+
+  return result.meta.changes;
+}
+
+/**
+ * 請求書を取り消す（§5.2 の 3）。**行は消さない。**
+ *
+ * ── 消すのではなく `VOIDED` にする（billing.md §2）──────
+ * 発行済み帳票の物理削除は API・DB 権限の両方で禁止。取り消したという
+ * **状態**を持たせ、番号は欠番のまま残す（§5.3）。
+ *
+ * ── PDF に触らない（§5.2 MUST）──────────────────────────
+ * `pdfStorageKey` / `pdfSha256` を `set()` に入れない。**元の PDF は
+ * R2 に残し、閲覧できる状態を維持する。** ダウンロードの経路も
+ * `VOIDED` を弾かないこと。
+ *
+ * ── 理由が要る（§5.2 の 2）──────────────────────────────
+ * `voidReason` は必須の引数。空文字を通さないのは呼び出し側の責務
+ * （contracts の Zod スキーマ）。
+ *
+ * **既に取り消したものは取り消せない**（`VOIDED` からは進まない）。
+ *
+ * @returns 更新した行数。0 は「その状態ではなかった」。
+ */
+export async function voidInvoice(
+  env: Env,
+  ctx: TenantContext,
+  invoiceId: string,
+  input: { reason: string; voidedAt: Date },
+): Promise<number> {
+  assertIdBelongsToTenant(invoiceId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const result = await db
+    .update(invoice)
+    .set({
+      status: "VOIDED",
+      voidedAt: input.voidedAt,
+      voidReason: input.reason,
+      updatedAt: ctx.now,
+    })
+    .where(
+      and(
+        eq(invoice.organizationId, ctx.organizationId),
+        eq(invoice.id, invoiceId),
+        // **取り消し済みからは進まない**（2 回押しても赤伝が 2 通出ない）。
+        inArray(invoice.status, ["CONFIRMED", "SENT", "VIEWED", "PAID", "PARTIALLY_PAID", "OVERDUE"]),
       ),
     );
 

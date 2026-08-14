@@ -1,13 +1,13 @@
 # CONTINUE
 
 ## 最終状態
-- main HEAD: P5-08 のマージ後
-- 完了: **Phase 0〜4 と P5-01〜P5-08**（P4-08 を除く）
-- 次: **P5-09（訂正・赤伝）**
+- main HEAD: P5-09 のマージ後
+- 完了: **Phase 0〜4 と P5-01〜P5-09**（P4-08 を除く）
+- 次: **P5-10（送付ログと bounce 処理）**
 
 ## 次にやること
 1. `git fetch origin && git checkout main && git pull`
-2. `docs/tasks/P5-09.md` を読む（依存 P5-07 は完了済み）
+2. `docs/tasks/P5-10.md` を読む（依存 P5-07 は完了済み）
 3. 番号順に進める（P5-08 → P5-09 → P5-10 → P5-11 → P5-12 …）
 
 ### P5 の依存関係
@@ -43,16 +43,25 @@ P5-12 が来たら `POST /billing-periods/:id/agree` を足すこと。
   **P5-08 は別の鍵が要る**（`receipt.invoiceId` + `paymentId`？
   §4.2 の入金記録から起こすので、そこを一意にするのが素直）。
 
-### P5-09 に着手するときの注意
-- 訂正は**赤伝（マイナス伝票）＋再発行**（§5.2 の 6 手順）。
-  **元の行の金額を書き換えない。** `isCreditNote` / `creditNoteForId` /
-  `supersedesId` の列は P5-01 が用意済み。
-- 取消で番号を欠番のまま残す（§5.3 / billing.md §5）。
-- `void` と `credit-note` の口は **P5-09 が足す**（P5-07 では作っていない）。
-- 赤伝の税額は元伝票の符号違いにちょうど一致する
-  （`calcTaxAmount()` が絶対値を丸めてから符号を戻している）。
-- 赤伝と再発行分の 2 通を同時にメール送付（§5.2 の 6）。
-  `enqueueInvoiceDelivery()` を 2 回呼べばよい。
+### P5-10 に着手するときの注意
+- Resend の webhook を受ける。**HMAC-SHA256 署名を必須検証**、
+  タイムスタンプが 5 分以上ずれていたら拒否（security.md §7）。
+- **受信は 200 を即返し、処理は Queue へ**（同 §7）。
+- `documentDelivery.status` を `BOUNCED` / `DELIVERED` へ進める。
+  行は追記のみで、**消さない**（billing.md §2）。
+- 送付ログの読み取り（`listDocumentDeliveries()`）は P5-01 が用意済み。
+  `GET /api/v1/deliveries?docType=&documentId=`（§9）が未実装。
+- 不達の警告を画面に出す（完了条件）。API を先に作ること。
+- **`POST /api/v1/payments` の判断もここで**（OPEN_QUESTIONS #076）。
+
+### P5-09 が置いたもの
+- `correctInvoice()` — 取消 → 赤伝 → 締めの差し戻し → PDF・送付。
+  **取消が先。** 取れなければ番号を消費しない。
+- `REOPEN`（`INVOICED → REVIEWING`）を状態機械に追加（DECISIONS #126）。
+  訂正のあと `issue-and-send` をもう一度叩けば再発行になる。
+- `GET /invoices/:id/download` — 15 分の署名付き URL。
+  **`VOIDED` を弾かない**（§5.2 MUST）。
+- 監査 `document.corrected` は**理由必須**。
 
 ### P5-08 が置いたもの
 - `renderReceiptPdf()` / `consumers` の `RECEIPT_PDF` と `RECEIPT_DELIVERY`。

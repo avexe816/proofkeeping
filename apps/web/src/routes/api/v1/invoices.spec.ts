@@ -407,6 +407,102 @@ describe("POST /api/v1/invoices/:id/resend", () => {
   });
 });
 
+describe("POST /api/v1/invoices/:id/credit-note（§5 訂正）", () => {
+  it("**赤伝の赤伝を作らない**", async () => {
+    const ctx = setup();
+    const row = invoiceRow("SENT");
+    row[7] = 1; // is_credit_note
+    ctx.d1.enqueueRows([row]);
+
+    const response = await post(
+      ctx,
+      `/api/v1/invoices/${INVOICE_ID}/credit-note`,
+      { reason: "金額誤り" },
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "IS_CREDIT_NOTE" });
+  });
+
+  it("**既に取り消したものは訂正できない**（2 通目の赤伝を出さない）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([invoiceRow("VOIDED")]);
+
+    const response = await post(
+      ctx,
+      `/api/v1/invoices/${INVOICE_ID}/credit-note`,
+      { reason: "金額誤り" },
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "ALREADY_VOIDED" });
+    expect(ctx.sent).toHaveLength(0);
+  });
+
+  it("理由が空文字なら 400（§5.2 の 2 は必須）", async () => {
+    const ctx = setup();
+    const response = await post(
+      ctx,
+      `/api/v1/invoices/${INVOICE_ID}/credit-note`,
+      { reason: "   " },
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("`AUDITOR` は訂正できない", async () => {
+    const ctx = setup("AUDITOR");
+    const response = await post(
+      ctx,
+      `/api/v1/invoices/${INVOICE_ID}/credit-note`,
+      { reason: "金額誤り" },
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(404);
+  });
+});
+
+describe("GET /api/v1/invoices/:id/download（§5.2 MUST）", () => {
+  it("**取り消した請求書の PDF も取れる**（リンクを無効化しない）", async () => {
+    const ctx = setup();
+    const row = invoiceRow("VOIDED");
+    row[20] = "invoices/org_test_alpha/INV-2026-0042-r1.pdf"; // pdf_storage_key
+    ctx.d1.enqueueRows([row]);
+
+    const response = await ctx.app.request(
+      `/api/v1/invoices/${INVOICE_ID}/download`,
+      { headers: { cookie: await ctx.cookie() } },
+      ctx.env,
+    );
+    expect(response.status).toBe(200);
+    const body = await response.json<{ url: string; documentNo: string }>();
+    expect(body.documentNo).toBe("INV-2026-0042");
+    expect(body.url).toContain("INV-2026-0042-r1.pdf");
+  });
+
+  it("PDF がまだ無ければ 409（再生成できる）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([invoiceRow("CONFIRMED")]);
+
+    const response = await ctx.app.request(
+      `/api/v1/invoices/${INVOICE_ID}/download`,
+      { headers: { cookie: await ctx.cookie() } },
+      ctx.env,
+    );
+    expect(response.status).toBe(409);
+  });
+
+  it("`INSPECTOR` は 404", async () => {
+    const ctx = setup("INSPECTOR");
+    const response = await ctx.app.request(
+      `/api/v1/invoices/${INVOICE_ID}/download`,
+      { headers: { cookie: await ctx.cookie() } },
+      ctx.env,
+    );
+    expect(response.status).toBe(404);
+  });
+});
+
 describe("作ってはいけない口（CLAUDE.md §4 / billing.md §2）", () => {
   it("DELETE が無い", async () => {
     const ctx = setup();
@@ -434,14 +530,26 @@ describe("作ってはいけない口（CLAUDE.md §4 / billing.md §2）", () =
     expect(ctx.d1.queries).toHaveLength(0);
   });
 
-  it.each(["void", "credit-note"])("%s の口が無い（P5-09 の範囲）", async (action) => {
+  it("`void` の口が無い（取消は赤伝と同時にしか起きない / §5.2）", async () => {
     const ctx = setup();
     const response = await post(
       ctx,
-      `/api/v1/invoices/${INVOICE_ID}/${action}`,
+      `/api/v1/invoices/${INVOICE_ID}/void`,
       {},
       await ctx.cookie(),
     );
     expect(response.status).toBe(404);
+  });
+
+  it("`credit-note` は理由が無ければ 400（§5.2 の 2）", async () => {
+    const ctx = setup();
+    const response = await post(
+      ctx,
+      `/api/v1/invoices/${INVOICE_ID}/credit-note`,
+      {},
+      await ctx.cookie(),
+    );
+    expect(response.status).toBe(400);
+    expect(ctx.d1.queries).toHaveLength(0);
   });
 });

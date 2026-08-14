@@ -147,7 +147,15 @@ export const AUDIT_ACTIONS = {
   "billingPeriod.statusChanged": { requiresReason: false },
   // 帳票の発行・訂正・送付
   "document.issued": { requiresReason: false },
-  "document.corrected": { requiresReason: false },
+  /**
+   * 帳票の訂正（PK-SPEC-P5 §5.2 の 2「訂正理由を入力（必須）」）。
+   *
+   * **理由必須にした**（P5-09）。security.md §6 の列挙は「帳票の発行・
+   * 訂正・送付」とだけ書くが、§5.2 が理由を必須と定めている。
+   * 発行済みの帳票を取り消した記録に理由が無いと、電帳法の
+   * 「訂正・削除の履歴が残るシステム」（billing.md §2）が成り立たない。
+   */
+  "document.corrected": { requiresReason: true },
   "document.sent": { requiresReason: false },
   /**
    * 稼働記録の取込（PK-SPEC-P4 §8.1 MUST「再取込時は上書きし、差分を

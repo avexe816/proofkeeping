@@ -124,6 +124,7 @@ export const BILLING_PERIOD_ACTIONS = [
   "AGREE",
   "REJECT",
   "ISSUE_INVOICE",
+  "REOPEN",
   "CLOSE",
 ] as const;
 
@@ -138,6 +139,19 @@ const TRANSITIONS: Readonly<
   REJECT: { from: ["REVIEWING", "AGREED"], to: "REVIEWING" },
   // **請求書を出したあとに集計をやり直さない**（§2.8 の注記）。
   ISSUE_INVOICE: { from: ["AGREED"], to: "INVOICED" },
+  /**
+   * 訂正のために締めを差し戻す（§5.2 の 4「新しい請求書の編集画面が
+   * 開く」→ 5「修正して発行」）。
+   *
+   * ── §6.1 の図には無い遷移 ───────────────────────────
+   * §5.2 は訂正のあと**再発行する**と定めるが、§6.1 の状態遷移図に
+   * `INVOICED` から戻る矢印が無い。戻れないと訂正が完了しない
+   * （赤伝は出せるが、正しい請求書を出せない）。docs/DECISIONS.md #126。
+   *
+   * **呼べるのは元の請求書を `VOIDED` にしたときだけ。** その判定は
+   * 呼び出し側（`lib/billing/creditNote.ts`）が持つ。ここは状態だけを見る。
+   */
+  REOPEN: { from: ["INVOICED"], to: "REVIEWING" },
   CLOSE: { from: ["INVOICED"], to: "CLOSED" },
 };
 
