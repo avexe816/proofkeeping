@@ -101,6 +101,8 @@ invoices.get("/", async (c) => {
   const minAmount = c.req.query("minAmount");
   const maxAmount = c.req.query("maxAmount");
   const counterpartyId = c.req.query("counterpartyId");
+  // §9 の `&counterparty=`。**人が検索するのは名前**（電帳法の 3 項目）。
+  const counterparty = c.req.query("counterparty");
 
   if (
     (minAmount !== undefined && !/^-?\d+$/.test(minAmount)) ||
@@ -111,6 +113,7 @@ invoices.get("/", async (c) => {
 
   const rows = await listInvoices(c.env, ctx, {
     ...(counterpartyId === undefined ? {} : { counterpartyId }),
+    ...(counterparty === undefined ? {} : { counterpartyName: counterparty }),
     ...(from === undefined ? {} : { issueDateFrom: from }),
     ...(to === undefined ? {} : { issueDateTo: to }),
     ...(minAmount === undefined ? {} : { amountFrom: Number(minAmount) }),

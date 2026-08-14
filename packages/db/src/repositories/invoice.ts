@@ -25,7 +25,7 @@
  * 足さないこと。** 金額が変わるのは赤伝を切って作り直したとき。
  */
 
-import { and, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, like, lte, or } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -383,11 +383,27 @@ export async function closePricingRule(
  *
  * **電子帳簿保存法の検索 3 項目**（§1.2 MUST）が全部ここにある。
  * 取引年月日（`issueDateFrom` / `issueDateTo`）・取引金額
- * （`amountFrom` / `amountTo`）・取引先（`counterpartyId`）。
- * **この 3 つを外さないこと**（P5-11 の検索画面が使う）。
+ * （`amountFrom` / `amountTo`）・取引先（`counterpartyId` /
+ * `counterpartyName`）。**この 3 つを外さないこと。**
+ *
+ * ── 取引先を 2 通りで引ける（P5-11）────────────────────
+ * `counterpartyId` は内部の ID で、画面の遷移（取引先 → その請求書）が
+ * 使う。**人が検索するのは名前**なので `counterpartyName` を足した。
+ * 発行時に非正規化してある列（§1.2 のための `idx_inv_party`）が
+ * ここで初めて使われる。**マスタと JOIN しない** — 名前を変えても
+ * 過去の帳票は発行時の名前で引ける（billing.md §6）。
  */
 export interface InvoiceFilter {
   counterpartyId?: string | undefined;
+  /**
+   * 取引先の名称（部分一致）。**発行時に固定した名前で引く。**
+   *
+   * 前方一致なら `idx_inv_party` が効くが、**部分一致にしてある。**
+   * 電帳法が求めるのは「取引先で検索できる」ことで、株式会社の
+   * 前後表記（前株・後株）が揺れる相手を前方一致だけでは引けない。
+   * 走査は組織 1 件ぶんに閉じている（`withTenantScope()`）。
+   */
+  counterpartyName?: string | undefined;
   status?: readonly InvoiceStatus[] | undefined;
   issueDateFrom?: string | undefined;
   issueDateTo?: string | undefined;
@@ -410,6 +426,9 @@ export async function listInvoices(env: Env, ctx: TenantContext, filter: Invoice
         filter.counterpartyId === undefined
           ? undefined
           : eq(invoice.counterpartyId, filter.counterpartyId),
+        filter.counterpartyName === undefined
+          ? undefined
+          : like(invoice.counterpartyName, `%${filter.counterpartyName}%`),
         filter.status === undefined ? undefined : inArray(invoice.status, [...filter.status]),
         filter.issueDateFrom === undefined
           ? undefined
@@ -466,6 +485,8 @@ export async function listInvoiceTaxSummaries(env: Env, ctx: TenantContext, invo
 /** `listReceipts()` の絞り込み。**検索 3 項目は請求書と同じ。** */
 export interface ReceiptFilter {
   counterpartyId?: string | undefined;
+  /** 取引先の名称（部分一致）。理由は `InvoiceFilter` の注記と同じ。 */
+  counterpartyName?: string | undefined;
   invoiceId?: string | undefined;
   status?: readonly ReceiptStatus[] | undefined;
   issueDateFrom?: string | undefined;
@@ -489,6 +510,9 @@ export async function listReceipts(env: Env, ctx: TenantContext, filter: Receipt
         filter.counterpartyId === undefined
           ? undefined
           : eq(receipt.counterpartyId, filter.counterpartyId),
+        filter.counterpartyName === undefined
+          ? undefined
+          : like(receipt.counterpartyName, `%${filter.counterpartyName}%`),
         filter.invoiceId === undefined ? undefined : eq(receipt.invoiceId, filter.invoiceId),
         filter.status === undefined ? undefined : inArray(receipt.status, [...filter.status]),
         filter.issueDateFrom === undefined
