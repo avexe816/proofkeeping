@@ -140,6 +140,7 @@ const OWN_ID = {
   receipt: generateId(TEST_ORG.orgShortId, "rcp"),
   delivery: generateId(TEST_ORG.orgShortId, "dlv"),
   billingPeriod: generateId(TEST_ORG.orgShortId, "bper"),
+  billingPeriodReview: generateId(TEST_ORG.orgShortId, "bprv"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -213,6 +214,7 @@ const OTHER_ID = {
   receipt: generateId(OTHER_ORG.orgShortId, "rcp"),
   delivery: generateId(OTHER_ORG.orgShortId, "dlv"),
   billingPeriod: generateId(OTHER_ORG.orgShortId, "bper"),
+  billingPeriodReview: generateId(OTHER_ORG.orgShortId, "bprv"),
 } as const;
 
 /**
@@ -2346,6 +2348,53 @@ const INVOCATIONS: Invocation[] = [
         { status: "REVIEWING", aggregatedAt: ctx.now },
         "OPEN",
       ),
+  },
+  // ── P5-12 が足したもの（双方合意の履歴 / PK-SPEC-P5 §6.2）──
+  {
+    // **追記だけ。** 更新も削除も無い（DECISIONS #127）。
+    name: "invoice.appendBillingPeriodReview",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.appendBillingPeriodReview(env, ctx, {
+        billingPeriodId: OWN_ID.billingPeriod,
+        action: "REJECT",
+        comment: "9/15 の 3 室は当方都合でキャンセルしています。",
+        lineComments: [],
+        linesSnapshot: [],
+        snapshotTotalAmount: 0,
+        statusBefore: "REVIEWING",
+        statusAfter: "REVIEWING",
+        byCounterparty: true,
+        actorId: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.appendBillingPeriodReview(env, ctx, {
+        billingPeriodId: OTHER_ID.billingPeriod,
+        action: "REJECT",
+        comment: "9/15 の 3 室は当方都合でキャンセルしています。",
+        lineComments: [],
+        linesSnapshot: [],
+        snapshotTotalAmount: 0,
+        statusBefore: "REVIEWING",
+        statusAfter: "REVIEWING",
+        byCounterparty: true,
+        actorId: OWN_ID.membership,
+      }),
+  },
+  {
+    name: "invoice.listBillingPeriodReviews",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.listBillingPeriodReviews(env, ctx, OWN_ID.billingPeriod),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.listBillingPeriodReviews(env, ctx, OTHER_ID.billingPeriod),
+  },
+  {
+    name: "invoice.findBillingPeriodReviewById",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.findBillingPeriodReviewById(env, ctx, OWN_ID.billingPeriodReview),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.findBillingPeriodReviewById(env, ctx, OTHER_ID.billingPeriodReview),
   },
   // ── P4-06 / P4-07 / P4-10 が足したもの ────────────────────
   {

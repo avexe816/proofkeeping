@@ -54,6 +54,7 @@ export {
 // 集計と請求書ドラフト（P5-04 / 同 §3）。単価未設定は ¥0 明細＋警告。
 export {
   BILLING_WARNING_CODES,
+  billingLineKeyOf,
   buildInvoiceDraft,
   type BillableTask,
   type BillingWarning,

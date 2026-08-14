@@ -201,6 +201,7 @@ export { EXTERNAL_ENTITY_TYPES, externalMapping } from "./integration.js";
 // 電子帳簿保存法の検索 3 項目（取引年月日・取引金額・取引先）を
 // 非正規化して索引を張ってある（§1.2 MUST）。
 export {
+  BILLING_PERIOD_REVIEW_ACTIONS,
   BILLING_PERIOD_STATUSES,
   DELIVERY_CHANNELS,
   DELIVERY_DOC_TYPES,
@@ -210,6 +211,7 @@ export {
   PAYMENT_METHODS,
   RECEIPT_STATUSES,
   billingPeriod,
+  billingPeriodReview,
   counterparty,
   documentDelivery,
   invoice,
@@ -217,6 +219,9 @@ export {
   invoiceTaxSummary,
   pricingRule,
   receipt,
+  type BillingPeriodReviewAction,
+  type BillingPeriodReviewLineComment,
+  type BillingPeriodReviewLineSnapshot,
   type BillingPeriodStatus,
   type DeliveryChannel,
   type DeliveryDocType,

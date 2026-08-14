@@ -142,6 +142,18 @@ export const BILLING_PERIOD_STATUSES = [
 
 export type BillingPeriodStatus = (typeof BILLING_PERIOD_STATUSES)[number];
 
+/**
+ * 双方合意フローで起きたこと（§6.1・§6.2 / P5-12）。
+ *
+ * **状態ではない。** `billingPeriod.status` は §2.8 の 5 つのままで、
+ * ここに増えるのは**出来事**。`REQUEST_REVIEW` は状態を変えず、
+ * 「ホテルへ確認を依頼した」という事実だけを残す
+ * （docs/OPEN_QUESTIONS.md #072 / docs/DECISIONS.md #128）。
+ */
+export const BILLING_PERIOD_REVIEW_ACTIONS = ["REQUEST_REVIEW", "AGREE", "REJECT"] as const;
+
+export type BillingPeriodReviewAction = (typeof BILLING_PERIOD_REVIEW_ACTIONS)[number];
+
 // ────────────────────────────────────────────────────────────
 // 表
 // ────────────────────────────────────────────────────────────
@@ -510,3 +522,103 @@ export const billingPeriod = sqliteTable(
     index("idx_period_status").on(t.organizationId, t.status, t.periodTo),
   ],
 );
+
+/**
+ * 双方合意の履歴（§6.2 MUST / P5-12）。
+ *
+ * ── 仕様に無い表 ────────────────────────────────────────
+ * §2 のどこにも無い。それでも足したのは、§6.2 の MUST
+ * 「差戻しコメントと修正履歴をすべて保持する。『言った・言わない』を
+ * 発生させない」を満たす場所が他に無いからである。`billingPeriod` は
+ * 1 期間 1 行で、**差戻しは何度でも起きる。** 列を足す形では
+ * 2 回目の差戻しが 1 回目を上書きする。docs/DECISIONS.md #127。
+ *
+ * ── 追記だけ ────────────────────────────────────────────
+ * UPDATE も DELETE も無い。訂正は新しい行を足す（`evidenceSnapshot` と
+ * 同じ扱い / CLAUDE.md §4）。「あとから差戻しコメントを書き換えた」が
+ * できると、この表を置いた理由がそのまま消える。
+ *
+ * ── 明細の写しを持つ（`linesSnapshot`）────────────────────
+ * 出来事のたびに、そのとき見えていた明細を JSON で固定する。
+ * **金額の列は持たない**（`billingPeriod` と同じ / DECISIONS #124）。
+ * 締めの明細は都度 `buildInvoiceDraft()` が出すもので、権威ではない。
+ * ここに残すのは「**その時どう見えていたか**」＝ 修正履歴そのもの。
+ * 合意の根拠になった数字と、いま出る数字が違えば追える。
+ *
+ * ── 行を指すのは `lineKey`（`lineNo` ではない）──────────
+ * `@pk/billing` の `billingLineKeyOf()`（施設 × 清掃種別 × 客室タイプ）。
+ * 再集計で行が増減しても、コメントが別の行へ移らない。
+ */
+export const billingPeriodReview = sqliteTable(
+  "billing_period_review",
+  {
+    ...primaryId,
+    ...tenantColumn,
+    billingPeriodId: text("billing_period_id").notNull(),
+    /** 期間の中の連番（1 から）。**履歴の順序**。時刻が同値でも並びが決まる。 */
+    seq: integer("seq").notNull(),
+    action: text("action", { enum: BILLING_PERIOD_REVIEW_ACTIONS }).notNull(),
+    /** 期間全体へのコメント。`REJECT` は必須（§6.2 MUST）。呼び出し側が強制する。 */
+    comment: text("comment"),
+    /**
+     * 明細行ごとのコメント（§6.2 の見本の「行2 へのコメント」）。
+     *
+     * `[{ lineKey, lineNo, description, comment }]`。**空配列もありうる**
+     * （行を特定しない差戻し）。子表に割らないのは、1 つの出来事として
+     * 読むものだからで、行単位で引きたいときは期間ぶんを読んで畳む
+     * （1 期間の履歴はたかだか数十行）。
+     */
+    lineComments: text("line_comments", { mode: "json" })
+      .$type<BillingPeriodReviewLineComment[]>()
+      .notNull()
+      .default([]),
+    /** そのとき見えていた明細（修正履歴）。§6.2 MUST。 */
+    linesSnapshot: text("lines_snapshot", { mode: "json" })
+      .$type<BillingPeriodReviewLineSnapshot[]>()
+      .notNull()
+      .default([]),
+    /** 写しの税込合計。**`billingPeriod` には書かない**（DECISIONS #124）。 */
+    snapshotTotalAmount: integer("snapshot_total_amount").notNull().default(0),
+    statusBefore: text("status_before", { enum: BILLING_PERIOD_STATUSES }).notNull(),
+    statusAfter: text("status_after", { enum: BILLING_PERIOD_STATUSES }).notNull(),
+    /**
+     * 取引先（ホテル）側の意思として記録したか。
+     *
+     * ホテルの担当者は ProofKeeping の利用者ではない（§6.1 は
+     * 「（ホテル側に通知）」までしか書かない）。**代わりに入力した人が
+     * 誰かは `actorId` に残る。** `billingPeriod.agreedByCounterparty` と
+     * 同じ意味で、あちらは最新の 1 件、こちらは全件。
+     */
+    byCounterparty: integer("by_counterparty", { mode: "boolean" }).notNull().default(false),
+    /** 操作した `membership.id`。 */
+    actorId: text("actor_id").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("uq_bprv_seq").on(t.organizationId, t.billingPeriodId, t.seq),
+    index("idx_bprv_period").on(t.organizationId, t.billingPeriodId),
+  ],
+);
+
+/** `billingPeriodReview.lineComments` の 1 件。 */
+export interface BillingPeriodReviewLineComment {
+  /** `@pk/billing` の `billingLineKeyOf()`。 */
+  lineKey: string;
+  /** そのときの行番号（表示の再現用。**行の同定には使わない**）。 */
+  lineNo: number | null;
+  /** そのときの取引内容（`施設名 / 清掃種別 / 客室タイプ`）。 */
+  description: string;
+  comment: string;
+}
+
+/** `billingPeriodReview.linesSnapshot` の 1 行。**明細の写し。** */
+export interface BillingPeriodReviewLineSnapshot {
+  lineNo: number;
+  lineKey: string;
+  itemCode: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  taxRate: number;
+}

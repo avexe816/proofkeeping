@@ -478,3 +478,163 @@ export const invoiceCorrectRequestSchema = z.object({
 });
 
 export type InvoiceCorrectRequest = z.infer<typeof invoiceCorrectRequestSchema>;
+
+
+// ────────────────────────────────────────────────────────────
+// 双方合意フロー（P5-12 / PK-SPEC-P5 §6）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 締めの明細（発行前）。**まだ請求書ではない。**
+ *
+ * §0.2 の出荷判定「清掃会社とホテルが**同じ明細を見て**相違なく合意
+ * できる」を満たすために、発行前の明細をそのまま返す。発行時に
+ * `invoiceLine` になるのと同じ `buildInvoiceDraft()` の結果で、
+ * **画面用に別の計算をしない**（見ていた数字と請求書が食い違わない）。
+ */
+export const billingPeriodLineSchema = z.object({
+  /** 並びの中の位置。**行の同定には使わない**（再集計で動く）。 */
+  lineNo: z.number().int().min(1),
+  /** 行の変わらない名前。差戻しコメントはこれで行に付く。 */
+  lineKey: z.string().min(1),
+  propertyId: z.string().min(1),
+  itemCode: z.string().min(1),
+  description: z.string(),
+  serviceDateFrom: isoDateSchema,
+  serviceDateTo: isoDateSchema,
+  quantity: z.number(),
+  unit: z.string(),
+  /** 円（税抜・整数）。 */
+  unitPrice: z.number().int(),
+  amount: z.number().int(),
+  taxRate: z.number().int(),
+  isReducedRate: z.boolean(),
+  /** 集計元のタスク件数。**タスク ID の一覧は P5-13 のドリルダウン。** */
+  taskCount: z.number().int().min(0),
+});
+
+export type BillingPeriodLine = z.infer<typeof billingPeriodLineSchema>;
+
+/** 明細に載らなかった・単価が引けなかった件（§3.2 MUST）。**画面が警告を出す。** */
+export const billingPeriodWarningSchema = z.object({
+  code: z.string().min(1),
+  propertyId: z.string().min(1),
+  taskType: z.string().min(1),
+  roomTypeId: z.string().nullable(),
+  taskCount: z.number().int().min(0),
+  detail: z.string().optional(),
+});
+
+/** `GET /api/v1/billing-periods/:id/lines` の応答。 */
+export const billingPeriodLinesResponseSchema = z.object({
+  billingPeriodId: z.string().min(1),
+  counterpartyId: z.string().min(1),
+  periodFrom: isoDateSchema,
+  periodTo: isoDateSchema,
+  status: z.enum(BILLING_PERIOD_STATUSES),
+  data: z.array(billingPeriodLineSchema),
+  subtotalAmount: z.number().int(),
+  taxAmount: z.number().int(),
+  totalAmount: z.number().int(),
+  warnings: z.array(billingPeriodWarningSchema),
+});
+
+export type BillingPeriodLinesResponse = z.infer<typeof billingPeriodLinesResponseSchema>;
+
+/** 双方合意フローで起きたこと（§6.1・§6.2）。**状態ではない。** */
+export const BILLING_PERIOD_REVIEW_ACTIONS = ["REQUEST_REVIEW", "AGREE", "REJECT"] as const;
+
+/** 明細行に付けたコメント（§6.2 の見本の「行2 へのコメント」）。 */
+export const billingPeriodLineCommentSchema = z.object({
+  lineKey: z.string().min(1),
+  comment: z.string().trim().min(1).max(1000),
+});
+
+export type BillingPeriodLineComment = z.infer<typeof billingPeriodLineCommentSchema>;
+
+/**
+ * `POST /api/v1/billing-periods/:id/request-review` の入力（§9）。
+ *
+ * **状態を変えない。** 「ホテルへ確認依頼を出した」という事実を履歴に
+ * 残すだけ（docs/OPEN_QUESTIONS.md #072 / DECISIONS #128）。
+ */
+export const billingPeriodRequestReviewRequestSchema = z.object({
+  comment: z.string().trim().max(1000).optional(),
+});
+
+export type BillingPeriodRequestReviewRequest = z.infer<
+  typeof billingPeriodRequestReviewRequestSchema
+>;
+
+/**
+ * `POST /api/v1/billing-periods/:id/agree` の入力（§9）。
+ *
+ * `byCounterparty` は**取引先（ホテル）の意思として記録するか。**
+ * ホテルの担当者は ProofKeeping の利用者ではない（§6.1 は「（ホテル側に
+ * 通知）」までしか書かない）ので、代わりに入力した人が `actorId` に残る。
+ */
+export const billingPeriodAgreeRequestSchema = z.object({
+  byCounterparty: z.boolean().default(true),
+  comment: z.string().trim().max(1000).optional(),
+});
+
+export type BillingPeriodAgreeRequest = z.infer<typeof billingPeriodAgreeRequestSchema>;
+
+/**
+ * `POST /api/v1/billing-periods/:id/reject` の入力（§6.2 MUST）。
+ *
+ * **`comment` は必須。** 空の差戻しを通さない。理由の無い差戻しが
+ * 記録に残ると、この表を置いた理由（「言った・言わない」を発生させない）が
+ * そのまま消える。行単位のコメント（`lineComments`）は任意で、
+ * 期間全体への 1 行だけでも差し戻せる。
+ */
+export const billingPeriodRejectRequestSchema = z.object({
+  comment: z.string().trim().min(1).max(1000),
+  lineComments: z.array(billingPeriodLineCommentSchema).max(200).default([]),
+});
+
+export type BillingPeriodRejectRequest = z.infer<typeof billingPeriodRejectRequestSchema>;
+
+/** 履歴の 1 件。**書き換わらない**（追記だけ）。 */
+export const billingPeriodReviewEntrySchema = z.object({
+  reviewId: z.string().min(1),
+  seq: z.number().int().min(1),
+  action: z.enum(BILLING_PERIOD_REVIEW_ACTIONS),
+  comment: z.string().nullable(),
+  lineComments: z.array(
+    z.object({
+      lineKey: z.string().min(1),
+      lineNo: z.number().int().nullable(),
+      description: z.string(),
+      comment: z.string(),
+    }),
+  ),
+  /** そのとき見えていた明細（修正履歴 / §6.2 MUST）。 */
+  linesSnapshot: z.array(
+    z.object({
+      lineNo: z.number().int(),
+      lineKey: z.string().min(1),
+      itemCode: z.string(),
+      description: z.string(),
+      quantity: z.number(),
+      unitPrice: z.number().int(),
+      amount: z.number().int(),
+      taxRate: z.number().int(),
+    }),
+  ),
+  snapshotTotalAmount: z.number().int(),
+  statusBefore: z.enum(BILLING_PERIOD_STATUSES),
+  statusAfter: z.enum(BILLING_PERIOD_STATUSES),
+  byCounterparty: z.boolean(),
+  actorId: z.string().min(1),
+  createdAt: z.string(),
+});
+
+export type BillingPeriodReviewEntry = z.infer<typeof billingPeriodReviewEntrySchema>;
+
+/** `GET /api/v1/billing-periods/:id/reviews` の応答。**古い順。** */
+export const billingPeriodReviewListResponseSchema = z.object({
+  data: z.array(billingPeriodReviewEntrySchema),
+});
+
+export type BillingPeriodReviewListResponse = z.infer<typeof billingPeriodReviewListResponseSchema>;

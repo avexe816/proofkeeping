@@ -67,7 +67,7 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("60 テーブルを定義している", () => {
+  it("61 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       // P4-01。差異（PK-SPEC-P4 §2.5）。**不正の認定ではない**（同 §1.1）。
       "auditFinding",
@@ -76,6 +76,8 @@ describe("P0-06 スキーマ", () => {
       "baselineExclusionLog",
       // P5-01。月次締め（PK-SPEC-P5 §2.8）。**同意していなくても請求はできる**（同 §6.1）。
       "billingPeriod",
+      // P5-12。双方合意の履歴（同 §6.2 MUST）。**追記だけ**（docs/DECISIONS.md #127）。
+      "billingPeriodReview",
       "building",
       // P1-01。チェックリストの定義と実施結果（PK-SPEC-P1 §2.1 / §6）。
       "checklistItem",

@@ -33,6 +33,7 @@ import { getTenantDb, type TenantContext } from "../router.js";
 import { documentSequence, TAX_ROUNDING_MODES } from "../schema/organization.js";
 import {
   billingPeriod,
+  billingPeriodReview,
   counterparty,
   documentDelivery,
   invoice,
@@ -40,6 +41,9 @@ import {
   invoiceTaxSummary,
   pricingRule,
   receipt,
+  type BillingPeriodReviewAction,
+  type BillingPeriodReviewLineComment,
+  type BillingPeriodReviewLineSnapshot,
   type BillingPeriodStatus,
   type DeliveryDocType,
   type InvoiceItemCode,
@@ -746,6 +750,137 @@ export async function updateBillingPeriodStatus(
     );
 
   return result.meta.changes;
+}
+
+// ────────────────────────────────────────────────────────────
+// 双方合意の履歴（§6.2）— P5-12
+// ────────────────────────────────────────────────────────────
+
+/** `appendBillingPeriodReview()` の入力。 */
+export interface AppendBillingPeriodReviewInput {
+  billingPeriodId: string;
+  action: BillingPeriodReviewAction;
+  /** 期間全体へのコメント。`REJECT` では必須（強制するのは呼び出し側）。 */
+  comment: string | null;
+  lineComments: readonly BillingPeriodReviewLineComment[];
+  /** そのとき見えていた明細の写し（修正履歴 / §6.2 MUST）。 */
+  linesSnapshot: readonly BillingPeriodReviewLineSnapshot[];
+  snapshotTotalAmount: number;
+  statusBefore: BillingPeriodStatus;
+  statusAfter: BillingPeriodStatus;
+  byCounterparty: boolean;
+  actorId: string;
+}
+
+/**
+ * 双方合意の履歴を 1 件足す（§6.2 MUST / P5-12）。**追記だけ。**
+ *
+ * ── 更新も削除もしない ──────────────────────────────────
+ * 「言った・言わない」を発生させないための表なので、書き換えられる形に
+ * しない。訂正したければ新しい行を足す（`evidenceSnapshot` と同じ扱い /
+ * CLAUDE.md §4）。**`updateBillingPeriodReview()` を足さないこと。**
+ *
+ * ── `seq` は期間ごとの連番 ──────────────────────────────
+ * 時刻だけで並べると、同じミリ秒に入った 2 件の順序が決まらない。
+ * `uq_bprv_seq`（組織 × 期間 × seq）が重複を弾くので、**衝突したら
+ * 引き直して入れ直す。** 人の操作なので競合はまれ。
+ */
+export async function appendBillingPeriodReview(
+  env: Env,
+  ctx: TenantContext,
+  input: AppendBillingPeriodReviewInput,
+): Promise<{ id: string; seq: number }> {
+  assertIdBelongsToTenant(input.billingPeriodId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const existing = await db
+      .select({ seq: billingPeriodReview.seq })
+      .from(billingPeriodReview)
+      .where(
+        and(
+          eq(billingPeriodReview.organizationId, ctx.organizationId),
+          eq(billingPeriodReview.billingPeriodId, input.billingPeriodId),
+        ),
+      )
+      .orderBy(desc(billingPeriodReview.seq))
+      .limit(1);
+
+    const seq = (existing[0]?.seq ?? 0) + 1;
+    const id = generateId(ctx.orgShortId, "bprv");
+
+    try {
+      await db.insert(billingPeriodReview).values({
+        id,
+        organizationId: ctx.organizationId,
+        billingPeriodId: input.billingPeriodId,
+        seq,
+        action: input.action,
+        comment: input.comment,
+        lineComments: [...input.lineComments],
+        linesSnapshot: [...input.linesSnapshot],
+        snapshotTotalAmount: input.snapshotTotalAmount,
+        statusBefore: input.statusBefore,
+        statusAfter: input.statusAfter,
+        byCounterparty: input.byCounterparty,
+        actorId: input.actorId,
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+      });
+      return { id, seq };
+    } catch (error) {
+      // 連番が衝突した（別のリクエストが同じ番号を取った）。引き直す。
+      if (attempt === 2) throw error;
+    }
+  }
+  // 到達しない（上のループが返すか投げる）。型のために置く。
+  throw new Error("BILLING_PERIOD_REVIEW_SEQ_EXHAUSTED");
+}
+
+/** 1 期間ぶんの履歴。**古い順**（起きた順に読む）。 */
+export async function listBillingPeriodReviews(
+  env: Env,
+  ctx: TenantContext,
+  billingPeriodId: string,
+) {
+  assertIdBelongsToTenant(billingPeriodId, ctx);
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select()
+    .from(billingPeriodReview)
+    .where(
+      withTenantScope(
+        billingPeriodReview,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(billingPeriodReview.billingPeriodId, billingPeriodId),
+      ),
+    )
+    .orderBy(billingPeriodReview.seq)
+    .limit(500);
+}
+
+/** 1 件。**越境 ID は DB へ行く前に `NotFoundError`。** */
+export async function findBillingPeriodReviewById(
+  env: Env,
+  ctx: TenantContext,
+  reviewId: string,
+) {
+  assertIdBelongsToTenant(reviewId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select()
+    .from(billingPeriodReview)
+    .where(
+      withTenantScope(
+        billingPeriodReview,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(billingPeriodReview.id, reviewId),
+      ),
+    )
+    .limit(1);
+  return rows[0];
 }
 
 // ────────────────────────────────────────────────────────────
