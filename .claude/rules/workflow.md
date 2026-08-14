@@ -115,6 +115,27 @@ CI 9 ジョブすべてが緑、かつ `mergeable: MERGEABLE` のとき、
 gh pr merge <PR番号> --squash --delete-branch
 ```
 
+#### ブランチの削除に失敗したとき
+
+`--delete-branch` が落ちても、**まず消えたかどうかを確かめる。**
+`git push origin --delete` 系はブランチを消したあとに
+`remote end hung up unexpectedly` を返すことがあり、
+**失敗に見えて実際は成功している。** 見ずに再試行すると、
+「消せなかった」と誤って報告することになる。
+
+```bash
+git ls-remote --heads origin <branch-name>   # 出力が空なら消えている
+```
+
+本当に残っていたら、API を直接叩く。
+
+```bash
+gh api -X DELETE "repos/avexe816/proofkeeping/git/refs/heads/<branch-name>"
+```
+
+**他人のブランチ・他の作業中のブランチを消さない。** 消してよいのは
+自分がマージし終えた PR の head だけ。
+
 マージ後に main の CI を確認する。
 
 ```bash
