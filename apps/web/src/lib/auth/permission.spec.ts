@@ -61,6 +61,13 @@ const EXPECTED: Record<PermissionAction, string> = {
   "finding.read": "OOA--AO",
   // P4-05。手動再実行（PK-SPEC-P4 §6.4）は OWNER / ORG_ADMIN だけ。
   "reconciliation.run": "OO-----",
+  // P4-07。状態の変更（同 §6.4）も OWNER / ORG_ADMIN だけ。
+  // **読めるが閉じられない**（`finding.read` は施設責任者に `A`）。
+  "finding.write": "OO-----",
+  // P4-10。入室記録は登録すると差異が抑制される（同 §4.1）。
+  // **現場ロールと受託側には与えない**（DECISIONS #115）。
+  "roomAccess.read": "OOA---O",
+  "roomAccess.write": "OOA----",
   "lostItem.readStorage": "OOAA-AO",
   "billing.read": "OOA---O",
   // P1。清掃タスク（PK-SPEC-P1 §5.3）と設定画面（同 §10.1）。

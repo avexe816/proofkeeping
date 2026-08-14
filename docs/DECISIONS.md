@@ -2397,3 +2397,46 @@
 - 影響: `apps/web/src/index.ts` の `scheduled()` と
   `apps/web/src/lib/reconciliation/dispatch.ts` の `RECONCILIATION_CRON`。
   wrangler.toml の `[triggers]` は 3 本のまま。
+
+## #114 差異の対応履歴に専用の表を作らない
+- 日付: 2026-08-14
+- 状態: 採用
+- 背景: §6.2 の画面下段は「対応履歴」を持ち、例では
+  `09/10 08:30 自動検出` の 1 行が出ている。**§2.5 の `auditFinding` に
+  履歴の行は無い**（持っているのは `createdAt` と `resolvedAt` の 2 つ）。
+- 選択肢:
+  1. `finding_history` 表を新設し、状態変更のたびに 1 行足す
+  2. `auditFinding` の 2 つの時刻から組み立てて返す
+- 決定: 2。
+- 理由: 1 は §2 のデータモデルに無い表を足すことになり、
+  「仕様書に根拠がない設計選択」（workflow.md §6）に当たる。
+  一方で**状態変更は `AuditLog` に必ず残る**（security.md §6 /
+  `finding.statusChanged`）ので、経過が失われるわけではない。
+  §6.2 の例も 1 行しか出しておらず、2 点で足りる。
+  経過を画面に出す必要が出たら、`AuditLog` を引く経路を足すか、
+  そのとき表を新設する（この判断を覆すのは容易）。
+- 影響: `packages/contracts/src/finding.ts` の `findingHistoryEntrySchema` と
+  `apps/web/src/lib/reconciliation/findings.ts` の `historyOf()`。
+
+## #115 入室記録を書けるのは施設責任者以上（現場ロールと受託側には与えない）
+- 日付: 2026-08-14
+- 状態: 採用
+- 背景: §2.3 の `roomAccessLog` は、登録するとその客室・業務日の差異が
+  **抑制される**（§4.1）。**§6.4 の権限表にこの操作の行が無い**
+  （あの表は差異レポートの閲覧・状態変更・ルール設定・再実行・
+  エクスポートの 5 行）。
+- 選択肢:
+  1. 入室する当人（`INSPECTOR` / `CLEANER`）が登録できるようにする
+  2. `PROPERTY_MANAGER` 以上のみ。`VENDOR_ADMIN` も不可
+- 決定: 2。
+- 理由: 1 は「照合される側が、自分に対する差異を消せる」形になる。
+  §11 が挙げるリスク（現場が入力を歪める）と同じ筋で、
+  security.md §1 が `CLEANER` / `INSPECTOR` を差異レポートから
+  締め出しているのと同じ理由が当てはまる。`VENDOR_ADMIN` を外したのは
+  `rework.waive` と同じ判断で、受託した清掃会社が自社の作業日の差異を
+  消せると、差異レポートが清掃会社との合意の材料にならないため。
+  **点検した本人が登録できないぶん運用の手間は増える**が、
+  抑制は「あとから 1 件足す」で足りる（事後登録を認めている / §2.3）。
+- 影響: `apps/web/src/lib/auth/permission.ts` の `roomAccess.read` /
+  `roomAccess.write`、`apps/web/src/routes/api/v1/roomAccessLogs.ts`。
+  閲覧は `AUDITOR` にも開いてある（読取専用・内部統制の確認）。

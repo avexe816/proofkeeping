@@ -127,15 +127,26 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/plan`,
   },
+  // W-06 差異レポート一覧（P4-06 / PK-SPEC-P4 §6.1）。
+  // **`href` に `{propertyId}` を持たない。** §6.1 のフィルタは「全施設」を
+  // 含み、施設は画面のセレクタで切り替える。`scope` を `PROPERTY` のままに
+  // してあるのは、施設スコープロール（`PROPERTY_MANAGER` / `VENDOR_ADMIN`）に
+  // 出すため。組織全体を読めない相手には表示中の施設が既定になる。
   {
     key: "nav.findings",
     section: "daily",
     moduleCode: "AUDIT",
     action: "finding.read",
     scope: "PROPERTY",
-    status: "PLANNED",
+    status: "READY",
+    href: "/app/audit/findings",
   },
   // ── 記録の確認 ────────────────────────────────────────
+  // W-07 差異詳細（P4-07）。**`PLANNED` のまま残す。**
+  // 到達先が `/app/audit/findings/:findingId` で、ID の無いサイドバーからは
+  // 指せない。プロトタイプ（05）は 1 件を開いた状態を項目にしているが、
+  // 「どの差異か」を決められない項目を `READY` にすると、押しても何も
+  // 起きない導線になる。詳細へは一覧の行から入る。
   {
     key: "nav.findingDetail",
     section: "records",

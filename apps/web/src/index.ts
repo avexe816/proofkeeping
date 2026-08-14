@@ -32,6 +32,7 @@ import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
 import dataQuality from "./routes/api/v1/dataQuality.js";
 import evidence from "./routes/api/v1/evidence.js";
 import files from "./routes/api/v1/files.js";
+import findings from "./routes/api/v1/findings.js";
 import inspections from "./routes/api/v1/inspections.js";
 import issues from "./routes/api/v1/issues.js";
 import lostItems from "./routes/api/v1/lostItems.js";
@@ -42,6 +43,7 @@ import reworks from "./routes/api/v1/reworks.js";
 import reports from "./routes/api/v1/reports.js";
 import observations from "./routes/api/v1/observations.js";
 import occupancy from "./routes/api/v1/occupancy.js";
+import roomAccessLogs from "./routes/api/v1/roomAccessLogs.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
 import session from "./routes/api/v1/session.js";
@@ -175,8 +177,13 @@ api.route("/baselines", baselines);
 // 取込元（`source`）は口が決める。`PMS_API` を名乗る経路を作らない。
 api.route("/occupancy", occupancy);
 // 稼働照合（P4-05 / PK-SPEC-P4 §5.4）。**手動実行の口だけ。**
-// 差異の一覧・詳細（W-06 / W-07）は P4-06 / P4-07 が足す。
 api.route("/reconciliation", reconciliation);
+// 差異レポート（P4-06 / P4-07 / 同 §6）。**作る口・消す口が無い。**
+// `CLEANER` / `INSPECTOR` は 404（§6.4 MUST / security.md §1）。
+api.route("/findings", findings);
+// 業務上の入室記録（P4-10 / 同 §2.3・§4.1）。**更新・削除の口が無い。**
+// 登録は差異を抑制するので、書けるのは施設責任者以上（DECISIONS #115）。
+api.route("/room-access-logs", roomAccessLogs);
 // 観察記録の入力品質（P3-12 / 同 §6.3 / W-22）。**読み取りだけ。**
 // スタッフ別は入力率だけを返す（security.md §5 / INV-07）。
 api.route("/data-quality", dataQuality);

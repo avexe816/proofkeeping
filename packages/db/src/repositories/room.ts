@@ -77,6 +77,34 @@ export async function findRoomById(env: Env, ctx: TenantContext, roomId: string)
 }
 
 /**
+ * 客室 ID から部屋番号を引く（差異一覧 W-06 / P4-06）。
+ *
+ * **一覧のために組織の全客室を読まない。** 差異は最大 200 件（=最大 200 室）で、
+ * 施設をまたぐ一覧では `listRooms()` が数千行を返しうる。
+ * 越境 ID は `withTenantScope()` の条件に一致せず、単に落ちる
+ * （まとめて引くので `assertIdBelongsToTenant()` は掛けない）。
+ */
+export async function listRoomNumbersByIds(
+  env: Env,
+  ctx: TenantContext,
+  roomIds: readonly string[],
+): Promise<Map<string, string>> {
+  if (roomIds.length === 0) return new Map();
+  const db = await getTenantDb(env, ctx);
+
+  const numbers = new Map<string, string>();
+  // **D1 は 1 文 100 変数まで**（`limits.ts`）。200 件は必ず割る。
+  for (const chunk of chunkIdsForInArray([...new Set(roomIds)])) {
+    const rows = await db
+      .select({ id: room.id, roomNumber: room.roomNumber })
+      .from(room)
+      .where(withTenantScope(room, ctx, room.propertyId, inArray(room.id, [...chunk])));
+    for (const row of rows) numbers.set(row.id, row.roomNumber);
+  }
+  return numbers;
+}
+
+/**
  * 施設ごとの客室数。**`isSellable = true` の有効な客室だけを数える。**
  *
  * task: docs/tasks/P0-21.md / docs/tasks/P0-22.md
