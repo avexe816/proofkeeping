@@ -37,7 +37,7 @@ import {
 } from "../test-support/fake-d1.js";
 
 import { expandChecklist, listChecklistItemsByIds, listTemplateItems } from "./checklist.js";
-import { assignTasks } from "./cleaningTask.js";
+import { assignTasks, listTasksByIds } from "./cleaningTask.js";
 import { setHousekeepingStatus } from "./room.js";
 import { upsertOccupancySnapshots } from "./occupancy.js";
 import { countPhotosByTask } from "./taskPhoto.js";
@@ -96,6 +96,11 @@ const CASES: Case[] = [
   {
     name: "room.setHousekeepingStatus",
     run: (env, ctx) => setHousekeepingStatus(env, ctx, ids("room", BULK), "DIRTY"),
+  },
+  {
+    // P5-13。請求明細 1 行のタスクは 95 件・300 件と増える（§6.3）。
+    name: "cleaningTask.listTasksByIds",
+    run: (env, ctx) => listTasksByIds(env, ctx, ids("task", BULK)),
   },
   {
     name: "cleaningTask.assignTasks",

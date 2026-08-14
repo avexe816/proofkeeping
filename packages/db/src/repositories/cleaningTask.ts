@@ -123,6 +123,53 @@ export async function listTasks(env: Env, ctx: TenantContext, filter: TaskFilter
     );
 }
 
+/**
+ * ID を並べて引く（PK-SPEC-P5 §6.3 の証跡ドリルダウン / P5-13）。
+ *
+ * 請求明細の `sourceRef.taskIds` から対象タスクを引くために要る。
+ * **`listTasks()` の絞り込みでは代用できない** — 明細 1 行は施設 ×
+ * 清掃種別 × 客室タイプで畳んだものなので、業務日の範囲で引き直すと
+ * 同じ条件の別のタスクまで混ざる。**請求の根拠は集計時に確定した
+ * その ID の集合**であって、条件で引き直せるものではない。
+ *
+ * ── 施設スコープはそのまま掛かる ────────────────────────
+ * `withTenantScope()` の第 3 引数に `cleaningTask.propertyId` を渡す。
+ * 担当外施設のタスク ID を並べても**返らない**（0 件になるだけで、
+ * 存在は漏れない）。呼び出し側は「渡した件数と返った件数が違う」ことを
+ * そのまま画面に出してよい（明細の数量は既に見えている）。
+ *
+ * ── D1 の 100 変数（`limits.ts`）────────────────────────
+ * 明細 1 行のタスクは 95 件・300 件と増える。1 文で流すと
+ * `too many SQL variables` で落ちる。`chunkIdsForInArray()` で割る。
+ */
+export async function listTasksByIds(env: Env, ctx: TenantContext, taskIds: readonly string[]) {
+  for (const id of taskIds) assertIdBelongsToTenant(id, ctx);
+  if (taskIds.length === 0) return [];
+
+  const db = await getTenantDb(env, ctx);
+  const rows: Awaited<ReturnType<typeof selectTasksByIds>> = [];
+  for (const chunk of chunkIdsForInArray(taskIds)) {
+    rows.push(...(await selectTasksByIds(db, ctx, chunk)));
+  }
+  // **並びを呼び出し側に依存させない。** 塊に割った順で返ると、
+  // 分割の大きさが変わった日に画面の並びが変わる。
+  return rows.sort((a, b) => (a.shortId < b.shortId ? -1 : a.shortId > b.shortId ? 1 : 0));
+}
+
+/** `listTasksByIds()` の 1 塊ぶん。 */
+async function selectTasksByIds(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  ctx: TenantContext,
+  taskIds: readonly string[],
+) {
+  return db
+    .select()
+    .from(cleaningTask)
+    .where(
+      withTenantScope(cleaningTask, ctx, cleaningTask.propertyId, inArray(cleaningTask.id, [...taskIds])),
+    );
+}
+
 /** タスク 1 件。越境 ID は DB へ行く前に `NotFoundError`（→ 404）。 */
 export async function findTaskById(env: Env, ctx: TenantContext, taskId: string) {
   assertIdBelongsToTenant(taskId, ctx);

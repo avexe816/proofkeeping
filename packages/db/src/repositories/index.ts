@@ -50,6 +50,7 @@ export {
   findTimeLogByIdempotencyKey,
   listShortIds,
   listTasks,
+  listTasksByIds,
   listTimeLogs,
   reviveCancelledTasks,
   updatePlannedTasks,

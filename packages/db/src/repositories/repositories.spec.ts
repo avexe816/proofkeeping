@@ -1367,6 +1367,14 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => cleaningTaskRepo.listTasks(env, ctx, { businessDate: "2026-08-12" }),
   },
   {
+    // P5-13。請求明細の `sourceRef.taskIds` から辿る（§6.3）。
+    // **D1 の 100 変数**で割る（`paramBudget.spec.ts` も見る）。
+    name: "cleaningTask.listTasksByIds",
+    kind: "tenant",
+    run: (env, ctx) => cleaningTaskRepo.listTasksByIds(env, ctx, [OWN_ID.task]),
+    crossTenant: (env, ctx) => cleaningTaskRepo.listTasksByIds(env, ctx, [OTHER_ID.task]),
+  },
+  {
     name: "cleaningTask.findTaskById",
     kind: "tenant",
     run: (env, ctx) => cleaningTaskRepo.findTaskById(env, ctx, OWN_ID.task),

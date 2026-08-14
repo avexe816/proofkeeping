@@ -115,6 +115,78 @@ function invoiceRow(status = "CONFIRMED"): unknown[] {
   ];
 }
 
+/** `invoice_line` の 1 行。**列の順序は schema/invoice.ts の宣言順。** */
+function invoiceLineRow(lineNo: number, taskIds: string[]): unknown[] {
+  return [
+    `${ORG_SHORT_ID}__invl_01JBXQ3ZK8N4P2VYR6ABCDEF0${String(lineNo)}`,
+    ORGANIZATION_ID,
+    INVOICE_ID,
+    lineNo,
+    PROPERTY_ID,
+    "CLEAN_CHECKOUT",
+    "サンプルホテル東京 / アウト清掃 / ツイン",
+    "2026-09-01",
+    "2026-09-30",
+    95,
+    "室",
+    3800,
+    361000,
+    10,
+    0,
+    JSON.stringify({ taskIds, pricingRuleId: null, pricingStage: null }),
+  ];
+}
+
+/** `cleaning_task` の 1 行。**列の順序は schema/task.ts の宣言順。** */
+function taskRow(suffix: string): unknown[] {
+  return [
+    `${ORG_SHORT_ID}__task_01JBXQ3ZK8N4P2VYR6ABCDEF${suffix}`,
+    ORGANIZATION_ID,
+    PROPERTY_ID,
+    `${ORG_SHORT_ID}__room_01JBXQ3ZK8N4P2VYR6ABCDEF${suffix}`,
+    "2026-09-15",
+    "CHECKOUT",
+    "COMPLETED",
+    50,
+    null, // assignee_id
+    30, // standard_minutes
+    28, // actual_minutes
+    0, // pause_count
+    0, // rework_count
+    1, // inspection_required
+    0, // inspection_skipped
+    null, // inspection_skip_reason
+    null, // inspector_id
+    null, // inspected_at
+    "PASS", // inspection_result
+    1, // current_inspection_round
+    "AUTO",
+    null, // note
+    null, // blocked_reason
+    `SHORT${suffix}`,
+    null, // sequence_in_day
+    null, // assigned_at
+    0, // started_at
+    0, // completed_at
+    null, // cancelled_at
+    0,
+    0,
+  ];
+}
+
+/** `room` の 1 行のうち、`toTaskSummaries()` が読む列だけ埋める。 */
+function roomRow(suffix: string): unknown[] {
+  return [
+    `${ORG_SHORT_ID}__room_01JBXQ3ZK8N4P2VYR6ABCDEF${suffix}`,
+    ORGANIZATION_ID,
+    PROPERTY_ID,
+    null, // building_id
+    null, // floor_id
+    null, // room_type_id
+    `10${suffix}`, // room_number
+  ];
+}
+
 function setup(role: TestRole = "ORG_ADMIN"): {
   app: Hono<AppEnv>;
   env: Env;
@@ -550,6 +622,128 @@ describe("作ってはいけない口（CLAUDE.md §4 / billing.md §2）", () =
       await ctx.cookie(),
     );
     expect(response.status).toBe(400);
+    expect(ctx.d1.queries).toHaveLength(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 証跡へのドリルダウン（P5-13 / PK-SPEC-P5 §6.3）
+// ────────────────────────────────────────────────────────────
+
+describe("GET /api/v1/invoices/:id/lines/:lineNo/tasks", () => {
+  it("発行時に固定したタスクを返す。**組み直さない**", async () => {
+    const ctx = setup();
+    const taskIds = [
+      `${ORG_SHORT_ID}__task_01JBXQ3ZK8N4P2VYR6ABCDEFA1`,
+      `${ORG_SHORT_ID}__task_01JBXQ3ZK8N4P2VYR6ABCDEFA2`,
+    ];
+    ctx.d1.enqueueRows([invoiceRow()]); // findInvoiceById
+    ctx.d1.enqueueRows([invoiceLineRow(1, taskIds)]); // listInvoiceLines
+    ctx.d1.enqueueRows([taskRow("A1"), taskRow("A2")]); // listTasksByIds
+    ctx.d1.enqueueRows([roomRow("A1"), roomRow("A2")]); // listRooms
+
+    const response = await ctx.app.request(
+      `/api/v1/invoices/${INVOICE_ID}/lines/1/tasks`,
+      { headers: { cookie: await ctx.cookie() } },
+      ctx.env,
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json<{
+      lineNo: number;
+      lineKey: string | null;
+      taskCount: number;
+      data: Record<string, unknown>[];
+    }>();
+    expect(body.lineNo).toBe(1);
+    // 発行済みの明細は `lineKey` を持たない（位置が正）。
+    expect(body.lineKey).toBeNull();
+    expect(body.taskCount).toBe(2);
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0]).toMatchObject({ status: "COMPLETED", roomNumber: "10A1" });
+    expect(JSON.stringify(body)).not.toContain(ORGANIZATION_ID);
+
+    // **料金設定もタスクも引き直していない。** 根拠は発行時のまま。
+    expect(sqls(ctx).some((sql) => sql.includes("pricing_rule"))).toBe(false);
+  });
+
+  it("W-07 へ繋ぐ `taskId` を返す（証跡そのものは返さない）", async () => {
+    const ctx = setup();
+    const taskId = `${ORG_SHORT_ID}__task_01JBXQ3ZK8N4P2VYR6ABCDEFA1`;
+    ctx.d1.enqueueRows([invoiceRow()]);
+    ctx.d1.enqueueRows([invoiceLineRow(1, [taskId])]);
+    ctx.d1.enqueueRows([taskRow("A1")]);
+    ctx.d1.enqueueRows([roomRow("A1")]);
+
+    const response = await ctx.app.request(
+      `/api/v1/invoices/${INVOICE_ID}/lines/1/tasks`,
+      { headers: { cookie: await ctx.cookie() } },
+      ctx.env,
+    );
+    const body = await response.json<{ data: { taskId: string }[] }>();
+    expect(body.data[0]?.taskId).toBe(taskId);
+    // 写真の署名付き URL を一覧で先に発行しない（security.md §4）。
+    expect(sqls(ctx).some((sql) => sql.includes("evidence_snapshot"))).toBe(false);
+    expect(sqls(ctx).some((sql) => sql.includes("task_photo"))).toBe(false);
+  });
+
+  it("`sourceRef` が空でも 200（0 件の一覧）", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([invoiceRow()]);
+    ctx.d1.enqueueRows([invoiceLineRow(1, [])]);
+
+    const response = await ctx.app.request(
+      `/api/v1/invoices/${INVOICE_ID}/lines/1/tasks`,
+      { headers: { cookie: await ctx.cookie() } },
+      ctx.env,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ taskCount: 0, data: [] });
+  });
+
+  it("無い行は 404", async () => {
+    const ctx = setup();
+    ctx.d1.enqueueRows([invoiceRow()]);
+    ctx.d1.enqueueRows([invoiceLineRow(1, [])]);
+
+    const response = await ctx.app.request(
+      `/api/v1/invoices/${INVOICE_ID}/lines/9/tasks`,
+      { headers: { cookie: await ctx.cookie() } },
+      ctx.env,
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("`lineNo` が数でなければ 400", async () => {
+    const ctx = setup();
+    const response = await ctx.app.request(
+      `/api/v1/invoices/${INVOICE_ID}/lines/abc/tasks`,
+      { headers: { cookie: await ctx.cookie() } },
+      ctx.env,
+    );
+    expect(response.status).toBe(400);
+    expect(ctx.d1.queries).toHaveLength(0);
+  });
+
+  it("越境した請求書 ID は DB へ届かない（404）", async () => {
+    const ctx = setup();
+    const response = await ctx.app.request(
+      `/api/v1/invoices/${OTHER_ORG_SHORT_ID}__inv_01JBXQ3ZK8N4P2VYR6ABCDEFGH/lines/1/tasks`,
+      { headers: { cookie: await ctx.cookie() } },
+      ctx.env,
+    );
+    expect(response.status).toBe(404);
+    expect(ctx.d1.queries).toHaveLength(0);
+  });
+
+  it("`INSPECTOR` は 404（請求情報を見られない / security.md §1）", async () => {
+    const ctx = setup("INSPECTOR");
+    const response = await ctx.app.request(
+      `/api/v1/invoices/${INVOICE_ID}/lines/1/tasks`,
+      { headers: { cookie: await ctx.cookie() } },
+      ctx.env,
+    );
+    expect(response.status).toBe(404);
     expect(ctx.d1.queries).toHaveLength(0);
   });
 });

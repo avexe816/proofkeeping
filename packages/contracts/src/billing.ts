@@ -17,7 +17,7 @@ import { z } from "zod";
 
 import { invoiceRegistrationNumberSchema, TAX_ROUNDING_MODES } from "./property.js";
 // 清掃種別は P1-05 が置いた `task.ts` の語彙をそのまま使う。**写経しない。**
-import { taskTypeSchema } from "./task.js";
+import { taskSummarySchema, taskTypeSchema } from "./task.js";
 
 // ────────────────────────────────────────────────────────────
 // 取引先（§2.1 / P5-02）
@@ -638,3 +638,41 @@ export const billingPeriodReviewListResponseSchema = z.object({
 });
 
 export type BillingPeriodReviewListResponse = z.infer<typeof billingPeriodReviewListResponseSchema>;
+
+
+// ────────────────────────────────────────────────────────────
+// 証跡へのドリルダウン（P5-13 / PK-SPEC-P5 §6.3）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 明細 1 行の集計元タスク（§6.3 の「対象タスク一覧」）。
+ *
+ * ```
+ * 行2 アウト清掃 / ツイン 95室
+ *   → 対象タスク一覧（95件）      ← ここ
+ *     → 各タスクの証跡（W-07）    ← GET /evidence/tasks/:taskId（P2-09）
+ *       → 清掃時刻・検査結果・写真
+ * ```
+ *
+ * **証跡そのものはここで返さない。** W-07 の口が既にあり、そちらは
+ * 写真の署名付き URL を 15 分で切る（security.md §4）。一覧に証跡を
+ * 畳み込むと、95 件ぶんの URL を誰も開かないうちに発行することになる。
+ *
+ * ── `taskCount` と `data.length` は一致しないことがある ──
+ * `taskCount` は**集計時に確定した件数**（明細の数量そのもの）。
+ * `data` は施設スコープで絞ったあとの行で、担当外施設のタスクは落ちる
+ * （`PROPERTY_MANAGER` が他施設の行を開いたとき）。**差を隠さない。**
+ * 隠すと「95 室ぶん請求されているのに 40 件しか根拠が無い」に見える。
+ */
+export const billingLineTasksResponseSchema = z.object({
+  /** 明細の位置。発行前は組み直すたびに動きうる（`lineKey` が正）。 */
+  lineNo: z.number().int().min(1),
+  /** 発行前の明細だけが持つ。発行済みの請求書では `null`。 */
+  lineKey: z.string().nullable(),
+  description: z.string(),
+  /** 集計時に確定した件数。**明細の数量と同じ。** */
+  taskCount: z.number().int().min(0),
+  data: z.array(taskSummarySchema),
+});
+
+export type BillingLineTasksResponse = z.infer<typeof billingLineTasksResponseSchema>;
