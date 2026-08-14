@@ -67,13 +67,15 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("52 テーブルを定義している", () => {
+  it("60 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       // P4-01。差異（PK-SPEC-P4 §2.5）。**不正の認定ではない**（同 §1.1）。
       "auditFinding",
       "auditLog",
       // P3-01。ベースライン集計から除外した観察の記録（PK-SPEC-P3 §5.3）。
       "baselineExclusionLog",
+      // P5-01。月次締め（PK-SPEC-P5 §2.8）。**同意していなくても請求はできる**（同 §6.1）。
+      "billingPeriod",
       "building",
       // P1-01。チェックリストの定義と実施結果（PK-SPEC-P1 §2.1 / §6）。
       "checklistItem",
@@ -81,6 +83,8 @@ describe("P0-06 スキーマ", () => {
       "cleaningTask",
       // P3-01。消耗ベースライン（同 §2.4）。**sampleSize < 20 は isReliable = false。**
       "consumptionBaseline",
+      // P5-01。取引先（同 §2.1）。**物理削除しない**（過去の請求書が参照する）。
+      "counterparty",
       // P0-21。施設サマリーの唯一の出どころ（§19.6）。
       "dailyPropertyRollup",
       // P2-14。日報（PK-SPEC-P2 §9.4）。**発行済み帳票。UPDATE / DELETE しない。**
@@ -91,6 +95,8 @@ describe("P0-06 スキーマ", () => {
       "dailyRoute",
       // P4-01。誤検知の学習（PK-SPEC-P4 §2.6）。**追記のみ。**
       "detectionFeedback",
+      // P5-01。送付ログ（同 §2.7）。**追記のみ。** 誰にいつ送ったかは電子取引の記録。
+      "documentDelivery",
       "documentSequence",
       // P2-01。証跡スナップショット（PK-SPEC-P2 §3.7）。**INSERT のみ。**
       "evidenceSnapshot",
@@ -101,6 +107,11 @@ describe("P0-06 スキーマ", () => {
       "inspection",
       "inspectionItemResult",
       "inspectionPhoto",
+      // P5-01。請求書と明細（同 §2.3〜§2.5）。**発行したら消せない**（billing.md §2）。
+      // 訂正は赤伝＋再発行。税額は税率ごとに 1 回だけ端数処理する（§2.5 MUST）。
+      "invoice",
+      "invoiceLine",
+      "invoiceTaxSummary",
       // P2-12。設備不具合とその写真・状態履歴（同 §3.6）。
       "issueHistory",
       "issuePhoto",
@@ -124,10 +135,14 @@ describe("P0-06 スキーマ", () => {
       "passwordHistory",
       // P4-01。物理の痕跡（PK-SPEC-P4 §2.2）。**外部機器からの受信のみ。**
       "physicalSignal",
+      // P5-01。料金設定（同 §2.2）。**値上げは行の追加**（既存行を書き換えない）。
+      "pricingRule",
       "property",
       "propertyAssignment",
       // P2-01。施設ごとの検査方式（同 §2.1）。
       "propertyInspectionPolicy",
+      // P5-01。領収書（同 §2.6）。**印紙貼付欄を持たない**（billing.md §3）。
+      "receipt",
       // P4-01。照合の実行記録（PK-SPEC-P4 §2.4）。
       "reconciliationRun",
       // P2-01。差戻しサイクル（同 §3.4）。

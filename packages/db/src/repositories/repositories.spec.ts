@@ -42,6 +42,7 @@ import * as entitlementRepo from "./entitlement.js";
 import * as evidenceRepo from "./evidence.js";
 import * as inspectionRepo from "./inspection.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
+import * as invoiceRepo from "./invoice.js";
 import * as issueReportRepo from "./issueReport.js";
 import * as lostItemRepo from "./lostItem.js";
 import * as observationRepo from "./observation.js";
@@ -85,6 +86,10 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // P2-11 / P2-12 が登録した忘れ物と設備不具合（PK-SPEC-P2 §3.5・§3.6）。
   issueReport: issueReportRepo,
   lostItem: lostItemRepo,
+  // P5-01 が登録した請求・領収（PK-SPEC-P5 §2）。
+  // **`invoice` / `receipt` に DELETE が無い**ことも下で検査する
+  // （発行済み帳票 / billing.md §2。訂正は赤伝＋再発行）。
+  invoice: invoiceRepo,
   // P3-03〜P3-07 / P3-11 が登録した観察記録（PK-SPEC-P3 §2）。
   // **DELETE が無い**ことも下で検査する（P4 の照合の土台）。
   observation: observationRepo,
@@ -129,6 +134,12 @@ const OWN_ID = {
   // P4-05。
   run: generateId(TEST_ORG.orgShortId, "run"),
   finding: generateId(TEST_ORG.orgShortId, "find"),
+  counterparty: generateId(TEST_ORG.orgShortId, "cp"),
+  pricingRule: generateId(TEST_ORG.orgShortId, "prc"),
+  invoice: generateId(TEST_ORG.orgShortId, "inv"),
+  receipt: generateId(TEST_ORG.orgShortId, "rcp"),
+  delivery: generateId(TEST_ORG.orgShortId, "dlv"),
+  billingPeriod: generateId(TEST_ORG.orgShortId, "bper"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -196,6 +207,12 @@ const OTHER_ID = {
   // P4-05。
   run: generateId(OTHER_ORG.orgShortId, "run"),
   finding: generateId(OTHER_ORG.orgShortId, "find"),
+  counterparty: generateId(OTHER_ORG.orgShortId, "cp"),
+  pricingRule: generateId(OTHER_ORG.orgShortId, "prc"),
+  invoice: generateId(OTHER_ORG.orgShortId, "inv"),
+  receipt: generateId(OTHER_ORG.orgShortId, "rcp"),
+  delivery: generateId(OTHER_ORG.orgShortId, "dlv"),
+  billingPeriod: generateId(OTHER_ORG.orgShortId, "bper"),
 } as const;
 
 /**
@@ -390,6 +407,43 @@ const FINDING = (id: typeof OWN_ID | typeof OTHER_ID) => ({
   evidence: {},
   matchedSignals: ["BEDS_USED", "TRASH_PRESENT"],
 });
+
+/** 取引先 1 件（P5-01 / PK-SPEC-P5 §2.1）。**宿泊者ではなく事業者。** */
+const COUNTERPARTY_INPUT = {
+  code: "CP-001",
+  legalName: "株式会社サンプル",
+  displayName: null,
+  invoiceRegistrationNo: null,
+  postalCode: null,
+  address1: null,
+  address2: null,
+  department: null,
+  contactName: null,
+  billingEmail: "billing@example.com",
+  ccEmails: [] as string[],
+  closingDay: 31,
+  paymentTermDays: 30,
+  taxRoundingMode: "FLOOR",
+  isActive: true,
+  // **`as const` にしない。** `ccEmails` が `readonly []` になると
+  // `UpsertCounterpartyInput`（`string[]`）に代入できない。
+} satisfies invoiceRepo.UpsertCounterpartyInput;
+
+/** 料金設定 1 件（同 §2.2）。**値上げは行の追加**（既存行を書き換えない）。 */
+const PRICING_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) =>
+  ({
+    counterpartyId: id.counterparty,
+    propertyId: id.property,
+    roomTypeId: null,
+    taskType: null,
+    itemCode: "CLEAN_CHECKOUT",
+    unitPrice: 3000,
+    taxRate: 10,
+    isReducedRate: false,
+    validFrom: "2026-09-01",
+    validTo: null,
+    priority: 50,
+  }) as const;
 
 /** 業務上の入室 1 件（P4-10 / 同 §2.3）。**宿泊者の情報を持たない。** */
 const ACCESS_LOG_INPUT = (id: typeof OWN_ID | typeof OTHER_ID) =>
@@ -1932,6 +1986,108 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => reconciliationRepo.findFindingById(env, ctx, OWN_ID.finding),
     crossTenant: (env, ctx) => reconciliationRepo.findFindingById(env, ctx, OTHER_ID.finding),
   },
+  // ── P5-01 が足したもの（PK-SPEC-P5 §2）────────────────────
+  {
+    // 取引先は組織のマスタ。**施設スコープを持たない**（`NO_PROPERTY_SCOPE`）。
+    name: "invoice.listCounterparties",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.listCounterparties(env, ctx),
+  },
+  {
+    name: "invoice.findCounterpartyById",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.findCounterpartyById(env, ctx, OWN_ID.counterparty),
+    crossTenant: (env, ctx) => invoiceRepo.findCounterpartyById(env, ctx, OTHER_ID.counterparty),
+  },
+  {
+    name: "invoice.upsertCounterparty",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.upsertCounterparty(env, ctx, COUNTERPARTY_INPUT),
+  },
+  {
+    name: "invoice.listPricingRules",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.listPricingRules(env, ctx, { counterpartyId: OWN_ID.counterparty }),
+  },
+  {
+    name: "invoice.findPricingRuleById",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.findPricingRuleById(env, ctx, OWN_ID.pricingRule),
+    crossTenant: (env, ctx) => invoiceRepo.findPricingRuleById(env, ctx, OTHER_ID.pricingRule),
+  },
+  {
+    name: "invoice.insertPricingRule",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.insertPricingRule(env, ctx, PRICING_INPUT(OWN_ID)),
+    crossTenant: (env, ctx) => invoiceRepo.insertPricingRule(env, ctx, PRICING_INPUT(OTHER_ID)),
+  },
+  {
+    name: "invoice.listInvoices",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.listInvoices(env, ctx, { counterpartyId: OWN_ID.counterparty }),
+  },
+  {
+    name: "invoice.findInvoiceById",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.findInvoiceById(env, ctx, OWN_ID.invoice),
+    crossTenant: (env, ctx) => invoiceRepo.findInvoiceById(env, ctx, OTHER_ID.invoice),
+  },
+  {
+    name: "invoice.listInvoiceLines",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.listInvoiceLines(env, ctx, OWN_ID.invoice),
+    crossTenant: (env, ctx) => invoiceRepo.listInvoiceLines(env, ctx, OTHER_ID.invoice),
+  },
+  {
+    name: "invoice.listInvoiceTaxSummaries",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.listInvoiceTaxSummaries(env, ctx, OWN_ID.invoice),
+    crossTenant: (env, ctx) => invoiceRepo.listInvoiceTaxSummaries(env, ctx, OTHER_ID.invoice),
+  },
+  {
+    name: "invoice.listReceipts",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.listReceipts(env, ctx, { counterpartyId: OWN_ID.counterparty }),
+  },
+  {
+    name: "invoice.findReceiptById",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.findReceiptById(env, ctx, OWN_ID.receipt),
+    crossTenant: (env, ctx) => invoiceRepo.findReceiptById(env, ctx, OTHER_ID.receipt),
+  },
+  {
+    name: "invoice.listDocumentDeliveries",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.listDocumentDeliveries(env, ctx, {
+        docType: "INVOICE",
+        documentId: OWN_ID.invoice,
+      }),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.listDocumentDeliveries(env, ctx, {
+        docType: "INVOICE",
+        documentId: OTHER_ID.invoice,
+      }),
+  },
+  {
+    name: "invoice.findDocumentDeliveryById",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.findDocumentDeliveryById(env, ctx, OWN_ID.delivery),
+    crossTenant: (env, ctx) => invoiceRepo.findDocumentDeliveryById(env, ctx, OTHER_ID.delivery),
+  },
+  {
+    name: "invoice.listBillingPeriods",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.listBillingPeriods(env, ctx, { counterpartyId: OWN_ID.counterparty }),
+  },
+  {
+    name: "invoice.findBillingPeriodById",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.findBillingPeriodById(env, ctx, OWN_ID.billingPeriod),
+    crossTenant: (env, ctx) => invoiceRepo.findBillingPeriodById(env, ctx, OTHER_ID.billingPeriod),
+  },
   // ── P4-06 / P4-07 / P4-10 が足したもの ────────────────────
   {
     // 状態ごとの件数（W-06 のヘッダー / §6.1）。施設は任意。
@@ -2213,6 +2369,46 @@ describe("日報の不変性", () => {
   it("daily_report を対象にした SQL の update / delete が無い", () => {
     const offenders = repositorySources().filter(({ code }) =>
       /(update|delete\s+from)\s+["`']?daily_report/i.test(code),
+    );
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+});
+
+describe("発行済み帳票（PK-SPEC-P5 §2 / billing.md §2）", () => {
+  // **物理削除しない。** 訂正は赤伝（マイナス伝票）＋再発行（§5）。
+  // 「訂正・削除の履歴が残るシステム」方式の土台で、外部タイムスタンプを
+  // 導入していないぶんここが効いている（billing.md §2）。
+  it("invoice / receipt を DELETE するリポジトリ関数が無い", () => {
+    for (const table of ["invoice", "receipt", "invoiceLine", "invoiceTaxSummary"]) {
+      const offenders = repositorySources().filter(({ code }) =>
+        new RegExp(`\\.delete\\(\\s*${table}\\b`).test(code),
+      );
+      expect(offenders.map(({ file }) => file), table).toEqual([]);
+    }
+  });
+
+  it("invoice / receipt を対象にした SQL の delete が無い", () => {
+    const offenders = repositorySources().filter(({ code }) =>
+      /delete\s+from\s+["`']?(invoice|receipt|invoice_line|invoice_tax_summary)/i.test(code),
+    );
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  // **送付ログも消さない**（誰にいつ送ったかは電子取引の記録そのもの）。
+  it("document_delivery を DELETE するリポジトリ関数が無い", () => {
+    const offenders = repositorySources().filter(({ code }) =>
+      /\.delete\(\s*documentDelivery\b/.test(code),
+    );
+    expect(offenders.map(({ file }) => file)).toEqual([]);
+  });
+
+  // **金額を書き換える更新関数を作らない**（invoice.ts 冒頭の注記）。
+  // 金額が変わるのは赤伝を切って作り直したとき。
+  it("請求書の金額を引数に取る更新関数が無い", () => {
+    const offenders = repositorySources().filter(
+      ({ code }) =>
+        /\.update\(\s*invoice\b/.test(code) &&
+        /(totalAmount|subtotalAmount|taxAmount)\s*:/.test(code),
     );
     expect(offenders.map(({ file }) => file)).toEqual([]);
   });

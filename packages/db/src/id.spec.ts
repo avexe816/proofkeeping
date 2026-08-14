@@ -88,7 +88,7 @@ const CTX: ShardContext = { organizationId: "org_alpha", orgShortId: "a2b3c4" };
 // ────────────────────────────────────────────────────────────
 
 describe("ENTITY_PREFIXES", () => {
-  it("仕様書由来の 11 個と P0-06 の 13 個・P0-08 の 1 個・P1-01 の 7 個・P2-01 の 4 個・P4-01 の 5 個を持つ", () => {
+  it("仕様書由来の 11 個と P0-06 の 13 個・P0-08 の 1 個・P1-01 の 7 個・P2-01 の 4 個・P4-01 の 5 個・P5-01 の 6 個を持つ", () => {
     // 前半: PK-SPEC-P0.md §19.4（task/insp/evd/lost/issue/inv/rcp）
     //       + architecture.md §2（obs/find/run）+ 仕様のレスポンス例（prop）。
     // 中盤: P0-06 の 13 テーブル分（docs/DECISIONS.md #013）。
@@ -152,6 +152,13 @@ describe("ENTITY_PREFIXES", () => {
       "racc",
       "dfb",
       "rcfg",
+      // P5-01（PK-SPEC-P5 §2）。`inv` / `rcp` は仕様書由来で上にある。
+      "cp",
+      "prc",
+      "invl",
+      "invt",
+      "dlv",
+      "bper",
     ]);
   });
 

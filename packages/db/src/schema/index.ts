@@ -195,3 +195,34 @@ export {
 
 // 外部システムとの ID 対応（P0-22 は定義のみ。使用は P6）。
 export { EXTERNAL_ENTITY_TYPES, externalMapping } from "./integration.js";
+
+// 請求・領収（P5-01 / PK-SPEC-P5 §2）。
+// **発行済み帳票は消せない**（billing.md §2）。訂正は赤伝＋再発行。
+// 電子帳簿保存法の検索 3 項目（取引年月日・取引金額・取引先）を
+// 非正規化して索引を張ってある（§1.2 MUST）。
+export {
+  BILLING_PERIOD_STATUSES,
+  DELIVERY_CHANNELS,
+  DELIVERY_DOC_TYPES,
+  DELIVERY_STATUSES,
+  INVOICE_ITEM_CODES,
+  INVOICE_STATUSES,
+  PAYMENT_METHODS,
+  RECEIPT_STATUSES,
+  billingPeriod,
+  counterparty,
+  documentDelivery,
+  invoice,
+  invoiceLine,
+  invoiceTaxSummary,
+  pricingRule,
+  receipt,
+  type BillingPeriodStatus,
+  type DeliveryChannel,
+  type DeliveryDocType,
+  type DeliveryStatus,
+  type InvoiceItemCode,
+  type InvoiceStatus,
+  type PaymentMethod,
+  type ReceiptStatus,
+} from "./invoice.js";

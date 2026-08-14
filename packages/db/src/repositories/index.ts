@@ -379,3 +379,33 @@ export {
   type UpdateFindingStatusInput,
   type UpsertRuleConfigInput,
 } from "./reconciliation.js";
+
+// 請求・領収（P5-01 / PK-SPEC-P5 §2）。**P5-01 は読み取りとマスタだけ。**
+// 発行・訂正・送付は P5-07 以降（§4.1 の 10 手順を分割して実装しない）。
+// **`invoice` / `receipt` を消す関数も、金額を書き換える関数も無い**
+// （billing.md §2。訂正は赤伝＋再発行）。
+export {
+  findBillingPeriodById,
+  findCounterpartyById,
+  findDocumentDeliveryById,
+  findInvoiceById,
+  findPricingRuleById,
+  findReceiptById,
+  insertPricingRule,
+  listBillingPeriods,
+  listCounterparties,
+  listDocumentDeliveries,
+  listInvoiceLines,
+  listInvoiceTaxSummaries,
+  listInvoices,
+  listPricingRules,
+  listReceipts,
+  upsertCounterparty,
+  type BillingPeriodFilter,
+  type CounterpartyFilter,
+  type InsertPricingRuleInput,
+  type InvoiceFilter,
+  type PricingRuleFilter,
+  type ReceiptFilter,
+  type UpsertCounterpartyInput,
+} from "./invoice.js";
