@@ -16,6 +16,7 @@
  */
 
 import {
+  BILLING_PERIOD_STATUS_VALUES,
   INVOICE_ITEM_CODE_VALUES,
   ITEM_CODE_BY_TASK_TYPE,
   ITEM_CODE_LABELS,
@@ -25,7 +26,7 @@ import {
 } from "@pk/billing";
 import { describe, expect, it } from "vitest";
 
-import { INVOICE_ITEM_CODES } from "./invoice.js";
+import { BILLING_PERIOD_STATUSES, INVOICE_ITEM_CODES } from "./invoice.js";
 import { TAX_ROUNDING_MODES } from "./organization.js";
 import { TASK_TYPES } from "./task.js";
 
@@ -40,6 +41,10 @@ describe("packages/billing の語彙が schema と一致する", () => {
 
   it("端数処理方式（billing.md §4）", () => {
     expect([...TAX_ROUNDING_MODE_VALUES]).toEqual([...TAX_ROUNDING_MODES]);
+  });
+
+  it("月次締めの状態（PK-SPEC-P5 §2.8）", () => {
+    expect([...BILLING_PERIOD_STATUS_VALUES]).toEqual([...BILLING_PERIOD_STATUSES]);
   });
 });
 

@@ -59,3 +59,18 @@ export {
   type DraftInvoiceLine,
   type InvoiceDraft,
 } from "./aggregate.js";
+
+// 月次締めの期間と状態遷移（P5-05 / 同 §2.8・§6.1）。
+export {
+  BILLING_PERIOD_ACTIONS,
+  BILLING_PERIOD_STATUS_VALUES,
+  closedPeriodAsOf,
+  closingDateOf,
+  counterpartyPropertyScope,
+  evaluateBillingPeriodTransition,
+  type BillingPeriodAction,
+  type BillingPeriodRange,
+  type BillingPeriodStatusValue,
+  type BillingPeriodTransition,
+  type CounterpartyPropertyScope,
+} from "./period.js";
