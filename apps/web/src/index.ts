@@ -38,6 +38,7 @@ import properties from "./routes/api/v1/properties.js";
 import reworks from "./routes/api/v1/reworks.js";
 import reports from "./routes/api/v1/reports.js";
 import observations from "./routes/api/v1/observations.js";
+import occupancy from "./routes/api/v1/occupancy.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
 import session from "./routes/api/v1/session.js";
@@ -167,6 +168,9 @@ api.route("/observations", observations);
 // 消耗ベースライン（P3-09 / P3-10 / PK-SPEC-P3 §5・§7）。**削除の口が無い。**
 // 上書きは p90 だけ・理由必須（§5.5）。再計算は必ず Queue を通る。
 api.route("/baselines", baselines);
+// 稼働記録（P4-02 / PK-SPEC-P4 §8）。**削除の口が無い。**
+// 取込元（`source`）は口が決める。`PMS_API` を名乗る経路を作らない。
+api.route("/occupancy", occupancy);
 // 観察記録の入力品質（P3-12 / 同 §6.3 / W-22）。**読み取りだけ。**
 // スタッフ別は入力率だけを返す（security.md §5 / INV-07）。
 api.route("/data-quality", dataQuality);

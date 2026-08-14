@@ -304,6 +304,28 @@ Claude Code はここに追記して作業を止める。人間が回答した�
   （`LINEN_ITEM_CODES`）だけに絞るか、`observationConfig` で品目ごとに
   「0 が正常な品目」を持たせるかを決める。**P4 着手前に決めること。**
 
+### #063 抑制条件が参照する施設の 2 つの属性に対応する列が無い
+- 提起: 2026-08-13 / P4-01 実装中
+- 内容: `docs/PK-SPEC-P4.md` §4.1 の抑制条件に
+  **「施設の `occupancyLinked = false`（A 系統を要するルール）」**、
+  §4.2 の確信度調整に **「施設の運用開始から 60 日以内」**（−10）と
+  **「開業・導入から 30 日以内」**（§4.1、baseline 未成熟なルール）が
+  あるが、`property` に**どちらの列も無い。**
+  `occupancyLinked` は「その施設が稼働記録の連携を持っているか」、
+  運用開始日は「いつからこの施設で ProofKeeping を使い始めたか」を表す。
+- 影響: §4.1 の 6 条件のうち 2 つ、§4.2 の 4 条件のうち 1 つが効かない。
+  抑制が弱いぶん**誤検知が増える側**に倒れる（見逃しではない）。
+  §0.3 の出荷判定「誤検知率 30% 未満」に直接効く。
+- 暫定対応: `packages/engine` は純粋関数なので、両方を `RuleContext` の
+  入力（`property.occupancyLinked` / `property.daysSinceOperationStart`）
+  として受け取る形にした。**engine 側は既に効く。** 呼ぶ側が値を渡せない
+  だけで、渡せるようになれば実装は変わらない。
+- 決める人: **P4-05（照合バッチの配線）の前。** 列を足すなら
+  `property.occupancy_linked`（既定 false）と `property.operation_started_at`。
+  前者は P6 の PMS 連携が有効化するまで false で、`integration` 側の
+  状態から導出する案もある。後者は既存施設のバックフィルが要る
+  （`property.createdAt` で代用するか、明示的に入れるか）。
+
 
 ---
 

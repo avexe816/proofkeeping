@@ -111,6 +111,16 @@ export const AUDIT_ACTIONS = {
   "document.issued": { requiresReason: false },
   "document.corrected": { requiresReason: false },
   "document.sent": { requiresReason: false },
+  /**
+   * 稼働記録の取込（PK-SPEC-P4 §8.1 MUST「再取込時は上書きし、差分を
+   * AuditLog に記録する」）。
+   *
+   * security.md §6 の列挙には無いが、CLAUDE.md §5 の「破壊的操作には必ず
+   * `recordAudit()`」に当たる。**再取込は既存の稼働記録を上書きする**ので、
+   * 差異の根拠が黙って書き換わる経路になりうる。`after` に件数と
+   * 変わった項目を載せる。
+   */
+  "occupancy.imported": { requiresReason: false },
   // データエクスポート・証跡 ZIP 出力
   "export.data": { requiresReason: false },
   "export.evidenceZip": { requiresReason: false },

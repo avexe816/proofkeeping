@@ -39,6 +39,7 @@ import {
 import { expandChecklist, listChecklistItemsByIds, listTemplateItems } from "./checklist.js";
 import { assignTasks } from "./cleaningTask.js";
 import { setHousekeepingStatus } from "./room.js";
+import { upsertOccupancySnapshots } from "./occupancy.js";
 import { countPhotosByTask } from "./taskPhoto.js";
 
 /** 本番相当の規模。**100 室の施設**（§9.5 の盤面がこの大きさ）。 */
@@ -100,6 +101,40 @@ const CASES: Case[] = [
     name: "cleaningTask.assignTasks",
     run: (env, ctx) =>
       assignTasks(env, ctx, ids("task", BULK), generateId(TEST_ORG.orgShortId, "mem")),
+  },
+  {
+    // P4-02。**1 行ずつ INSERT / UPDATE する**ので件数で文が大きくならないが、
+    // 列が 23 個あるため 1 文で 23 変数を使う。列を足したときにここが鳴る。
+    name: "occupancy.upsertOccupancySnapshots（120 室ぶん）",
+    run: (env, ctx) =>
+      upsertOccupancySnapshots(
+        env,
+        ctx,
+        {
+          propertyId: generateId(TEST_ORG.orgShortId, "prop"),
+          businessDate: "2026-09-09",
+          source: "CSV_IMPORT",
+          importedById: generateId(TEST_ORG.orgShortId, "mem"),
+        },
+        ids("room", BULK).map((roomId) => ({
+          roomId,
+          isOccupied: true,
+          guestCount: 2,
+          adultCount: 0,
+          childCount: 0,
+          reservationRef: "RSV-1",
+          channelCode: null,
+          checkInAt: null,
+          checkOutAt: null,
+          isStayover: false,
+          nightsTotal: null,
+          nightIndex: null,
+          ratePlanCode: null,
+          isComplimentary: false,
+          isHouseUse: false,
+          rawPayload: null,
+        })),
+      ),
   },
   {
     name: "cleaningTask.assignTasks（includeActive で 2 文になる経路）",

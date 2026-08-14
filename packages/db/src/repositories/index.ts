@@ -323,3 +323,18 @@ export {
   type ReplaceBaselinesResult,
   type SetBaselineOverrideInput,
 } from "./baseline.js";
+
+// 稼働記録（P4-02 / PK-SPEC-P4 §2.1・§8.1）。
+// **取込元（`source`）ごとに別の行**（DECISIONS #106）。内容が同じ再取込は
+// 書き込みそのものを行わない（同 §10.2）。
+export {
+  MAX_AUDIT_CHANGES,
+  findOccupancySnapshotById,
+  listOccupancySnapshots,
+  upsertOccupancySnapshots,
+  type OccupancyFieldChange,
+  type OccupancyFilter,
+  type OccupancySnapshotInput,
+  type UpsertOccupancyParams,
+  type UpsertOccupancyResult,
+} from "./occupancy.js";

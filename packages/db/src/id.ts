@@ -116,6 +116,14 @@ export const ENTITY_PREFIXES = [
   "bsln", // consumptionBaseline
   "ocfg", // observationConfig
   "bxcl", // baselineExclusionLog
+  // P4-01 が決めたもの（docs/DECISIONS.md #105）。
+  // `find`（auditFinding）と `run`（reconciliationRun）は既に上にある
+  // （architecture.md §2）。ここは残る 5 表ぶん。
+  "occ", // occupancySnapshot
+  "sig", // physicalSignal
+  "racc", // roomAccessLog
+  "dfb", // detectionFeedback
+  "rcfg", // ruleConfig
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */
