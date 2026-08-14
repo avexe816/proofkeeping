@@ -124,6 +124,16 @@ export const ENTITY_PREFIXES = [
   "racc", // roomAccessLog
   "dfb", // detectionFeedback
   "rcfg", // ruleConfig
+  // P5-01 が決めたもの（docs/DECISIONS.md #120）。
+  // `inv`（invoice）と `rcp`（receipt）は既に上にある（PK-SPEC-P0 §19.4）。
+  // ここは残る 6 表ぶん。**帳票の文書番号（`INV-2026-0042`）とは別物**
+  // （あちらは `DocumentSequencer` が採番する人が読む番号 / billing.md §5）。
+  "cp", // counterparty
+  "prc", // pricingRule
+  "invl", // invoiceLine
+  "invt", // invoiceTaxSummary
+  "dlv", // documentDelivery
+  "bper", // billingPeriod
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

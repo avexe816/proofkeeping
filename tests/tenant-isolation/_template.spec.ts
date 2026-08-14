@@ -106,6 +106,16 @@ const TENANT_TABLES = [
   "audit_finding",
   "detection_feedback",
   "rule_config",
+  // P5-01。請求・領収（PK-SPEC-P5 §2）。**発行済み帳票は消せない**
+  // （billing.md §2）。請求書が 1 通混ざれば他社の売上が自社の帳簿に載る。
+  "counterparty",
+  "pricing_rule",
+  "invoice",
+  "invoice_line",
+  "invoice_tax_summary",
+  "receipt",
+  "document_delivery",
+  "billing_period",
 ] as const;
 
 /**

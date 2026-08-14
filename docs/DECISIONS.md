@@ -2524,3 +2524,43 @@
   `apps/web/src/consumers/auditReport.ts`。同じ月を 2 回作れば同じキーへ
   同じ内容が載る（冪等 / testing.md §4）。**版が要ると分かったら
   表を足す**（この判断は覆しやすい）。
+
+## #120 請求・領収の 6 表に新しい entityPrefix を採る
+- 日付: 2026-08-14
+- 状態: 採用
+- 背景: PK-SPEC-P0 §19.4 の一覧には `inv`（invoice）と `rcp`（receipt）が
+  あるが、P5-01 が足す 8 表のうち残り 6 つには接頭辞が無い。
+- 決定: `cp`（counterparty）/ `prc`（pricingRule）/ `invl`（invoiceLine）/
+  `invt`（invoiceTaxSummary）/ `dlv`（documentDelivery）/
+  `bper`（billingPeriod）。
+- 理由: 既存の付け方（`racc` / `dfb` / `rcfg` / `bsln`）に倣い、
+  表名から読める 2〜4 文字にした。`inv` を親に持つ 2 表は
+  `invl` / `invt` として並びで分かるようにしてある。
+- 影響: `packages/db/src/id.ts` の `ENTITY_PREFIXES`。
+  **一度使った接頭辞は変えられない**（既存行の ID に焼き付く）。
+  帳票の文書番号（`INV-2026-0042`）とは別物で、あちらは
+  `DocumentSequencer` が採番する人が読む番号（billing.md §5）。
+
+## #121 請求の 8 表に施設スコープを掛けない
+- 日付: 2026-08-14
+- 状態: 採用
+- 背景: リポジトリ層の第 1 層（architecture.md §2）は
+  `withTenantScope(table, ctx, propertyColumn, ...)` で組織条件と
+  施設スコープを同時に載せる。**請求の 8 表のうち施設列を持つのは
+  `pricingRule.propertyId` と `invoiceLine.propertyId` の 2 つだけ**で、
+  どちらも `null`（＝全施設）を取りうる。
+- 選択肢:
+  1. 施設列を持つ 2 表に `scopeToProperties()` を掛ける
+  2. 8 表とも `NO_PROPERTY_SCOPE` にし、施設の絞りは呼び出し側の
+     フィルタで受ける
+- 決定: 2。
+- 理由: 1 だと `propertyId IS NULL` の行（取引先の全施設に効く料金）が
+  施設スコープロールから消える。**「全施設向けの単価」が
+  「どの施設からも見えない単価」になる。** 加えて請求は組織の会計で、
+  誰が読めるかは `billing.read`（security.md §1。`INSPECTOR` は不可）が
+  別に決める。第 1 層の役割は組織の分離で、そこは 8 表とも効いている。
+- 影響: `packages/db/src/repositories/invoice.ts`。
+  `withOrganizationScope()` は**使っていない**（あれは認証
+  ブートストラップ専用で、`repositories.spec.ts` が `user.ts` だけに
+  固定している）。`NO_PROPERTY_SCOPE` を明示する形にしてあるので、
+  「施設で絞るべき表なのに書き忘れた」とは区別できる。
