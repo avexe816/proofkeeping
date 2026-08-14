@@ -1073,6 +1073,13 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => userRepo.listPropertyStaff(env, ctx, OWN_ID.property),
     crossTenant: (env, ctx) => userRepo.listPropertyStaff(env, ctx, OTHER_ID.property),
   },
+  // P5-15 の清掃会社プランが読む「稼働スタッフ」（PK-SPEC-P5 §7.2）。
+  // **人数だけを返す。** 個人が並ぶ配列を画面へ渡さない（security.md §5）。
+  {
+    name: "user.countActiveMembershipsByRole",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.countActiveMembershipsByRole(env, ctx),
+  },
   {
     name: "user.setUserLocale",
     kind: "tenant",
@@ -2465,6 +2472,14 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => invoiceRepo.listBillingPeriodReviews(env, ctx, OWN_ID.billingPeriod),
     crossTenant: (env, ctx) =>
       invoiceRepo.listBillingPeriodReviews(env, ctx, OTHER_ID.billingPeriod),
+  },
+  // P5-15 の請求状況が読む「最後に見せた明細の写し」（同 §7.2）。
+  // **締めを集計し直さない**（`findLatestReviewSnapshotTotals()` の注記）。
+  {
+    name: "invoice.findLatestReviewSnapshotTotals",
+    kind: "tenant",
+    run: (env, ctx) =>
+      invoiceRepo.findLatestReviewSnapshotTotals(env, ctx, [OWN_ID.billingPeriod]),
   },
   {
     name: "invoice.findBillingPeriodReviewById",

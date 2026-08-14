@@ -5,14 +5,18 @@
  * 正例と負例を並べて固定する。
  */
 
+import { LOW_HOURLY_RATE_PERCENT } from "@pk/contracts";
 import { describe, expect, it } from "vitest";
 
 import {
   NO_VALUE,
   costPerTask,
   formatAverageMinutes,
+  formatHours,
   formatPercent,
   formatYen,
+  hourlyRate,
+  isLowHourlyRate,
   orDash,
 } from "./format.js";
 
@@ -109,5 +113,81 @@ describe("orDash", () => {
   it("null は — にする（0 と区別する）", () => {
     expect(orDash(null)).toBe(NO_VALUE);
     expect(NO_VALUE).not.toBe("0");
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 清掃会社プラン（P5-15 / PK-SPEC-P5 §7.2）
+// ────────────────────────────────────────────────────────────
+
+describe("formatHours", () => {
+  it.each([
+    [37_860, "631"],
+    [28_680, "478"],
+    [14_700, "245"],
+    [59, "0"],
+    [0, "0"],
+  ])("%i 分 → %s 時間（切り捨て）", (minutes, expected) => {
+    expect(formatHours(minutes)).toBe(expected);
+  });
+});
+
+describe("hourlyRate", () => {
+  // §7.2 の見本（1,113,860 円 / 631h → ¥1,765）。**切り捨てる。**
+  // 見本の ¥1,625 は 1,624.9 を丸めた値で、ここは 1,624 になる
+  // （`costPerTask()` と同じ扱い。表示のための数字を切り上げない）。
+  it.each([
+    [1_113_860, 37_860, 1765],
+    [842_300, 28_680, 1762],
+    [398_100, 14_700, 1624],
+  ])("%i 円 / %i 分 → %i 円", (amount, minutes, expected) => {
+    expect(hourlyRate(amount, minutes)).toBe(expected);
+  });
+
+  it("分を時間へ直してから割らない（端数で単価がずれる）", () => {
+    // 90 分 = 1.5 時間。時間へ切り捨ててから割ると 3,000 円になる。
+    expect(hourlyRate(3000, 90)).toBe(2000);
+  });
+
+  it.each([
+    [null, 1000],
+    [1000, 0],
+    [1000, -1],
+  ])("請求額 %s / 実働 %i 分 なら null（0 円と書かない）", (amount, minutes) => {
+    expect(hourlyRate(amount, minutes)).toBeNull();
+  });
+});
+
+describe("isLowHourlyRate", () => {
+  it.each([
+    [1624, 1911],
+    [0, 1911],
+    [1, 100],
+  ])("単価 %i が平均 %i の 85% 未満なら真", (rate, average) => {
+    expect(isLowHourlyRate(rate, average)).toBe(true);
+  });
+
+  it.each([
+    [1765, 1911],
+    [1762, 1911],
+    [1911, 1911],
+    [3000, 1911],
+    // ちょうど 85%（境界）。**「下回る」なので含めない。**
+    [850, 1000],
+  ])("単価 %i が平均 %i の 85% 以上なら偽", (rate, average) => {
+    expect(isLowHourlyRate(rate, average)).toBe(false);
+  });
+
+  it.each([
+    [null, 1911],
+    [1000, null],
+    [1000, 0],
+  ])("単価 %s / 平均 %s のどちらかが無ければ警告しない", (rate, average) => {
+    expect(isLowHourlyRate(rate, average)).toBe(false);
+  });
+
+  it("しきい値は契約側の整数を既定にする（0.85 を掛けない）", () => {
+    expect(LOW_HOURLY_RATE_PERCENT).toBe(85);
+    expect(isLowHourlyRate(849, 1000, LOW_HOURLY_RATE_PERCENT)).toBe(true);
   });
 });

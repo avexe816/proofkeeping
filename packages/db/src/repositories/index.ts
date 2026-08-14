@@ -227,6 +227,7 @@ export {
 
 export {
   PASSWORD_HISTORY_GENERATIONS,
+  countActiveMembershipsByRole,
   findMembershipByUserId,
   findMembershipStartedAt,
   findUserById,
@@ -407,6 +408,7 @@ export {
   findCounterpartyById,
   findDocumentDeliveryById,
   findInvoiceById,
+  findLatestReviewSnapshotTotals,
   findPricingRuleById,
   findReceiptById,
   insertPricingRule,

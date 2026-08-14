@@ -412,6 +412,17 @@ export interface InvoiceFilter {
   status?: readonly InvoiceStatus[] | undefined;
   issueDateFrom?: string | undefined;
   issueDateTo?: string | undefined;
+  /**
+   * 対象期間（`periodFrom` 〜 `periodTo`）がこの窓と**重なる**ものだけ。
+   *
+   * `issueDateFrom` / `issueDateTo` とは別物。発行日は月をまたぐ（9 月分を
+   * 10 月 1 日に出す）ので、**「9 月の請求」を発行日では引けない。**
+   * 締め日が月末でない取引先ではさらにずれる（`counterparty.closingDay`）。
+   * 重なりで拾い、日割りしない — `sumInvoiceLineAmountsByProperty()` と
+   * 同じ扱い（そちらの注記）。
+   */
+  periodOverlapFrom?: string | undefined;
+  periodOverlapTo?: string | undefined;
   amountFrom?: number | undefined;
   amountTo?: number | undefined;
   limit?: number | undefined;
@@ -439,6 +450,13 @@ export async function listInvoices(env: Env, ctx: TenantContext, filter: Invoice
           ? undefined
           : gte(invoice.issueDate, filter.issueDateFrom),
         filter.issueDateTo === undefined ? undefined : lte(invoice.issueDate, filter.issueDateTo),
+        // 重なりの条件は 2 つで 1 組。**片方だけ書かない**（窓の外の請求書が混ざる）。
+        filter.periodOverlapTo === undefined
+          ? undefined
+          : lte(invoice.periodFrom, filter.periodOverlapTo),
+        filter.periodOverlapFrom === undefined
+          ? undefined
+          : gte(invoice.periodTo, filter.periodOverlapFrom),
         filter.amountFrom === undefined ? undefined : gte(invoice.totalAmount, filter.amountFrom),
         filter.amountTo === undefined ? undefined : lte(invoice.totalAmount, filter.amountTo),
       ),
@@ -593,6 +611,13 @@ export interface BillingPeriodFilter {
   status?: readonly BillingPeriodStatus[] | undefined;
   /** 期間の終わりがこの日以降。 */
   periodToFrom?: string | undefined;
+  /**
+   * 期間の始まりがこの日以前。
+   *
+   * `periodToFrom` と組にして**重なり**を表す（P5-15）。単独で使うと
+   * 「その日より前に始まった全期間」になり、窓の意味を持たない。
+   */
+  periodFromTo?: string | undefined;
   limit?: number | undefined;
 }
 
@@ -618,6 +643,9 @@ export async function listBillingPeriods(
         filter.periodToFrom === undefined
           ? undefined
           : gte(billingPeriod.periodTo, filter.periodToFrom),
+        filter.periodFromTo === undefined
+          ? undefined
+          : lte(billingPeriod.periodFrom, filter.periodFromTo),
       ),
     )
     .orderBy(desc(billingPeriod.periodTo), billingPeriod.counterpartyId)
@@ -859,6 +887,64 @@ export async function listBillingPeriodReviews(
     )
     .orderBy(billingPeriodReview.seq)
     .limit(500);
+}
+
+/**
+ * 期間ごとの「最後に見せた明細の税込合計」（P5-15 / PK-SPEC-P5 §7.2）。
+ *
+ * ── なぜ `billingPeriod` から取れないのか ────────────────
+ * `billingPeriod` は**金額の列を持たない**（DECISIONS #124）。締めの金額は
+ * 都度 `buildInvoiceDraft()` が出すもので、行に焼き付いていない。§7.2 の
+ * 請求状況は「集計中」「合意待ち」の期間にも金額を並べるので、請求書が
+ * まだ無い期間の数字がどこかに要る。
+ *
+ * ── 集計し直さない ──────────────────────────────────────
+ * `buildPeriodDraft()` は期間ぶんのタスク・客室・料金設定を引く。取引先の
+ * 数だけ回すと、**1 画面で CPU 50ms を軽く超える**（CLAUDE.md §4）。
+ * 代わりに、双方合意の履歴が持つ写し（§6.2 MUST の修正履歴）を読む。
+ * これは「**その時ホテルに見せた数字**」で、合意の対象そのもの。
+ * いま集計し直した数字より、画面に出す値としてむしろ正しい。
+ *
+ * ── 最後の 1 件だけを採る ───────────────────────────────
+ * 履歴は追記だけで、差戻しのたびに増える（`billingPeriodReview` の注記）。
+ * `seq` が最大の行が最新。SQL で期間ごとの最大を取ると相関副問い合わせに
+ * なるので、**期間ぶんを読んで JS で畳む。** 1 期間の履歴はたかだか数十行。
+ *
+ * @returns 締めの ID → 税込合計。**履歴が 1 件も無い期間は載らない。**
+ */
+export async function findLatestReviewSnapshotTotals(
+  env: Env,
+  ctx: TenantContext,
+  billingPeriodIds: readonly string[],
+): Promise<Map<string, number>> {
+  if (billingPeriodIds.length === 0) return new Map();
+  const db = await getTenantDb(env, ctx);
+
+  const latest = new Map<string, { seq: number; total: number }>();
+  for (const chunk of chunkIdsForInArray(billingPeriodIds)) {
+    const rows = await db
+      .select({
+        billingPeriodId: billingPeriodReview.billingPeriodId,
+        seq: billingPeriodReview.seq,
+        total: billingPeriodReview.snapshotTotalAmount,
+      })
+      .from(billingPeriodReview)
+      .where(
+        withTenantScope(
+          billingPeriodReview,
+          ctx,
+          NO_PROPERTY_SCOPE,
+          inArray(billingPeriodReview.billingPeriodId, [...chunk]),
+        ),
+      );
+    for (const row of rows) {
+      const held = latest.get(row.billingPeriodId);
+      if (held === undefined || row.seq > held.seq) {
+        latest.set(row.billingPeriodId, { seq: row.seq, total: row.total });
+      }
+    }
+  }
+  return new Map([...latest].map(([id, held]) => [id, held.total]));
 }
 
 /** 1 件。**越境 ID は DB へ行く前に `NotFoundError`。** */
