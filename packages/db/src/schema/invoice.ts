@@ -218,7 +218,13 @@ export const pricingRule = sqliteTable(
     isReducedRate: integer("is_reduced_rate", { mode: "boolean" }).notNull().default(false),
     validFrom: text("valid_from").notNull(),
     validTo: text("valid_to"),
-    /** 同じ具体度で競合したときの優先順位。大きいほうが勝つ。 */
+    /**
+     * 同じ具体度で競合したときの優先順位。**小さいほうが勝つ**（§3.2）。
+     *
+     * 直感と逆に見えるが、仕様が「同一優先度が複数ある場合は priority の
+     * 小さいものを採用」と明記している。既定 50 は「あとから前にも後ろにも
+     * 割り込める」ようにするための中央値。
+     */
     priority: integer("priority").notNull().default(50),
     ...timestamps,
   },

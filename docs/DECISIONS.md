@@ -2564,3 +2564,47 @@
   ブートストラップ専用で、`repositories.spec.ts` が `user.ts` だけに
   固定している）。`NO_PROPERTY_SCOPE` を明示する形にしてあるので、
   「施設で絞るべき表なのに書き忘れた」とは区別できる。
+
+---
+
+## #122 取引先コードは登録後に付け替えられない
+- 日付: 2026-08-14
+- 状態: 採用
+- 背景: `counterparty` の一意制約は `uq_cp`（`organizationId` × `code`）で、
+  `upsertCounterparty()` はこのコードで既存を引く。PATCH で別の `code` を
+  受け取ると、**更新ではなくもう 1 件が生まれる**（`id` では引いていない）。
+- 選択肢:
+  1. `id` で引く更新関数を別に足し、コードの付け替えを許す
+  2. PATCH でコードが変わっていたら 400 を返し、付け替えを禁じる
+- 決定: 2。
+- 理由: 取引先コードは先方との突合に使う値でもある。途中で変わると、
+  同じ相手が先方の会計側で別の相手に見える。**過去の請求書の宛先が
+  何者だったかを、コードから追えなくする変更**にあたる。
+  相手を作り直したいときは新しい行を作り、古い方の「取引中」を外す
+  （行は消さない / PK-SPEC-P0 §24.4 と同じ方針）。
+- 影響: `apps/web/src/routes/api/v1/counterparties.ts`（PATCH で 400）、
+  `apps/web/src/routes/app/counterparties.tsx`（コード欄を `readOnly`）。
+  POST で既存コードに当たった場合は 409（黙って上書きしない）。
+
+---
+
+## #123 料金設定の終了は `validTo` だけを書く専用の口にする
+- 日付: 2026-08-14
+- 状態: 採用
+- 背景: PK-SPEC-P5 §2.2 の `pricingRule` は `validFrom` / `validTo` を持ち、
+  値上げは行の追加で表す。一方で「この料金を今日で終わりにする」は
+  既存の行に終了日を入れる操作で、**唯一の正当な更新**になる。
+- 選択肢:
+  1. 汎用の `updatePricingRule()` を置き、`validTo` 以外も更新できるようにする
+  2. `closePricingRule(env, ctx, id, validTo)` を置き、書ける列を 1 つに絞る
+- 決定: 2。API は `POST /api/v1/pricing-rules/:id/close`。
+- 理由: 1 だと「値上げは行の追加」が迂回できる。単価を書き換えると、
+  すでに発行した請求書の根拠（当時いくらだったか）が黙って変わる。
+  帳票側はスナップショットで守られている（billing.md §6）が、
+  **未発行の締め期間を再計算したときに金額が変わる**経路が残る。
+- 理由（もう 1 つ）: `validFrom` より前へは閉じない。開始前に終わる行は
+  `isEffective()` から見て「一度も有効でなかった規則」になり、
+  消せない表の中で消したのと同じ状態を作れてしまう。
+- 影響: `packages/db/src/repositories/invoice.ts`（`closePricingRule()`）、
+  `apps/web/src/routes/api/v1/pricingRules.ts`。
+  監査ログは `pricingRule.closed`（`before` / `after` に `validTo` のみ）。

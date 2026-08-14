@@ -29,6 +29,7 @@ import auth from "./routes/api/v1/auth.js";
 import baselines from "./routes/api/v1/baselines.js";
 import dev from "./routes/api/v1/dev.js";
 import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
+import counterparties from "./routes/api/v1/counterparties.js";
 import dataQuality from "./routes/api/v1/dataQuality.js";
 import evidence from "./routes/api/v1/evidence.js";
 import files from "./routes/api/v1/files.js";
@@ -38,6 +39,7 @@ import issues from "./routes/api/v1/issues.js";
 import lostItems from "./routes/api/v1/lostItems.js";
 import organization from "./routes/api/v1/organization.js";
 import properties from "./routes/api/v1/properties.js";
+import pricingRules from "./routes/api/v1/pricingRules.js";
 import reconciliation from "./routes/api/v1/reconciliation.js";
 import reworks from "./routes/api/v1/reworks.js";
 import reports from "./routes/api/v1/reports.js";
@@ -188,6 +190,12 @@ api.route("/room-access-logs", roomAccessLogs);
 // ルール設定（P4-13 / 同 §2.7 / W-25）。**engine を変えずに調整するための口。**
 // ルールの条件式を送る欄が無い。`OWNER` / `ORG_ADMIN` だけ（§6.4）。
 api.route("/rule-configs", ruleConfigs);
+// 取引先マスタ（P5-02 / PK-SPEC-P5 §2.1）。**消す口が無い**（無効化のみ）。
+// 書けるのは `OWNER` / `ORG_ADMIN`。締め日・支払サイト・端数処理はここ。
+api.route("/counterparties", counterparties);
+// 料金設定（P5-03 / 同 §2.2・§3.2）。**更新の口が無い**（値上げは行の追加、
+// 終了は `close`）。5 段階の解決は `packages/billing` の純粋関数。
+api.route("/pricing-rules", pricingRules);
 // 観察記録の入力品質（P3-12 / 同 §6.3 / W-22）。**読み取りだけ。**
 // スタッフ別は入力率だけを返す（security.md §5 / INV-07）。
 api.route("/data-quality", dataQuality);

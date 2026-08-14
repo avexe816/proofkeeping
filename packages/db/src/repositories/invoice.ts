@@ -237,7 +237,10 @@ export async function listPricingRules(
             ),
       ),
     )
-    .orderBy(desc(pricingRule.priority), pricingRule.validFrom, pricingRule.id);
+    // **`priority` は小さいほうが勝つ**（§3.2）。昇順で並べる。
+    // 解決そのものは `packages/billing` の純粋関数（具体度が先、priority は
+    // 同点のときの決着）。ここは決定性のための並びを与えるだけ。
+    .orderBy(pricingRule.priority, pricingRule.validFrom, pricingRule.id);
 }
 
 /** 1 件。**越境 ID は DB へ行く前に `NotFoundError`。** */
@@ -273,8 +276,7 @@ export interface InsertPricingRuleInput {
  * **更新する関数が無い。** §2.2 は `validFrom` / `validTo` を持つので、
  * **値上げは行の追加**で表す。既存の行を書き換えると、過去の請求書の
  * 根拠（当時いくらだったか）が変わる。終了するときは `validTo` を
- * 入れた新しい行ではなく、`closePricingRule()`（P5-03 が足す）で
- * 期間を閉じること。
+ * 入れた新しい行ではなく、`closePricingRule()`（下）で期間を閉じること。
  */
 export async function insertPricingRule(
   env: Env,
@@ -294,6 +296,36 @@ export async function insertPricingRule(
     updatedAt: ctx.now,
   });
   return id;
+}
+
+/**
+ * 料金設定の期間を閉じる（P5-03）。
+ *
+ * **`validTo` だけを書く。** 単価・税率・対象の軸は触らない。ここを
+ * 開いてしまうと「値上げは行の追加」（`insertPricingRule()` の注記）が
+ * 迂回でき、過去の請求書の根拠が黙って変わる。
+ *
+ * 既に閉じている行を閉じ直せる（冪等）。`validFrom` より前へは閉じない
+ * — **開始前に終わる行**を作らないため。閉じられなかったときは `false`。
+ */
+export async function closePricingRule(
+  env: Env,
+  ctx: TenantContext,
+  pricingRuleId: string,
+  validTo: string,
+): Promise<boolean> {
+  assertIdBelongsToTenant(pricingRuleId, ctx);
+  const existing = await findPricingRuleById(env, ctx, pricingRuleId);
+  if (existing === undefined || validTo < existing.validFrom) return false;
+
+  const db = await getTenantDb(env, ctx);
+  await db
+    .update(pricingRule)
+    .set({ validTo, updatedAt: ctx.now })
+    .where(
+      and(eq(pricingRule.organizationId, ctx.organizationId), eq(pricingRule.id, pricingRuleId)),
+    );
+  return true;
 }
 
 // ────────────────────────────────────────────────────────────

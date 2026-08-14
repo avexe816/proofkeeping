@@ -111,6 +111,24 @@ export const AUDIT_ACTIONS = {
   "session.scopeSwitchedToAll": { requiresReason: false },
   // 差異レポートのステータス変更
   "finding.statusChanged": { requiresReason: false },
+  /**
+   * 取引先マスタの作成・更新（P5-02 / PK-SPEC-P5 §2.1）。
+   *
+   * security.md §6 の列挙は「施設・客室マスタ」までだが、**取引先は帳票の
+   * スナップショット元**（billing.md §6）。ここが変わっても過去の請求書は
+   * 変わらない設計なので、「いつ誰が請求先メールを差し替えたか」は
+   * マスタ側にしか残らない。`isActive = false` が実質の削除でもある。
+   */
+  "counterparty.created": { requiresReason: false },
+  "counterparty.updated": { requiresReason: false },
+  /**
+   * 料金設定の追加と終了（P5-03 / PK-SPEC-P5 §2.2）。
+   *
+   * 請求金額の根拠そのもの。**更新の口が無い**（値上げは行の追加）ので、
+   * 残すのは「足した」と「期間を閉じた」の 2 つ。
+   */
+  "pricingRule.created": { requiresReason: false },
+  "pricingRule.closed": { requiresReason: false },
   // 帳票の発行・訂正・送付
   "document.issued": { requiresReason: false },
   "document.corrected": { requiresReason: false },

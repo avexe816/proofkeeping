@@ -2022,6 +2022,15 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => invoiceRepo.insertPricingRule(env, ctx, PRICING_INPUT(OWN_ID)),
     crossTenant: (env, ctx) => invoiceRepo.insertPricingRule(env, ctx, PRICING_INPUT(OTHER_ID)),
   },
+  // ── P5-03 が足したもの（同 §2.2）──────────────────────────
+  {
+    // **`validTo` だけを書く更新。** 単価は触れない（値上げは行の追加）。
+    name: "invoice.closePricingRule",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.closePricingRule(env, ctx, OWN_ID.pricingRule, "2026-12-31"),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.closePricingRule(env, ctx, OTHER_ID.pricingRule, "2026-12-31"),
+  },
   {
     name: "invoice.listInvoices",
     kind: "tenant",

@@ -125,6 +125,22 @@ export const PERMISSION_ACTIONS = {
   "ruleConfig.read": { write: false },
   "ruleConfig.write": { write: true },
   /**
+   * 取引先マスタと料金設定（P5-02 / P5-03 / PK-SPEC-P5 §2.1・§2.2）。
+   *
+   * **既存の `billing.read` と分けてある。** あちらは「請求情報を見られるか」
+   * （security.md §1 の絶対境界。`INSPECTOR` は不可）で、こちらは
+   * **単価そのものを設定できるか。** 単価は取引条件で、施設の運用より
+   * 経営の判断に近い（PK-IMPL-CONTRACT §4 が「単価・契約条件」を
+   * 別の行にしているのと同じ筋）。
+   *
+   * 閲覧は `billing.read` と同じ配り方（施設責任者は担当施設ぶんの請求を
+   * 見られるので、その単価も見えないと金額を確かめられない）。
+   * **書き込みは `OWNER` / `ORG_ADMIN` だけ。** 施設責任者が自分の施設の
+   * 単価を動かせると、請求額を現場側で決められることになる。
+   */
+  "counterparty.read": { write: false },
+  "counterparty.write": { write: true },
+  /**
    * 忘れ物の保管場所・返却先。**`CLEANER` は見られない**（security.md §1）。
    * 忘れ物そのものの記録とは別の操作。P0 に実体は無い。
    */
@@ -630,6 +646,26 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     AUDITOR: "ORG",
   },
   "ruleConfig.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // P5-02 / P5-03。単価は取引条件（`PERMISSION_ACTIONS` の注記）。
+  // 閲覧は `billing.read` と同じ、**書き込みは組織全体ロールだけ。**
+  "counterparty.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "counterparty.write": {
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "DENY",

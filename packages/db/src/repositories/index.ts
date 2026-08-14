@@ -385,6 +385,7 @@ export {
 // **`invoice` / `receipt` を消す関数も、金額を書き換える関数も無い**
 // （billing.md §2。訂正は赤伝＋再発行）。
 export {
+  closePricingRule,
   findBillingPeriodById,
   findCounterpartyById,
   findDocumentDeliveryById,

@@ -72,6 +72,10 @@ const EXPECTED: Record<PermissionAction, string> = {
   // **閲覧も施設責任者に開かない**（閾値は判定の内側の値）。
   "ruleConfig.read": "OO----O",
   "ruleConfig.write": "OO-----",
+  // P5-02 / P5-03。取引先と単価（PK-SPEC-P5 §2.1・§2.2）。
+  // 閲覧は `billing.read` と同じ、**書き込みは組織全体ロールだけ。**
+  "counterparty.read": "OOA---O",
+  "counterparty.write": "OO-----",
   "lostItem.readStorage": "OOAA-AO",
   "billing.read": "OOA---O",
   // P1。清掃タスク（PK-SPEC-P1 §5.3）と設定画面（同 §10.1）。

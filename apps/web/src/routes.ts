@@ -80,6 +80,13 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
  * 含み、差異は施設をまたいで一覧できる（`?propertyId=` で絞る）。
  * `CLEANER` / `INSPECTOR` は loader が 404 を投げる（§6.4 MUST）。
  *
+ * ── P5-02 / P5-03 が足した請求の設定画面 ────────────────
+ *   /app/settings/counterparties  取引先と料金（§2.1・§2.2）
+ *
+ * **画面番号が無い。** P5 の W- は W-30（月次締め）と W-31（入金管理）
+ * だけで、マスタの画面は §10 に振られていない。料金は取引先にぶら下がる
+ * ので 1 枚にまとめてある（`?counterpartyId=` で相手を選ぶ）。
+ *
  * ── P2-09 が足した証跡の画面 ────────────────────────────
  *   /app/p/:propertyId/evidence          W-06 証跡一覧（1 業務日ぶん）
  *   /app/p/:propertyId/evidence/:taskId  W-07 証跡詳細（§12.2 の表示順）
@@ -135,6 +142,7 @@ export default [
     route("app/settings/baseline", "routes/app/baselineSettings.tsx"),
     route("app/p/:propertyId/data-quality", "routes/app/dataQuality.tsx"),
     route("app/settings/rules", "routes/app/ruleSettings.tsx"),
+    route("app/settings/counterparties", "routes/app/counterparties.tsx"),
     route("app/audit/findings", "routes/app/findings.tsx"),
     route("app/audit/findings/:findingId", "routes/app/findingDetail.tsx"),
   ]),

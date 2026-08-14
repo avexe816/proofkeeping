@@ -91,6 +91,8 @@ describe("登録簿の不変条件", () => {
       // P3-10 が足した W-21（ベースライン確認・上書き）。
       "nav.baseline",
       "nav.taxProfile",
+      // P5-02 / P5-03 が足した取引先と料金の設定。
+      "nav.counterparties",
     ]);
   });
 
