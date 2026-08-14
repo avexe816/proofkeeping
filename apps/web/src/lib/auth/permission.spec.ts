@@ -74,6 +74,7 @@ const EXPECTED: Record<PermissionAction, string> = {
   "ruleConfig.write": "OO-----",
   "lostItem.readStorage": "OOAA-AO",
   "billing.read": "OOA---O",
+  "billing.write": "OO-----",
   // P1。清掃タスク（PK-SPEC-P1 §5.3）と設定画面（同 §10.1）。
   "task.read": "OOAAAAO",
   "task.write": "OOA-AA-",

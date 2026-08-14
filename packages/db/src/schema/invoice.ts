@@ -218,7 +218,15 @@ export const pricingRule = sqliteTable(
     isReducedRate: integer("is_reduced_rate", { mode: "boolean" }).notNull().default(false),
     validFrom: text("valid_from").notNull(),
     validTo: text("valid_to"),
-    /** 同じ具体度で競合したときの優先順位。大きいほうが勝つ。 */
+    /**
+     * 同じ具体度（§3.2 の同じ段）で競合したときの順位。**小さいほうが勝つ。**
+     *
+     * P5-01 は「大きいほうが勝つ」と書いていたが、§3.2 は
+     * 「同一優先度が複数ある場合は priority の小さいものを採用」。
+     * 仕様が唯一の正（CLAUDE.md §7）なので向きを直した。
+     * 解決そのものは `packages/billing` の `resolvePricingRule()`。
+     * docs/DECISIONS.md #122。
+     */
     priority: integer("priority").notNull().default(50),
     ...timestamps,
   },

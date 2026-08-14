@@ -46,6 +46,8 @@ import occupancy from "./routes/api/v1/occupancy.js";
 import roomAccessLogs from "./routes/api/v1/roomAccessLogs.js";
 import ruleConfigs from "./routes/api/v1/ruleConfigs.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
+import counterparties from "./routes/api/v1/counterparties.js";
+import pricingRules from "./routes/api/v1/pricingRules.js";
 import roomTypes from "./routes/api/v1/roomTypes.js";
 import session from "./routes/api/v1/session.js";
 import standardTimes from "./routes/api/v1/standardTimes.js";
@@ -197,6 +199,10 @@ api.route("/room-types", roomTypes);
 api.route("/standard-times", standardTimes);
 // チェックリスト定義（P1-06 / W-16）。3 階層の継承はタスク生成時に解決する。
 api.route("/checklist-templates", checklistTemplates);
+// 取引先マスタ（P5-02 / PK-SPEC-P5 §2.1）。**物理削除の口が無い**（無効化のみ）。
+api.route("/counterparties", counterparties);
+// 料金設定（P5-03 / 同 §2.2・§3.2）。更新ではなく期間を閉じる。
+api.route("/pricing-rules", pricingRules);
 // 組織設定（P1-22 / §19.4）。施設選択画面を挟む閾値だけ。
 api.route("/organization", organization);
 app.route("/api/v1", api);

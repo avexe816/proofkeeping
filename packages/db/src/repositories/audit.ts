@@ -111,6 +111,27 @@ export const AUDIT_ACTIONS = {
   "session.scopeSwitchedToAll": { requiresReason: false },
   // 差異レポートのステータス変更
   "finding.statusChanged": { requiresReason: false },
+  /**
+   * 取引先マスタの登録・更新・無効化（P5-02 / PK-SPEC-P5 §2.1）。
+   *
+   * security.md §6 の列挙に「取引先」の行は無いが、CLAUDE.md §5 の
+   * 「破壊的操作には必ず `recordAudit()`」に当たる。**請求書の宛先と
+   * 端数処理方式がここで決まる。** 送付先メールが黙って書き換わると、
+   * 請求書が別の宛先へ届く。`property.created` に相乗りさせないのは、
+   * 施設と取引先が別の資源で、監査時に区別できないと追えないため。
+   */
+  "counterparty.created": { requiresReason: false },
+  "counterparty.updated": { requiresReason: false },
+  /**
+   * 料金設定の登録・期間終了（P5-03 / 同 §2.2）。
+   *
+   * **単価は請求金額の根拠そのもの。** 誰がいつその単価を入れたかが
+   * 残らないと、金額の争いを事後に解けない（§11「料金設定の抜けで
+   * 請求漏れ」）。更新の口は無く、値上げは行の追加なので
+   * `pricingRule.created` と `pricingRule.closed` の 2 つで足りる。
+   */
+  "pricingRule.created": { requiresReason: false },
+  "pricingRule.closed": { requiresReason: false },
   // 帳票の発行・訂正・送付
   "document.issued": { requiresReason: false },
   "document.corrected": { requiresReason: false },
