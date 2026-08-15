@@ -44,6 +44,9 @@ const EXPECTED_ROOT_SCRIPTS = [
   // 既定は `--plan`（何も触らない）。手順 4・6 は自動化していない
   // （docs/DECISIONS.md #162）。
   "shards:move",
+  // P7-12。負荷試験（PK-SPEC-P7 §4.2）。**既定は dry-run**（何も叩かない）。
+  // **本番へは向けられない**（`scripts/load-test.ts` が拒む）。
+  "loadtest",
 ] as const;
 
 /**
