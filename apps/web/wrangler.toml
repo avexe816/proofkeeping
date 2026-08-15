@@ -557,12 +557,12 @@ RESEND_FROM_ADDRESS = "billing@example.invalid"
 [[env.staging.d1_databases]]
 binding = "SHARD_00"
 database_name = "proofkeeping-shard-00-staging"
-database_id = "TODO-P0-02-未作成-STAGING-SHARD-00"
+database_id = "ca861dd2-41db-4e23-83de-e1038389941b"
 
 [[env.staging.d1_databases]]
 binding = "SHARD_01"
 database_name = "proofkeeping-shard-01-staging"
-database_id = "TODO-P0-02-未作成-STAGING-SHARD-01"
+database_id = "c9d4b415-2a96-433b-94ec-9705b87b1a67"
 
 [[env.staging.r2_buckets]]
 binding = "PHOTOS"
@@ -582,25 +582,25 @@ bucket_name = "pk-archive-staging"
 
 [[env.staging.kv_namespaces]]
 binding = "SESSION"
-id = "TODO-P0-02-未作成-STAGING-SESSION"
+id = "06a09cc856fa4701bf34335f411eec8a"
 
 [[env.staging.kv_namespaces]]
 binding = "RATELIMIT"
-id = "TODO-P0-02-未作成-STAGING-RATELIMIT"
+id = "3d7eb0eb7d6b490c82416c2938b0af4f"
 
 [[env.staging.kv_namespaces]]
 binding = "CONFIG"
-id = "TODO-P0-02-未作成-STAGING-CONFIG"
+id = "efbfa39534634153870f4b264599d90a"
 
 [[env.staging.kv_namespaces]]
 binding = "CREDENTIALS"
-id = "TODO-P0-02-未作成-STAGING-CREDENTIALS"
+id = "b3fa902ae37448c5ae738a18f88d0ee2"
 
 # TTL 禁止。理由は top-level の SHARD_MAP のコメントを参照。
 # staging は SHARD_COUNT = 2 なので、明示マッピングが実際に効く唯一の非本番環境。
 [[env.staging.kv_namespaces]]
 binding = "SHARD_MAP"
-id = "TODO-P0-02-未作成-STAGING-SHARD_MAP"
+id = "e742a31b29bb4d459e0265b506684f07"
 
 [[env.staging.queues.producers]]
 binding = "QUEUE_PDF_GENERATION"
