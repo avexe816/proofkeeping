@@ -24,16 +24,14 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { FORBIDDEN } from "../../packages/config/eslint/rules/forbidden-words-list.js";
+import { PROSE_FORBIDDEN, forbiddenHits, prose } from "./vocabulary.js";
+
 const ROOT = join(import.meta.dirname, "..", "..");
 const GUIDES = join(ROOT, "docs", "guides");
 
 function read(name: string): string {
   return readFileSync(join(GUIDES, name), "utf8");
-}
-
-/** 読者が目にする本文だけにする。 */
-function prose(source: string): string {
-  return source.replace(/<!--[\s\S]*?-->/g, "");
 }
 
 /** §7.1 の 7 文書。**API リファレンスだけ docs/ 直下**（P6-15 が置いた）。 */
@@ -143,39 +141,26 @@ describe("よくある質問", () => {
 });
 
 /**
- * 語彙（ui-writing.md §2）。
+ * 語彙（ui-writing.md §2 / DECISIONS #174）。
  *
- * ── §5.1 のマイクロコピーを持ち込まない ─────────────────
- * `forbidden-words-list.js` には「エラー」「失敗」「不備」など、
- * **現場 UI の言い回し**（PK-IMPL-CONTRACT §5.1）も入っている。
- * あれは「オフラインの現場に不安を与えない」ための表現規則で、
- * 管理者向けの説明文（「10 回失敗で 30 分ロック」）にまで当てると、
- * 事実を述べられなくなる。ここで当てるのは **§2 の語彙だけ。**
+ * 表の実体は `tests/docs/vocabulary.ts`。**ここに写経しない。**
+ * §5.1 のマイクロコピーを混ぜない理由もそちらに書いてある。
  */
 describe("顧客向け文書の語彙", () => {
-  const FORBIDDEN: Readonly<Record<string, string>> = {
-    不正: "使用しない",
-    検知: "照合",
-    監視: "稼働照合 / 内部統制の支援",
-    疑わしい: "要確認項目",
-    疑い: "使用しない",
-    証拠: "証跡",
-    異常: "通常と違う点",
-    不審: "気づいたこと",
-    報告義務: "記録のお願い",
-    やり直し: "再清掃",
-    無断宿泊: "使用しない",
-  };
-
   const FILES = readdirSync(GUIDES).sort();
 
   for (const file of FILES) {
     it(`${file} に §2 の語を含まない`, () => {
-      const body = prose(read(file));
-      const hits = Object.keys(FORBIDDEN).filter((word) => body.includes(word));
-      expect(hits).toEqual([]);
+      expect(forbiddenHits(read(file))).toEqual([]);
     });
   }
+
+  it("表は語彙表の部分集合である（写経していない）", () => {
+    const canonical = new Set(FORBIDDEN.map(([word]) => word));
+    for (const word of Object.keys(PROSE_FORBIDDEN)) {
+      expect(canonical.has(word)).toBe(true);
+    }
+  });
 });
 
 describe("差異レポートの読み方", () => {

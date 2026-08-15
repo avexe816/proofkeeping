@@ -1,170 +1,93 @@
 # CONTINUE
 
 ## 最終状態
-- main HEAD: `32bca6b` の次（P7-13 の PR）
-- 完了: 122 task（P7-12 はハーネスのみ / P7-13 は **3/4**）
-- 次: **P7-15（顧客向けドキュメント）/ P7-16（RUNBOOK）**
+- main HEAD: P7-15 / P7-16 の PR（`claude/continue-z1xuml`）
+- 完了: 123 task
+- 次: **Phase 7 でコードとして書けるものは残っていない。**
 
 ## 次にやること
-1. `git fetch origin && git checkout main && git pull`
-2. `docs/tasks/P7-13.md` を読む
-3. 依存を確認して実装開始
 
-**P7-14（復旧訓練）と P7-17（GA 判定）は「人間が実施」。**
-到達したら何をすればよいかを伝えて止まること（workflow.md §2）。
+**新しい実装 task はもう選べない。** 残っているのは次のいずれか。
 
-## 今回置いたもの（P7-13 セキュリティ再検証）
+1. `docs/PROGRESS.md` 冒頭の「次」の表を読む
+2. 人間の作業（下の申し送り）が進んだら、その task を閉じる
+3. **P8 の task ファイルを作らないこと**（GA 判定を通過するまで / CLAUDE.md §9）
+
+Phase 7 の残りは全部が人間の作業。**勝手に着手できるものは無い。**
+
+| task | 誰が | 何をする |
+|---|---|---|
+| P7-01〜P7-05 | — | **Phase 6 の完了待ち**（人間の指示で飛ばしている） |
+| P7-12 負荷試験 | 人間 | 実測（ハーネスは実装済み） |
+| P7-13 セキュリティ再検証 | 人間 | 外部ペネトレーションテスト |
+| P7-14 復旧訓練 | 人間 | **RUNBOOK が揃ったので実施できる** |
+| P7-16 の残り | 人間 | P7-14 と同時に「手順書だけで対応できた」を確かめる |
+| P7-17 GA 判定 | 人間 | 有償顧客 5 社の稼働ほか |
+
+## 今回置いたもの（P7-15 顧客向けドキュメント）
 
 | ファイル | 役割 |
 |---|---|
-| `tests/security/accessMatrix.spec.ts` | 全 API・全画面が権限判定を通るか |
-| `packages/db/src/schema/guestPii.spec.ts` | 宿泊者の個人情報の列が無いか |
-| `tests/security/supplyChain.spec.ts` | Dependabot / gitleaks の設定 |
-| `.github/dependabot.yml` / `ci.yml` の `gitleaks` ジョブ | |
+| `docs/guides/README.md` | 索引（§7.1 の 7 文書） |
+| `docs/guides/getting-started.md` | はじめかたガイド |
+| `docs/guides/cleaner-guide.html` | 清掃スタッフ向け。**A4 × 日英 2 枚** |
+| `docs/guides/inspector-guide.html` | 検査担当者向け。**A4 1 枚** |
+| `docs/guides/admin-manual.md` | 管理者マニュアル |
+| `docs/guides/finding-report-reading.md` | 差異レポートの読み方（**同意の対象**） |
+| `docs/guides/faq.md` | よくある質問 30 項目 |
+| `apps/web/src/lib/moduleConsent.ts` | Audit 有効化の同意（判定のみ） |
+| `tests/docs/customerDocs.spec.ts` | 7 文書・A4・30 項目・語彙 |
+| `tests/docs/vocabulary.ts` | 文書に当てる語彙（2 spec が共有） |
 
 ### 覚えておくこと
 
-- **権限判定の免除は `Record`（理由を必ず書く形）。** `Set` にしない。
-- **第 1 層に頼る免除が 1 本を超えたら三重防御を読み直すこと**
-  （spec が本数を固定している）。
-- **宿泊者の個人情報の例外は「人数」と「赤伝」だけ。**
-  氏名・連絡先の例外を作らない（spec が固定）。
-- **画面を足したら `accessMatrix.spec.ts` が自動で見る。**
-  `assertPermission()` / `can()` / `ScopeForbiddenError` のどれかが要る。
-- **外部ペネトレーションテストは人間が実施**（GA 判定の前提）。
+- **A4 1 枚は「項目を足すとこぼれる」。** 足すときは何かを削ること。
+  spec が**寸法・手順数（8）・分量（1,400 字）の 3 つ**で押さえている。
+  **寸法だけだと素通りする。**
+- **`cleaner-guide.html` の日英は同じ手順数。** 英語版を要約にしない
+  （spec が本数を突き合わせる）。主要な利用者は日本語の漢字が読めない。
+- **`assertModuleConsent()` の呼び出し側はまだ 0 本。**
+  `module_entitlement` への書き込みが生えた瞬間に spec が落ちる。
+  **P7-04 は、経路と一緒に 409 への写像も足すこと**（`resourceGuard.ts`）。
+- **`isModuleEnabled()` に同意判定を持ち込まない。** 読み取りのたびに
+  見ると、記録が失われた組織で差異レポートが黙って空になる。
+- **同意の保存先は決めていない**（OPEN_QUESTIONS #099）。推奨は
+  `module_entitlement` への列追加（後方互換）。
+- **禁止語の規則を文書にも当てた。否定形でも使わない**（DECISIONS #174）。
+  §7.3 の「差異は『不正の証拠』ではありません」は書き換えてある。
+  **当てるのは ui-writing.md §2 の語彙だけ。** §5.1 のマイクロコピー
+  （「エラー」「失敗」「不備」）は運用文書に当てない（事実が書けなくなる）。
+- **文書を足したら `DOCUMENTS` に 1 行足す。** 索引されていない文書を
+  `docs/guides/` に置くと spec が落ちる。
 
-## 前回置いたもの（P7-12 負荷試験のハーネス）
+## 今回置いたもの（P7-16 RUNBOOK）
 
 | ファイル | 役割 |
 |---|---|
-| `scripts/loadTest/scenarios.ts` | §4.1 の目標値と §4.2 の 4 シナリオ、合否（**純粋**） |
-| `scripts/load-test.ts` / `pnpm loadtest` | 実行する CLI。**既定は `--dry-run`** |
+| `docs/runbook/README.md` | 索引（§7.2 の 7 文書） |
+| `docs/runbook/system-overview.md` | **電子帳簿保存法の備付け要件** |
+| `docs/runbook/architecture.md` | シャード・Queue・DO の全体像 |
+| `docs/runbook/incident-response.md` | **症状別**のフローチャート |
+| `docs/runbook/shard-move.md` | §4.4 の 6 手順 |
+| `docs/runbook/recovery.md` | D1 Time Travel / R2 バージョニング |
+| `docs/runbook/deploy.md` | 16 シャードのマイグレーション |
+| `docs/runbook/oncall.md` | 連絡先とエスカレーション（**枠のみ**） |
+| `tests/docs/runbook.spec.ts` | 7 文書・備付け 4 書類・参照先の実在 |
 
 ### 覚えておくこと
 
-- **実測していない**（DECISIONS #169）。完了条件 4 件は実測の結果で、
-  検証環境（16 シャード＋シード）と分散した負荷生成が要る。
-  **1 台の node から 3,000 並列を出しても自分のイベントループを測るだけ。**
-- **合否は「速いこと」だけでは決まらない。** エラー 1 件でも不合格、
-  サンプル 0 件も不合格。「測っていない」を「合格」と混ぜない。
-- **本番へ向けられない。** ホスト名で弾く（B・C・D は書き込みを含む）。
-
-## 前回置いたもの（P7-09 アーカイブ閲覧）
-
-| ファイル | 役割 |
-|---|---|
-| `packages/db/src/schema/integration.ts` | `archive_restore` / `archive_restore_row` |
-| `packages/db/src/archivePolicy.ts` | 期間・期限・JSONL の復号（**純粋**） |
-| `apps/web/src/consumers/archiveRestore.ts` | R2 → gunzip → 展開 → 通知 |
-| `apps/web/src/routes/api/v1/archives.ts` | 4 経路 |
-| `apps/web/src/routes/app/archive.tsx` | 画面（**§9 MUST の 2 文**） |
-
-### 覚えておくこと
-
-- **§9 MUST の 2 文を消さない。**「データは保管されています。」
-  「閲覧には復元が必要です。」を見出しのすぐ下に出す。spec が
-  `locales/ja.json` を走査して固定している。
-- **`archive.*` の文言に「削除」を書かない。** 期限切れは
-  「閲覧できる期間が終わりました」。消えたのは写しで、退避は残っている。
-- **復元した写しを元の表へ書き戻さない**（#167）。閲覧であって復旧ではない。
-- **`pk-archive-restore` は 3 種のメッセージを運ぶ。**
-  `ARCHIVE_EXPORT`（P7-08）/ `PHOTO_RETENTION`（P7-10）/
-  `ARCHIVE_RESTORE`（P7-09）。**`kind` で分ける。**
-- **通知イベントは 12 件になった**（#163 / #166）。§5.1 は 10 件のまま。
-- **表を足したら `schema.spec.ts` の件数（71）と
-  `tests/tenant-isolation/_template.spec.ts` の一覧に足す。**
-
-## 前回置いたもの（P7-10 R2 保持期間管理）
-
-| ファイル | 役割 |
-|---|---|
-| `apps/web/src/lib/photo/retention.ts` | 保持期間・境界・状態（**純粋**） |
-| `packages/db/src/repositories/photoRetention.ts` | 4 表の読み取りと行の削除 |
-| `packages/db/src/systemActor.ts` | バッチの操作者 ID（**実在しない**） |
-| `apps/web/src/consumers/photoRetention.ts` | 削除 ＋ 通知 ＋ 監査ログ |
-| `apps/web/src/lib/photo/retentionDispatch.ts` | 日次の投入（夜間の cron に相乗り） |
-
-### 覚えておくこと
-
-- **写真の削除は取り返しがつかない。** 退避（§19.7）と違って写しを
-  作らない。全体が「迷ったら消さない」向きに倒してある。触るときは
-  その向きを崩さないこと。
-- **D1 の行を先に消し、R2 の実体を後に消す。** 逆にすると
-  「画面には出るのに開けない写真」ができる。
-- **通知イベントは 11 件になった**（#163）。§5.1 は 10 件のままなので、
-  `routing.spec.ts` の件数を触るときは理由を確かめること。
-- **`systemActorId()` は `repositories/audit.ts` に置かない**（#164）。
-  あちらは 2 関数しか公開しない spec がある（INV-30）。
-- **リポジトリを足したら `repositories.spec.ts` の `REPOSITORY_MODULES` と
-  `INVOCATIONS` の両方に足す。** 片方だけだと別のテストが落ちる。
-- **`ENTITY_PREFIXES` に足したら `id.spec.ts` の一覧にも足す。**
-
-## 前回置いたもの（P7-07 テナント移送）
-
-| ファイル | 役割 |
-|---|---|
-| `packages/db/src/tenantMove.ts` | 表の選び方・チェックサム・照合（**純粋**） |
-| `scripts/tenant-move.ts` / `pnpm shards:move` | 運用者の CLI |
-
-### 覚えておくこと
-
-- **`tenantMove.ts` に Workers の型を持ち込まない。** node の CLI が
-  import する（`shardUsage.ts` と同じ理由）。**schema も import しない。**
-- **移送する表は `sqlite_master` から取る**（schema からではなく）。
-  移してはならない表は `schema_version` / `org_directory` の 2 つだけ。
-  **知らない表は移す側**に倒してある。
-- **手順 4・6 は自動化していない**（DECISIONS #162）。手順 1 が
-  自動化できない以上、照合が通った時点のデータが最新である保証が無い。
-- **ルートに script を足したら `tests/toolchain/workspace.spec.ts` の
-  `EXPECTED_ROOT_SCRIPTS` に 1 行足す。**
-
-## 前回置いたもの（P7-08 / P7-11）
-
-### P7-08 年次アーカイブ
-
-| ファイル | 役割 |
-|---|---|
-| `packages/db/src/archivePolicy.ts` | 対象と除外（**純粋**）。既定は「退避しない」 |
-| `packages/db/migrations/0019_p7_08_archive_manifest.sql` | `archive_manifest` 表（追加のみ） |
-| `packages/db/src/repositories/archive.ts` | 記録と、退避する行の読み取り |
-| `apps/web/src/consumers/archive.ts` | JSONL → SHA-256 → gzip → R2 → manifest |
-| `apps/web/src/lib/archive/dispatch.ts` | 年次の投入（月次締めの cron に相乗り） |
-
-### P7-11 縮退運転の検証
-
-| ファイル | 役割 |
-|---|---|
-| `apps/web/src/lib/degradation/priority.ts` | §5.2 の優先度表（**純粋**） |
-| `apps/web/src/lib/degradation/priority.spec.ts` | 検証 33 件（ソース走査を含む） |
-
-### 覚えておくこと
-
-- **退避は「削除」ではない**（DECISIONS #159）。`consumers/archive.ts` は
-  D1 に `DELETE` を発行しない。§19.7 の手順 3・4 は別工程で、まだ task が
-  起票されていない。**そのぶんシャードは小さくならない。**
-  実装するときは `archive_manifest` の `sha256` と R2 の写しを
-  突き合わせてから外すこと。
-- **`repositories/archive.ts` と `consumers/archive.ts` に `delete` を
-  含む名前を置かない。** spec が両方を走査している（P7 固有の絶対ルール）。
-- **§19.7 の 9 表のうち退避できるのは 5 表**（OPEN_QUESTIONS #096）。
-  `task_time_log` / `task_checklist_result` / `inspection` /
-  `inspection_item_result` は `businessDate` 列を持たない。
-  **`ARCHIVABLE_TABLES`（9 表）と `DIRECTLY_ARCHIVABLE_TABLES`（5 表）を
-  取り違えないこと。** 書き出すのは後者。
-- **年次の起動は月次締めの cron に相乗り**（#160）。JST の 2 月 1 日だけ。
-  対象年は実行年 − 2。**cron を増やさない。**
-- **Queue のコンシューマを足したら 3 か所を同時に触る。**
-  `apps/web/src/index.ts` の `queue()` に 1 分岐、`wrangler.toml` に
-  `[[queues.consumers]]` を 4 環境ぶん、`tests/toolchain/wrangler.spec.ts` の
-  `IMPLEMENTED_CONSUMERS` に 1 行。
-- **リポジトリ関数を足したら `repositories.spec.ts` の `INVOCATIONS` に
-  1 行足す。** 登録漏れを検出する spec がある。
-- **優先度で機能を止める実行時のコードを書かない**（#161）。
-  §5.2 は「壊れたときにどこから諦めるか」の表。平常時の分岐を増やすと
-  優先度 1 がその分だけ壊れやすくなる。
-- **`schemaVersion` 不一致の 503 middleware はまだ無い**（§5.3 MUST）。
-  実装するときは **4xx で塞がないこと。** 4xx は `verdictOf()` が
-  `GIVE_UP` にするので、オフラインキューに吸収されない。
+- **依存（P7-14）より先に書いた**（DECISIONS #175）。P7-14 の完了条件が
+  「手順書だけで対応できた」で、**手順書が無ければ訓練できない。**
+- **手順書に「まだ無いもの」を書かせない。** `deploy.md` §7 に
+  未作成・未実装の一覧を置き、spec がその節の存在を固定している。
+  **手順書が実態より進んでいると、障害の最中に嘘を読むことになる。**
+  **production の資源を作ったら、この節から 1 行ずつ消すこと。**
+- **実在しない連絡先を書かない。** `oncall.md` は `（未記入）` のまま。
+  **GA 判定の前に人が埋める。** 空欄のままの体制は「体制が無い」のと同じ。
+- **`recovery.md` §6 の移送・復元の履歴は必ず追記する。**
+  `SHARD_MAP` が消えたときの復旧がこの表に依存する。
+- **訓練で詰まった箇所はその場で `recovery.md` §5 に追記する。**
+  訓練の目的は「戻せること」ではなく「手順書が足りていること」。
 
 ## 人間待ちの 3 task（前提が揃えば即着手できる）
 
@@ -178,42 +101,42 @@
 
 ### 人間の作業
 1. **VAPID 鍵の生成と設定**（P6-10 の前提）。**設定中。**
-   `wrangler secret put` で `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` /
-   `VAPID_SUBJECT`（`mailto:` か URL）。
 2. **LINE 公式アカウントのチャネル発行とアクセストークンの設定**（P6-11 の前提）。
-   **方式は (a) Messaging API で確定済み。**
-3. **最初に実接続する PMS を確定する**（§11 の未決事項 1）。**P6-06 の前提。**
-4. **スマートロックの対象機種を確定する**（§11 の未決事項 2）。
-5. `RESEND_WEBHOOK_SECRET` の設定（`wrangler secret put`）。未設定だと 401。
+3. **最初に実接続する PMS を確定する**（P6-06 の前提）。
+4. **スマートロックの対象機種を確定する。**
+5. `RESEND_WEBHOOK_SECRET` の設定。未設定だと 401。
 6. 実機で 1 通送って Resend の webhook payload を確かめる（#077）。
-7. 和文フォントの配置（P2-14 から継続）。無いと PDF が作られない。
-8. **`pk-rollup-update` キューの作成**（4 環境）。宣言は `wrangler.toml` に有り。
-9. **`pk-archive-restore` キューの作成**（4 環境）。宣言は `wrangler.toml` に有り。
-   **P7-08（年次アーカイブ）と P7-10（写真の保持期限）の両方がこのキューを
-   使う。** 作成しないとどちらも動かない。
-10. **`ARCHIVE` R2 バケットの作成**（4 環境）。宣言は `wrangler.toml` に有り。
+7. **和文フォントの配置**（P2-14 から継続）。無いと PDF が 1 枚も作られない。
+8. **`pk-rollup-update` キューの作成**（4 環境）。
+9. **`pk-archive-restore` キューの作成**（4 環境）。P7-08 / P7-09 / P7-10 が使う。
+10. **`ARCHIVE` R2 バケットの作成**（4 環境）。
 11. **外部ペネトレーションテストを 1 回実施**（P7-13 / §6.1）。**GA 判定の前提。**
-12. **§6.1 のうちコードでは満たせない項目。** 個人情報の取扱いに関する
-    社内規程・プライバシーポリシーと利用規約の法務レビュー・DPA 雛形。
-    P7-13 の完了条件には無いが **GA チェックリスト（§10）には入る。**
-13. **負荷試験の実測**（P7-12 / §4.2 MUST）。`pnpm loadtest` を
-    分散した負荷生成から回す。前提は 16 シャードぶんの D1 と
-    100 施設 × 30 名ぶんのシード。**GA 判定（P7-17）の前提。**
+12. **§6.1 のうちコードでは満たせない項目。** 社内規程・プライバシーポリシーと
+    利用規約の法務レビュー・DPA 雛形。**GA チェックリスト（§10）に入る。**
+13. **負荷試験の実測**（P7-12 / §4.2 MUST）。`pnpm loadtest` を分散した
+    負荷生成から回す。**GA 判定（P7-17）の前提。**
+14. **復旧訓練の実施**（P7-14）。**RUNBOOK が揃ったので着手できる。**
+    `docs/runbook/recovery.md` §5 の表に結果を書く。
+    **同時に P7-16 の完了条件 2 も確かめる**（手順書だけで対応できたか）。
+15. **`docs/runbook/oncall.md` の連絡先を埋める。** GA 判定の前提。
+16. **`docs/guides/getting-started.md` §1 の書き換え**（P7-01 着手時）。
+    今は「当社が行います」と書いてある（OPEN_QUESTIONS #100）。
 
 ### 仕様の版上げ（P7 完了後にまとめて / 人間の指示）
 - §4.3 「シャード使用率を管理者向けダッシュボードで常時表示」→ CLI 止まり（#157）
 - §19.7 の 9 表 → 実際に退避できるのは 5 表（OPEN_QUESTIONS #096）
 - §19.7 の手順 3・4（DELETE / VACUUM）→ 別工程（DECISIONS #159）
+- §7.3 の要点 1 の文言（「不正の証拠」）→ 禁止語を含む（DECISIONS #174）
 
 ### 積み残し（人間待ち）
-- **P4-08 誤検知率の検証（人間が実施）。** P5 / P6 は技術的に依存しない。
-- **P6-06 PMS アダプタ 1 社。** 上記 3 が決まるまで。
+- **P4-08 誤検知率の検証（人間が実施）。**
+- **P6-06 PMS アダプタ 1 社。**
 
 ### 未解決の問い（新しい順）
+- #100 申込み〜組織作成の経路が無い → 「当社が行います」と書いた（P7-01 待ち）
+- #099 モジュール有効化の同意をどこに記録するか → 判定だけ置いた（P7-04 が決める）
 - #098 写真の保持期間を延長する画面と API が仕様に無い → 列と検証だけ
 - #097 写真の保持期限の通知イベントが §5.1 に無い → 11 件目として足した
-- #007 `SHARD_MAP` への書き込みを持つ task が無い → **P7-07 が CLI で受けた**
-  （書くのは人。`assertShardMapValue()` が値を検証する）
 - #096 §19.7 の 9 表のうち 4 表は `businessDate` を持たない → 5 表だけ退避
 - #095 シャード監視の「ダッシュボード」をどこへ出すか → CLI 止まり
 - #094 送信 Webhook を管理する画面と API が仕様に無い → 配信側だけ実装
@@ -222,15 +145,21 @@
 - #091 通知が届いたかを事後に追えない → 当面は運用で受ける
 - #090 取引先（組織の外）への通知の宛先を引く経路が無い → 送っていない
 - #089 アプリ内通知を貯める表が無い → `IN_APP` は既存の画面が正
-- #088 「再接続テスト」が実際には接続していない → 状態の復帰と記録だけ
-- #087 未マッピングの外部 ID を個別に出せない → 件数のみ。貼り付けで補う
+- #088「再接続テスト」が実際には接続していない → 状態の復帰と記録だけ
+- #087 未マッピングの外部 ID を個別に出せない → 件数のみ
 - #086 Bearer トークンから組織を解決する手段が無い → P6-12 が決めた
 - #085 `propertyId = null` の連携は `uq_integration` が効かない → 作成側で防ぐ
-- #084 請求状況は税込・施設別収支は税抜 → 見出しに明記。合計は一致しない
-- #083 「受託施設」を判定する列（`orgType`）が無い → `VENDOR_PLAN` の契約で絞る
+- #084 請求状況は税込・施設別収支は税抜 → 見出しに明記
+- #083「受託施設」を判定する列（`orgType`）が無い → `VENDOR_PLAN` の契約で絞る
 - #082〜#063 は P5 以前（DECISIONS / CONTINUE の履歴を参照）
 
 ### 直近の設計判断
+- #175 RUNBOOK は P7-14（復旧訓練）より先に書く
+- #174 禁止語の規則を顧客向け文書にも当てる（否定形でも使わない）
+- #173 同意は「有効化という操作」の条件として置き、契約の判定に混ぜない
+- #172 検査ツールの版を固定する（`:latest` を使わない）
+- #171 gitleaks の許可は「値そのもの」だけ。経路ごと除外しない
+- #170 gitleaks は公式 action ではなく CLI を直接動かす
 - #169 負荷試験はハーネスを置き、実測は人間が行う
 - #168 復元の期限切れを日次の per-org バッチに相乗りさせる
 - #167 復元した写しを元の表へ書き戻さない
@@ -242,15 +171,3 @@
 - #161 縮退運転の「検証」は仕組みを足さずに性質を固定する
 - #160 年次アーカイブの起動を月次締めの cron に相乗りさせる
 - #159 退避（R2 への書き出し）と D1 からの取り外しを分ける
-- #158 測れていない使用率を `ok` に混ぜない
-- #157 シャード監視は運用者の CLI として置く（画面にしない）
-- #155 送信 Webhook のリトライ表を受信側と分ける
-- #154 W-24（同期ログ）を W-13 と同じ画面に置く
-- #153 公開 API からの稼働記録は `PMS_API` を名乗る
-- #152 公開 API は ProofKeeping の ID だけを受け取る
-- #151 公開 API では `assertPermission()` を呼ばない
-- #150 API キーのトークンに組織短縮 ID を埋める
-- #149 業務通知を `document_delivery` に記録しない
-- #148 通知の重複を `CONFIG` KV の `dedupeKey` で止める
-- #147 `CLEANER` の境界を表と定数で二重に締める
-- #146 `IN_APP` は「外へは送らない」を意味する
