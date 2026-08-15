@@ -196,6 +196,7 @@ export {
 } from "./property.js";
 
 export {
+  countRooms,
   countRoomsByRoomType,
   countSellableRoomsByProperty,
   createRooms,

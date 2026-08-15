@@ -1127,5 +1127,6 @@
   "setup.step.staff.title": "スタッフの登録",
   "setup.step.staff.body": "現場のスタッフを登録すると、初期 PIN が 1 回だけ表示されます。控えてください。",
   "setup.step.done.title": "完了",
-  "setup.step.done.body": "お疲れさまでした。翌朝からタスクが自動で作られます。"
+  "setup.step.done.body": "お疲れさまでした。翌朝からタスクが自動で作られます。",
+  "room.trialLimit": "お試し中に登録できる客室は 150 室までです。1 室も登録していません。"
 }

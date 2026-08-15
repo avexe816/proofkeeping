@@ -117,6 +117,24 @@ export async function listRoomNumbersByIds(
  * 組織内の GROUP BY なので、テナント横断の集計にはあたらない
  * （architecture.md §3 が禁じるのは組織をまたぐ集計）。
  */
+/**
+ * 組織の有効な客室の総数（P7-03 / PK-SPEC-P7 §2.5 の「客室 150 室まで」）。
+ *
+ * **販売可能かどうかを見ない。** §2.5 の上限は「客室」であって
+ * 「販売できる客室」ではない。清掃専用の場所（PANTRY）も 1 室と数える。
+ * 無効化した行は数えない（枠を戻せないと、打ち間違えた 1 室で詰む）。
+ *
+ * 組織内の集計なので、テナント横断にはあたらない（architecture.md §3）。
+ */
+export async function countRooms(env: Env, ctx: TenantContext): Promise<number> {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({ count: count() })
+    .from(room)
+    .where(withTenantScope(room, ctx, room.propertyId, eq(room.isActive, true)));
+  return rows[0]?.count ?? 0;
+}
+
 export async function countSellableRoomsByProperty(
   env: Env,
   ctx: TenantContext,

@@ -760,6 +760,12 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => roomRepo.listRoomNumbersByIds(env, ctx, [OWN_ID.room]),
   },
   {
+    // P7-03。トライアルの上限（150 室）を数える。
+    name: "room.countRooms",
+    kind: "tenant",
+    run: (env, ctx) => roomRepo.countRooms(env, ctx),
+  },
+  {
     name: "room.countSellableRoomsByProperty",
     kind: "tenant",
     run: (env, ctx) => roomRepo.countSellableRoomsByProperty(env, ctx),
