@@ -125,6 +125,24 @@ jobs:
           fi
           echo "OK"
 
+  # 秘密情報のコミット検査（PK-SPEC-P7 §6.1 / P7-13）。
+  #
+  # **`fetch-depth: 0` が要る。** 既定の浅い clone だと直近 1 コミットしか
+  # 見えず、過去に混入した鍵を見逃す。gitleaks は履歴全体を走査する。
+  #
+  # **必須ジョブにしてある。** 見つかったときに「あとで直す」を選べる形に
+  # すると、鍵が push された状態で main が進む。
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # E2E。接続先（preview）が無い間は未実施として緑で抜ける。
   # 実体と、なぜ今そうしているかは scripts/e2e.ts の冒頭に書いてある。
   e2e:

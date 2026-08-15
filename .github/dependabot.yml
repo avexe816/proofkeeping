@@ -1,0 +1,40 @@
+# 依存パッケージの脆弱性スキャン（PK-SPEC-P7 §6.1 / P7-13）。
+#
+# ── 何を自動で上げるか ──────────────────────────────────
+# **セキュリティ更新は毎週、それ以外は月次。** 毎週すべてを上げると
+# PR が溜まって読まれなくなり、「Dependabot が動いている」ことが
+# 「更新されている」を意味しなくなる。
+#
+# ── major を自動で上げない ──────────────────────────────
+# 技術スタックは CLAUDE.md §2 で固定されている（変更禁止）。
+# major は互換性が切れうるので、**人が読む PR として来るだけにする。**
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # 開発ツールはまとめて 1 本の PR にする。個別に来ると読まれない。
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # **major は自動で上げない。** 上の注記を参照。
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+    labels:
+      - dependencies
+
+  # GitHub Actions 自体の更新（`actions/checkout@v4` など）。
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
