@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>ProofKeeping 検査担当者向けガイド</title>
+    <!--
+      PK-SPEC-P7 §7.1「検査担当者向けガイド ／ 1 ページ」。
+      task: docs/tasks/P7-15.md
+
+      清掃スタッフ向け（cleaner-guide.html）と同じ体裁にしてある。
+      **同じ休憩室に 2 枚並べて貼る前提。** 体裁が違うと、どちらが
+      自分向けかを毎回読んで判断することになる。
+
+      日英にしていないのは、検査担当が現場の記録を読んで差戻しの
+      理由を日本語で書く役割だから（PK-SPEC-P2 §11.4）。
+      清掃スタッフ向けガイドだけが日英 2 言語（§7.1 MUST）。
+
+      「不合格」は検査項目の結果を指す語で、人に向けた語ではない。
+      **再清掃を「やり直し」と書かないこと**（ui-writing.md §2）。
+    -->
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #f2f4f6;
+        font-family:
+          "Hiragino Sans", "Noto Sans JP", "Yu Gothic", system-ui, -apple-system, sans-serif;
+        color: #17202a;
+      }
+      .sheet {
+        width: 210mm;
+        height: 297mm;
+        padding: 11mm 12mm 9mm;
+        margin: 0 auto;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        border-bottom: 3px solid #17202a;
+        padding-bottom: 3mm;
+      }
+      h1 {
+        font-size: 22pt;
+        margin: 0;
+      }
+      .lede {
+        font-size: 10.5pt;
+        color: #4a5560;
+      }
+      .flow {
+        display: flex;
+        align-items: stretch;
+        gap: 2mm;
+        margin-top: 5mm;
+      }
+      .node {
+        flex: 1;
+        border: 1.5px solid #d3d9df;
+        border-radius: 3mm;
+        padding: 3mm;
+        text-align: center;
+      }
+      .node b {
+        display: block;
+        font-size: 12pt;
+      }
+      .node span {
+        font-size: 9pt;
+        color: #4a5560;
+      }
+      .arrow {
+        align-self: center;
+        font-size: 14pt;
+        color: #8a949e;
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-auto-rows: 1fr;
+        gap: 5mm 6mm;
+        margin-top: 6mm;
+        flex: 1 1 auto;
+      }
+      .step {
+        display: flex;
+        gap: 4mm;
+        align-items: center;
+        border: 1.5px solid #d3d9df;
+        border-radius: 3mm;
+        padding: 3mm 3.5mm;
+      }
+      .num {
+        flex: 0 0 13mm;
+        height: 13mm;
+        border-radius: 50%;
+        background: #17202a;
+        color: #fff;
+        font-size: 18pt;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .body strong {
+        display: block;
+        font-size: 14pt;
+        line-height: 1.3;
+      }
+      .body span {
+        font-size: 10.5pt;
+        color: #4a5560;
+        line-height: 1.45;
+      }
+      .rules {
+        margin-top: 6mm;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4mm;
+        padding-top: 4mm;
+      }
+      .panel {
+        border-radius: 3mm;
+        padding: 3.5mm 4mm;
+      }
+      .panel h2 {
+        font-size: 12pt;
+        margin: 0 0 1.5mm;
+      }
+      .panel li {
+        font-size: 10.5pt;
+        line-height: 1.5;
+        margin-left: -4mm;
+      }
+      .ok {
+        background: #eaf3ec;
+        border: 1.5px solid #b7d3bd;
+      }
+      .note {
+        background: #fdf4e7;
+        border: 1.5px solid #e7cfa6;
+      }
+      footer {
+        margin-top: 3.5mm;
+        border-top: 1.5px solid #d3d9df;
+        padding-top: 2.5mm;
+        font-size: 9pt;
+        color: #4a5560;
+        display: flex;
+        justify-content: space-between;
+      }
+      @media print {
+        body {
+          background: #fff;
+        }
+        .sheet {
+          margin: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="sheet">
+      <header>
+        <h1>検査のしかた</h1>
+        <p class="lede">ProofKeeping／スマートフォンで <b>/m/inspections</b> をひらく</p>
+      </header>
+
+      <div class="flow">
+        <div class="node"><b>清掃完了</b><span>一覧に出ます</span></div>
+        <div class="arrow">▶</div>
+        <div class="node"><b>検査開始</b><span>1 室 1 人だけ</span></div>
+        <div class="arrow">▶</div>
+        <div class="node"><b>項目を判定</b><span>合格／不合格</span></div>
+        <div class="arrow">▶</div>
+        <div class="node"><b>合格</b><span>そこで終わり</span></div>
+        <div class="arrow">／</div>
+        <div class="node"><b>再清掃</b><span>不合格の項目だけ</span></div>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="num">1</div>
+          <div class="body">
+            <strong>検査する部屋を選ぶ</strong>
+            <span>清掃が完了した部屋だけが一覧に出ます。順番の指定はありません。</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <div class="body">
+            <strong>「検査を開始」を押す</strong>
+            <span
+              >同じ部屋を 2 人で同時に検査することはできません。先に押した人が担当になります。</span
+            >
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div class="body">
+            <strong>項目を 1 つずつ判定する</strong>
+            <span
+              >はじめは全項目が未選択です。<b>見た項目だけ</b>を押してください。一括の操作はありません。</span
+            >
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">4</div>
+          <div class="body">
+            <strong>不合格には理由と写真をつける</strong>
+            <span>どこが・何が、を短く。この文章がそのまま現場の画面に出ます。</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">5</div>
+          <div class="body">
+            <strong>合格なら「検査合格」</strong>
+            <span>客室が販売可能になります。日報にも反映されます。</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">6</div>
+          <div class="body">
+            <strong>不合格があれば再清掃を出す</strong>
+            <span>期限を選びます。現場には<b>不合格の項目だけ</b>が出ます。</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">7</div>
+          <div class="body">
+            <strong>再清掃が終わったら再検査</strong>
+            <span>前回の指摘が上に出ます。回数は記録されますが、順位には使いません。</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">8</div>
+          <div class="body">
+            <strong>電波がなくても進められます</strong>
+            <span>画面上部に未送信の件数が出ます。復帰すると自動で送られます。</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rules">
+        <div class="panel ok">
+          <h2>だいじなこと</h2>
+          <ul>
+            <li>自分が清掃した部屋は検査できません。やむを得ない場合は理由が必要で、記録に残ります。</li>
+            <li>担当者名は、判定を入れ終わるまで表示されません。</li>
+            <li>再清掃の文面は「どこが・何が」だけ。人に向けた書き方をしないでください。</li>
+          </ul>
+        </div>
+        <div class="panel note">
+          <h2>見られる範囲</h2>
+          <ul>
+            <li>検査担当は<b>割当施設</b>の記録だけを見られます。</li>
+            <li>請求の情報と差異レポートは表示されません。</li>
+            <li>忘れ物の保管場所・返却先は施設責任者以上が扱います。</li>
+          </ul>
+        </div>
+      </div>
+
+      <footer>
+        <span>検査の記録は、清掃の品質管理・業務改善・請求の根拠に使います。個人の評価には使いません。</span>
+        <span>v1.0</span>
+      </footer>
+    </section>
+  </body>
+</html>
