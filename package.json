@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db-migrate.ts",
     "db:check": "drizzle-kit check",
+    "shards:usage": "node scripts/shard-usage.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/db/tsconfig.json && tsc --noEmit -p apps/web/tsconfig.json && tsc --noEmit -p tests/tenant-isolation/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",

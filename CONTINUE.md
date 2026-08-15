@@ -1,17 +1,44 @@
 # CONTINUE
 
 ## 最終状態
-- main HEAD: `e474413` P6-09 通知基盤 (#67) の次
-- 完了: **P6-12 / P6-13 / P6-14 / P6-15**（116 task）
-- **Phase 6 は残り 3 task。すべて人間待ち**（P6-06 / P6-10 / P6-11）
-- 次: **Phase 7（GA とスケール）P7-01 から**
+- main HEAD: `83d218d` P6-12〜P6-15 (#68) の次
+- 完了: **P7-06**（117 task）。**Phase 7 に着手した**
+- 次: **P7-08（アーカイブとバッチ）/ P7-11（縮退運転の検証）**
 
 ## 次にやること
 1. `git fetch origin && git checkout main && git pull`
-2. **P6-06 / P6-10 / P6-11 の前提が揃っているか人間に確認する。**
-   揃っていなければ `docs/tasks/P7-01.md` から Phase 7 へ入る
-3. `docs/PK-SPEC-P7.md` を読む。**P7 は新機能を追加しない**
-   （CLAUDE.md §9）。既存機能の完成度を上げるフェーズ
+2. `docs/tasks/P7-08.md` を読む（依存は P7-06。**満たされている**）
+3. `docs/PK-SPEC-P0.md` §19.7（アーカイブ）と architecture.md を読む
+
+### なぜ P7-01 から入らないのか
+**P7-01 の依存は「P6 完了」で、満たされていない**（P6-06 / P6-10 / P6-11 が
+人間待ち）。workflow.md §2「依存が満たされている最小番号」に従うと
+**P7-06（依存は P0-20）**が入口になる。P7-06 は P7-07 / P7-08 / P7-11 の
+依存でもあるので、Phase 6 を待たずに Phase 7 の後半へ進める。
+
+**P7-01〜P7-05 は Phase 6 の完了待ち。** P7-04（Stripe）は加えて
+**課金が発生する操作**（workflow.md §6 の停止条件）。
+
+## 今回置いたもの（P7-06 シャード監視）
+
+- `packages/db/src/shardUsage.ts` — 閾値 60/75/85% とレベル判定（純粋関数）
+- `packages/db/src/shardUsageCollector.ts` — D1 を触る収集側
+- `scripts/shard-usage.ts` / `pnpm shards:usage` — 運用者の CLI
+
+### 覚えておくこと
+
+- **シャード監視は画面にしない**（DECISIONS #157）。§4.3 MUST の
+  「管理者向けダッシュボード」と CLAUDE.md §4 の「シャード番号を露出しない」が
+  衝突しており、**運用者のロールが無い。** migration が番号を出力する
+  先例（architecture.md §6）に合わせて CLI にした。
+  **`shardUsage*.ts` をテナント向けの API・画面から呼ばないこと。**
+- **`shardUsage.ts` に Workers の型を持ち込まない。** node の CLI が
+  import するので、`D1Database` を書くと型検査が落ちる。D1 を触る側は
+  `shardUsageCollector.ts`。
+- **測れていない値を `ok` に混ぜない**（#158）。`unknown` を `ok` より
+  重い側に置いてある。
+- **ルートに script を足したら `tests/toolchain/workspace.spec.ts` の
+  `EXPECTED_ROOT_SCRIPTS` に 1 行足す。** 実体のない script を置かせない検査。
 
 ## 人間待ちの 3 task（前提が揃えば即着手できる）
 
@@ -78,6 +105,7 @@
 - **P6-06 PMS アダプタ 1 社。** 上記 1 が決まるまで。
 
 ### 未解決の問い（新しい順）
+- #095 シャード監視の「ダッシュボード」をどこへ出すか → CLI 止まり
 - #094 送信 Webhook を管理する画面と API が仕様に無い → 配信側だけ実装
 - #093 送信 Webhook の停止を知らせるイベントが §5.1 に無い → `integration.error`
 - #092 `/rooms` に対応するスコープが §6.2 に無い → `tasks:read` に寄せた
@@ -93,6 +121,8 @@
 - #082〜#063 は P5 以前（DECISIONS / CONTINUE の履歴を参照）
 
 ### 直近の設計判断
+- #158 測れていない使用率を `ok` に混ぜない
+- #157 シャード監視は運用者の CLI として置く（画面にしない）
 - #155 送信 Webhook のリトライ表を受信側と分ける
 - #154 W-24（同期ログ）を W-13 と同じ画面に置く
 - #153 公開 API からの稼働記録は `PMS_API` を名乗る

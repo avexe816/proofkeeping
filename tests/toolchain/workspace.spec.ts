@@ -36,6 +36,10 @@ const EXPECTED_ROOT_SCRIPTS = [
   "test:isolation",
   "test:e2e",
   "check",
+  // P7-06。シャード使用率の表示（PK-SPEC-P7 §4.3）。
+  // **運用者向けの CLI。** テナントの画面へは出さない
+  // （`packages/db/src/shardUsage.ts` の注記 / CLAUDE.md §4）。
+  "shards:usage",
 ] as const;
 
 /**
