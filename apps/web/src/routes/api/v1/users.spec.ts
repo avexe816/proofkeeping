@@ -104,6 +104,28 @@ function validBody(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** 文字列の引数だけを取り出す。**連結しない**（連結すると境界が消える）。 */
+function paramsOf(query: { params: unknown[] } | undefined): string[] {
+  return (query?.params ?? []).filter((value): value is string => typeof value === "string");
+}
+
+/** 引数のうち JSON オブジェクトのものを解いて返す（`before` / `after`）。 */
+function jsonParamsOf(query: { params: unknown[] } | undefined): Record<string, unknown>[] {
+  const parsed: Record<string, unknown>[] = [];
+  for (const value of paramsOf(query)) {
+    if (!value.startsWith("{")) continue;
+    try {
+      const object: unknown = JSON.parse(value);
+      if (typeof object === "object" && object !== null) {
+        parsed.push(object as Record<string, unknown>);
+      }
+    } catch {
+      // JSON でない文字列。読み飛ばす。
+    }
+  }
+  return parsed;
+}
+
 async function post(
   ctx: ReturnType<typeof setup>,
   body: unknown,
@@ -162,12 +184,15 @@ describe("POST /api/v1/users", () => {
 
     expect(res.status).toBe(201);
     const body: FieldStaffCreateResponse = await res.json();
-    // 送った値がそのまま採用されていないこと。**発行は一様乱数**なので
-    // まれに一致しうる（1/10000）。ここで見るのは「入力が素通りしない」
-    // ことなので、ハッシュが平文の PIN でないことを併せて確かめる。
     const inserted = ctx.d1.queries.find((q) => q.sql.includes('insert into "user"'));
     expect(inserted).toBeDefined();
-    expect(JSON.stringify(inserted?.params)).not.toContain("2580");
+
+    // **値そのものと突き合わせる。連結した文字列へ `toContain` しない。**
+    // 引数には時刻（`1786784400000`）と ULID が混ざっており、4 桁の数字は
+    // その中にたまたま現れる。実際にそれで main が赤くなった。
+    expect(inserted?.params).not.toContain("2580");
+    // 保存しているのはハッシュ。平文をそのまま入れていない。
+    expect(paramsOf(inserted).some((p) => p.startsWith("pbkdf2$"))).toBe(true);
     expect(body.initialPin).toMatch(/^[0-9]{4}$/);
   });
 
@@ -197,11 +222,26 @@ describe("POST /api/v1/users", () => {
 
     const audit = ctx.d1.queries.find((q) => q.sql.includes('insert into "audit_log"'));
     expect(audit).toBeDefined();
-    const serialized = JSON.stringify(audit?.params);
-    expect(serialized).not.toContain(body.initialPin);
-    expect(serialized).not.toContain("pbkdf2");
+
     // 監査の行そのものは残る。
-    expect(serialized).toContain("user.invited");
+    expect(paramsOf(audit)).toContain("user.invited");
+
+    // **PIN そのものを引数に入れていない。**
+    expect(audit?.params).not.toContain(body.initialPin);
+    // ハッシュも入れていない（`pbkdf2$...` は十分に特徴的なので前方一致で見る）。
+    expect(paramsOf(audit).some((p) => p.includes("pbkdf2"))).toBe(false);
+
+    // **`after` の鍵を固定する。** 連結した文字列へ `toContain` すると、
+    // 時刻や ULID にたまたま含まれる 4 桁で落ちる（実際に main が赤くなった）。
+    // 鍵を数える形なら、PIN を足した瞬間にここが落ちる。
+    const after = jsonParamsOf(audit).find((value) => "staffNumber" in value);
+    expect(after).toBeDefined();
+    expect(Object.keys(after ?? {}).sort()).toEqual([
+      "displayName",
+      "propertyIds",
+      "role",
+      "staffNumber",
+    ]);
   });
 
   it("スタッフ番号が重複していたら 409", async () => {
