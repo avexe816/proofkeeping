@@ -15,7 +15,7 @@ import { requireAppContext } from "../../lib/ui/requireSession.js";
  *   /app/settings/staff
  *
  * task: docs/tasks/P7-02.md
- * 決定: docs/DECISIONS.md #177 / #181 / #184 / #185
+ * 決定: docs/DECISIONS.md #177 / #181 / #184 / #186
  *
  * ── PDF ではなく印刷用 HTML（§2.4 v1.1 / DECISIONS #184）──
  * 初版は「QR コード付きの現場掲示用 PDF」だったが、PDF は Queue
@@ -129,7 +129,7 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
  * 案内カード 1 枚。**印刷したときに A4 へ収まる**（`app.css` の `@media print`）。
  *
  * 印字するのは §2.4 の 3 項目。**「施設コード」ではなく「組織 ID」**を出す
- * （DECISIONS #185）。ログインの 3 フィールドは組織 ID・スタッフ番号・PIN で、
+ * （DECISIONS #186）。ログインの 3 フィールドは組織 ID・スタッフ番号・PIN で、
  * 施設コードを打ち込む欄はどこにも無い。
  */
 function LoginCardSheet({ card }: { card: LoginCard }) {
