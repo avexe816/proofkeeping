@@ -60,6 +60,26 @@ export {
   type ShardUsageReport,
 } from "./shardUsageCollector.js";
 
+// テナント移送の照合（P7-07 / PK-SPEC-P7 §4.4）。**純粋。**
+// **運用者向け。テナント向けの API・画面から呼ばないこと**（同上）。
+export {
+  NON_MOVABLE_TABLES,
+  TENANT_MOVE_STEPS,
+  TENANT_MOVE_STEP_LABELS,
+  assertShardMapValue,
+  canonicalRow,
+  checksumOfRows,
+  isMovableTable,
+  mayProceedAfterVerify,
+  movableTablesOf,
+  shardMapKey,
+  verifyTenantMove,
+  type TableMismatch,
+  type TableSnapshot,
+  type TenantMoveStep,
+  type TenantMoveVerification,
+} from "./tenantMove.js";
+
 // D1 の 1 文あたりバインド変数上限（100）と、それに収める分割。
 // **「SQLite の 999」で分割の大きさを決めないこと**（limits.ts の注記）。
 export {
