@@ -161,6 +161,10 @@ export default [
       "app/settings/integrations/:integrationId/mappings",
       "routes/app/integrationMappings.tsx",
     ),
+    // P7-09。アーカイブ閲覧（PK-SPEC-P7 §9）。
+    // **§9 MUST の「データは保管されています。閲覧には復元が必要です」を
+    // 見出しのすぐ下に出す画面。**
+    route("app/archive", "routes/app/archive.tsx"),
     route("app/audit/findings", "routes/app/findings.tsx"),
     route("app/audit/findings/:findingId", "routes/app/findingDetail.tsx"),
   ]),

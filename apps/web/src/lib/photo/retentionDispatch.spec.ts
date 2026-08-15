@@ -65,7 +65,10 @@ describe("dispatchPhotoRetention", () => {
       [TEST_ORG.orgShortId, TEST_ORG.organizationId],
       [OTHER_ORG.orgShortId, OTHER_ORG.organizationId],
     ]);
+    // 各組織で `expireArchiveRestores()` が先に 1 回 select する（0 件）。
+    fake.enqueueRows([]);
     fake.enqueueRows([subscriptionRow("BASE")]);
+    fake.enqueueRows([]);
     fake.enqueueRows([subscriptionRow("PRO")]);
     const sent: SentMessage[] = [];
 
@@ -75,6 +78,7 @@ describe("dispatchPhotoRetention", () => {
       organizations: 2,
       queued: 2,
       skippedNoPlan: 0,
+      expiredRestores: 0,
       failedOrganizations: 0,
       truncated: false,
     });
@@ -89,6 +93,7 @@ describe("dispatchPhotoRetention", () => {
   it("**版数が引けない組織へは投げない**（消さない側へ倒す）", async () => {
     const fake = createFakeD1();
     fake.enqueueRows([[TEST_ORG.orgShortId, TEST_ORG.organizationId]]);
+    fake.enqueueRows([]); // 期限切れの復元 0 件
     fake.enqueueRows([]); // subscription が 0 件
     const sent: SentMessage[] = [];
 
@@ -101,6 +106,7 @@ describe("dispatchPhotoRetention", () => {
   it("1 組織で落ちても残りを止めない", async () => {
     const fake = createFakeD1();
     fake.enqueueRows([[TEST_ORG.orgShortId, TEST_ORG.organizationId]]);
+    fake.enqueueRows([]); // 期限切れの復元 0 件
     fake.enqueueRows([subscriptionRow("BASE")]);
     const sent: SentMessage[] = [];
 

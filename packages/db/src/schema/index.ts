@@ -199,6 +199,7 @@ export {
 // 仕様 §2.1 の `webhookSecret` と §6.4 の `secret` は KV の参照キーに読み替えてある。
 export {
   API_SCOPES,
+  ARCHIVE_RESTORE_STATUSES,
   EXTERNAL_ENTITY_TYPES,
   INTEGRATION_KINDS,
   INTEGRATION_STATUSES,
@@ -211,6 +212,8 @@ export {
   SYNC_TRIGGERS,
   apiKey,
   archiveManifest,
+  archiveRestore,
+  archiveRestoreRow,
   externalMapping,
   integration,
   notificationPreference,
@@ -218,6 +221,7 @@ export {
   pushSubscription,
   syncLog,
   type ApiScope,
+  type ArchiveRestoreStatus,
   type ExternalEntityType,
   type IntegrationKind,
   type IntegrationStatus,

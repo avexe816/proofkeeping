@@ -26,6 +26,11 @@ import {
   isArchivable,
   isDirectlyArchivable,
   toJsonl,
+  archiveRestoreExpiresAt,
+  isRestoreViewable,
+  parseJsonl,
+  restoreYearsOf,
+  validateRestoreRange,
 } from "./archivePolicy.js";
 
 const ORG_ID = "a1b2c3__org_01JBXQ3ZK8N4P2VYR6ABCDEFGH";
@@ -216,5 +221,92 @@ describe("DIRECTLY_ARCHIVABLE_TABLES — いま実際に退避できる表", () 
   it("除外された表は当然ここにも無い", () => {
     expect(isDirectlyArchivable("invoice")).toBe(false);
     expect(isDirectlyArchivable("audit_log")).toBe(false);
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 復元（P7-09 / PK-SPEC-P7 §9）
+// ────────────────────────────────────────────────────────────
+
+describe("validateRestoreRange（§9.2「1 回の復元: 最大 3 か月分」）", () => {
+  it("同じ日を許す（1 日ぶんの復元）", () => {
+    expect(validateRestoreRange("2025-03-01", "2025-03-01")).toBe("OK");
+  });
+
+  it("ちょうど 3 か月を許す", () => {
+    expect(validateRestoreRange("2025-01-15", "2025-04-15")).toBe("OK");
+  });
+
+  it("**3 か月を 1 日でも超えたら拒む**", () => {
+    expect(validateRestoreRange("2025-01-15", "2025-04-16")).toBe("RANGE_TOO_WIDE");
+  });
+
+  it("向きが逆なら拒む", () => {
+    expect(validateRestoreRange("2025-04-01", "2025-01-01")).toBe("RANGE_INVERTED");
+  });
+
+  it("年をまたいでも数えられる", () => {
+    expect(validateRestoreRange("2025-11-01", "2026-02-01")).toBe("OK");
+    expect(validateRestoreRange("2025-11-01", "2026-02-02")).toBe("RANGE_TOO_WIDE");
+  });
+
+  it("月末の繰り上がりで例外にならない", () => {
+    expect(["OK", "RANGE_TOO_WIDE"]).toContain(validateRestoreRange("2025-11-30", "2026-03-01"));
+  });
+});
+
+describe("archiveRestoreExpiresAt / isRestoreViewable（§9.2「保持: 7 日」）", () => {
+  const readyAt = new Date("2026-08-15T00:00:00.000Z");
+
+  it("7 日後", () => {
+    expect(archiveRestoreExpiresAt(readyAt).toISOString()).toBe("2026-08-22T00:00:00.000Z");
+  });
+
+  it("期限より前なら読める", () => {
+    const expires = archiveRestoreExpiresAt(readyAt);
+    expect(isRestoreViewable(expires, new Date(expires.getTime() - 1))).toBe(true);
+  });
+
+  it("**期限ちょうどは読めない**", () => {
+    const expires = archiveRestoreExpiresAt(readyAt);
+    expect(isRestoreViewable(expires, expires)).toBe(false);
+  });
+
+  it("`null` は読めない（まだ READY になっていない）", () => {
+    expect(isRestoreViewable(null, readyAt)).toBe(false);
+  });
+});
+
+describe("restoreYearsOf", () => {
+  it("同じ年なら 1 つ", () => {
+    expect(restoreYearsOf("2025-01-01", "2025-03-01")).toEqual([2025]);
+  });
+
+  it("年をまたぐと両方", () => {
+    expect(restoreYearsOf("2025-11-01", "2026-01-01")).toEqual([2025, 2026]);
+  });
+
+  it("向きが逆なら空", () => {
+    expect(restoreYearsOf("2026-01-01", "2025-01-01")).toEqual([]);
+  });
+});
+
+describe("parseJsonl", () => {
+  it("`toJsonl()` の逆", () => {
+    const rows = [{ id: "1" }, { id: "2" }];
+    expect(parseJsonl(toJsonl(rows))).toEqual(rows);
+  });
+
+  it("空文字は 0 件", () => {
+    expect(parseJsonl("")).toEqual([]);
+  });
+
+  it("**1 行でも壊れていたら `null`**（部分的に読めた写しを返さない）", () => {
+    expect(parseJsonl('{"id":"1"}\nnot-json\n')).toBeNull();
+  });
+
+  it("オブジェクトでない行を拒む", () => {
+    expect(parseJsonl("[1,2,3]\n")).toBeNull();
+    expect(parseJsonl("42\n")).toBeNull();
   });
 });

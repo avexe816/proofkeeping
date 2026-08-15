@@ -143,6 +143,20 @@ export const PERMISSION_ACTIONS = {
   "integration.read": { write: false },
   "integration.write": { write: true },
   /**
+   * 退避データの復元と閲覧（PK-SPEC-P7 §9 / P7-09）。
+   *
+   * §9.1 は「**管理者が**期間と施設を指定して復元をリクエスト」と書く。
+   * `integration.*` と同じ 2 ロール（`OWNER` / `ORG_ADMIN`）に倒した。
+   *
+   * **復元は 13 か月以上前の記録を丸ごと読める操作。** 施設責任者に
+   * 開く根拠が仕様に無い以上、狭い側へ倒す（`ruleConfig.*` と同じ向き）。
+   * `AUDITOR` は読み取りのみ — **監査閲覧が過去の記録に届かないと
+   * 役に立たない**が、書き込み（復元の要求）は与えない（security.md §1
+   * 「`AUDITOR` は書き込み操作を一切できない」）。
+   */
+  "archive.read": { write: false },
+  "archive.restore": { write: true },
+  /**
    * 公開 API のキー（PK-SPEC-P6 §6.1 / P6-12）。
    *
    * **`integration.*` と同じ 2 ロール**（`OWNER` / `ORG_ADMIN`）。
@@ -690,6 +704,25 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+  },
+  "archive.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "archive.restore": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    // **`AUDITOR` は書き込み操作を一切できない**（security.md §1）。
+    AUDITOR: "DENY",
   },
   "integration.write": {
     OWNER: "ORG",

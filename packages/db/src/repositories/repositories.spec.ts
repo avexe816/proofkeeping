@@ -140,6 +140,8 @@ const ROLLUP_COUNTS = {
 const OWN_ID = {
   // P6-12。
   apiKey: generateId(TEST_ORG.orgShortId, "akey"),
+  // P7-09。退避データの復元（PK-SPEC-P7 §9）。
+  archiveRestore: generateId(TEST_ORG.orgShortId, "arst"),
   outboundWebhook: generateId(TEST_ORG.orgShortId, "owh"),
   user: generateId(TEST_ORG.orgShortId, "usr"),
   membership: generateId(TEST_ORG.orgShortId, "mem"),
@@ -221,6 +223,8 @@ const INSPECTION_POLICY = {
 const OTHER_ID = {
   // P6-12。
   apiKey: generateId(OTHER_ORG.orgShortId, "akey"),
+  // P7-09。退避データの復元（PK-SPEC-P7 §9）。
+  archiveRestore: generateId(OTHER_ORG.orgShortId, "arst"),
   outboundWebhook: generateId(OTHER_ORG.orgShortId, "owh"),
   user: generateId(OTHER_ORG.orgShortId, "usr"),
   membership: generateId(OTHER_ORG.orgShortId, "mem"),
@@ -2736,6 +2740,70 @@ const INVOCATIONS: Invocation[] = [
     name: "archive.listArchiveManifests",
     kind: "tenant",
     run: (env, ctx) => archiveRepo.listArchiveManifests(env, ctx),
+  },
+  {
+    // P7-09。退避データの復元（PK-SPEC-P7 §9）。**退避そのものは触らない。**
+    name: "archive.createArchiveRestore",
+    kind: "tenant",
+    run: (env, ctx) =>
+      archiveRepo.createArchiveRestore(env, ctx, {
+        requestedById: OWN_ID.membership,
+        propertyId: null,
+        fromBusinessDate: "2025-01-01",
+        toBusinessDate: "2025-02-01",
+      }),
+  },
+  {
+    name: "archive.findArchiveRestoreById",
+    kind: "tenant",
+    run: (env, ctx) => archiveRepo.findArchiveRestoreById(env, ctx, OWN_ID.archiveRestore),
+    crossTenant: (env, ctx) =>
+      archiveRepo.findArchiveRestoreById(env, ctx, OTHER_ID.archiveRestore),
+  },
+  {
+    name: "archive.listArchiveRestores",
+    kind: "tenant",
+    run: (env, ctx) => archiveRepo.listArchiveRestores(env, ctx),
+  },
+  {
+    name: "archive.updateArchiveRestoreStatus",
+    kind: "tenant",
+    run: (env, ctx) =>
+      archiveRepo.updateArchiveRestoreStatus(env, ctx, {
+        id: OWN_ID.archiveRestore,
+        status: "RUNNING",
+      }),
+    crossTenant: (env, ctx) =>
+      archiveRepo.updateArchiveRestoreStatus(env, ctx, {
+        id: OTHER_ID.archiveRestore,
+        status: "RUNNING",
+      }),
+  },
+  {
+    name: "archive.insertArchiveRestoreRows",
+    kind: "tenant",
+    run: (env, ctx) =>
+      archiveRepo.insertArchiveRestoreRows(env, ctx, OWN_ID.archiveRestore, [
+        { tableName: "cleaning_task", businessDate: "2025-01-05", payload: "{}" },
+      ]),
+    crossTenant: (env, ctx) =>
+      archiveRepo.insertArchiveRestoreRows(env, ctx, OTHER_ID.archiveRestore, [
+        { tableName: "cleaning_task", businessDate: "2025-01-05", payload: "{}" },
+      ]),
+  },
+  {
+    name: "archive.listArchiveRestoreRows",
+    kind: "tenant",
+    run: (env, ctx) =>
+      archiveRepo.listArchiveRestoreRows(env, ctx, { restoreId: OWN_ID.archiveRestore }),
+    crossTenant: (env, ctx) =>
+      archiveRepo.listArchiveRestoreRows(env, ctx, { restoreId: OTHER_ID.archiveRestore }),
+  },
+  {
+    // 期限切れの片づけ。**消えるのは復元した写しだけ**（§9.2）。
+    name: "archive.expireArchiveRestores",
+    kind: "tenant",
+    run: (env, ctx) => archiveRepo.expireArchiveRestores(env, ctx, ctx.now),
   },
   {
     // P7-10。写真の保持期限（PK-SPEC-P7 §4.5）。**これは「退避」ではない。**

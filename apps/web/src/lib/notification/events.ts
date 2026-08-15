@@ -60,12 +60,12 @@ export interface NotificationEventDefinition {
 }
 
 /**
- * §5.1 の表と、そこに無い 1 件。**11 件。§5.1 のぶんは順序も仕様のまま。**
+ * §5.1 の表と、そこに無い 2 件。**12 件。§5.1 のぶんは順序も仕様のまま。**
  *
- * **`photo.retention_due` だけが §5.1 に無い**（DECISIONS #163）。
- * PK-SPEC-P7 §4.5 MUST が通知を要求しているのに §5.1 の表が P7 を
- * 織り込んでいないため。仕様の版上げで §5.1 へ入れること
- * （OPEN_QUESTIONS #097）。
+ * **`photo.retention_due`（#163）と `archive.restore_ready`（#166）が
+ * §5.1 に無い。** どちらも P7 の MUST が通知を要求しているのに、
+ * §5.1 の表が P7 を織り込んでいないため。仕様の版上げで §5.1 へ
+ * 入れること（OPEN_QUESTIONS #097）。
  *
  * 語彙（`NOTIFICATION_EVENT_CODES`）は `packages/db` にある。
  * ここが持つのは「どのチャネルへ、誰へ」という配信の方針。
@@ -140,6 +140,15 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDefinition[] = [
     // 通知し」と定めており、宛先が `PROPERTY_MANAGER` の
     // `lostitem.retention_due` では代用できない。
     code: "photo.retention_due",
+    defaultChannels: ["IN_APP", "EMAIL"],
+    audience: ["OWNER", "ORG_ADMIN"],
+    ignoresQuietHours: false,
+  },
+  {
+    // P7-09。**§5.1 の 10 件に無い 12 件目**（DECISIONS #166）。
+    // §9.1 の手順 4 が「完了をメール通知」と定めている。
+    // 復元を要求できるのは管理者だけなので、宛先も管理者。
+    code: "archive.restore_ready",
     defaultChannels: ["IN_APP", "EMAIL"],
     audience: ["OWNER", "ORG_ADMIN"],
     ignoresQuietHours: false,

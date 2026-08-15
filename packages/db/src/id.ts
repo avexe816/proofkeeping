@@ -160,6 +160,9 @@ export const ENTITY_PREFIXES = [
   // P7-10。**実体の無い、バッチを表す操作者**（`repositories/audit.ts` の
   // `systemActorId()` / DECISIONS #164）。この接頭辞を持つ表は無い。
   "sys", // システム（バッチ）
+  // P7-09。退避データの復元（PK-SPEC-P7 §9）。
+  "arst", // archiveRestore
+  "arow", // archiveRestoreRow
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

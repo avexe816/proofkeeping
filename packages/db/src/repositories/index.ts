@@ -467,6 +467,17 @@ export {
   recordArchiveManifest,
   type ArchiveManifestFilter,
   type RecordArchiveManifestInput,
+  // P7-09。退避データの復元（PK-SPEC-P7 §9）。**退避そのものは触らない。**
+  // 期限で消えるのは復元した写しであって、R2 と archive_manifest は残る。
+  createArchiveRestore,
+  expireArchiveRestores,
+  findArchiveRestoreById,
+  insertArchiveRestoreRows,
+  listArchiveRestoreRows,
+  listArchiveRestores,
+  updateArchiveRestoreStatus,
+  type ArchiveRestoreRowInput,
+  type CreateArchiveRestoreInput,
 } from "./archive.js";
 
 // 写真の保持期限（P7-10 / PK-SPEC-P7 §4.5 / security.md §4）。

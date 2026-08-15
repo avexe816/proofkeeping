@@ -24,7 +24,13 @@
  * 写真を 7 か月早く消しうる。**消すのは取り返しがつかない。**
  */
 
-import { listOrganizationDirectory, findSubscription, type Env, type TenantContext } from "@pk/db";
+import {
+  expireArchiveRestores,
+  findSubscription,
+  listOrganizationDirectory,
+  type Env,
+  type TenantContext,
+} from "@pk/db";
 
 import type { PhotoRetentionMessage } from "../../consumers/photoRetention.js";
 
@@ -44,6 +50,8 @@ export interface PhotoRetentionDispatchResult {
   skippedNoPlan: number;
   /** 投入に失敗した組織の数。0 でなければ調査が要る。 */
   failedOrganizations: number;
+  /** 期限切れにした復元の数（P7-09 / §9.2「保持 7 日」）。 */
+  expiredRestores: number;
   /** 組織数が上限に達したか。真なら取りこぼしている可能性がある。 */
   truncated: boolean;
 }
@@ -64,6 +72,7 @@ export async function dispatchPhotoRetention(
     organizations: organizations.length,
     queued: 0,
     skippedNoPlan: 0,
+    expiredRestores: 0,
     failedOrganizations: 0,
     truncated: organizations.length >= PHOTO_RETENTION_ORGANIZATION_LIMIT,
   };
@@ -78,6 +87,13 @@ export async function dispatchPhotoRetention(
     };
 
     try {
+      // 退避データの復元の期限切れ（P7-09 / §9.2「保持 7 日。以後は自動削除」）。
+      //
+      // **版数の判定より前に行う。** 契約が切れた組織にも復元の写しは
+      // 残りうるので、`skippedNoPlan` で抜ける前に片づける。
+      // **消えるのは写しだけ**で、R2 の退避と `archive_manifest` は残る。
+      result.expiredRestores += await expireArchiveRestores(env, ctx, now);
+
       const subscription = await findSubscription(env, ctx);
       // **版数が引けなければ投げない**（冒頭の注記）。
       if (subscription === undefined) {

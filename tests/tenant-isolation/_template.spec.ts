@@ -131,6 +131,8 @@ const TENANT_TABLES = [
   // P7-08。年次アーカイブの記録（PK-SPEC-P0 §19.7）。**他組織の行が
   // 混ざると、他社の退避データを復元する経路になる。**
   "archive_manifest",
+  "archive_restore",
+  "archive_restore_row",
 ] as const;
 
 /**
