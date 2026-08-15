@@ -33,7 +33,18 @@ describe("§6.1 Dependabot", () => {
 describe("§6.1 gitleaks", () => {
   it("CI のジョブとして在る", () => {
     expect(CI).toContain("gitleaks:");
-    expect(CI).toContain("gitleaks/gitleaks-action");
+    expect(CI).toContain("gitleaks detect");
+  });
+
+  it("**見つかったら落ちる**（`--exit-code 1`）", () => {
+    // 報告するだけのジョブにすると、鍵が push された状態で main が進む。
+    expect(CI).toContain("--exit-code 1");
+  });
+
+  it("**公式 action を使わない**（API 権限に依存させない / DECISIONS #170）", () => {
+    // `gitleaks-action` は PR のコミット一覧を GitHub API から引くため、
+    // 既定の `GITHUB_TOKEN` の権限では 403 で落ちる。
+    expect(CI).not.toContain("gitleaks/gitleaks-action");
   });
 
   it("**履歴全体を走査する**（`fetch-depth: 0`）", () => {

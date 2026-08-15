@@ -128,10 +128,17 @@ jobs:
   # 秘密情報のコミット検査（PK-SPEC-P7 §6.1 / P7-13）。
   #
   # **`fetch-depth: 0` が要る。** 既定の浅い clone だと直近 1 コミットしか
-  # 見えず、過去に混入した鍵を見逃す。gitleaks は履歴全体を走査する。
+  # 見えず、過去に混入した鍵を見逃す。`gitleaks detect` は git の履歴を走査する。
   #
   # **必須ジョブにしてある。** 見つかったときに「あとで直す」を選べる形に
   # すると、鍵が push された状態で main が進む。
+  #
+  # ── `gitleaks-action` を使わない ────────────────────────
+  # 公式 action は PR のコミット一覧を GitHub API から引くため、
+  # `GITHUB_TOKEN` に `pull-requests: read` が要り、既定の権限では
+  # **403 Resource not accessible by integration で落ちる。**
+  # 検査そのものに API は要らない（履歴はローカルに在る）ので、
+  # **CLI を直接動かす。** 権限を広げるより、要らない依存を外すほうが安い。
   gitleaks:
     runs-on: ubuntu-latest
     steps:
@@ -139,9 +146,10 @@ jobs:
         with:
           fetch-depth: 0
       - name: Check for committed secrets
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            zricethezav/gitleaks:latest \
+            detect --source /repo --no-banner --redact --exit-code 1
 
   # E2E。接続先（preview）が無い間は未実施として緑で抜ける。
   # 実体と、なぜ今そうしているかは scripts/e2e.ts の冒頭に書いてある。

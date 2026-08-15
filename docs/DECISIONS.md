@@ -3658,3 +3658,24 @@
     分位だけを見ると「エラーが増えるほど速くなる」。
   - モバイル初回表示（4G）は目標値だけ持ち、**実機で測る**
     （testing.md §6「自動化不可・人間が行う」）。
+
+## #170 gitleaks は公式 action ではなく CLI を直接動かす
+
+- 日付: 2026-08-15
+- task: P7-13
+- 文脈: §6.1「秘密情報のコミット検査（gitleaks）」を CI に足したところ、
+  `gitleaks/gitleaks-action@v2` が **403 `Resource not accessible by
+  integration`** で落ちた。PR のコミット一覧を GitHub API から引くため、
+  `GITHUB_TOKEN` に `pull-requests: read` が要る。
+- 決定: **action を使わず、`zricethezav/gitleaks` の CLI を docker で動かす。**
+  `detect --source /repo --no-banner --redact --exit-code 1`。
+- 理由: **検査そのものに API は要らない。** 履歴はチェックアウト済みの
+  ローカルに在る（`fetch-depth: 0`）。権限を広げて動かすより、
+  **要らない依存を外すほうが安い**（CI の token に PR の読み取り権限を
+  与える理由が、この検査には無い）。組織アカウントでは
+  `gitleaks-action` に `GITLEAKS_LICENSE` も要るので、そこも避けられる。
+- 影響:
+  - `--redact` を付けてある。**見つかった値そのものをログに出さない**
+    （公開ログに鍵が残ると検査が漏洩経路になる）。
+  - `--exit-code 1`。**報告するだけにしない。** 落ちなければ、鍵が
+    push された状態で main が進む。
