@@ -4325,3 +4325,65 @@
   - CLAUDE.md §8 に「すべてリポジトリルートで実行する」を明記した。
     `db:seed` が未配線（OPEN_QUESTIONS #031）であることも併記した。
     **§8 のコマンド一覧を見て叩いた人が同じ文面のエラーに当たる**ため。
+
+## #192 デプロイ環境は `CLOUDFLARE_ENV` で選ぶ（`wrangler deploy --env` は効かない）
+
+- 日付: 2026-08-15
+- task: なし（staging 構築の準備中に発見 / 人間の指示）
+- 文脈: staging を出す前に `wrangler deploy --env staging --dry-run` を
+  流したところ、**表示された binding が local のものだった。**
+
+  ```
+  Using redirected Wrangler configuration.
+   - Configuration being used: "build/server/wrangler.json"
+   - Original user's configuration: "wrangler.toml"
+  ```
+
+  `@cloudflare/vite-plugin` はビルド時に `build/server/wrangler.json` と
+  `.wrangler/deploy/config.json` を書き、以後 `wrangler deploy` は
+  **`wrangler.toml` ではなくそちらを読む。** 焼かれる環境は
+  `CLOUDFLARE_ENV`（ビルド時）で決まり、**`--env` は黙って無視される。**
+
+  **無視されることが問題の本体。** エラーにならず、コマンドには
+  `--env staging` と書いてある。実際に上がるのは直前のビルドの設定で、
+  環境指定なしでビルドすると top-level が焼かれる。すなわち
+
+  | | 焼かれる値 |
+  |---|---|
+  | Worker 名 | `pk-local` |
+  | D1 | `proofkeeping-shard-00`（**実在する唯一の D1**） |
+  | KV | local の実 ID |
+  | cron | 4 本とも有効 |
+
+  CI の staging デプロイは `pnpm --filter @pk/web build`（環境指定なし）→
+  `wrangler deploy --env staging` の順だった。**`CLOUDFLARE_API_TOKEN` を
+  置いて main へ push した時点で、local 設定の Worker が Cloudflare 上に
+  作られ、production の D1 に繋がり、cron が回り始める。**
+  「production に影響しない」という前提が崩れる経路がここにあった。
+- 選択肢:
+  - (a) build を環境ごとにやり直し、`CLOUDFLARE_ENV` を渡す
+  - (b) `.wrangler/deploy/config.json` を消してから deploy し、
+    `wrangler.toml` を直接読ませる
+  - (c) vite plugin を外し、wrangler 単体のビルドへ戻す
+- 決定: **(a)。** 加えて **deploy の直前に、焼けた `name` を確かめて
+  一致しなければ中止する。**
+- 理由:
+  - (b) はプラグインの生成物と実際に動く構成がずれる。**アセットの配線
+    （`build/client`）ごと壊れる。**
+  - (c) は P0-14 / DECISIONS #004 の決定を覆す。影響が大きすぎる。
+  - (a) の焼き直しは vite build の数秒で、checkout と install は共有のまま。
+    DECISIONS #185（無料枠のためにジョブを 3 本へまとめた）の意図も保てる。
+  - **`--env` が効かない以上、名前の確認が唯一の関門になる。**
+    人がコマンドを読んで気づける誤りではない。
+- 影響:
+  - `.github/workflows/ci.yml` の preview / staging デプロイが、それぞれ
+    `CLOUDFLARE_ENV` 付きで build し直し、`jq -r .name` が期待値と違えば
+    `exit 1` する。**`wrangler deploy` から `--env` を外した**
+    （効かないものを書かない）。
+  - `docs/runbook/deploy.md` §3・§3.5 ⑤ も同じ形へ直した。
+  - `tests/toolchain/deploy-env.spec.ts` を追加。CI と手順書の両方について、
+    `CLOUDFLARE_ENV` があること・名前を確かめてから deploy すること・
+    `--env` を渡さないことを見る。
+  - **preview の `--name pk-pr-{n}` は残してある。** redirected config でも
+    CLI の `--name` は効く想定だが、**実資格情報で 1 回確かめること。**
+    ずれても環境は preview のままで、名前が `pk-preview` になるだけ。

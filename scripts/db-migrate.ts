@@ -124,6 +124,26 @@ function wranglerArgs(environment: Environment, databaseName: string): string[] 
   return args;
 }
 
+/**
+ * SQL を wrangler へ渡す形。**`--command=<sql>` と 1 語で渡す。**
+ *
+ * `["--command", sql]` の 2 語に分けてはならない。**SQL の先頭が `--` の
+ * ときに壊れる。** wrangler の引数解析（yargs）は、値の位置にある語が
+ * `--` で始まると「次のフラグ」と見なすため、`--command` は値を受け取れず、
+ * SQL 本文がフラグ名として解釈される。
+ *
+ *   ✘ [ERROR] Unknown arguments:  P2-16 P1 暫定機能の移行（...
+ *
+ * 手書きのマイグレーションは先頭に `-- 見出し` を置く
+ * （`0011_p2_16_inspection_policy_backfill.sql`）。**drizzle-kit の生成物は
+ * `CREATE TABLE` から始まるので踏まない。** 手書きを足した時点で壊れており、
+ * CI は `drizzle-kit check` しか行わない（実適用しない）ため検出されなかった。
+ * `tests/toolchain/migrations.spec.ts` がこの形を押さえている。
+ */
+function commandArg(sql: string): string {
+  return `--command=${sql}`;
+}
+
 function runWrangler(environment: Environment, databaseName: string, extra: string[]): string {
   return execFileSync(
     "pnpm",
@@ -157,12 +177,12 @@ async function main(): Promise<void> {
   const result = await runMigrations(
     {
       execute: (target, sql) => {
-        runWrangler(environment, target.databaseName, ["--command", sql]);
+        runWrangler(environment, target.databaseName, [commandArg(sql)]);
         return Promise.resolve();
       },
       query: (target, sql) =>
         Promise.resolve(
-          parseRows(runWrangler(environment, target.databaseName, ["--json", "--command", sql])),
+          parseRows(runWrangler(environment, target.databaseName, ["--json", commandArg(sql)])),
         ),
       log: {
         info: (message) => {

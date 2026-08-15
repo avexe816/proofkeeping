@@ -118,14 +118,27 @@ curl -s https://<host>/api/health | jq '.shards'
 ## 3. デプロイ
 
 ```bash
-pnpm --filter @pk/web build
-pnpm --filter @pk/web exec wrangler deploy --env production
+CLOUDFLARE_ENV=production pnpm --filter @pk/web build
+
+# 焼き込まれた環境を目視で確かめる。**pk-prod でなければ deploy しない。**
+jq -r .name apps/web/build/server/wrangler.json
+
+CLOUDFLARE_ENV=production pnpm --filter @pk/web exec wrangler deploy
 ```
+
+**`CLOUDFLARE_ENV` を落とさない。`--env` では効かない。**
+`@cloudflare/vite-plugin` はビルド時に `build/server/wrangler.json` と
+`.wrangler/deploy/config.json` を書き、`wrangler deploy` は**そちらを読む**
+（redirected config）。環境は**ビルド時に決まる**ので、`wrangler deploy --env production`
+と書いても**黙って無視され、直前のビルドの設定が上がる。**
+既定（環境指定なし）でビルドすると `pk-local` が焼かれ、**local 設定のまま
+実在の D1 に繋がった Worker が上がる。** 名前を確かめる 1 行はそのための関門。
+経緯は DECISIONS #192。
 
 **`wrangler` を素で叩かない。** ルートの `package.json` に wrangler は無く、
 `wrangler.toml` も `apps/web/` にある。`--filter @pk/web exec` を通すと
 **ルートに居たまま** apps/web で実行される。`cd apps/web` してから
-`wrangler deploy --env production` でも同じだが、その場合は戻ること。
+`wrangler deploy` でも同じだが、その場合は戻ること。
 
 ### 環境
 
@@ -165,6 +178,12 @@ cd "$(git rev-parse --show-toplevel)"   # ルートへ戻る
 
 **`docs/tasks/P0-02.md` の Cloudflare リソース作成が前提。** 以下は
 staging ぶんだけを抜き出した手順。**すべて人間の端末で実行する。**
+
+> **Queues は Workers の有料プランでのみ作成できる**（無料プランでは ①
+> の `wrangler queues create` が通らない）。R2 もバケット作成の前に R2 の
+> 有効化が要る。**課金の判断が先で、手順はそのあと。**
+> 7 本のキューは既に `[env.staging.queues.consumers]` に宣言してあるため、
+> **キューが無い状態では `wrangler deploy` 自体が通らない。**
 
 ### ① リソースを作る
 
@@ -246,9 +265,14 @@ pnpm db:migrate --env staging           # 適用
 ### ⑤ 初回デプロイ
 
 ```bash
-pnpm --filter @pk/web build
-pnpm --filter @pk/web exec wrangler deploy --env staging
+CLOUDFLARE_ENV=staging pnpm --filter @pk/web build
+
+jq -r .name apps/web/build/server/wrangler.json   # pk-staging であること
+
+CLOUDFLARE_ENV=staging pnpm --filter @pk/web exec wrangler deploy
 ```
+
+**`CLOUDFLARE_ENV` を落とさない**（§3 の注記）。`--env staging` は効かない。
 
 出力された `https://pk-staging.<サブドメイン>.workers.dev` を
 **`[env.staging.vars]` の `APP_BASE_URL` へ書き戻す**（今は
