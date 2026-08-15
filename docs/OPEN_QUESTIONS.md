@@ -1435,6 +1435,8 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 - 暫定対応: `photo.retention_due` を 11 件目として足した
   （DECISIONS #163）。宛先は `OWNER` / `ORG_ADMIN`、チャネルは
   `IN_APP` + `EMAIL`。`CLEANER` には届かない。
+  **P7-09 で `archive.restore_ready` も足した**（12 件目 / DECISIONS #166）。
+  §9.1 の手順 4「完了をメール通知」を満たす場所が §5.1 に無い。
 - 決める人: 仕様の版上げ。案は 2 つ。(a) §5.1 の表へ
   `photo.retention_due` を追記して 11 件にする。(b) P7 の通知を §5.1 とは
   別の表として §4.5 の側に置く。**(a) を推す。** 配信の仕組み

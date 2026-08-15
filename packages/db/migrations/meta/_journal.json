@@ -148,6 +148,13 @@
       "when": 1786773797729,
       "tag": "0020_p7_10_photo_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1786777118243,
+      "tag": "0021_p7_09_archive_restore",
+      "breakpoints": true
     }
   ]
 }

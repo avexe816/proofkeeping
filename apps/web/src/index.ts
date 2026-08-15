@@ -8,6 +8,10 @@ import { handleDailyReportBatch } from "./consumers/dailyReport.js";
 import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
 import { handleNotificationBatch } from "./consumers/notification.js";
 import { handleReconciliationBatch } from "./consumers/reconciliation.js";
+import {
+  handleArchiveRestoreBatch,
+  isArchiveRestoreMessage,
+} from "./consumers/archiveRestore.js";
 import { handlePhotoRetentionBatch, isPhotoRetentionMessage } from "./consumers/photoRetention.js";
 import { handleRollupUpdateBatch } from "./consumers/rollup.js";
 import { handleSignalIngestBatch, isSignalIngestMessage } from "./consumers/signalIngest.js";
@@ -64,6 +68,7 @@ import invoicesRoute from "./routes/api/v1/invoices.js";
 import integrationWebhooksRoute from "./routes/api/v1/integrationWebhooks.js";
 import integrations from "./routes/api/v1/integrations.js";
 import apiKeys from "./routes/api/v1/apiKeys.js";
+import archives from "./routes/api/v1/archives.js";
 import publicApi from "./routes/api/v1/public.js";
 import webhooksRoute from "./routes/api/v1/webhooks.js";
 import receiptsRoute from "./routes/api/v1/receipts.js";
@@ -232,6 +237,9 @@ api.route("/integrations", integrations);
 // API キーの管理（P6-12 / 同 §6.1）。**平文は作成時の応答だけ。**
 // 再表示の口を作らないこと（§6.1 MUST）。`OWNER` / `ORG_ADMIN` だけ。
 api.route("/api-keys", apiKeys);
+// 退避データの復元と閲覧（P7-09 / PK-SPEC-P7 §9）。
+// **退避を消す口は無い。** 期限で読めなくなるのは復元した写しだけ。
+api.route("/archives", archives);
 // 観察記録の入力品質（P3-12 / 同 §6.3 / W-22）。**読み取りだけ。**
 // スタッフ別は入力率だけを返す（security.md §5 / INV-07）。
 api.route("/data-quality", dataQuality);
@@ -370,7 +378,7 @@ export default {
       await handleRollupUpdateBatch(env, batch);
       return;
     }
-    // R2 のライフサイクル 2 種（P7-08 / P7-10）。**`kind` で分ける。**
+    // R2 のライフサイクル 3 種（P7-08 / P7-09 / P7-10）。**`kind` で分ける。**
     //
     // 年次アーカイブ（§19.7）は**退避であって削除ではない**（#159）。
     // 写真の保持期限（§4.5）は**本当に消える**（写しを作らない）。
@@ -383,14 +391,24 @@ export default {
       const photoRetention = batch.messages.filter((message) =>
         isPhotoRetentionMessage(message.body),
       );
+      const archiveRestore = batch.messages.filter((message) =>
+        isArchiveRestoreMessage(message.body),
+      );
       if (archiveExport.length > 0) {
         await handleArchiveExportBatch(env, { ...batch, messages: archiveExport });
       }
       if (photoRetention.length > 0) {
         await handlePhotoRetentionBatch(env, { ...batch, messages: photoRetention });
       }
-      // どちらでもないメッセージは `handleArchiveExportBatch` が ack して落とす。
-      if (archiveExport.length === 0 && photoRetention.length === 0) {
+      if (archiveRestore.length > 0) {
+        await handleArchiveRestoreBatch(env, { ...batch, messages: archiveRestore });
+      }
+      // どれでもないメッセージは `handleArchiveExportBatch` が ack して落とす。
+      if (
+        archiveExport.length === 0 &&
+        photoRetention.length === 0 &&
+        archiveRestore.length === 0
+      ) {
         await handleArchiveExportBatch(env, batch);
       }
       return;
@@ -481,6 +499,7 @@ export default {
       `photo-retention-dispatch organizations=${String(retention.organizations)} ` +
         `queued=${String(retention.queued)} ` +
         `skippedNoPlan=${String(retention.skippedNoPlan)} ` +
+        `expiredRestores=${String(retention.expiredRestores)} ` +
         `failed=${String(retention.failedOrganizations)}`,
     );
   },

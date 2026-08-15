@@ -207,3 +207,105 @@ export interface ArchiveEntry {
 export function toJsonl(rows: readonly unknown[]): string {
   return rows.length === 0 ? "" : `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`;
 }
+
+// ────────────────────────────────────────────────────────────
+// 復元（P7-09 / PK-SPEC-P7 §9）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 1 回の復元で扱える業務日の幅（§9.2「1 回の復元: 最大 3 か月分」）。
+ *
+ * **日数ではなく月で数える。** 3 か月の実日数は 89〜92 日で揺れ、
+ * 日数で切ると月末に要求した利用者だけが 1 日ぶん損をする。
+ */
+export const ARCHIVE_RESTORE_MAX_MONTHS = 3;
+
+/** 復元した写しを閲覧できる日数（§9.2「保持: 7 日」）。 */
+export const ARCHIVE_RESTORE_RETENTION_DAYS = 7;
+
+/** 組織あたり同時に走らせてよい復元の数（§9.2「同時実行: 組織あたり 1 件」）。 */
+export const ARCHIVE_RESTORE_MAX_CONCURRENT = 1;
+
+/**
+ * 1 回の復元で展開する行数の上限。
+ *
+ * **Workers のメモリと D1 の書き込み量に対する歯止め。**
+ * 超えたら復元を失敗させる（黙って切り詰めない — 途中までの写しを
+ * 「全部ある」と見せるほうが危ない）。
+ */
+export const ARCHIVE_RESTORE_ROW_LIMIT = 20_000;
+
+/** 復元の要求が通らない理由。**利用者に見せる符号。** */
+export type ArchiveRestoreRejection =
+  /** 期間の向きが逆。 */
+  | "RANGE_INVERTED"
+  /** 3 か月を超えている（§9.2）。 */
+  | "RANGE_TOO_WIDE"
+  /** その組織で別の復元が走っている（§9.2）。 */
+  | "ALREADY_RUNNING";
+
+/**
+ * 期間が §9.2 の制限に収まるか。**純粋関数。**
+ *
+ * `from` と `to` はどちらも含む（`YYYY-MM-DD`）。
+ * 同じ日を指定するのは 1 日ぶんの復元で、許す。
+ */
+export function validateRestoreRange(
+  from: string,
+  to: string,
+): "OK" | Exclude<ArchiveRestoreRejection, "ALREADY_RUNNING"> {
+  if (to < from) return "RANGE_INVERTED";
+  // 3 か月後の同じ日まで許す。`from` = 1/15 なら `to` = 4/15 まで。
+  const [year, month, day] = from.split("-").map(Number);
+  if (year === undefined || month === undefined || day === undefined) return "RANGE_INVERTED";
+  const limit = new Date(Date.UTC(year, month - 1 + ARCHIVE_RESTORE_MAX_MONTHS, day))
+    .toISOString()
+    .slice(0, 10);
+  return to > limit ? "RANGE_TOO_WIDE" : "OK";
+}
+
+/** 復元が閲覧できなくなる時刻（§9.2「保持 7 日」）。 */
+export function archiveRestoreExpiresAt(readyAt: Date): Date {
+  return new Date(readyAt.getTime() + ARCHIVE_RESTORE_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+}
+
+/** その復元をまだ読めるか。**期限そのものは含まない。** */
+export function isRestoreViewable(expiresAt: Date | null, now: Date): boolean {
+  return expiresAt !== null && now.getTime() < expiresAt.getTime();
+}
+
+/**
+ * 復元する年の一覧（`archive_manifest` を引く鍵）。
+ *
+ * 業務日の範囲がまたぐ年をすべて返す。**昇順・重複なし。**
+ */
+export function restoreYearsOf(from: string, to: string): number[] {
+  const first = Number(from.slice(0, 4));
+  const last = Number(to.slice(0, 4));
+  if (!Number.isInteger(first) || !Number.isInteger(last) || last < first) return [];
+  const years: number[] = [];
+  for (let year = first; year <= last; year += 1) years.push(year);
+  return years;
+}
+
+/**
+ * JSONL を行の配列へ戻す。**空行を捨てる。**
+ *
+ * `toJsonl()` の逆。壊れた行があれば**その行だけ捨てる**のではなく
+ * `null` を返す（**部分的に読めた写しを「全部ある」と見せない**）。
+ */
+export function parseJsonl(text: string): Record<string, unknown>[] | null {
+  const lines = text.split("\n").filter((line) => line.length > 0);
+  const rows: Record<string, unknown>[] = [];
+  for (const line of lines) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      return null;
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+    rows.push(parsed as Record<string, unknown>);
+  }
+  return rows;
+}

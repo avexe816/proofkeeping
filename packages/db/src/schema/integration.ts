@@ -121,6 +121,11 @@ export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
  * **`CLEANER` に送ってよいのは `task.rework_assigned` だけ**（§5.1 MUST /
  * security.md §1）。配信側（P6-09）がロールで絞る。ここは語彙だけを持つ。
  */
+/** 復元の状態（PK-SPEC-P7 §9.1）。 */
+export const ARCHIVE_RESTORE_STATUSES = ["PENDING", "RUNNING", "READY", "EXPIRED", "FAILED"] as const;
+
+export type ArchiveRestoreStatus = (typeof ARCHIVE_RESTORE_STATUSES)[number];
+
 export const NOTIFICATION_EVENT_CODES = [
   "task.rework_assigned",
   "inspection.sla_exceeded",
@@ -137,6 +142,10 @@ export const NOTIFICATION_EVENT_CODES = [
   // docs/OPEN_QUESTIONS.md #097）。§4.5 が「管理者へ通知し」と定めており、
   // 宛先が `PROPERTY_MANAGER` の `lostitem.retention_due` では代用できない。
   "photo.retention_due",
+  // P7-09。退避データの復元が終わった（PK-SPEC-P7 §9.1 の手順 4
+  // 「完了をメール通知」）。**§5.1 の 10 件に無い 12 件目**
+  // （docs/DECISIONS.md #166）。
+  "archive.restore_ready",
 ] as const;
 
 export type NotificationEventCode = (typeof NOTIFICATION_EVENT_CODES)[number];
@@ -493,5 +502,86 @@ export const archiveManifest = sqliteTable(
   (t) => [
     uniqueIndex("uq_archive_manifest").on(t.organizationId, t.year, t.tableName),
     index("idx_archive_manifest").on(t.organizationId, t.archivedAt),
+  ],
+);
+
+/**
+ * 退避データの復元リクエスト（PK-SPEC-P7 §9 / P7-09）。
+ *
+ * ── 「削除」ではなく「退避」──────────────────────────────
+ * P7 固有の絶対ルール。**この表に `deleted` を含む列を作らない。**
+ * 退避したデータは R2 に在り続け、ここは「一時的に読める形へ戻した」
+ * ことだけを記録する。期限が来て消えるのは**復元した写し**であって、
+ * 退避そのものではない（`archiveManifest` の行は残る）。
+ *
+ * ── 同時実行は組織あたり 1 件（§9.2）────────────────────
+ * **部分 index で強制できない**（SQLite の UNIQUE は NULL を別値として
+ * 扱い、状態列での絞り込みも書けない）。作成側
+ * （`repositories/archiveRestore.ts`）が走行中の行を数えて拒む。
+ */
+export const archiveRestore = sqliteTable(
+  "archive_restore",
+  {
+    ...primaryId,
+    ...tenantColumn,
+    /** 復元を要求した `membership.id`。 */
+    requestedById: text("requested_by_id").notNull(),
+    /** 施設で絞る場合のみ。`null` は組織全体（§9.1「期間と施設を指定して」）。 */
+    propertyId: text("property_id"),
+    /** 復元する業務日の範囲（含む）。**最大 3 か月**（§9.2）。 */
+    fromBusinessDate: text("from_business_date").notNull(),
+    toBusinessDate: text("to_business_date").notNull(),
+    status: text("status", { enum: ARCHIVE_RESTORE_STATUSES }).notNull().default("PENDING"),
+    /** 展開した表の数。 */
+    tableCount: integer("table_count").notNull().default(0),
+    /** 展開した行数。 */
+    rowCount: integer("row_count").notNull().default(0),
+    /**
+     * 閲覧できる期限（§9.2「保持 7 日」）。
+     *
+     * **`READY` になった時点で決まる。** 要求した時点ではない
+     * （待ち行列が長いと閲覧できる時間が削られるため）。
+     */
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+    /** 失敗の理由。**利用者に見せる短い符号**（例外の文面を入れない）。 */
+    errorCode: text("error_code"),
+    requestedAt: integer("requested_at", { mode: "timestamp_ms" }).notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [
+    index("idx_archive_restore").on(t.organizationId, t.requestedAt),
+    index("idx_archive_restore_status").on(t.organizationId, t.status),
+  ],
+);
+
+/**
+ * 復元した行の置き場（§9.1 の「一時テーブルへ展開」）。
+ *
+ * ── 表ごとに列を作らない ────────────────────────────────
+ * 退避の対象は 5 表あり、列はそれぞれ違う。**表ごとに復元先を作ると、
+ * 元の表のスキーマが変わるたびに復元先も直す必要がある**（そして
+ * 直し忘れると古い退避が読めなくなる）。JSONL の 1 行をそのまま
+ * `payload` に置き、画面は「列名と値の並び」として出す。
+ *
+ * ── 元の表へ書き戻さない ────────────────────────────────
+ * **復元は閲覧のためであって、復旧ではない。** 元の表へ INSERT すると
+ * `cleaning_task` などの現役の表に 13 か月前の行が混ざり、集計と
+ * 業務日の前提が崩れる。§9 が「閲覧」と書いているとおりに読む。
+ */
+export const archiveRestoreRow = sqliteTable(
+  "archive_restore_row",
+  {
+    ...primaryId,
+    ...tenantColumn,
+    restoreId: text("restore_id").notNull(),
+    /** 退避元の表の名前（`DIRECTLY_ARCHIVABLE_TABLES` の値）。 */
+    tableName: text("table_name").notNull(),
+    /** その行の業務日。**絞り込みと並び替えに使う。** */
+    businessDate: text("business_date").notNull(),
+    /** JSONL の 1 行そのまま。 */
+    payload: text("payload").notNull(),
+  },
+  (t) => [
+    index("idx_archive_restore_row").on(t.organizationId, t.restoreId, t.tableName),
   ],
 );

@@ -15,15 +15,28 @@
  * その事実は残る。** 復元（P7-09）がこの表を起点に R2 を引く。
  */
 
-import { and, asc, desc, eq, gte, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
-import { isDirectlyArchivable, type DirectlyArchivableTable } from "../archivePolicy.js";
+import {
+  ARCHIVE_RESTORE_MAX_CONCURRENT,
+  isDirectlyArchivable,
+  validateRestoreRange,
+  type ArchiveRestoreRejection,
+  type DirectlyArchivableTable,
+} from "../archivePolicy.js";
+import { assertIdBelongsToTenant } from "../id.js";
+import { chunkByParamBudget, chunkIdsForInArray } from "../limits.js";
 import { occupancySnapshot, physicalSignal } from "../schema/reconciliation.js";
 import { linenRecord, roomObservation } from "../schema/observation.js";
-import { archiveManifest } from "../schema/integration.js";
+import {
+  archiveManifest,
+  archiveRestore,
+  archiveRestoreRow,
+  type ArchiveRestoreStatus,
+} from "../schema/integration.js";
 import { cleaningTask } from "../schema/task.js";
 
 import { NO_PROPERTY_SCOPE, withTenantScope } from "./base.js";
@@ -197,4 +210,242 @@ export async function listArchiveTableRows(
     )
     .orderBy(asc(source.id))
     .limit(ARCHIVE_ROW_LIMIT);
+}
+
+// ────────────────────────────────────────────────────────────
+// 復元（P7-09 / PK-SPEC-P7 §9）
+// ────────────────────────────────────────────────────────────
+
+/** `createArchiveRestore()` の入力。 */
+export interface CreateArchiveRestoreInput {
+  requestedById: string;
+  propertyId: string | null;
+  fromBusinessDate: string;
+  toBusinessDate: string;
+}
+
+/**
+ * 復元を起票する（§9.1 の手順 1）。
+ *
+ * **同時実行は組織あたり 1 件**（§9.2）。走っている行があれば
+ * `ALREADY_RUNNING` を返して起票しない。**DB の制約では強制できない**
+ * （SQLite の部分 index が書けない）ので、ここが唯一の関門。
+ *
+ * 期間の検証は `archivePolicy.ts` の `validateRestoreRange()`。
+ * **呼び出し側が先に通すこと**（ここでも念のため見る）。
+ */
+export async function createArchiveRestore(
+  env: Env,
+  ctx: TenantContext,
+  input: CreateArchiveRestoreInput,
+): Promise<{ kind: "OK"; id: string } | { kind: "REJECTED"; reason: ArchiveRestoreRejection }> {
+  const range = validateRestoreRange(input.fromBusinessDate, input.toBusinessDate);
+  if (range !== "OK") return { kind: "REJECTED", reason: range };
+
+  const db = await getTenantDb(env, ctx);
+
+  const running = await db
+    .select({ id: archiveRestore.id })
+    .from(archiveRestore)
+    .where(
+      withTenantScope(
+        archiveRestore,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        inArray(archiveRestore.status, ["PENDING", "RUNNING"]),
+      ),
+    )
+    .limit(ARCHIVE_RESTORE_MAX_CONCURRENT);
+  if (running.length >= ARCHIVE_RESTORE_MAX_CONCURRENT) {
+    return { kind: "REJECTED", reason: "ALREADY_RUNNING" };
+  }
+
+  const id = generateId(ctx.orgShortId, "arst");
+  await db.insert(archiveRestore).values({
+    id,
+    organizationId: ctx.organizationId,
+    requestedById: input.requestedById,
+    propertyId: input.propertyId,
+    fromBusinessDate: input.fromBusinessDate,
+    toBusinessDate: input.toBusinessDate,
+    status: "PENDING",
+    requestedAt: ctx.now,
+  });
+  return { kind: "OK", id };
+}
+
+/** 復元 1 件。**無ければ `undefined`**（呼び出し側が 404 に写像する）。 */
+export async function findArchiveRestoreById(env: Env, ctx: TenantContext, id: string) {
+  assertIdBelongsToTenant(id, ctx);
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select()
+    .from(archiveRestore)
+    .where(withTenantScope(archiveRestore, ctx, NO_PROPERTY_SCOPE, eq(archiveRestore.id, id)))
+    .limit(1);
+  return rows[0];
+}
+
+/** 復元の一覧。**新しい順。** */
+export async function listArchiveRestores(env: Env, ctx: TenantContext, limit = 50) {
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select()
+    .from(archiveRestore)
+    .where(withTenantScope(archiveRestore, ctx, NO_PROPERTY_SCOPE))
+    .orderBy(desc(archiveRestore.requestedAt), archiveRestore.id)
+    .limit(limit);
+}
+
+/** 復元の状態を進める。**`expiresAt` は `READY` のときだけ入る。** */
+export async function updateArchiveRestoreStatus(
+  env: Env,
+  ctx: TenantContext,
+  input: {
+    id: string;
+    status: ArchiveRestoreStatus;
+    tableCount?: number;
+    rowCount?: number;
+    expiresAt?: Date | null;
+    errorCode?: string | null;
+    completedAt?: Date | null;
+  },
+): Promise<void> {
+  assertIdBelongsToTenant(input.id, ctx);
+  const db = await getTenantDb(env, ctx);
+  await db
+    .update(archiveRestore)
+    .set({
+      status: input.status,
+      ...(input.tableCount === undefined ? {} : { tableCount: input.tableCount }),
+      ...(input.rowCount === undefined ? {} : { rowCount: input.rowCount }),
+      ...(input.expiresAt === undefined ? {} : { expiresAt: input.expiresAt }),
+      ...(input.errorCode === undefined ? {} : { errorCode: input.errorCode }),
+      ...(input.completedAt === undefined ? {} : { completedAt: input.completedAt }),
+    })
+    .where(
+      withTenantScope(archiveRestore, ctx, NO_PROPERTY_SCOPE, eq(archiveRestore.id, input.id)),
+    );
+}
+
+/** 展開した行 1 件ぶんの入力。 */
+export interface ArchiveRestoreRowInput {
+  tableName: string;
+  businessDate: string;
+  payload: string;
+}
+
+/**
+ * 展開した行を書く（§9.1 の手順 3）。
+ *
+ * **元の表へ書き戻さない**（`schema/integration.ts` の注記）。
+ * 復元は閲覧のためであって復旧ではない。
+ */
+export async function insertArchiveRestoreRows(
+  env: Env,
+  ctx: TenantContext,
+  restoreId: string,
+  rows: readonly ArchiveRestoreRowInput[],
+): Promise<number> {
+  if (rows.length === 0) return 0;
+  assertIdBelongsToTenant(restoreId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  // D1 の 1 文あたりバインド変数上限に収める（`limits.ts`）。1 行 6 列。
+  const chunks = chunkByParamBudget(rows, 6);
+  for (const chunk of chunks) {
+    await db.insert(archiveRestoreRow).values(
+      chunk.map((row) => ({
+        id: generateId(ctx.orgShortId, "arow"),
+        organizationId: ctx.organizationId,
+        restoreId,
+        tableName: row.tableName,
+        businessDate: row.businessDate,
+        payload: row.payload,
+      })),
+    );
+  }
+  return rows.length;
+}
+
+/** 展開した行を読む（画面が出す）。**業務日の昇順。** */
+export async function listArchiveRestoreRows(
+  env: Env,
+  ctx: TenantContext,
+  params: { restoreId: string; tableName?: string | undefined; limit?: number | undefined },
+) {
+  assertIdBelongsToTenant(params.restoreId, ctx);
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select()
+    .from(archiveRestoreRow)
+    .where(
+      withTenantScope(
+        archiveRestoreRow,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(archiveRestoreRow.restoreId, params.restoreId),
+        params.tableName === undefined
+          ? undefined
+          : eq(archiveRestoreRow.tableName, params.tableName),
+      ),
+    )
+    .orderBy(asc(archiveRestoreRow.businessDate), asc(archiveRestoreRow.id))
+    .limit(params.limit ?? 500);
+}
+
+/**
+ * 期限切れの復元を片づける（§9.2「保持 7 日。以後は自動削除」）。
+ *
+ * ── 消えるのは「写し」であって退避ではない ──────────────
+ * `archive_restore_row` を消し、`archive_restore` は `EXPIRED` にして残す。
+ * **要求した記録まで消さない。** 「誰がいつ何を見たか」は残す
+ * （security.md §6 の向き）。退避そのもの（R2 と `archive_manifest`）は
+ * 一切触らない。
+ *
+ * @returns 期限切れにした復元の数。
+ */
+export async function expireArchiveRestores(
+  env: Env,
+  ctx: TenantContext,
+  now: Date,
+): Promise<number> {
+  const db = await getTenantDb(env, ctx);
+
+  const expired = await db
+    .select({ id: archiveRestore.id })
+    .from(archiveRestore)
+    .where(
+      withTenantScope(
+        archiveRestore,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(archiveRestore.status, "READY"),
+        lt(archiveRestore.expiresAt, now),
+      ),
+    )
+    .limit(100);
+  if (expired.length === 0) return 0;
+
+  const ids = expired.map((row) => row.id);
+  for (const chunk of chunkIdsForInArray(ids)) {
+    // **写しを消す。** 退避（R2 / `archive_manifest`）は触らない。
+    await db
+      .delete(archiveRestoreRow)
+      .where(
+        withTenantScope(
+          archiveRestoreRow,
+          ctx,
+          NO_PROPERTY_SCOPE,
+          inArray(archiveRestoreRow.restoreId, chunk),
+        ),
+      );
+    await db
+      .update(archiveRestore)
+      .set({ status: "EXPIRED" })
+      .where(
+        withTenantScope(archiveRestore, ctx, NO_PROPERTY_SCOPE, inArray(archiveRestore.id, chunk)),
+      );
+  }
+  return ids.length;
 }

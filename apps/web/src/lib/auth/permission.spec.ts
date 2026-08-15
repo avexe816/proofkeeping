@@ -73,6 +73,10 @@ const EXPECTED: Record<PermissionAction, string> = {
   "ruleConfig.read": "OO----O",
   "ruleConfig.write": "OO-----",
   "integration.read": "OO----O",
+  // P7-09。退避データの復元と閲覧（PK-SPEC-P7 §9）。
+  // **`AUDITOR` は読めるが復元は要求できない**（security.md §1）。
+  "archive.read": "OO----O",
+  "archive.restore": "OO-----",
   "integration.write": "OO-----",
   "apiKey.read": "OO----O",
   "apiKey.write": "OO-----",

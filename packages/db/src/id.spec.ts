@@ -178,6 +178,9 @@ describe("ENTITY_PREFIXES", () => {
       // P7-10。**実体の無い、バッチを表す操作者**（DECISIONS #164）。
       // この接頭辞を持つ表は無い。
       "sys",
+      // P7-09。退避データの復元（PK-SPEC-P7 §9）。
+      "arst",
+      "arow",
     ]);
   });
 

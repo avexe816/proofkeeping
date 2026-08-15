@@ -1,29 +1,46 @@
 # CONTINUE
 
 ## 最終状態
-- main HEAD: `195b417` の次（P7-10 の PR）
-- 完了: **P7-10**（121 task）
-- 次: **P7-09（アーカイブ閲覧）** — Phase 7 で残るコード実装はこれだけ
+- main HEAD: `037ce8e` の次（P7-09 の PR）
+- 完了: **P7-09**（122 task）。**Phase 7 のコード実装が終わった**
+- 次: **P7-12（負荷試験）以降。** P7-14 / P7-17 は人間が実施
 
 ## 次にやること
 1. `git fetch origin && git checkout main && git pull`
-2. `docs/tasks/P7-09.md` を読む（**P7-08 が置いた `archive_manifest` が起点**）
+2. `docs/tasks/P7-12.md` を読む
 3. 依存を確認して実装開始
 
-### P7-09 の下調べ
+**残りは検証とドキュメント。** P7-12（負荷試験）/ P7-13（セキュリティ
+再検証）/ P7-15（顧客向けドキュメント）/ P7-16（RUNBOOK）。
+**P7-14（復旧訓練）と P7-17（GA 判定）は「人間が実施」**なので、
+到達したら何をすればよいかを伝えて止まること（workflow.md §2）。
 
-**P7-09 アーカイブ閲覧**（仕様 §9）。復元をリクエスト → `pk-archive-restore`
-→ R2 から JSONL を取得 → 一時テーブルへ展開 → メール通知 → 7 日間閲覧可能。
-制限は 1 回 3 か月分 / 組織あたり同時 1 件 / 保持 7 日。
-**MUST:「データは保管されています。閲覧には復元が必要です」を UI に出す。**
+## 今回置いたもの（P7-09 アーカイブ閲覧）
 
-受け皿:
-- `archive_manifest`（P7-08）が起点。`listArchiveManifests()` が在る
-- `pk-archive-restore` キューは宣言済みで、**`kind: "ARCHIVE_EXPORT"` の
-  分岐が既に在る**（`consumers/archive.ts`）。`kind` で分ければ相乗りできる
-- **復元先の一時テーブルがまだ無い。** P7-09 は表の追加から始まる
+| ファイル | 役割 |
+|---|---|
+| `packages/db/src/schema/integration.ts` | `archive_restore` / `archive_restore_row` |
+| `packages/db/src/archivePolicy.ts` | 期間・期限・JSONL の復号（**純粋**） |
+| `apps/web/src/consumers/archiveRestore.ts` | R2 → gunzip → 展開 → 通知 |
+| `apps/web/src/routes/api/v1/archives.ts` | 4 経路 |
+| `apps/web/src/routes/app/archive.tsx` | 画面（**§9 MUST の 2 文**） |
 
-## 今回置いたもの（P7-10 R2 保持期間管理）
+### 覚えておくこと
+
+- **§9 MUST の 2 文を消さない。**「データは保管されています。」
+  「閲覧には復元が必要です。」を見出しのすぐ下に出す。spec が
+  `locales/ja.json` を走査して固定している。
+- **`archive.*` の文言に「削除」を書かない。** 期限切れは
+  「閲覧できる期間が終わりました」。消えたのは写しで、退避は残っている。
+- **復元した写しを元の表へ書き戻さない**（#167）。閲覧であって復旧ではない。
+- **`pk-archive-restore` は 3 種のメッセージを運ぶ。**
+  `ARCHIVE_EXPORT`（P7-08）/ `PHOTO_RETENTION`（P7-10）/
+  `ARCHIVE_RESTORE`（P7-09）。**`kind` で分ける。**
+- **通知イベントは 12 件になった**（#163 / #166）。§5.1 は 10 件のまま。
+- **表を足したら `schema.spec.ts` の件数（71）と
+  `tests/tenant-isolation/_template.spec.ts` の一覧に足す。**
+
+## 前回置いたもの（P7-10 R2 保持期間管理）
 
 | ファイル | 役割 |
 |---|---|
@@ -173,6 +190,9 @@
 - #082〜#063 は P5 以前（DECISIONS / CONTINUE の履歴を参照）
 
 ### 直近の設計判断
+- #168 復元の期限切れを日次の per-org バッチに相乗りさせる
+- #167 復元した写しを元の表へ書き戻さない
+- #166 通知イベントを 12 件目として足す（§5.1 の表に無い / 2 件目）
 - #165 写真の保持期限のバッチを夜間の cron に相乗りさせる
 - #164 バッチの監査ログに人の ID を借りない
 - #163 通知イベントを 11 件目として足す（§5.1 の表に無い）

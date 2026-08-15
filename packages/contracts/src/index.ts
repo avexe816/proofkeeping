@@ -715,3 +715,15 @@ export {
   type ApiKeyCreateRequest,
   type ApiScopeCode,
 } from "./apiKey.js";
+
+// 退避データの復元（P7-09 / PK-SPEC-P7 §9）。
+// **「削除」ではなく「退避」。** 期限で読めなくなるのは復元した写し。
+export {
+  ARCHIVE_RESTORE_STATUS_CODES,
+  archiveRestoreCreateRequestSchema,
+  archiveRestoreStatusSchema,
+  type ArchiveRestoreCreateRequest,
+  type ArchiveRestoreRowView,
+  type ArchiveRestoreStatusCode,
+  type ArchiveRestoreView,
+} from "./archive.js";
