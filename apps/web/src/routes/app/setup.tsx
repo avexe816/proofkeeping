@@ -82,21 +82,24 @@ interface SetupData {
  * `null` は 2 種類ある。
  *
  *   company / done   このウィザードの中で完結する
- *   property / staff **まだ画面が無い**（OPEN_QUESTIONS #103）。
- *                    施設の作成もスタッフの登録も API 経由でしか行えない。
- *                    **偽のリンクを置かない。** 画面ができたらここへ 1 行。
+ *   property         **まだ画面が無い**（OPEN_QUESTIONS #103）。施設の作成は
+ *                    API 経由でしか行えない。**偽のリンクを置かない。**
+ *                    画面ができたらここへ 1 行。
+ *
+ * **Step 5（スタッフ）は P7-02 で画面ができた。** 登録した直後に
+ * 現場掲示用の案内（§2.4 v1.1）を印刷するところまでが 1 画面に収まる。
  */
 const STEP_HREF: Readonly<Record<SetupStep, string | null>> = {
   company: null,
   property: null,
   rooms: "/app/settings/rooms",
   checklist: "/app/settings/checklists",
-  staff: null,
+  staff: "/app/settings/staff",
   done: null,
 };
 
 /** 画面がまだ無いステップ。**案内の文を出す**（OPEN_QUESTIONS #103）。 */
-const STEPS_WITHOUT_SCREEN: readonly SetupStep[] = ["property", "staff"];
+const STEPS_WITHOUT_SCREEN: readonly SetupStep[] = ["property"];
 
 function stepQuery(request: Request): SetupStep | null {
   const raw = new URL(request.url).searchParams.get("step");

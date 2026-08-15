@@ -58,6 +58,20 @@ const API_EXEMPTIONS: Readonly<Record<string, string>> = {
 };
 
 /**
+ * 権限判定を共有の関数へ**委ねている**経路と、その委任先。
+ *
+ * **免除ではない。** 委任先が `assertPermission()` を呼ぶことを下の
+ * テストが確かめる。委任先が呼ばなくなれば、そこで落ちる。
+ *
+ * P7-02 で登録画面（`/app/settings/staff`）を作ったとき、同じ操作の実装が
+ * API と画面の 2 つになるのを避けて `lib/staff/register.ts` へ寄せた
+ * （DECISIONS #181 と同じ向き）。**権限判定も一緒に移っている。**
+ */
+const API_DELEGATIONS: Readonly<Record<string, string>> = {
+  "users.ts": "lib/staff/register.ts",
+};
+
+/**
  * 画面側の免除。
  *
  * **`assertPermission()` か `can()` のどちらかを呼べば合格。**
@@ -81,12 +95,27 @@ describe("§6.4 全 API が権限判定を通る", () => {
     expect(files.length).toBeGreaterThanOrEqual(30);
   });
 
-  it.each(files.filter((name) => API_EXEMPTIONS[name] === undefined))(
-    "%s は assertPermission() を呼ぶ",
-    (name) => {
-      expect(code(join(API_DIR, name))).toContain("assertPermission(");
-    },
-  );
+  it.each(
+    files.filter(
+      (name) => API_EXEMPTIONS[name] === undefined && API_DELEGATIONS[name] === undefined,
+    ),
+  )("%s は assertPermission() を呼ぶ", (name) => {
+    expect(code(join(API_DIR, name))).toContain("assertPermission(");
+  });
+
+  /**
+   * **委任先まで追いかける。** 「共有の関数へ寄せた」を理由に
+   * 権限判定そのものが消えるのを防ぐ。
+   */
+  it.each(Object.entries(API_DELEGATIONS))("%s の委任先 %s が assertPermission() を呼ぶ", (
+    name,
+    target,
+  ) => {
+    expect(files, name).toContain(name);
+    expect(code(join(ROOT, "apps", "web", "src", ...target.split("/")))).toContain(
+      "assertPermission(",
+    );
+  });
 
   it("**免除に理由が書いてある**（理由の無い免除を作らせない）", () => {
     for (const [name, reason] of Object.entries(API_EXEMPTIONS)) {

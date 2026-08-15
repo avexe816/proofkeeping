@@ -32,12 +32,10 @@
  * 再現できない）。採番も課金も伴わないので `roomTypes.ts` と同じ判断。
  */
 
-import { fieldStaffCreateSchema, type FieldStaffCreateResponse } from "@pk/contracts";
-import { createFieldStaff, recordAudit } from "@pk/db";
+import { fieldStaffCreateSchema } from "@pk/contracts";
 import { Hono } from "hono";
 
-import { assertPermission, propertyTarget } from "../../../lib/auth/permission.js";
-import { generateInitialPin, hashPin } from "../../../lib/auth/pin.js";
+import { registerFieldStaff } from "../../../lib/staff/register.js";
 import { getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
 
 const users = new Hono<AppEnv>();
@@ -68,50 +66,20 @@ users.post("/", async (c) => {
   const parsed = fieldStaffCreateSchema.safeParse(await readJson(c.req.raw));
   if (!parsed.success) return c.json(invalidRequest(), 400);
 
-  const ctx = getTenant(c);
-  const input = parsed.data;
-  assertPermission(ctx, "user.write", propertyTarget(input.propertyIds));
-
-  const pin = generateInitialPin();
-  const result = await createFieldStaff(c.env, ctx, {
-    displayName: input.displayName,
-    staffNumber: input.staffNumber,
-    role: input.role,
-    email: input.email ?? null,
-    pinHash: await hashPin(pin),
-    locale: input.locale,
-    propertyIds: input.propertyIds,
-    invitedBy: getSession(c).membershipId,
-  });
+  // 権限判定・PIN の発行・監査ログは `lib/staff/register.ts` が持つ。
+  // **登録画面（`/app/settings/staff`）と同じ実装を通す**（DECISIONS #181）。
+  const outcome = await registerFieldStaff(
+    c.env,
+    getTenant(c),
+    parsed.data,
+    getSession(c).membershipId,
+  );
 
   // **スタッフ番号の重複は 409。** 黙って既存の行を返すと、
   // 別人に他人の PIN を配ることになる。
-  if (!result.created) return c.json({ error: "DUPLICATE_STAFF_NUMBER" as const }, 409);
+  if (!outcome.created) return c.json({ error: "DUPLICATE_STAFF_NUMBER" as const }, 409);
 
-  await recordAudit(c.env, ctx, {
-    actorId: getSession(c).membershipId,
-    action: "user.invited",
-    targetType: "user",
-    targetId: result.userId,
-    // **`after` に PIN もハッシュも載せない**（security.md §6）。
-    after: {
-      staffNumber: input.staffNumber,
-      displayName: input.displayName,
-      role: input.role,
-      propertyIds: input.propertyIds,
-    },
-  });
-
-  const body: FieldStaffCreateResponse = {
-    userId: result.userId,
-    membershipId: result.membershipId,
-    staffNumber: input.staffNumber,
-    displayName: input.displayName,
-    role: input.role,
-    propertyIds: [...input.propertyIds],
-    initialPin: pin,
-  };
-  return c.json(body, 201);
+  return c.json(outcome.staff, 201);
 });
 
 export default users;
