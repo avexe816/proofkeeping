@@ -582,25 +582,25 @@ bucket_name = "pk-archive-staging"
 
 [[env.staging.kv_namespaces]]
 binding = "SESSION"
-id = "06a09cc856fa4701bf34335f411eec8a"
+id = "c6cca575688e4da6a08bde3c8b5e4cf0"
 
 [[env.staging.kv_namespaces]]
 binding = "RATELIMIT"
-id = "3d7eb0eb7d6b490c82416c2938b0af4f"
+id = "643e98d11ba342a9a1b0a6f1201009ad"
 
 [[env.staging.kv_namespaces]]
 binding = "CONFIG"
-id = "efbfa39534634153870f4b264599d90a"
+id = "6f761aab85924899953bd4fdd31034b5"
 
 [[env.staging.kv_namespaces]]
 binding = "CREDENTIALS"
-id = "b3fa902ae37448c5ae738a18f88d0ee2"
+id = "6130f21a19454bf1b3997519c529dfc8"
 
 # TTL 禁止。理由は top-level の SHARD_MAP のコメントを参照。
 # staging は SHARD_COUNT = 2 なので、明示マッピングが実際に効く唯一の非本番環境。
 [[env.staging.kv_namespaces]]
 binding = "SHARD_MAP"
-id = "e742a31b29bb4d459e0265b506684f07"
+id = "62f17a8236444dc59067c719da20ecd7"
 
 [[env.staging.queues.producers]]
 binding = "QUEUE_PDF_GENERATION"

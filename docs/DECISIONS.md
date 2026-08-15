@@ -466,6 +466,7 @@
   1. bcryptjs cost 12 のまま（実測 344ms）
   2. bcryptjs cost 10 へ引き下げ（実測 87ms）
   3. **PBKDF2-SHA256 210,000 回 / WebCrypto（実測 38ms）**
+     ※ 反復回数は #158 で 100,000 回へ引き下げた（Workers の上限）。
   4. PBKDF2-SHA256 600,000 回 / WebCrypto（実測 103ms）
 - 決定: **3 を採用。** `pbkdf2$sha256$210000$<salt>$<hash>` の自己記述文字列で保存する。
 - 理由: 1 と 2 は純 JS のため CPU 予算を守れず、Workers 上ではさらに遅くなる。
@@ -4387,3 +4388,41 @@
   - **preview の `--name pk-pr-{n}` は残してある。** redirected config でも
     CLI の `--name` は効く想定だが、**実資格情報で 1 回確かめること。**
     ずれても環境は preview のままで、名前が `pk-preview` になるだけ。
+
+## #158 PBKDF2 の反復回数を 100,000 回へ引き下げる
+
+- 日付: 2026-08-16
+- 状態: 決定
+- 背景: staging（`pk-staging`）へ実配備したところ、ログインが必ず 500 を返した。
+  Workers の実行時ログに次の例外が出ていた。
+
+  ```
+  NotSupportedError: Pbkdf2 failed: iteration counts above 100000 are not supported (requested 210000).
+      at deriveKey → verifySecret → login
+  ```
+
+  **Cloudflare Workers の WebCrypto は PBKDF2 の反復回数を 100,000 回までしか受け付けない。**
+  #019 が採った 210,000 回は Node/ブラウザでは動くが、本番ランタイムでは
+  `deriveBits()` の時点で必ず失敗する。ユニットテストは Node 上の Vitest で回るため
+  この差は検出できなかった（テストが緑でも実機で動かない類の齟齬）。
+
+- 選択肢:
+  1. 100,000 回へ引き下げる
+  2. Argon2 / bcrypt を WASM で持ち込む
+  3. パスワード検証を別サービスへ切り出す
+
+- 決定: **1 を採用。** ランタイムの上限値へ張り付ける。
+  - 2 は WASM のバンドルサイズと起動コストが Workers の制約に合わず、
+    #019 が WebCrypto を選んだ理由（追加依存を持たない）を捨てることになる。
+  - 3 は 1 回のログインに跨サービス呼び出しが増え、レイテンシと障害点が増える。
+  - **反復回数の引き上げはランタイム側が緩和されるまで不可能。**
+    OWASP 推奨（600,000 回）との差は、ロックアウト（5 回で 15 分）と
+    レート制限（security.md §8）で補う前提を維持する。
+
+- 影響:
+  - `PBKDF2_PARAMS.iterations` = `100_000`
+  - `MAX_PARSEABLE_ITERATIONS` = `100_000`（上限超の保存値は解析不能＝不一致に倒す。
+    **例外を投げさせない。** 210,000 回で保存された既存ハッシュは検証に失敗するため、
+    該当利用者はパスワード再設定が要る。staging 以外に該当データは無い）
+  - `login.ts` の `DUMMY_PASSWORD_HASH` を 100,000 回のものへ差し替え
+  - PIN の 50,000 回（#020）は上限内のため変更しない

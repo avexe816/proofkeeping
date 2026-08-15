@@ -37,7 +37,7 @@ describe("保存形式", () => {
 
   it("反復回数は security.md §2 の 210,000 回", () => {
     // 引き下げは強度の低下に直結する。変更するなら DECISIONS を書き直すこと。
-    expect(PBKDF2_PARAMS.iterations).toBe(210_000);
+    expect(PBKDF2_PARAMS.iterations).toBe(100_000);
   });
 
   it("同じパスワードでも毎回違う値になる（ソルトが乱数）", async () => {

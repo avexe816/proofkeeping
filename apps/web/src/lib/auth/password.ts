@@ -37,8 +37,13 @@ import {
 export const PBKDF2_PARAMS: Pbkdf2Params = {
   algorithm: "pbkdf2",
   hash: "sha256",
-  /** OWASP の PBKDF2-HMAC-SHA256 推奨（600,000 回）は実測 103ms で CPU 予算を超える。 */
-  iterations: 210_000,
+  /**
+   * Workers の WebCrypto は PBKDF2 の反復回数を **100,000 回までしか受け付けない**
+   * （超えると `NotSupportedError: iteration counts above 100000 are not supported`）。
+   * OWASP 推奨（600,000 回）も従前の 210,000 回もランタイム側で拒否されるため、
+   * **上限値に張り付ける。引き上げはランタイムが緩和されるまで不可。**
+   */
+  iterations: 100_000,
   saltBytes: 16,
   /** SHA-256 の出力長に合わせる。これ以上伸ばしても強度は上がらない。 */
   keyBytes: 32,

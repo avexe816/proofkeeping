@@ -85,7 +85,7 @@ export const PASSWORD_FAILURE_AUDIT_AT = 5;
  * パラメータを引き上げたら、この値も作り直して実行時間を揃えること。
  */
 const DUMMY_PASSWORD_HASH =
-  "pbkdf2$sha256$210000$KHvyuYyA_a0GksfFBmCIRw$GAZf4qN4Yib8IDqPWRuPtfSp2DA6fNCOzFuLaUlAhgA";
+  "pbkdf2$sha256$100000$KHvyuYyA_a0GksfFBmCIRw$HywErkcIPePAR8cHdqjqS2h-FSCwi3nRSzlokgj33sc";
 
 /** ログインの結果。**失敗の内訳を持たせない。** */
 export type LoginResult =
