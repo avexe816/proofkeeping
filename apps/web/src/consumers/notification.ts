@@ -27,6 +27,8 @@
  */
 
 import { parseDeliveryEvent } from "../lib/billing/webhookEvent.js";
+
+import { isNotifyMessage, runNotify } from "./notify.js";
 import {
   findInvoiceById,
   findReceiptById,
@@ -227,6 +229,14 @@ export async function deliverInvoice(
 /** `pk-notification` キューの入口。 */
 export async function handleNotificationBatch(env: Env, batch: MessageBatch): Promise<void> {
   for (const message of batch.messages) {
+    // 業務通知（P6-09 / PK-SPEC-P6 §5）。**帳票の送付とは別物。**
+    // あちらは電帳法の記録（billing.md §2）、こちらは補助機能（§1.3）。
+    if (isNotifyMessage(message.body)) {
+      const notifyOutcome = await runNotify(env, message.body);
+      if (notifyOutcome.kind === "FAILED") message.retry();
+      else message.ack();
+      continue;
+    }
     // 送付イベント（P5-10 / §2.7）。**同じ notification キュー。**
     if (isDeliveryEventMessage(message.body)) {
       const eventOutcome = await handleDeliveryEvent(env, message.body);

@@ -60,6 +60,8 @@ import { retryDelaySeconds, shouldOpenCircuit } from "@pk/integrations";
 
 import { businessDateOf } from "../lib/businessDate.js";
 
+import { notify } from "./notify.js";
+
 /** 鍵の種別。**schema の語彙をそのまま使う**（`@pk/contracts` と一致する）。 */
 type SignalActorTypeValue = NonNullable<PhysicalSignalInput["actorType"]>;
 
@@ -215,8 +217,8 @@ export async function runSignalIngest(
  * 連続失敗が閾値に達していたら自動同期を止める（§3.4 / P6-07）。
  *
  * @returns **この呼び出しで開いたときだけ `true`。** 既に `ERROR` だった
- *   ものは `false`。`integration.error` の通知（§5.1）を毎回の失敗で
- *   送らないための区別で、通知そのものは P6-09。
+ *   ものは `false`。この区別がそのまま「`integration.error` を 1 回だけ
+ *   送る」を成り立たせている（§5.1 / P6-09）。
  *
  * **ここで例外を投げない。** 開けなかったことで受信の処理結果まで
  * 変えると、「連携が失敗した」の上に「失敗の記録に失敗した」が乗る。
@@ -233,8 +235,25 @@ export async function openCircuitIfNeeded(
     if (current.status === "ERROR" || current.status === "SUSPENDED") return false;
     if (!shouldOpenCircuit(current.consecutiveFailures)) return false;
     await openIntegrationCircuit(env, ctx, integrationId, reason);
-    // **画面に出るのは W-13 の状態表示。** ここでは記録だけ。
     console.error(`integration-circuit-opened failures=${String(current.consecutiveFailures)}`);
+
+    // §5.1 `integration.error`（連携が 5 回連続失敗 → `ORG_ADMIN` へ EMAIL）。
+    // **開いた回だけ送る。** この関数は既に `ERROR` なら手前で `false` を
+    // 返しているので、失敗のたびに 1 通ずつ届くことはない。
+    // **本文に連携先の名前しか載せない**（ui-writing.md §6）。失敗の理由は
+    // 外部システムの応答由来で、何が混ざるかこちらで決められない。
+    await notify(env, {
+      orgShortId: ctx.orgShortId,
+      eventCode: "integration.error",
+      // 連携が施設に紐づいていても、宛先は `ORG_ADMIN`（組織全体）。
+      propertyId: null,
+      subject: "外部連携が停止しました",
+      summary: `${current.displayName} との連携が続けて失敗したため、自動同期を止めました。`,
+      linkPath: `/app/settings/integrations/${integrationId}/mappings`,
+      // 同じ連携で 1 度開いたら 24 時間は送らない（`DEDUPE_TTL_SECONDS`）。
+      dedupeKey: `integration.error:${integrationId}`,
+      requestedAtMs: ctx.now.getTime(),
+    });
     return true;
   } catch {
     return false;

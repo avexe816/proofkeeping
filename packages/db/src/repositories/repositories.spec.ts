@@ -42,6 +42,7 @@ import * as entitlementRepo from "./entitlement.js";
 import * as evidenceRepo from "./evidence.js";
 import * as inspectionRepo from "./inspection.js";
 import * as integrationRepo from "./integration.js";
+import * as notificationRepo from "./notification.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
 import * as invoiceRepo from "./invoice.js";
 import * as issueReportRepo from "./issueReport.js";
@@ -82,6 +83,9 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // P6-01 / P6-04 が登録した外部連携（PK-SPEC-P6 §2）。
   // **資格情報を返す関数が無い**（返すのは KV の参照キーまで / security.md §7）。
   integration: integrationRepo,
+  // P6-09 が登録した通知（PK-SPEC-P6 §2.4・§2.5・§5）。
+  // **「誰が通知を開いたか」を集計する関数が無い**（security.md §5）。
+  notification: notificationRepo,
   // P2-08 が登録した証跡。**INSERT と SELECT だけ**であることも下で検査する。
   evidence: evidenceRepo,
   // P2-02 が登録した検査方式。P2-04 が検査そのもの。
@@ -2686,6 +2690,52 @@ const INVOCATIONS: Invocation[] = [
         integrationId: OTHER_ID.integration,
         ok: false,
       }),
+  },
+  {
+    // P6-09: 通知の宛先（§5.1）。**組織全体で引く。**
+    name: "notification.listNotificationRecipients",
+    kind: "tenant",
+    run: (env, ctx) =>
+      notificationRepo.listNotificationRecipients(env, ctx, {
+        roles: ["ORG_ADMIN"],
+        propertyId: null,
+      }),
+    crossTenant: (env, ctx) =>
+      notificationRepo.listNotificationRecipients(env, ctx, {
+        roles: ["PROPERTY_MANAGER"],
+        propertyId: OTHER_ID.property,
+      }),
+  },
+  {
+    name: "notification.listNotificationPreferences",
+    kind: "tenant",
+    run: (env, ctx) =>
+      notificationRepo.listNotificationPreferences(env, ctx, {
+        membershipIds: [OWN_ID.membership],
+        eventCode: "issue.critical",
+      }),
+  },
+  {
+    name: "notification.upsertNotificationPreference",
+    kind: "tenant",
+    run: (env, ctx) =>
+      notificationRepo.upsertNotificationPreference(env, ctx, {
+        membershipId: OWN_ID.membership,
+        eventCode: "issue.critical",
+        channels: ["EMAIL"],
+      }),
+    crossTenant: (env, ctx) =>
+      notificationRepo.upsertNotificationPreference(env, ctx, {
+        membershipId: OTHER_ID.membership,
+        eventCode: "issue.critical",
+        channels: ["EMAIL"],
+      }),
+  },
+  {
+    name: "notification.listDeliverablePushMembershipIds",
+    kind: "tenant",
+    run: (env, ctx) =>
+      notificationRepo.listDeliverablePushMembershipIds(env, ctx, [OWN_ID.membership]),
   },
   {
     // P6-07: サーキットブレーカー（§3.4）。
