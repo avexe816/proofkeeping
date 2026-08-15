@@ -173,6 +173,7 @@ export {
   findOrganization,
   findTaxProfile,
   updateOrganizationSettings,
+  updateOrganizationSetup,
   updateTaxProfile,
   type UpdateTaxProfileInput,
 } from "./organization.js";

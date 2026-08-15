@@ -657,6 +657,17 @@ const INVOCATIONS: Invocation[] = [
       organizationRepo.updateOrganizationSettings(env, ctx, { propertySelectionThreshold: 4 }),
   },
   {
+    // P7-01。ウィザードだけが触る列（会社名 / 種別 / 進行状態）。
+    name: "organization.updateOrganizationSetup",
+    kind: "tenant",
+    run: (env, ctx) =>
+      organizationRepo.updateOrganizationSetup(env, ctx, {
+        name: "テスト運営",
+        orgType: "OPERATOR",
+        setupState: '{"version":1,"steps":{},"completedAt":null}',
+      }),
+  },
+  {
     name: "organization.updateTaxProfile",
     kind: "tenant",
     run: (env, ctx) =>

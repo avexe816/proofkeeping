@@ -11,10 +11,12 @@
 
 export {
   DOCUMENT_TYPES,
+  ORG_TYPES,
   TAX_ROUNDING_MODES,
   documentSequence,
   organization,
   organizationTaxProfile,
+  type OrgType,
 } from "./organization.js";
 
 export {

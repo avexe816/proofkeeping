@@ -146,6 +146,9 @@ export default [
     route("app/p/:propertyId/evidence/:taskId", "routes/app/evidenceDetail.tsx"),
     route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
     route("app/org/vendor-plan", "routes/app/vendorPlan.tsx"),
+    // P7-01。セットアップウィザード（PK-SPEC-P7 §2.3）。
+    // **6 ステップすべてがスキップできる**（§2.3 MUST）。
+    route("app/setup", "routes/app/setup.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
     route("app/settings/room-types", "routes/app/roomTypes.tsx"),
     route("app/settings/checklists", "routes/app/checklists.tsx"),
