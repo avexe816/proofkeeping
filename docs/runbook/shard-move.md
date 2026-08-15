@@ -9,6 +9,8 @@
 > **この操作は取りこぼしがそのままデータ消失になる。**
 > CLI の既定は `--plan`（何も触らない）。手順 4・6 は自動化していない。
 
+**`pnpm` はリポジトリルートで実行する**（`deploy.md` 冒頭「実行位置」）。
+
 ---
 
 ## 0. 前提
@@ -83,8 +85,12 @@ pnpm shards:move --env production --org <organizationId> --to 09 --verify
 CLI が書くべき値を出力する。**それを人が KV へ書く。**
 
 ```bash
-wrangler kv key put --binding SHARD_MAP "shard:<organizationId>" "9" --remote
+pnpm --filter @pk/web exec wrangler kv key put \
+  --binding SHARD_MAP "shard:<organizationId>" "9" --remote
 ```
+
+**`wrangler` はルートでは通らない**（ルートに wrangler が無く、`wrangler.toml` は
+`apps/web/`）。`--filter @pk/web exec` を通すとルートに居たまま実行できる。
 
 **`--expiration-ttl` を付けないこと。**
 TTL で失効すると `resolveShard()` は `fnv1a32` のフォールバックへ

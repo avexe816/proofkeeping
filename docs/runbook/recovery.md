@@ -7,6 +7,8 @@
 **この手順書だけで実際に戻せることを、四半期に 1 回確かめる**（§5.5 MUST / P7-14）。
 訓練の結果はこの文書に追記する。
 
+**`pnpm` はリポジトリルートで実行する**（`deploy.md` 冒頭「実行位置」）。
+
 ---
 
 ## 0. 目標
@@ -85,11 +87,12 @@ D1 の Time Travel は**データベース単位**で戻る。
 
 ```bash
 # 1. 戻せる時点を確認する
-wrangler d1 time-travel info proofkeeping-shard-07 --env production
+pnpm --filter @pk/web exec wrangler d1 time-travel info \
+  proofkeeping-shard-07 --env production
 
 # 2. 復元（時刻指定）
-wrangler d1 time-travel restore proofkeeping-shard-07 \
-  --timestamp 2026-08-15T02:00:00Z --env production
+pnpm --filter @pk/web exec wrangler d1 time-travel restore \
+  proofkeeping-shard-07 --timestamp 2026-08-15T02:00:00Z --env production
 ```
 
 復元後に必ず確認する。
@@ -125,7 +128,8 @@ R2 はバージョニングが有効で、**削除は「削除マーカーを置
 
 ```bash
 # 1. 対象キーのバージョンを一覧する
-wrangler r2 object list pk-photos --prefix "photos/<orgId>/<propertyId>/" --env production
+pnpm --filter @pk/web exec wrangler r2 object list pk-photos \
+  --prefix "photos/<orgId>/<propertyId>/" --env production
 
 # 2. 削除マーカーより前のバージョンを取得して置き直す
 ```
