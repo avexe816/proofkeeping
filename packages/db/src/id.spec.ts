@@ -173,6 +173,8 @@ describe("ENTITY_PREFIXES", () => {
       "npref",
       "akey",
       "owh",
+      // P7-08。
+      "arcm",
     ]);
   });
 

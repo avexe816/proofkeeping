@@ -458,6 +458,17 @@ export {
 // 外部連携（P6-01 / P6-04 / P6-07 / PK-SPEC-P6 §2・§3.4）。
 // **資格情報そのものを返す関数が無い。** 返すのは KV の参照キーまでで、
 // 復号は `apps/web/src/lib/integration/credentials.ts` の責務（security.md §7）。
+// 年次アーカイブの記録（P7-08 / PK-SPEC-P0 §19.7）。
+// **「削除」ではなく「退避」。** 記録を消す関数が無い（復元の起点になる）。
+export {
+  ARCHIVE_ROW_LIMIT,
+  listArchiveManifests,
+  listArchiveTableRows,
+  recordArchiveManifest,
+  type ArchiveManifestFilter,
+  type RecordArchiveManifestInput,
+} from "./archive.js";
+
 // 送信 Webhook（P6-13 / PK-SPEC-P6 §6.4）。
 // **署名鍵そのものを返す関数が無い**（返すのは KV の参照キーまで）。
 export {

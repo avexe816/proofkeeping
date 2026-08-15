@@ -436,3 +436,57 @@ export const outboundWebhook = sqliteTable(
   },
   (t) => [index("idx_outbound_webhook").on(t.organizationId, t.isActive)],
 );
+
+// ────────────────────────────────────────────────────────────
+// 年次アーカイブ（PK-SPEC-P0 §19.7 / P7-08）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * R2 へ退避した 1 ファイルの記録（§19.7 の手順 2）。
+ *
+ * **「削除」ではなく「退避」。** P7 固有の絶対ルールで、列名にも
+ * 関数名にも `delete` を出さない。退避しても**元の行が消えたことを
+ * 記録するのではなく、R2 に写しがあることを記録する**表。
+ *
+ * ── なぜ `sha256` を持つのか ────────────────────────────
+ * §19.7 が「SHA-256 を計算して `archive_manifest` テーブルへ記録」と
+ * 定める。**R2 のオブジェクトが後で書き換わっていないこと**を、
+ * 復元するとき（P7-09）に確かめられるようにするため。
+ * 証跡（`evidence_snapshot`）の `payloadSha256` と同じ役割。
+ *
+ * ── 何を退避したかを表の名前で持つ ──────────────────────
+ * `tableName` は `archivePolicy.ts` の `ARCHIVABLE_TABLES` の値。
+ * **語彙で縛らない**（`text` のまま）のは、退避した当時に存在した表の
+ * 名前を残すため。将来その表が消えても、この行は「2025 年に
+ * `linen_record` を退避した」という事実を保つ。
+ *
+ * ── 一意にするもの ──────────────────────────────────────
+ * 組織 × 年 × 表で 1 行。**同じ年を 2 回退避しても行が増えない**
+ * （2 回目は上書き / testing.md §4 の冪等）。
+ */
+export const archiveManifest = sqliteTable(
+  "archive_manifest",
+  {
+    ...primaryId,
+    ...tenantColumn,
+    /** 退避した年（西暦）。 */
+    year: integer("year").notNull(),
+    /** 退避した表の名前（`ARCHIVABLE_TABLES` の値）。 */
+    tableName: text("table_name").notNull(),
+    /** R2 のキー（`archive/{orgId}/{year}/{table}.jsonl.gz`）。 */
+    objectKey: text("object_key").notNull(),
+    /** 書き出した行数。**0 でも記録する**（「その年は無かった」も事実）。 */
+    rowCount: integer("row_count").notNull(),
+    /** 圧縮前の JSONL の SHA-256（16 進 64 桁）。 */
+    sha256: text("sha256").notNull(),
+    /** 圧縮後のバイト数。 */
+    sizeBytes: integer("size_bytes").notNull(),
+    /** 退避した業務日の上限（この日より前を退避した）。 */
+    cutoffBusinessDate: text("cutoff_business_date").notNull(),
+    archivedAt: integer("archived_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("uq_archive_manifest").on(t.organizationId, t.year, t.tableName),
+    index("idx_archive_manifest").on(t.organizationId, t.archivedAt),
+  ],
+);

@@ -2,6 +2,7 @@ import type { Env } from "@pk/db";
 import { Hono } from "hono";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 
+import { handleArchiveExportBatch } from "./consumers/archive.js";
 import { handleBaselineLearningBatch } from "./consumers/baselineLearning.js";
 import { handleDailyReportBatch } from "./consumers/dailyReport.js";
 import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
@@ -14,6 +15,7 @@ import {
   missingSecretsMessage,
 } from "./lib/config/requiredSecrets.js";
 import { cloudflareContext } from "./lib/ui/cloudflare.js";
+import { dispatchArchiveExport, isArchiveDispatchMoment } from "./lib/archive/dispatch.js";
 import {
   apiErrorHandler,
   apiNotFoundHandler,
@@ -366,6 +368,12 @@ export default {
       await handleRollupUpdateBatch(env, batch);
       return;
     }
+    // 年次アーカイブ（P7-08 / PK-SPEC-P0 §19.7）。**退避であって削除ではない。**
+    // D1 の行はここでは外さない（docs/DECISIONS.md #159）。
+    if (batch.queue.startsWith("pk-archive-restore")) {
+      await handleArchiveExportBatch(env, batch);
+      return;
+    }
     // 知らないキュー。**ack も retry もしない**（既定の再送に任せる）。
     console.error(`queue-unhandled queue=${batch.queue}`);
   },
@@ -406,6 +414,17 @@ export default {
           `created=${String(result.created)} aggregated=${String(result.aggregated)} ` +
           `failed=${String(result.failedOrganizations)}`,
       );
+
+      // 年次アーカイブ（P7-08 / §19.7）。**同じ cron に相乗りしている**
+      // （DECISIONS #160）。2 月 1 日の回だけ走る。
+      if (isArchiveDispatchMoment(now)) {
+        const archive = await dispatchArchiveExport(env, now);
+        console.log(
+          `archive-export-dispatch year=${String(archive.year)} ` +
+            `organizations=${String(archive.organizations)} ` +
+            `queued=${String(archive.queued)} failed=${String(archive.failedOrganizations)}`,
+        );
+      }
       return;
     }
 

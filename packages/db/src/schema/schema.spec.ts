@@ -67,10 +67,13 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("68 テーブルを定義している", () => {
+  it("69 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       // P6-01。公開 API のキー（PK-SPEC-P6 §6.1）。**平文のキーを保存しない。**
       "apiKey",
+      // P7-08。年次アーカイブの記録（PK-SPEC-P0 §19.7）。
+      // **「削除」ではなく「退避」。** R2 に写しがあることを記録する表。
+      "archiveManifest",
       // P4-01。差異（PK-SPEC-P4 §2.5）。**不正の認定ではない**（同 §1.1）。
       "auditFinding",
       "auditLog",
