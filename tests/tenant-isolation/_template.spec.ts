@@ -173,10 +173,12 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
     "掛けられない。設定画面を作る P4-13 が形を決めて spec を足す",
   // P6-01 も表と migration までの task（P2-01 / P3-01 / P4-01 と同じ形）。
   // `integration` / `sync_log` / `external_mapping` は P6-04 が受信口の
-  // 読み書きを作り、integration.spec.ts でカバーした。残る 4 表は下の task が
-  // 関数を作って行を消すこと。**表だけ足して放置しないこと。**
-  push_subscription: "購読の登録・失効は P6-10（Web Push）",
-  notification_preference: "既定チャネルと静音時間の解決は P6-09（通知基盤）",
+  // 読み書きを作り、integration.spec.ts でカバーした。
+  // `notification_preference` / `push_subscription` は P6-09 が配信の
+  // 読み取りを作り、notification.spec.ts でカバーした（`push_subscription`
+  // の**書き込み**は P6-10 だが、越境の検査は読み取りで足りる）。
+  // 残る 2 表は下の task が関数を作って行を消すこと。
+  // **表だけ足して放置しないこと。**
   api_key: "作成・失効・認証は P6-12（公開 API）",
   outbound_webhook: "登録と配信は P6-13（送信 Webhook）",
 };

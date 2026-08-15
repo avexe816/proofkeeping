@@ -458,6 +458,20 @@ export {
 // 外部連携（P6-01 / P6-04 / P6-07 / PK-SPEC-P6 §2・§3.4）。
 // **資格情報そのものを返す関数が無い。** 返すのは KV の参照キーまでで、
 // 復号は `apps/web/src/lib/integration/credentials.ts` の責務（security.md §7）。
+// 通知（P6-09 / PK-SPEC-P6 §2.4・§2.5・§5）。
+// **「誰が通知を開いたか」を集計する関数を置かない**（security.md §5）。
+export {
+  PUSH_FAILURE_LIMIT,
+  listDeliverablePushMembershipIds,
+  listNotificationPreferences,
+  listNotificationRecipients,
+  upsertNotificationPreference,
+  type NotificationPreferenceRow,
+  type NotificationRecipient,
+  type NotificationRecipientFilter,
+  type UpsertNotificationPreferenceInput,
+} from "./notification.js";
+
 export {
   countUnmappedExternalIds,
   createIntegration,

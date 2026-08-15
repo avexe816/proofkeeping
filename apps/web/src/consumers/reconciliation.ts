@@ -79,9 +79,10 @@ import {
 } from "../durable/ReconciliationLock.js";
 import { businessDateOf, localClockOf, shiftBusinessDate } from "../lib/businessDate.js";
 
-import { enqueueRollupUpdate } from "./rollup.js";
-
 import { resolveRuleSettings, rulesetHashOf } from "../lib/reconciliation/ruleset.js";
+
+import { notify } from "./notify.js";
+import { enqueueRollupUpdate } from "./rollup.js";
 
 /**
  * 「稼働記録の連携がある施設か」を見る窓（日数）。
@@ -461,6 +462,30 @@ async function reconcile(
     { runId: run.id, propertyId, businessDate },
     findings,
   );
+
+  // ── ⑧b 重要度 HIGH の差異を知らせる（PK-SPEC-P6 §5.1 / P6-09）──
+  // **新しく足した件数だけを見る。** 再実行のたびに送ると、同じ差異で
+  // 毎朝 1 通届く（`insertFindings()` は既存に一切触らない / §5.3 MUST）。
+  //
+  // **本文に差異の内容を書かない**（ui-writing.md §6）。件数と施設と
+  // 業務日だけ。中身は W-06 を開いた人が、権限のある範囲で見る。
+  // 施設・業務日ごとに 1 通（`dedupeKey`）。
+  if (inserted.created > 0) {
+    const highCount = findings.filter((finding) => finding.severity === "HIGH").length;
+    if (highCount > 0) {
+      await notify(env, {
+        orgShortId: ctx.orgShortId,
+        eventCode: "finding.high",
+        // 宛先は `OWNER` / `ORG_ADMIN`（組織全体）。施設で絞らない。
+        propertyId: null,
+        subject: "要確認項目のお知らせ",
+        summary: `${businessDate} の稼働照合で、重要度の高い要確認項目が ${String(highCount)} 件あります。`,
+        linkPath: `/app/audit/findings?propertyId=${propertyId}&businessDate=${businessDate}`,
+        dedupeKey: `finding.high:${propertyId}:${businessDate}`,
+        requestedAtMs: ctx.now.getTime(),
+      });
+    }
+  }
 
   // ── ⑨ 日次集計を数え直す（§5.3 の手順 9 / P5-14）─────────────
   // **P4-05 が飛ばしていた手順。** `rollup-update` にコンシューマが
