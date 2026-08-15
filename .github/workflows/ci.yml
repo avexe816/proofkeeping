@@ -169,6 +169,12 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
 
+      # **デプロイ用のビルドはこれではない。** @cloudflare/vite-plugin は
+      # ビルド時に `build/server/wrangler.json` と `.wrangler/deploy/config.json`
+      # を書き、以後 `wrangler deploy` は**そちらを読む**（redirected config）。
+      # 環境は `CLOUDFLARE_ENV` でビルド時に決まり、**`wrangler deploy --env` は
+      # 効かない**（黙って無視される / DECISIONS #192）。
+      # ここは検査としてのビルドなので環境を指定しない。
       - name: build
         run: pnpm --filter @pk/web build
 
@@ -204,11 +210,23 @@ jobs:
           fi
 
       # Worker 名に PR 番号を入れる（wrangler.toml の [env.preview] の注記）。
+      #
+      # **preview 用に build し直す。** 上の `build` は環境指定なし＝ローカル設定を
+      # 焼いており、そのまま deploy すると `pk-local` が上がる（DECISIONS #192）。
+      # 焼き直しは vite build の数秒だけで、checkout と install は共有のまま。
       - name: preview デプロイ
         if: steps.guard.outputs.ready == 'true'
-        run: pnpm exec wrangler deploy --env preview --name "pk-pr-${{ github.event.number }}"
+        run: |
+          pnpm build
+          name=$(jq -r .name build/server/wrangler.json)
+          if [ "$name" != "pk-preview" ]; then
+            echo "焼き込まれた環境が preview ではありません（name=$name）。中止します。"
+            exit 1
+          fi
+          pnpm exec wrangler deploy --name "pk-pr-${{ github.event.number }}"
         working-directory: apps/web
         env:
+          CLOUDFLARE_ENV: preview
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
@@ -242,10 +260,22 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # **staging 用に build し直す。** preview と同じ理由（DECISIONS #192）。
+      # `name` を確かめてから deploy する。**ここが `pk-local` のまま通ると、
+      # local 設定の Worker が上がり、実在する production の D1（shard-00）へ
+      # 繋がってしまう。** 名前の一致を見るのはその一点を防ぐため。
       - name: staging デプロイ
         if: steps.staging_guard.outputs.ready == 'true'
-        run: pnpm exec wrangler deploy --env staging
+        run: |
+          pnpm build
+          name=$(jq -r .name build/server/wrangler.json)
+          if [ "$name" != "pk-staging" ]; then
+            echo "焼き込まれた環境が staging ではありません（name=$name）。中止します。"
+            exit 1
+          fi
+          pnpm exec wrangler deploy
         working-directory: apps/web
         env:
+          CLOUDFLARE_ENV: staging
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

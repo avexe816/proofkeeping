@@ -34,9 +34,23 @@ git fetch origin && git checkout main && git pull
 - **`pnpm` はリポジトリルート、`wrangler` は apps/web** で実行する。手順書が
   cwd を書いておらず `Command "db:migrate" not found` を踏んだため、
   冒頭に「実行位置」の節を足して各節がルートへ戻る形にした（DECISIONS #191）。
-- 判断は DECISIONS #188（外部送信）・#189（シードの鍵）・#190（固定 URL）。
+- 判断は DECISIONS #188（外部送信）・#189（シードの鍵）・#190（固定 URL）・
+  **#192（`CLOUDFLARE_ENV` / デプロイ経路の重大な不具合）**。
 - **Claude は Cloudflare の認証情報を持っていない。** `wrangler whoami` が未認証で、
   `CLOUDFLARE_API_TOKEN` も無い。リソース作成もデプロイも代行できない。
+- **加えて、この実行環境からは Cloudflare へ到達できない。**
+  `api.cloudflare.com` / `dash.cloudflare.com` / `workers.dev` は
+  ネットワークポリシーが CONNECT を 403 で塞ぐ。**資格情報があっても
+  この環境からは deploy できない。** GitHub Actions の runner は到達できるので、
+  **自動デプロイ経路（ci.yml）が唯一の実行手段。**
+- **2026-08-15 に検証した範囲**（Cloudflare を使わずにできること）:
+  - `pnpm check` 緑（220 files / 5296 tests）・`build` 成功
+  - **`pnpm db:migrate` の不具合を修正**（先頭が `--` の SQL でランナーが
+    落ちていた。DECISIONS 未起票 / `tests/toolchain/migrations.spec.ts`）。
+    local の 23 本を適用 → 再実行で `up to date`（冪等）を確認
+  - miniflare で通し確認: `/api/health` `state: ok`、シード投入、
+    OWNER ログイン（`seed01` / `0001`）、`/app/dashboard` と `/m/today` の描画、
+    未認証 API が 401
 - 初回デプロイ後、**`[env.staging.vars]` の `APP_BASE_URL` を実 URL へ書き戻す**
   （今はプレースホルダ）。ここだけコード変更が 1 行残る。
 

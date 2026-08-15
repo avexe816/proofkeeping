@@ -120,6 +120,38 @@ describe("P0-06 マイグレーション", () => {
     expect(sql).not.toMatch(/ALTER\s+TABLE/i);
   });
 
+  it("ランナーが SQL を `--command=<sql>` の 1 語で渡す", () => {
+    // **先頭が `--` の SQL があるため。** `["--command", sql]` の 2 語に
+    // 分けると、wrangler の引数解析（yargs）が値を「次のフラグ」と誤読し、
+    // SQL 本文がフラグ名として解釈される。
+    //
+    //   ✘ [ERROR] Unknown arguments:  P2-16 P1 暫定機能の移行（...
+    //
+    // 手書きの 0011 が `-- 見出し` で始まるため、これを足した時点で
+    // `pnpm db:migrate` は全環境で落ちていた。**CI は drizzle-kit check
+    // しか行わず実適用しない**ので、実行するまで気づけなかった。
+    //
+    // ソースを読む形にしてあるのは、`scripts/db-migrate.ts` が
+    // 起動時に `main()` を走らせる node の入口で、import できないため。
+    const runner = readFileSync(join(ROOT, "scripts", "db-migrate.ts"), "utf8");
+    // **コメントを落としてから見る。** 壊れる形（`["--command", sql]`）は
+    // 注意書きとしてコメントに書いてあり、そのままだと自分で引っ掛かる。
+    const code = runner.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+    expect(code).toContain("`--command=${sql}`");
+    expect(code).not.toMatch(/"--command",\s*sql/);
+  });
+
+  it("先頭が SQL コメントのマイグレーションが存在する（上のテストの前提）", () => {
+    // 1 本も無くなると上のテストが「何も守っていない」状態になる。
+    // **その状態に静かに移らないよう、前提のほうも押さえておく。**
+    const startsWithComment = readJournal().entries.filter((entry) =>
+      readSql(entry.tag).startsWith("--"),
+    );
+
+    expect(startsWithComment.length).toBeGreaterThan(0);
+  });
+
   it("破壊的な文を含まない", () => {
     // architecture.md §6: 後方互換のみ。列の削除・リネーム・型変更を
     // 単一リリースで行わない。DROP / RENAME が現れたら 3 段階手順の検討が要る。
