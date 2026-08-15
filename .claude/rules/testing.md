@@ -9,15 +9,21 @@ pnpm check   # lint + typecheck + test
 ```
 これが通らない PR は出さない。
 
-CI の必須ジョブ:
-- `lint`（ESLint カスタムルール含む）
-- `typecheck`（tsc --noEmit）
-- `test`（Vitest、カバレッジ付き）
-- `test:isolation`（テナント越境）
-- `migrate`（未適用マイグレーションの検出）
-- `forbidden-words`（禁止語の grep）
-- `e2e`（Playwright、preview 環境）
-- `build`
+CI の必須ジョブは **3 本**。**3 本とも並列**で走る。
+
+| ジョブ | 中で走る検査（この順） |
+|---|---|
+| `lint-typecheck` | `lint`（ESLint カスタムルール含む）→ `typecheck`（tsc --noEmit） |
+| `test` | 禁止語の grep 2 種 → `migrate`（未適用マイグレーションの検出）→ `gitleaks`（秘密情報）→ `test:isolation`（テナント越境）→ `test`（Vitest） |
+| `build-e2e` | `build` → `e2e`（Playwright、preview 環境）→ preview デプロイ（PR のみ） |
+
+**検査の中身は 9 ジョブだった頃と同じ。** まとめたのは、private リポジトリで
+Actions の無料枠が尽き、**1 本ごとの checkout + pnpm install に分の大半を
+食われていた**ため（2026-08-15 / DECISIONS #185）。
+
+**ジョブ内は速い検査を先に置く。** 禁止語で落ちるのに Vitest の 2 分を
+待たされる形にしない。**3 本の間に `needs:` を書かない**（直列にすると
+壁時計が 3 倍になり、分も増える）。
 
 ## 2. テナント越境テスト（最重要）
 

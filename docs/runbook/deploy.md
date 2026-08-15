@@ -13,7 +13,7 @@
 ## 0. 順序
 
 ```
-   CI（8 ジョブ）が緑
+   CI（3 ジョブ）が緑
         ↓
    ① マイグレーションを先に当てる（後方互換のみ）
         ↓
@@ -30,21 +30,19 @@
 
 ## 1. デプロイ前
 
-### 1.1 CI の必須ジョブ（8 本）
+### 1.1 CI の必須ジョブ（3 本 / 並列）
 
-| ジョブ | 内容 |
+| ジョブ | 中で走る検査（この順） |
 |---|---|
-| `lint` | ESLint（カスタムルールを含む） |
-| `typecheck` | `tsc --noEmit` |
-| `test` | Vitest |
-| `test-isolation` | テナント越境 |
-| `migrate` | 未適用マイグレーションの検出 |
-| `forbidden-words` | 語彙の検査 |
-| `gitleaks` | 秘密情報のコミット検査（`fetch-depth: 0`） |
-| `build` | ビルド |
+| `lint-typecheck` | ESLint（カスタムルールを含む）→ `tsc --noEmit` |
+| `test` | 禁止語の grep 2 種 → `drizzle-kit check` → `gitleaks`（`fetch-depth: 0`）→ テナント越境 → Vitest |
+| `build-e2e` | ビルド → E2E → preview デプロイ（PR のみ） |
 
-**8 本すべてが緑でなければデプロイしない。**
-`e2e`（Playwright / preview 環境）は preview の配線が済んでから。
+**3 本すべてが緑でなければデプロイしない。**
+
+**検査の中身は 9 ジョブだった頃と同じ**（DECISIONS #185）。まとめたのは
+Actions の無料枠が尽きたため。**落ちたステップ名はそのまま出る**ので、
+どの検査で落ちたかは一覧で分かる。
 
 ### 1.2 変更の性質を確かめる
 
