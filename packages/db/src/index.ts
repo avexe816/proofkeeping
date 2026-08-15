@@ -17,6 +17,29 @@ export {
 // **アプリケーションコードは db から直に select しない。ここを通す。**
 export * from "./repositories/index.js";
 
+// シャードの使用率と警告レベル（P7-06 / PK-SPEC-P7 §4.3）。
+// **運用者向け。テナント向けの API・画面から呼ばないこと**
+// （シャード番号を持つ / CLAUDE.md §4・`shardUsage.ts` の注記）。
+export {
+  SHARD_CAPACITY_BYTES,
+  SHARD_USAGE_CRITICAL_RATIO,
+  SHARD_USAGE_INFO_RATIO,
+  SHARD_USAGE_LEVELS,
+  SHARD_USAGE_WARNING_RATIO,
+  formatBytes,
+  formatUsageRatio,
+  needsAction,
+  shardUsageLevelOf,
+  worstLevelOf,
+  type ShardUsageLevel,
+} from "./shardUsage.js";
+
+export {
+  collectShardUsage,
+  type ShardUsage,
+  type ShardUsageReport,
+} from "./shardUsageCollector.js";
+
 // D1 の 1 文あたりバインド変数上限（100）と、それに収める分割。
 // **「SQLite の 999」で分割の大きさを決めないこと**（limits.ts の注記）。
 export {
