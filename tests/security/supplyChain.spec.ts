@@ -18,6 +18,7 @@ const ROOT = join(import.meta.dirname, "..", "..");
 
 const DEPENDABOT = readFileSync(join(ROOT, ".github", "dependabot.yml"), "utf8");
 const CI = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
+const GITLEAKS_CONFIG = readFileSync(join(ROOT, ".gitleaks.toml"), "utf8");
 
 describe("§6.1 Dependabot", () => {
   it("npm と GitHub Actions の両方を見る", () => {
@@ -45,6 +46,45 @@ describe("§6.1 gitleaks", () => {
     // `gitleaks-action` は PR のコミット一覧を GitHub API から引くため、
     // 既定の `GITHUB_TOKEN` の権限では 403 で落ちる。
     expect(CI).not.toContain("gitleaks/gitleaks-action");
+  });
+  it("設定を読ませている", () => {
+    expect(CI).toContain(".gitleaks.toml");
+  });
+});
+
+/**
+ * 許可リストの形（DECISIONS #171）。
+ *
+ * **ここが緩むと検査が意味を失う。** 「spec に書けば通る」形にすると、
+ * 実際の鍵を spec に置いた事故を検出できなくなる。
+ */
+describe("§6.1 gitleaks の許可リスト", () => {
+  it("既定のルール一式を使う（独自ルールだけにしない）", () => {
+    expect(GITLEAKS_CONFIG).toContain("useDefault = true");
+  });
+
+  it("**経路ごと除外しない。** 許すのは値そのものだけ", () => {
+    // `paths` / `files` / `commits` で丸ごと除外する形を作らせない。
+    // 「テストに置けば通る」ことになる。
+    expect(GITLEAKS_CONFIG).not.toMatch(/^\s*paths\s*=/m);
+    expect(GITLEAKS_CONFIG).not.toMatch(/^\s*files\s*=/m);
+    expect(GITLEAKS_CONFIG).not.toMatch(/^\s*commits\s*=/m);
+    expect(GITLEAKS_CONFIG).toMatch(/^\s*regexes\s*=/m);
+  });
+
+  it("**許可した値すべてに注記が付いている**", () => {
+    // 「なぜ本物ではないと言えるか」を書かせる。書けないものは
+    // 許可ではなく、鍵を回すべきもの。
+    const marker = "'''";
+    const lines = GITLEAKS_CONFIG.split("\n");
+    const allowed = lines
+      .map((line, index) => ({ line: line.trim(), index }))
+      .filter(({ line }) => line.startsWith(marker));
+    expect(allowed.length).toBeGreaterThan(0);
+    for (const { line, index } of allowed) {
+      const previous = lines[index - 1]?.trim() ?? "";
+      expect(previous.startsWith("#"), `注記が無い: ${line}`).toBe(true);
+    }
   });
 
   it("**履歴全体を走査する**（`fetch-depth: 0`）", () => {

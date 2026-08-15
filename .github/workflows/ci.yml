@@ -149,7 +149,8 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/repo" \
             zricethezav/gitleaks:latest \
-            detect --source /repo --no-banner --redact --exit-code 1
+            detect --source /repo --config /repo/.gitleaks.toml \
+            --no-banner --redact --exit-code 1
 
   # E2E。接続先（preview）が無い間は未実施として緑で抜ける。
   # 実体と、なぜ今そうしているかは scripts/e2e.ts の冒頭に書いてある。
