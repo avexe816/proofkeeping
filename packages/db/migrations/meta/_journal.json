@@ -155,6 +155,13 @@
       "when": 1786777118243,
       "tag": "0021_p7_09_archive_restore",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1786790677043,
+      "tag": "0022_p7_01_setup",
+      "breakpoints": true
     }
   ]
 }

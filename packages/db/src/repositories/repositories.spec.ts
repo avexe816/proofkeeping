@@ -657,6 +657,17 @@ const INVOCATIONS: Invocation[] = [
       organizationRepo.updateOrganizationSettings(env, ctx, { propertySelectionThreshold: 4 }),
   },
   {
+    // P7-01。ウィザードだけが触る列（会社名 / 種別 / 進行状態）。
+    name: "organization.updateOrganizationSetup",
+    kind: "tenant",
+    run: (env, ctx) =>
+      organizationRepo.updateOrganizationSetup(env, ctx, {
+        name: "テスト運営",
+        orgType: "OPERATOR",
+        setupState: '{"version":1,"steps":{},"completedAt":null}',
+      }),
+  },
+  {
     name: "organization.updateTaxProfile",
     kind: "tenant",
     run: (env, ctx) =>
@@ -747,6 +758,12 @@ const INVOCATIONS: Invocation[] = [
     name: "room.listRoomNumbersByIds",
     kind: "tenant",
     run: (env, ctx) => roomRepo.listRoomNumbersByIds(env, ctx, [OWN_ID.room]),
+  },
+  {
+    // P7-03。トライアルの上限（150 室）を数える。
+    name: "room.countRooms",
+    kind: "tenant",
+    run: (env, ctx) => roomRepo.countRooms(env, ctx),
   },
   {
     name: "room.countSellableRoomsByProperty",
@@ -1111,6 +1128,32 @@ const INVOCATIONS: Invocation[] = [
       userRepo.setPasswordHash(env, ctx, { userId: OWN_ID.user, passwordHash: FAKE_HASH }),
     crossTenant: (env, ctx) =>
       userRepo.setPasswordHash(env, ctx, { userId: OTHER_ID.user, passwordHash: FAKE_HASH }),
+  },
+  {
+    // P7-01。**3 表を作る。** 越境は propertyIds と invitedBy の両方で見る
+    // （`createFieldStaff()` はどちらも `assertIdBelongsToTenant()` に通す）。
+    name: "user.createFieldStaff",
+    kind: "tenant",
+    run: (env, ctx) =>
+      userRepo.createFieldStaff(env, ctx, {
+        displayName: "テスト 太郎",
+        staffNumber: "S-9001",
+        role: "CLEANER",
+        email: null,
+        pinHash: FAKE_HASH,
+        propertyIds: [OWN_ID.property],
+        invitedBy: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      userRepo.createFieldStaff(env, ctx, {
+        displayName: "テスト 太郎",
+        staffNumber: "S-9002",
+        role: "CLEANER",
+        email: null,
+        pinHash: FAKE_HASH,
+        propertyIds: [OTHER_ID.property],
+        invitedBy: OWN_ID.membership,
+      }),
   },
   {
     name: "user.listPropertyStaff",

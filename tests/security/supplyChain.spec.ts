@@ -30,6 +30,25 @@ const CI_CODE = CI.split("\n")
   .join("\n");
 const GITLEAKS_CONFIG = readFileSync(join(ROOT, ".gitleaks.toml"), "utf8");
 
+/**
+ * `jobs:` 直下の 1 ジョブぶんを切り出す。
+ *
+ * **ジョブ名で探さない。** gitleaks は独立ジョブだった頃と違い、いまは
+ * `test` ジョブの 1 ステップ（DECISIONS #185 で 9 本を 3 本へまとめた）。
+ * **中身で探せば、また組み替えても壊れない。**
+ */
+function jobBlockContaining(needle: string): string {
+  const jobsAt = CI_CODE.indexOf("\njobs:");
+  const body = CI_CODE.slice(jobsAt);
+  // 2 スペース字下げの `名前:` がジョブの始まり。
+  const starts = [...body.matchAll(/\n {2}[a-z][a-z0-9-]*:\n/g)].map((m) => m.index);
+  for (let i = 0; i < starts.length; i++) {
+    const block = body.slice(starts[i], starts[i + 1] ?? body.length);
+    if (block.includes(needle)) return block;
+  }
+  return "";
+}
+
 describe("§6.1 Dependabot", () => {
   it("npm と GitHub Actions の両方を見る", () => {
     expect(DEPENDABOT).toContain("package-ecosystem: npm");
@@ -42,9 +61,12 @@ describe("§6.1 Dependabot", () => {
 });
 
 describe("§6.1 gitleaks", () => {
-  it("CI のジョブとして在る", () => {
-    expect(CI).toContain("gitleaks:");
-    expect(CI).toContain("gitleaks detect");
+  it("CI で実際に動いている", () => {
+    // **`CI_CODE`（注記を落としたもの）で見る。** 以前は `CI` に対して
+    // "gitleaks detect" を探しており、**注記の文言で通っていた。**
+    // コマンドを消しても緑になる検査だったので、実体を見る形へ直した。
+    expect(CI_CODE).toContain("ghcr.io/gitleaks/gitleaks:v");
+    expect(CI_CODE).toContain("detect --source /repo");
   });
 
   it("**見つかったら落ちる**（`--exit-code 1`）", () => {
@@ -119,12 +141,11 @@ describe("§6.1 gitleaks の許可リスト", () => {
     // 既定の浅い clone だと直近 1 コミットしか見えず、
     // 過去に混入した鍵を見逃す。
     //
-    // **`gitleaks:` から次のジョブまでを切り出して見る。** ファイル全体に
-    // 対して部分一致を掛けると、別のジョブの `fetch-depth` を拾ってしまう。
-    const start = CI.indexOf("gitleaks:");
-    const rest = CI.slice(start);
-    const nextJob = /\n {2}[a-z][a-z0-9-]*:\n/.exec(rest.slice("gitleaks:".length));
-    const job = nextJob === null ? rest : rest.slice(0, "gitleaks:".length + nextJob.index);
+    // **gitleaks を動かすジョブの塊を切り出して見る。** ファイル全体へ
+    // 部分一致を掛けると、別のジョブの `fetch-depth` を拾ってしまう。
+    // ジョブ名では探さない（9 本 → 3 本でステップへ移った / DECISIONS #185）。
+    const job = jobBlockContaining("ghcr.io/gitleaks/gitleaks:v");
+    expect(job).not.toBe("");
     expect(job).toContain("fetch-depth: 0");
   });
 });

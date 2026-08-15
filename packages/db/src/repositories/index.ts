@@ -173,6 +173,7 @@ export {
   findOrganization,
   findTaxProfile,
   updateOrganizationSettings,
+  updateOrganizationSetup,
   updateTaxProfile,
   type UpdateTaxProfileInput,
 } from "./organization.js";
@@ -195,6 +196,7 @@ export {
 } from "./property.js";
 
 export {
+  countRooms,
   countRoomsByRoomType,
   countSellableRoomsByProperty,
   createRooms,
@@ -228,6 +230,7 @@ export {
 export {
   PASSWORD_HISTORY_GENERATIONS,
   countActiveMembershipsByRole,
+  createFieldStaff,
   findMembershipByUserId,
   findMembershipStartedAt,
   findUserById,
@@ -239,6 +242,8 @@ export {
   recordLoginAttempt,
   setPasswordHash,
   setUserLocale,
+  type CreateFieldStaffInput,
+  type CreateFieldStaffResult,
   type LoginAttemptInput,
   type PropertyStaff,
   type SetPasswordHashInput,

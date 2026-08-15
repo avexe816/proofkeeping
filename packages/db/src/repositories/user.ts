@@ -435,3 +435,122 @@ export async function countActiveMembershipsByRole(
     .groupBy(membership.role);
   return new Map(rows.map((row) => [row.role, row.count]));
 }
+
+/**
+ * 現場スタッフの登録（P7-01 / PK-SPEC-P7 §2.3 Step 5）の入力。
+ *
+ * **PIN の平文を受け取らない。** ハッシュだけを受ける。
+ * PBKDF2 は WebCrypto の非同期 API で、`packages/db` は Workers の
+ * 暗号を呼ばない層にしてある（`setPasswordHash()` と同じ扱い）。
+ * 発行とハッシュ化は `apps/web/src/lib/auth/pin.ts` の責務。
+ */
+export interface CreateFieldStaffInput {
+  displayName: string;
+  /** 組織内で一意（`uq_user_org_staff_number`）。 */
+  staffNumber: string;
+  /** **PIN でログインするロールだけ。** 型で 2 つに絞っている。 */
+  role: Extract<Role, "CLEANER" | "INSPECTOR">;
+  /** 通知の送信先。持たなくてよい（DECISIONS #018）。 */
+  email: string | null;
+  /** `pbkdf2$sha256$50000$...` 形式（DECISIONS #021）。 */
+  pinHash: string;
+  locale?: string | undefined;
+  /** 担当施設。**空で呼ばないこと**（割当が無いとタスクが 1 件も出ない）。 */
+  propertyIds: readonly string[];
+  /** 招待した操作者の membership ID。監査で辿れるようにする（security.md §6）。 */
+  invitedBy: string;
+}
+
+export interface CreateFieldStaffResult {
+  /** スタッフ番号が既に使われていれば `false`。行は 1 つも作らない。 */
+  created: boolean;
+  userId: string;
+  membershipId: string;
+}
+
+/**
+ * 現場スタッフを 1 名登録する。**`user` / `membership` / `property_assignment`
+ * の 3 表を作る。**
+ *
+ * ── なぜ 3 表を 1 関数にまとめるのか ────────────────────
+ * 3 つが揃って初めて「ログインできて、タスクが見える」状態になる。
+ * 別々の関数にすると、`user` だけ作られて `membership` が無い行が
+ * 生まれうる。**その行はログインできるのにロールが引けない**ため、
+ * 認証の組み立て（`findMembershipByUserId`）が空を返し、原因が
+ * 画面から読めない状態になる。
+ *
+ * D1 に跨るトランザクションは無いので**完全な原子性は無い。**
+ * 途中で落ちた場合に残るのは「`user` だけ」または「`user` +
+ * `membership`」で、**どちらも同じスタッフ番号での再実行が
+ * `created: false` になる。** そのときは行を無効化してから作り直す。
+ *
+ * ── 重複は例外にしない ──────────────────────────────────
+ * `created: false` を返して呼び出し側に決めさせる（`createRoomType()`
+ * と同じ形）。スタッフ番号の重複は運用でごく普通に起きる。
+ *
+ * 監査ログ（`recordAudit`）はこの層では呼ばない。呼ぶのは API ハンドラ側。
+ */
+export async function createFieldStaff(
+  env: Env,
+  ctx: TenantContext,
+  input: CreateFieldStaffInput,
+): Promise<CreateFieldStaffResult> {
+  for (const propertyId of input.propertyIds) assertIdBelongsToTenant(propertyId, ctx);
+  assertIdBelongsToTenant(input.invitedBy, ctx);
+
+  const db = await getTenantDb(env, ctx);
+  const userId = generateId(ctx.orgShortId, "usr");
+  const membershipId = generateId(ctx.orgShortId, "mem");
+
+  const inserted = await db
+    .insert(user)
+    .values({
+      id: userId,
+      organizationId: ctx.organizationId,
+      email: input.email,
+      staffNumber: input.staffNumber,
+      pinHash: input.pinHash,
+      // security.md §2「初回変更を強制する」。既定値と同じだが、
+      // **既定に頼らず明示する。** ここが false で作られると、
+      // 発行した PIN がそのまま使われ続ける。
+      pinMustChange: true,
+      displayName: input.displayName,
+      ...(input.locale === undefined ? {} : { locale: input.locale }),
+      createdAt: ctx.now,
+      updatedAt: ctx.now,
+    })
+    .onConflictDoNothing();
+
+  if (inserted.meta.changes === 0) return { created: false, userId, membershipId };
+
+  await db.insert(membership).values({
+    id: membershipId,
+    organizationId: ctx.organizationId,
+    userId,
+    role: input.role,
+    invitedBy: input.invitedBy,
+    invitedAt: ctx.now,
+    // **`acceptedAt` を入れない。** 本人が初めてログインするまでは
+    // 「招待済み・未受諾」。`findMembershipStartedAt()` がこの差を見る。
+    createdAt: ctx.now,
+    updatedAt: ctx.now,
+  });
+
+  for (const propertyId of input.propertyIds) {
+    await db
+      .insert(propertyAssignment)
+      .values({
+        id: generateId(ctx.orgShortId, "asgn"),
+        organizationId: ctx.organizationId,
+        membershipId,
+        propertyId,
+        assignedBy: input.invitedBy,
+        assignedAt: ctx.now,
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+      })
+      .onConflictDoNothing();
+  }
+
+  return { created: true, userId, membershipId };
+}

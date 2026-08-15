@@ -915,3 +915,129 @@ a.pk-nav:hover {
 .pk-actions__count {
   font-variant-numeric: tabular-nums;
 }
+
+/* ──────────────────────────────────────────────────────────
+   ログイン案内カード（PK-SPEC-P7 §2.4 v1.1 / P7-02）
+
+   **PDF を作らず、ブラウザの印刷機能で 1 枚に出す**（DECISIONS #184）。
+   画面では通常の記事として見え、印刷するとカードだけが 1 枚に残る。
+   docs/guides/cleaner-guide.html と同じ作りに揃えてある。
+   ────────────────────────────────────────────────────────── */
+
+.pk-card {
+  box-sizing: border-box;
+  max-width: 148mm; /* A5 相当。A4 に貼っても、そのまま 1 枚でも読める */
+  margin: 16px 0;
+  padding: 12mm 10mm;
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  text-align: center;
+}
+
+.pk-card__title {
+  margin: 0 0 8mm;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* QR は SVG。**外部の画像を読まない**（印刷時にも確実に出る）。 */
+.pk-card__qr {
+  display: block;
+  width: 45mm;
+  height: 45mm;
+  margin: 0 auto 6mm;
+  padding: 4mm; /* クワイエットゾーン。詰めると読み取り率が落ちる */
+  background: #fff;
+  /* セルの境界をぼかさない。拡大時に潰れると読めなくなる */
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+}
+
+.pk-card__or {
+  margin: 0;
+  font-size: 13px;
+  color: #333;
+}
+
+.pk-card__url {
+  margin: 2px 0 8mm;
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.pk-card__fields {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 16px;
+  justify-content: center;
+  margin: 0 0 6mm;
+  text-align: left;
+}
+
+.pk-card__fields dt {
+  font-size: 14px;
+  color: #333;
+}
+
+.pk-card__fields dd {
+  margin: 0;
+}
+
+/* 手袋・暗所での読み取りを想定して大きく、字間を空ける。 */
+.pk-card__value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-card__notice {
+  margin: 0;
+  font-size: 13px;
+}
+
+.pk-card__name {
+  margin: 6mm 0 0;
+  font-size: 13px;
+  color: #333;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  /* 画面の枠（topbar / sidebar）と操作系は印刷しない。
+     **カードだけが紙に残る。** */
+  body * {
+    visibility: hidden;
+  }
+
+  .pk-print,
+  .pk-print * {
+    visibility: visible;
+  }
+
+  .pk-print__hide {
+    display: none !important;
+  }
+
+  .pk-print {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  .pk-card {
+    margin: 0 auto;
+    border: 1px solid #000;
+    border-radius: 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

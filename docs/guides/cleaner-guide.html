@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>ProofKeeping 清掃スタッフ向け操作ガイド / Cleaning Staff Guide</title>
+    <!--
+      PK-SPEC-P7 §7.1 MUST「清掃スタッフ向けガイドは A4 1 枚に収め、
+      印刷して現場に貼れる形式にする」。task: docs/tasks/P7-15.md
+
+      ── 1 枚に収める仕掛け ──────────────────────────────
+      .sheet を 210mm × 297mm に固定し、@page の余白を 0 にしてある。
+      **項目を足すと 2 枚目にこぼれる。** 足すときは何かを削ること。
+      A4 1 枚に収まっているかは tests/docs/customerDocs.spec.ts が
+      文字数と手順数の上限で機械的に押さえている。
+
+      ── 日英で 2 枚 ─────────────────────────────────────
+      「A4 1 枚」は 1 言語あたり。日本語と英語を 1 枚に混ぜると、
+      手袋のまま遠目に読む用途で字が小さくなりすぎる。
+      主要な利用者は日本語の漢字が読めない場合があるため（PK-SPEC-UI §0.3）、
+      **英語版は日本語版のおまけではなく、同じ内容の同じ体裁**にしてある。
+
+      ── 図中心 ──────────────────────────────────────────
+      文字は各手順 1 行まで。判断を書かない（何を見て何を押すかだけ）。
+      「不審な点」「異常」の類の語をここに書かないこと（ui-writing.md §2）。
+    -->
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #f2f4f6;
+        font-family:
+          "Hiragino Sans", "Noto Sans JP", "Yu Gothic", system-ui, -apple-system, sans-serif;
+        color: #17202a;
+      }
+      .sheet {
+        width: 210mm;
+        height: 297mm;
+        padding: 11mm 12mm 9mm;
+        margin: 0 auto 8mm;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        page-break-after: always;
+        break-after: page;
+      }
+      .sheet:last-of-type {
+        page-break-after: auto;
+        break-after: auto;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        border-bottom: 3px solid #17202a;
+        padding-bottom: 3mm;
+      }
+      h1 {
+        font-size: 22pt;
+        margin: 0;
+        letter-spacing: 0.02em;
+      }
+      .lede {
+        font-size: 10.5pt;
+        color: #4a5560;
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-auto-rows: 1fr;
+        gap: 5mm 6mm;
+        margin-top: 6mm;
+        flex: 1 1 auto;
+      }
+      .step {
+        display: flex;
+        gap: 4mm;
+        align-items: center;
+        border: 1.5px solid #d3d9df;
+        border-radius: 3mm;
+        padding: 3mm 4mm;
+      }
+      .num {
+        flex: 0 0 14mm;
+        height: 14mm;
+        border-radius: 50%;
+        background: #17202a;
+        color: #fff;
+        font-size: 19pt;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .step svg {
+        flex: 0 0 15mm;
+        height: 15mm;
+      }
+      .body strong {
+        display: block;
+        font-size: 15pt;
+        line-height: 1.3;
+      }
+      .body span {
+        font-size: 11pt;
+        color: #4a5560;
+        line-height: 1.4;
+      }
+      .rules {
+        margin-top: 6mm;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4mm;
+        padding-top: 4mm;
+      }
+      .panel {
+        border-radius: 3mm;
+        padding: 3.5mm 4mm;
+      }
+      .panel h2 {
+        font-size: 13pt;
+        margin: 0 0 2mm;
+      }
+      .panel li {
+        font-size: 11pt;
+        line-height: 1.5;
+        margin-left: -4mm;
+      }
+      .ok {
+        background: #eaf3ec;
+        border: 1.5px solid #b7d3bd;
+      }
+      .note {
+        background: #fdf4e7;
+        border: 1.5px solid #e7cfa6;
+      }
+      footer {
+        margin-top: 3.5mm;
+        border-top: 1.5px solid #d3d9df;
+        padding-top: 2.5mm;
+        font-size: 9pt;
+        color: #4a5560;
+        display: flex;
+        justify-content: space-between;
+      }
+      @media print {
+        body {
+          background: #fff;
+        }
+        .sheet {
+          margin: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ============================ 日本語 ============================ -->
+    <section class="sheet" lang="ja">
+      <header>
+        <h1>清掃の記録のしかた</h1>
+        <p class="lede">ProofKeeping／スマートフォンで <b>/m/</b> をひらく</p>
+      </header>
+
+      <div class="steps">
+        <div class="step">
+          <div class="num">1</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="12" y="4" width="24" height="40" rx="4" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <circle cx="19" cy="20" r="2.6" fill="#17202a"/><circle cx="29" cy="20" r="2.6" fill="#17202a"/>
+            <circle cx="19" cy="30" r="2.6" fill="#17202a"/><circle cx="29" cy="30" r="2.6" fill="#17202a"/>
+          </svg>
+          <div class="body">
+            <strong>ログイン</strong>
+            <span>組織 ID（6 桁）・スタッフ番号・PIN（4 桁）</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">2</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="6" y="10" width="36" height="9" rx="2.5" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <rect x="6" y="23" width="36" height="9" rx="2.5" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <rect x="6" y="36" width="24" height="6" rx="2.5" fill="#d3d9df"/>
+          </svg>
+          <div class="body">
+            <strong>「本日のタスク」から部屋を選ぶ</strong>
+            <span>上から順にならんでいます</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">3</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <circle cx="24" cy="24" r="17" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <path d="M20 16l12 8-12 8z" fill="#17202a"/>
+          </svg>
+          <div class="body">
+            <strong>「開始する」を押す</strong>
+            <span>入室したらすぐ。時間の記録がはじまります</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">4</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="5" y="26" width="12" height="10" rx="2" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <rect x="19" y="20" width="12" height="16" rx="2" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <rect x="33" y="13" width="10" height="23" rx="2" fill="none" stroke="#17202a" stroke-width="2.5"/>
+          </svg>
+          <div class="body">
+            <strong>入室したときの記録</strong>
+            <span>ベッド・ゴミ・タオルの<b>数</b>だけ。ボタンで選ぶ</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">5</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="9" y="6" width="30" height="36" rx="3" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <path d="M15 17l4 4 8-8M15 29l4 4 8-8" fill="none" stroke="#17202a" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+          <div class="body">
+            <strong>チェックリスト</strong>
+            <span>できたら押す。できない項目は「対象外」</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">6</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="5" y="14" width="38" height="24" rx="4" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <path d="M17 14l3-5h8l3 5" fill="none" stroke="#17202a" stroke-width="2.5" stroke-linejoin="round"/>
+            <circle cx="24" cy="26" r="7" fill="none" stroke="#17202a" stroke-width="2.5"/>
+          </svg>
+          <div class="body">
+            <strong>写真をとる</strong>
+            <span>部屋のようす。人がうつらないように</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">7</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M8 34c6-14 26-14 32 0z" fill="none" stroke="#17202a" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M14 34V20M24 34V16M34 34V20" stroke="#17202a" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+          <div class="body">
+            <strong>リネンの枚数</strong>
+            <span>やぶれ・よごれは写真を 1 枚つけてください</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">8</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <circle cx="24" cy="24" r="17" fill="#17202a"/>
+            <path d="M15 24.5l6.5 6.5L33 19" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="body">
+            <strong>「完了する」を押す</strong>
+            <span>おわり。つぎの部屋へ</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rules">
+        <div class="panel ok">
+          <h2>だいじなこと</h2>
+          <ul>
+            <li>見たままを入れてください。考えなくて大丈夫です。</li>
+            <li>速さや件数で人をくらべることはありません。</li>
+            <li>記録しないときは「今回は記録しない」を押せます。理由は聞きません。</li>
+          </ul>
+        </div>
+        <div class="panel note">
+          <h2>こまったとき</h2>
+          <ul>
+            <li><b>電波がない</b> → そのまま続けてください。あとで自動で送られます。</li>
+            <li><b>入れない部屋</b> → 「入室できない」から理由を選びます。</li>
+            <li><b>わすれもの・こわれている</b> → 「報告」から写真をつけて送ります。</li>
+          </ul>
+        </div>
+      </div>
+
+      <footer>
+        <span>この記録は、清掃の品質管理・業務改善・請求の根拠に使います。個人の評価には使いません。</span>
+        <span>v1.0</span>
+      </footer>
+    </section>
+
+    <!-- ============================ English ============================ -->
+    <section class="sheet" lang="en">
+      <header>
+        <h1>How to record your cleaning</h1>
+        <p class="lede">ProofKeeping／open <b>/m/</b> on your phone</p>
+      </header>
+
+      <div class="steps">
+        <div class="step">
+          <div class="num">1</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="12" y="4" width="24" height="40" rx="4" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <circle cx="19" cy="20" r="2.6" fill="#17202a"/><circle cx="29" cy="20" r="2.6" fill="#17202a"/>
+            <circle cx="19" cy="30" r="2.6" fill="#17202a"/><circle cx="29" cy="30" r="2.6" fill="#17202a"/>
+          </svg>
+          <div class="body">
+            <strong>Sign in</strong>
+            <span>Organisation ID (6), staff number, PIN (4 digits)</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">2</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="6" y="10" width="36" height="9" rx="2.5" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <rect x="6" y="23" width="36" height="9" rx="2.5" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <rect x="6" y="36" width="24" height="6" rx="2.5" fill="#d3d9df"/>
+          </svg>
+          <div class="body">
+            <strong>Pick a room from “Today”</strong>
+            <span>The list is already in order</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">3</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <circle cx="24" cy="24" r="17" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <path d="M20 16l12 8-12 8z" fill="#17202a"/>
+          </svg>
+          <div class="body">
+            <strong>Tap “Start”</strong>
+            <span>As soon as you enter. Timing starts here</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">4</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="5" y="26" width="12" height="10" rx="2" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <rect x="19" y="20" width="12" height="16" rx="2" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <rect x="33" y="13" width="10" height="23" rx="2" fill="none" stroke="#17202a" stroke-width="2.5"/>
+          </svg>
+          <div class="body">
+            <strong>What you saw on entry</strong>
+            <span>Only <b>counts</b>: beds, rubbish, towels. Tap to choose</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">5</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="9" y="6" width="30" height="36" rx="3" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <path d="M15 17l4 4 8-8M15 29l4 4 8-8" fill="none" stroke="#17202a" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+          <div class="body">
+            <strong>Checklist</strong>
+            <span>Tap when done. Use “not applicable” if you cannot</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">6</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="5" y="14" width="38" height="24" rx="4" fill="none" stroke="#17202a" stroke-width="2.5"/>
+            <path d="M17 14l3-5h8l3 5" fill="none" stroke="#17202a" stroke-width="2.5" stroke-linejoin="round"/>
+            <circle cx="24" cy="26" r="7" fill="none" stroke="#17202a" stroke-width="2.5"/>
+          </svg>
+          <div class="body">
+            <strong>Take photos</strong>
+            <span>The room only. Please keep people out of frame</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">7</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M8 34c6-14 26-14 32 0z" fill="none" stroke="#17202a" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M14 34V20M24 34V16M34 34V20" stroke="#17202a" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+          <div class="body">
+            <strong>Linen counts</strong>
+            <span>Torn or stained? Please add one photo</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">8</div>
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <circle cx="24" cy="24" r="17" fill="#17202a"/>
+            <path d="M15 24.5l6.5 6.5L33 19" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="body">
+            <strong>Tap “Complete”</strong>
+            <span>That’s it. On to the next room</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rules">
+        <div class="panel ok">
+          <h2>Please remember</h2>
+          <ul>
+            <li>Enter what you saw. You do not need to judge anything.</li>
+            <li>Nobody is ranked or compared by speed or by room count.</li>
+            <li>“Skip this time” is always available. You will not be asked why.</li>
+          </ul>
+        </div>
+        <div class="panel note">
+          <h2>If something happens</h2>
+          <ul>
+            <li><b>No signal</b> → keep going. It sends by itself later.</li>
+            <li><b>Cannot enter</b> → tap “Cannot enter” and choose a reason.</li>
+            <li><b>Lost property / something broken</b> → “Report”, add a photo.</li>
+          </ul>
+        </div>
+      </div>
+
+      <footer>
+        <span>These records are used for cleaning quality, service improvement and billing. They are never used to rate individuals.</span>
+        <span>v1.0</span>
+      </footer>
+    </section>
+  </body>
+</html>

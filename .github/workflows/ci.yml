@@ -1,17 +1,33 @@
 name: CI
 
 # task:  docs/tasks/P0-19.md
-# ルール: .claude/rules/testing.md §1（必須 8 ジョブ）
+# ルール: .claude/rules/testing.md §1（必須 3 ジョブ）
 #
-# ジョブを 8 本に分けてあるのは、落ちた場所が一覧で分かるようにするため。
-# 1 本にまとめると `pnpm check` が最初の失敗で止まり、
-# 「lint も型も両方壊れている」のか「lint だけ」なのかが 1 回で分からない。
+# ── なぜ 9 本から 3 本へまとめたか ──────────────────────
+# private リポジトリでは Actions の実行時間が課金対象で、**無料枠が尽きて
+# runner が割り当てられなくなった**（2026-08-15）。1 本ごとに
+# checkout + pnpm install が走るため、**分の大半は検査そのものではなく
+# 準備に消えていた。** 9 本 → 3 本で install も 9 回 → 3 回になる。
+#
+# **落ちた場所が分かる形は保っている。** ジョブ内は 1 ステップ 1 検査で、
+# 失敗したステップ名がそのまま出る。分けていた頃と違うのは
+# 「同じジョブ内の後続が動かない」点だけなので、**速い検査を先に置く**
+# （禁止語 → db:check → gitleaks → 越境 → 本体）。落ちるときは早く落ちる。
+#
+# ── 3 本は必ず並列 ──────────────────────────────────────
+# `needs:` を書かない。直列にすると壁時計が 3 倍になり、分も増える。
+# **preview だけは build と同じジョブに入れてある**（元は `needs: [build]`
+# で build をやり直していた。同居させれば build は 1 回で済む）。
 #
 # main への直接 push の禁止（P0-19 の完了条件）は **リポジトリ設定**であって
 # ワークフローでは表せない。GitHub の branch protection で
 #   - Require a pull request before merging
-#   - Require status checks: 下の 8 ジョブ
-# を有効にすること。docs/PROGRESS.md の申し送りを参照。
+#   - Require status checks: 下の 3 ジョブ
+# を有効にすること。**ジョブ名を変えたので、必須チェックの設定も
+# 3 つ（lint-typecheck / test / build-e2e）へ入れ直すこと。**
+# 旧い名前（lint / typecheck / test-isolation / migrate / forbidden-words /
+# gitleaks / e2e / build）が required のまま残っていると、
+# **その名前のチェックが二度と来ないので PR がマージできなくなる。**
 
 on:
   pull_request:
@@ -23,72 +39,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  # ── 静的検査 ────────────────────────────────────────────
+  lint-typecheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
+      - name: lint
+        run: pnpm lint
+      - name: typecheck
+        run: pnpm typecheck
 
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-
+  # ── テストと走査 ────────────────────────────────────────
+  #
+  # **`fetch-depth: 0` が要る。** gitleaks が git の履歴を走査するため。
+  # 既定の浅い clone だと直近 1 コミットしか見えず、過去に混入した鍵を見逃す。
+  #
+  # **並び順に意味がある。** 秒で終わる走査を先に置き、2 分かかる本体を最後に。
+  # 禁止語で落ちるのに 2 分待たされる形にしない。
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
 
-  # テナント越境（architecture.md §2 第 3 層）。**test と分ける。**
-  # 分離の失敗を他の失敗に埋もれさせない。
-  test-isolation:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test:isolation
-
-  # 未適用マイグレーションの検出。**実 D1 へは接続しない。**
-  # drizzle-kit check がスキーマと migrations/ の整合を見る。
-  # 16 シャードへの実適用は wrangler と実リソースが要る（P0-02 が未完）。
-  migrate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm db:check
-
-  # 禁止語（ui-writing.md §2 / PK-IMPL-CONTRACT §5.1）。
-  # ESLint の pk/no-forbidden-words は UI 文言ファイルに単語単位で当てる。
-  # こちらは複合語を apps / packages 全体へ当てる。役割が違うので両方ある。
-  #
-  # **--include に *.js を足さないこと。** 語彙表そのもの
-  # （packages/config/eslint/rules/forbidden-words-list.js）が引っ掛かる。
-  forbidden-words:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check forbidden words (複合語・全体)
+      # 禁止語（ui-writing.md §2 / PK-IMPL-CONTRACT §5.1）。
+      # ESLint の pk/no-forbidden-words は UI 文言ファイルに単語単位で当てる。
+      # こちらは複合語を apps / packages 全体へ当てる。役割が違うので両方ある。
+      #
+      # **--include に *.js を足さないこと。** 語彙表そのもの
+      # （packages/config/eslint/rules/forbidden-words-list.js）が引っ掛かる。
+      - name: forbidden-words (複合語・全体)
         run: |
           set +e
           PATTERN='不正検知|不正を検知|監視レポート|疑わしい取引|従業員の監視'
@@ -110,10 +99,10 @@ jobs:
       #
       # UI（.tsx）・PDF（packages/pdf）・API レスポンスに載る文言
       # （packages/engine の照合ルールが作る title / summary）は、
-      # 同じ語彙表を使う ESLint（pk/no-forbidden-words）が lint ジョブで見る。
+      # 同じ語彙表を使う ESLint（pk/no-forbidden-words）が lint-typecheck で見る。
       # あちらは**文字列リテラルだけ**を見るので、禁止語を説明した doc
       # コメントに引っ掛からない。grep でそこまで賄おうとしないこと。
-      - name: Check forbidden words (単語・文言カタログ)
+      - name: forbidden-words (単語・文言カタログ)
         run: |
           set +e
           PATTERN='不正|監視|疑わしい|検知|異常'
@@ -125,27 +114,24 @@ jobs:
           fi
           echo "OK"
 
-  # 秘密情報のコミット検査（PK-SPEC-P7 §6.1 / P7-13）。
-  #
-  # **`fetch-depth: 0` が要る。** 既定の浅い clone だと直近 1 コミットしか
-  # 見えず、過去に混入した鍵を見逃す。`gitleaks detect` は git の履歴を走査する。
-  #
-  # **必須ジョブにしてある。** 見つかったときに「あとで直す」を選べる形に
-  # すると、鍵が push された状態で main が進む。
-  #
-  # ── `gitleaks-action` を使わない ────────────────────────
-  # 公式 action は PR のコミット一覧を GitHub API から引くため、
-  # `GITHUB_TOKEN` に `pull-requests: read` が要り、既定の権限では
-  # **403 Resource not accessible by integration で落ちる。**
-  # 検査そのものに API は要らない（履歴はローカルに在る）ので、
-  # **CLI を直接動かす。** 権限を広げるより、要らない依存を外すほうが安い。
-  gitleaks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Check for committed secrets
+      # 未適用マイグレーションの検出。**実 D1 へは接続しない。**
+      # drizzle-kit check がスキーマと migrations/ の整合を見る。
+      # 16 シャードへの実適用は wrangler と実リソースが要る（P0-02 が未完）。
+      - name: migrate (drizzle-kit check)
+        run: pnpm db:check
+
+      # 秘密情報のコミット検査（PK-SPEC-P7 §6.1 / P7-13）。
+      #
+      # **必須の検査。** 見つかったときに「あとで直す」を選べる形にすると、
+      # 鍵が push された状態で main が進む。
+      #
+      # ── `gitleaks-action` を使わない ────────────────────
+      # 公式 action は PR のコミット一覧を GitHub API から引くため、
+      # `GITHUB_TOKEN` に `pull-requests: read` が要り、既定の権限では
+      # **403 Resource not accessible by integration で落ちる。**
+      # 検査そのものに API は要らない（履歴はローカルに在る）ので、
+      # **CLI を直接動かす。** 権限を広げるより、要らない依存を外すほうが安い。
+      - name: gitleaks (秘密情報の検査)
         run: |
           docker run --rm -v "$PWD:/repo" \
             "ghcr.io/gitleaks/gitleaks:v${GITLEAKS_VERSION}" \
@@ -165,65 +151,62 @@ jobs:
           # 上げるときは、手元で同じ版を走らせて差分を確かめてから。
           GITLEAKS_VERSION: "8.28.0"
 
-  # E2E。接続先（preview）が無い間は未実施として緑で抜ける。
-  # 実体と、なぜ今そうしているかは scripts/e2e.ts の冒頭に書いてある。
-  e2e:
+      # テナント越境（architecture.md §2 第 3 層）。
+      # **本体より先に置く。** 分離の失敗を他の失敗に埋もれさせない。
+      - name: test:isolation (テナント越境)
+        run: pnpm test:isolation
+
+      - name: test (Vitest)
+        run: pnpm test
+
+  # ── ビルドと E2E、PR の preview ─────────────────────────
+  build-e2e:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:e2e
+
+      - name: build
+        run: pnpm --filter @pk/web build
+
+      # E2E。接続先（preview）が無い間は未実施として緑で抜ける。
+      # 実体と、なぜ今そうしているかは scripts/e2e.ts の冒頭に書いてある。
+      - name: e2e (Playwright)
+        run: pnpm test:e2e
         env:
           E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
 
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @pk/web build
-
-  # PR ごとの preview デプロイ（§9.2 の pk-pr-{n}）。
-  #
-  # **秘密が無ければ何もせずに抜ける。** fork からの PR には secrets が
-  # 渡らないので、ここで落とすと外部の PR が常に赤くなる。
-  # 必須ジョブ 8 本には含めない（testing.md §1 の一覧に preview は無い）。
-  #
-  # 実行できるようになる条件: P0-02 が preview の D1 / KV / R2 / Queue を作り、
-  # wrangler.toml の TODO-P0-02-* を実 ID へ差し替えること。
-  preview:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Skip when credentials are absent
+      # PR ごとの preview デプロイ（§9.2 の pk-pr-{n}）。
+      #
+      # **秘密が無ければ何もせずに抜ける。** fork からの PR には secrets が
+      # 渡らないので、ここで落とすと外部の PR が常に赤くなる。
+      #
+      # **build と同じジョブに入れてある。** 元は `needs: [build]` の別ジョブで、
+      # checkout と install と build をもう一度やっていた。同居させれば
+      # 上の `build` の成果物をそのまま使えるので、その 3 つが丸ごと要らない。
+      #
+      # 実行できるようになる条件: P0-02 が preview の D1 / KV / R2 / Queue を作り、
+      # wrangler.toml の TODO-P0-02-* を実 ID へ差し替えること。
+      - name: preview を実施するか判定する
         id: guard
         run: |
-          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "preview: PR ではないため実施しません。"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
             echo "preview: CLOUDFLARE_API_TOKEN が未設定のため実施しません（P0-02 が未完）。"
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
-      - uses: pnpm/action-setup@v4
-        if: steps.guard.outputs.ready == 'true'
-      - uses: actions/setup-node@v4
-        if: steps.guard.outputs.ready == 'true'
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-        if: steps.guard.outputs.ready == 'true'
-      - run: pnpm --filter @pk/web build
-        if: steps.guard.outputs.ready == 'true'
+
       # Worker 名に PR 番号を入れる（wrangler.toml の [env.preview] の注記）。
-      - run: pnpm exec wrangler deploy --env preview --name "pk-pr-${{ github.event.number }}"
+      - name: preview デプロイ
         if: steps.guard.outputs.ready == 'true'
+        run: pnpm exec wrangler deploy --env preview --name "pk-pr-${{ github.event.number }}"
         working-directory: apps/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

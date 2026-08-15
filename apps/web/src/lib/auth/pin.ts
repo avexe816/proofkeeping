@@ -29,6 +29,7 @@
  * 一意に辿れる値にしてある。**
  */
 
+import { PIN_POLICY, pinSchema } from "@pk/contracts";
 import type { RandomBytes } from "@pk/db";
 
 import { PBKDF2_PARAMS } from "./password.js";
@@ -50,6 +51,14 @@ export const PIN_PBKDF2_PARAMS: Pbkdf2Params = {
   ...PBKDF2_PARAMS,
   iterations: 50_000,
 } as const;
+
+/**
+ * 初期 PIN の発行で引き直す上限（`generateInitialPin()`）。
+ *
+ * 弾かれるのは連番とゾロ目、および一様性のために捨てるバイトだけ。
+ * 実際は 1〜2 回で決まる。**上限は無限ループを避けるためだけの安全弁。**
+ */
+const PIN_GENERATION_ATTEMPTS = 64;
 
 /**
  * 保存形式の文字列を作る。
@@ -91,4 +100,51 @@ export async function verifyPin(pin: string, stored: string): Promise<boolean> {
  */
 export function pinNeedsRehash(stored: string): boolean {
   return needsRehashWith(stored, PIN_PBKDF2_PARAMS);
+}
+
+/**
+ * 初期 PIN を発行する（P7-01 / PK-SPEC-P7 §2.3 Step 5）。
+ *
+ * ── なぜ管理者に選ばせないのか ──────────────────────────
+ * 30 名ぶんを手で入れると、同じ 4 桁が並ぶ。`pinSchema` が弾けるのは
+ * 連番とゾロ目だけで、「全員 2580」は通ってしまう。**発行の側で
+ * 一様乱数にすれば、その運用そのものが起きない**（DECISIONS #177）。
+ *
+ * ── §2.4 の「初回は 0000」を採らない ────────────────────
+ * PK-SPEC-P7 §2.4 の掲示物の例は PIN を `0000` と書いているが、
+ * security.md §2 は**ゾロ目を登録時に拒否する**と定めており、
+ * `pinSchema` も実際に弾く。**規則を採り、例の側を誤りとして扱う**
+ * （OPEN_QUESTIONS #102 に仕様の版上げとして起票）。
+ *
+ * ── 棄却法で作る ────────────────────────────────────────
+ * `pinSchema` を通るまで引き直す。**剰余で丸めない。** 弾かれる値
+ * （連番・ゾロ目）は全体の 1% に満たないので、実質 1 回で決まる。
+ * それでも上限を置くのは、`pinSchema` が将来きつくなったときに
+ * ここが無限ループにならないようにするため。
+ *
+ * `randomBytes` を差し替えられるのはテストのためだけ。**本番で渡さないこと。**
+ *
+ * @throws `PIN_GENERATION_FAILED` 上限まで引いて 1 つも通らなかった場合。
+ */
+export function generateInitialPin(randomBytes?: RandomBytes): string {
+  const next = randomBytes ?? ((size: number) => crypto.getRandomValues(new Uint8Array(size)));
+
+  for (let attempt = 0; attempt < PIN_GENERATION_ATTEMPTS; attempt++) {
+    const bytes = next(PIN_POLICY.length);
+    let pin = "";
+    // 1 バイトから 1 桁。**`% 10` で丸めない**（0〜5 がわずかに出やすくなる）。
+    // 250 以上を捨てて 0〜249 だけを使うと 25 通り × 10 で一様になる。
+    let usable = true;
+    for (let i = 0; i < PIN_POLICY.length; i++) {
+      const byte = bytes[i] ?? 0;
+      if (byte >= 250) {
+        usable = false;
+        break;
+      }
+      pin += String(byte % 10);
+    }
+    if (!usable) continue;
+    if (pinSchema.safeParse(pin).success) return pin;
+  }
+  throw new Error("PIN_GENERATION_FAILED");
 }

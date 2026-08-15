@@ -146,6 +146,12 @@ export default [
     route("app/p/:propertyId/evidence/:taskId", "routes/app/evidenceDetail.tsx"),
     route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
     route("app/org/vendor-plan", "routes/app/vendorPlan.tsx"),
+    // P7-01。セットアップウィザード（PK-SPEC-P7 §2.3）。
+    // **6 ステップすべてがスキップできる**（§2.3 MUST）。
+    route("app/setup", "routes/app/setup.tsx"),
+    // P7-02。現場スタッフの登録と、現場掲示用の案内（§2.3 Step 5 / §2.4 v1.1）。
+    // **初期 PIN は `action` の戻り値としてだけ現れる**（DECISIONS #184）。
+    route("app/settings/staff", "routes/app/staff.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
     route("app/settings/room-types", "routes/app/roomTypes.tsx"),
     route("app/settings/checklists", "routes/app/checklists.tsx"),
