@@ -8,9 +8,10 @@
  *   1. sessionMiddleware   Cookie → `SessionRecord`（無ければ 401 で打ち切り）
  *   2. tenantMiddleware    `SessionRecord` → `TenantContext`（毎リクエスト DB）
  *   3. withResourceGuard   パス中の ID を照合（`ctx.orgShortId` が要る）
+ *   4. withTrialReadOnly   トライアル終了後の書き込みを 402 で止める（P7-03）
  *
  * 3 が 2 より前だと `tenant` がまだ無い。個別のルートで順番を組み直さず、
- * 必ずこの関数を使うこと。
+ * 必ずこの関数を使うこと。**4 も `tenant` を要る**（契約を引くため）。
  *
  * 例外の写像（`onError`）は順序を持たず、アプリ単位で 1 つだけ有効になる。
  * **middleware では代用できない**理由は `resourceGuard.ts` の冒頭を読むこと。
@@ -26,6 +27,7 @@
 import type { Hono } from "hono";
 
 import type { AppEnv } from "./context.js";
+import { withTrialReadOnly } from "./readOnly.js";
 import { apiErrorHandler, withResourceGuard } from "./resourceGuard.js";
 import { sessionMiddleware } from "./session.js";
 import { tenantMiddleware, type TenantDeps } from "./tenant.js";
@@ -44,6 +46,7 @@ export {
   sanitizeErrorCode,
   withResourceGuard,
 } from "./resourceGuard.js";
+export { withTrialReadOnly, type TrialReadOnlyDeps } from "./readOnly.js";
 export { sessionMiddleware, unauthenticated } from "./session.js";
 export { tenantMiddleware, type TenantDeps } from "./tenant.js";
 
@@ -60,4 +63,17 @@ export function useTenantMiddleware(app: Hono<AppEnv>, deps?: TenantDeps): void 
   app.use("*", sessionMiddleware());
   app.use("*", deps === undefined ? tenantMiddleware() : tenantMiddleware(deps));
   app.use("*", withResourceGuard());
+  // P7-03。**トライアル終了後は書き込みを止める**（PK-SPEC-P7 §2.5）。
+  // 経路ごとに `if` を撒かず、ここ 1 か所で見る。優先度 1（§5.2）の
+  // 4 操作だけは通す（`readOnly.ts` の注記 / DECISIONS #183）。
+  // **`deps` が渡された経路（テスト）では契約を引かない。**
+  // `deps` は「テスト専用。本番経路で渡さない」と定めてあるので、
+  // ここで代役を当てても本番の判定は変わらない。引いてしまうと、
+  // 代役 D1 に積んだ行の順番が 1 つずれて既存の spec が総崩れになる。
+  app.use(
+    "*",
+    deps === undefined
+      ? withTrialReadOnly()
+      : withTrialReadOnly({ findSubscription: () => Promise.resolve(undefined) }),
+  );
 }

@@ -1,7 +1,9 @@
 import {
   NotFoundError,
   OPEN_TASK_STATUSES,
+  countRooms,
   createRooms,
+  findSubscription,
   findRoomById,
   listRoomTypes,
   listRooms,
@@ -12,6 +14,7 @@ import {
 import { Form, useActionData, useLoaderData, type ActionFunctionArgs, type LoaderFunctionArgs } from "react-router";
 
 import { t } from "../../lib/i18n.js";
+import { canAddRooms, limitsOf, trialPhaseOf } from "../../lib/plan/trial.js";
 import { assertPermission } from "../../lib/auth/permission.js";
 import { listSelectableProperties, resolveSelectedScope } from "../../lib/property/selection.js";
 import {
@@ -131,6 +134,13 @@ interface RoomsActionResult {
   rejectedRows?: number;
   invalid?: boolean;
   /**
+   * トライアルの上限（§2.5「客室 150 室まで」/ P7-03）に掛かった。
+   *
+   * **1 室も作っていない。** 超える分だけを入れると、どの行が入ったかを
+   * 利用者が追えない（`canAddRooms()` の注記）。
+   */
+  trialLimit?: boolean;
+  /**
    * CSV にあってマスタに無かった客室タイプのコード（P1-24）。
    *
    * **件数ではなくコードそのものを返す。** 何を登録すればよいのかが
@@ -159,6 +169,22 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
   const form = await request.formData();
   const intent = form.get("intent");
 
+  /**
+   * トライアルの上限（§2.5「客室 150 室まで」/ P7-03）。
+   *
+   * **超える取込はまとめて拒む**（`canAddRooms()` の注記）。先頭だけ入れると
+   * どの行が入ったかを利用者が追えない。
+   */
+  async function withinTrialLimit(adding: number): Promise<boolean> {
+    const subscription = await findSubscription(env, tenant);
+    const phase = trialPhaseOf(
+      { status: subscription?.status, trialEndsAt: subscription?.trialEndsAt ?? null },
+      tenant.now,
+    );
+    if (limitsOf(phase).rooms === null) return true;
+    return canAddRooms(phase, await countRooms(env, tenant), adding);
+  }
+
   if (intent === "range") {
     const range = expandRoomRange({
       from: Number(fieldOf(form, "from")),
@@ -166,6 +192,7 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
       exclude: parseExcludedNumbers(fieldOf(form, "exclude")),
     });
     if (!range.ok) return { invalid: true };
+    if (!(await withinTrialLimit(range.roomNumbers.length))) return { trialLimit: true };
 
     const result = await createRooms(
       env,
@@ -191,6 +218,8 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
 
     // P1-24: `room_type_code` を客室タイプのマスタと突き合わせる。
     // **マスタに無いコードは未設定として取り込む**（§24.2 の「エラーにしない」）。
+    if (!(await withinTrialLimit(parsed.rows.length))) return { trialLimit: true };
+
     const roomTypes = await listRoomTypes(env, tenant, property.id);
     const resolved = resolveRoomTypeCodes(parsed.rows, buildRoomTypeIndex(roomTypes));
 
@@ -327,6 +356,10 @@ export default function Rooms() {
       <h1 className="pk-page__title">{t("room.title")}</h1>
 
       {result?.invalid === true ? <p className="pk-notice">{t("room.bulk.invalid")}</p> : null}
+      {/* トライアルの上限（§2.5 / P7-03）。**1 室も作っていない。** */}
+      {result?.trialLimit === true ? (
+        <p className="pk-notice">{t("room.trialLimit")}</p>
+      ) : null}
       {result?.created === undefined ? null : (
         <p className="pk-notice">
           {`${t("room.bulk.result.created")}: ${String(result.created)} / ` +
