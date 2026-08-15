@@ -59,6 +59,8 @@ import deliveriesRoute from "./routes/api/v1/deliveries.js";
 import invoicesRoute from "./routes/api/v1/invoices.js";
 import integrationWebhooksRoute from "./routes/api/v1/integrationWebhooks.js";
 import integrations from "./routes/api/v1/integrations.js";
+import apiKeys from "./routes/api/v1/apiKeys.js";
+import publicApi from "./routes/api/v1/public.js";
 import webhooksRoute from "./routes/api/v1/webhooks.js";
 import receiptsRoute from "./routes/api/v1/receipts.js";
 import counterparties from "./routes/api/v1/counterparties.js";
@@ -144,6 +146,11 @@ app.route("/api/v1/webhooks", webhooksRoute);
 // 守っているのは `X-PK-Signature`（HMAC-SHA256）で、検証失敗は 401。
 app.route("/api/v1/integrations", integrationWebhooksRoute);
 
+// 公開 API（P6-12 / PK-SPEC-P6 §6）。**セッションを持たない経路。**
+// 認証は `Authorization: Bearer`（`middleware/apiKey.ts`）で、
+// **`useTenantMiddleware()` を付けない。** 認証 middleware の前段に置く。
+app.route("/api/v1/public", publicApi);
+
 // 認証だけはセッション middleware（P0-10）より前段に置く。
 // セッションを作る経路がセッションを要求すると入口が無くなる。
 //
@@ -218,6 +225,9 @@ api.route("/rule-configs", ruleConfigs);
 // 受信口（`/api/v1/integrations/webhook/:id`）は上の認証前段にある。
 // こちらはセッションが要り、`OWNER` / `ORG_ADMIN` だけ（DECISIONS #143）。
 api.route("/integrations", integrations);
+// API キーの管理（P6-12 / 同 §6.1）。**平文は作成時の応答だけ。**
+// 再表示の口を作らないこと（§6.1 MUST）。`OWNER` / `ORG_ADMIN` だけ。
+api.route("/api-keys", apiKeys);
 // 観察記録の入力品質（P3-12 / 同 §6.3 / W-22）。**読み取りだけ。**
 // スタッフ別は入力率だけを返す（security.md §5 / INV-07）。
 api.route("/data-quality", dataQuality);

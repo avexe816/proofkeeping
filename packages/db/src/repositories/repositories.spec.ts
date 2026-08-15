@@ -42,6 +42,7 @@ import * as entitlementRepo from "./entitlement.js";
 import * as evidenceRepo from "./evidence.js";
 import * as inspectionRepo from "./inspection.js";
 import * as integrationRepo from "./integration.js";
+import * as apiKeyRepo from "./apiKey.js";
 import * as notificationRepo from "./notification.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
 import * as invoiceRepo from "./invoice.js";
@@ -86,6 +87,9 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // P6-09 が登録した通知（PK-SPEC-P6 §2.4・§2.5・§5）。
   // **「誰が通知を開いたか」を集計する関数が無い**（security.md §5）。
   notification: notificationRepo,
+  // P6-12 が登録した公開 API のキー（PK-SPEC-P6 §6.1）。
+  // **平文のトークンを受け取る関数も返す関数も無い**（security.md §7）。
+  apiKey: apiKeyRepo,
   // P2-08 が登録した証跡。**INSERT と SELECT だけ**であることも下で検査する。
   evidence: evidenceRepo,
   // P2-02 が登録した検査方式。P2-04 が検査そのもの。
@@ -124,6 +128,8 @@ const ROLLUP_COUNTS = {
 
 /** 自組織の ID。`assertIdBelongsToTenant()` を通る形式。 */
 const OWN_ID = {
+  // P6-12。
+  apiKey: generateId(TEST_ORG.orgShortId, "akey"),
   user: generateId(TEST_ORG.orgShortId, "usr"),
   membership: generateId(TEST_ORG.orgShortId, "mem"),
   property: generateId(TEST_ORG.orgShortId, "prop"),
@@ -202,6 +208,8 @@ const INSPECTION_POLICY = {
 
 /** 別組織の ID。越境の検証に使う。 */
 const OTHER_ID = {
+  // P6-12。
+  apiKey: generateId(OTHER_ORG.orgShortId, "akey"),
   user: generateId(OTHER_ORG.orgShortId, "usr"),
   membership: generateId(OTHER_ORG.orgShortId, "mem"),
   property: generateId(OTHER_ORG.orgShortId, "prop"),
@@ -2690,6 +2698,52 @@ const INVOCATIONS: Invocation[] = [
         integrationId: OTHER_ID.integration,
         ok: false,
       }),
+  },
+  {
+    // P6-12: 公開 API のキー（§6.1）。
+    name: "apiKey.createApiKey",
+    kind: "tenant",
+    run: (env, ctx) =>
+      apiKeyRepo.createApiKey(env, ctx, {
+        name: "テスト",
+        keyPrefix: `pk_live_${ctx.orgShortId}`,
+        keyHash: "0".repeat(64),
+        scopes: ["tasks:read"],
+        propertyIds: null,
+        createdById: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      apiKeyRepo.createApiKey(env, ctx, {
+        name: "テスト",
+        keyPrefix: `pk_live_${ctx.orgShortId}`,
+        keyHash: "0".repeat(64),
+        scopes: ["tasks:read"],
+        // **他組織の施設 ID を混ぜたキーを作れない。**
+        propertyIds: [OTHER_ID.property],
+        createdById: OWN_ID.membership,
+      }),
+  },
+  {
+    name: "apiKey.listApiKeys",
+    kind: "tenant",
+    run: (env, ctx) => apiKeyRepo.listApiKeys(env, ctx),
+  },
+  {
+    name: "apiKey.findApiKeyByHash",
+    kind: "tenant",
+    run: (env, ctx) => apiKeyRepo.findApiKeyByHash(env, ctx, "0".repeat(64)),
+  },
+  {
+    name: "apiKey.revokeApiKey",
+    kind: "tenant",
+    run: (env, ctx) => apiKeyRepo.revokeApiKey(env, ctx, OWN_ID.apiKey),
+    crossTenant: (env, ctx) => apiKeyRepo.revokeApiKey(env, ctx, OTHER_ID.apiKey),
+  },
+  {
+    name: "apiKey.touchApiKeyLastUsed",
+    kind: "tenant",
+    run: (env, ctx) => apiKeyRepo.touchApiKeyLastUsed(env, ctx, OWN_ID.apiKey),
+    crossTenant: (env, ctx) => apiKeyRepo.touchApiKeyLastUsed(env, ctx, OTHER_ID.apiKey),
   },
   {
     // P6-09: 通知の宛先（§5.1）。**組織全体で引く。**

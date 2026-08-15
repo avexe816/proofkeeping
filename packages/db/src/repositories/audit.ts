@@ -179,6 +179,19 @@ export const AUDIT_ACTIONS = {
    */
   "integrationMapping.updated": { requiresReason: false },
   /**
+   * 公開 API のキーの発行・失効（PK-SPEC-P6 §6.1 / P6-12）。
+   *
+   * security.md §6 の列挙には無いが、CLAUDE.md §5 の「破壊的操作」に当たる。
+   * **鍵は組織のデータへ外から届く経路そのもの**で、誰がいつ作ったかが
+   * 残らないと、漏洩時に「いつからその鍵があったか」を辿れない
+   * （§9 の「API キー漏洩」）。
+   *
+   * **`before` / `after` に平文もハッシュも入れない**（security.md §6）。
+   * 残すのは名前・`keyPrefix`・スコープ・施設・有効期限まで。
+   */
+  "apiKey.created": { requiresReason: false },
+  "apiKey.revoked": { requiresReason: false },
+  /**
    * 連携の状態変更（PK-SPEC-P6 §3.4 / P6-07）。
    *
    * サーキットブレーカーを人が閉じる操作（`ERROR` → `ACTIVE`）。

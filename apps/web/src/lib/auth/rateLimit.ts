@@ -31,6 +31,17 @@ export const RATE_LIMITS = {
   pinLogin: { limit: 20, windowSeconds: 60 },
   /** Webhook 受信: 1200 req/分/integration（security.md §8）。P5-10 が使う。 */
   webhook: { limit: 1200, windowSeconds: 60 },
+  /**
+   * 公開 API 全般: 600 req/分/キー（PK-SPEC-P6 §6.5 / security.md §8）。
+   *
+   * **識別子はトークンのハッシュ。** 平文を KV のキー名にしない
+   * （鍵の一覧を眺めただけでトークンが読める形にしない）。
+   */
+  publicApi: { limit: 600, windowSeconds: 60 },
+  /** 公開 API の稼働記録投入: 60 req/分/キー（§6.5）。**全般に上乗せする。** */
+  publicOccupancy: { limit: 60, windowSeconds: 60 },
+  /** 公開 API の物理信号投入: 300 req/分/キー（§6.5）。同上。 */
+  publicSignals: { limit: 300, windowSeconds: 60 },
 } as const;
 
 export type RateLimitBucket = keyof typeof RATE_LIMITS;
