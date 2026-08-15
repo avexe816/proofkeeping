@@ -1394,3 +1394,30 @@ Claude Code はここに追記して作業を止める。人間が回答した�
   定期実行し、既存の監視基盤へ流す。(c) `ORG_ADMIN` の画面に出す。
   **(b) を推す。** 追加の認証機構を作らずに「常時」を満たせ、閾値を超えたら
   監視基盤の通知に乗る。(c) は CLAUDE.md §4 に反するので採らない。
+
+### #096 §19.7 の 9 表のうち 4 表は `businessDate` を持たない
+- 提起: 2026-08-15 / P7-08 実装中
+- 内容: §19.7 は「`businessDate` が 13 か月以上前のレコード」を退避の対象と
+  定め、9 表を挙げる。しかし **`task_time_log` / `task_checklist_result` /
+  `inspection` / `inspection_item_result` の 4 表は `businessDate` 列を
+  持たない。** 親（`cleaning_task` / `inspection`）を辿らないと業務日が
+  決まらず、**その辿り方が仕様に書かれていない。**
+- 影響: 退避できるのは 5 表（`cleaning_task` / `room_observation` /
+  `linen_record` / `occupancy_snapshot` / `physical_signal`）だけ。
+  残り 4 表は D1 に残り続ける。§4.3 の「アーカイブを実行して使用率を
+  下げる」効きが、想定より小さい。
+- 暫定対応: `archivePolicy.ts` を `ARCHIVABLE_TABLES`（§19.7 の 9 表）と
+  `DIRECTLY_ARCHIVABLE_TABLES`（実際に読める 5 表）に分け、
+  **後者だけを書き出す。** 退避する表を減らす向きは安全側で、
+  退避されなかった行は D1 に残るだけで失われない。逆に業務日の解決を
+  推測で書くと、**まだ新しい行を退避対象に含める**恐れがある
+  （CLAUDE.md §1 の 4「推測で実装しない」）。
+- 決める人: 仕様の版上げ。案は 3 つ。(a) 4 表に `businessDate` 列を
+  非正規化して持たせる（architecture.md §6 の 3 段階で足す）。
+  (b) 親の `id` の集合を先に引き、それを使って子を読む。
+  (c) 4 表を退避の対象から外し、§19.7 の一覧を 5 表に改める。
+  **(a) を推す。** 帳票が `issueDate` / `totalAmount` / `counterpartyName` を
+  非正規化して持つのと同じ形（billing.md §2「後から追加すると再構築が
+  必要になる。最初から入れる」）で、退避のたびに親を辿らずに済む。
+  (b) は `cleaning_task` が 1 年で数十万行になる規模だと、
+  `IN (...)` の要素数が Workers の CPU 予算に乗らない。

@@ -17,6 +17,26 @@ export {
 // **アプリケーションコードは db から直に select しない。ここを通す。**
 export * from "./repositories/index.js";
 
+// 年次アーカイブの対象と除外（P7-08 / PK-SPEC-P0 §19.7）。**純粋。**
+// **知らない表は既定で退避しない**（`archivePolicy.ts` の注記）。
+export {
+  ARCHIVABLE_TABLES,
+  ARCHIVE_RETENTION_MONTHS,
+  DIRECTLY_ARCHIVABLE_TABLES,
+  EXCLUSION_REASONS,
+  EXPLICIT_EXCLUSIONS,
+  archiveCutoffBusinessDate,
+  archiveObjectKey,
+  exclusionReasonOf,
+  isArchivable,
+  isDirectlyArchivable,
+  toJsonl,
+  type ArchivableTable,
+  type ArchiveEntry,
+  type DirectlyArchivableTable,
+  type ExclusionReason,
+} from "./archivePolicy.js";
+
 // シャードの使用率と警告レベル（P7-06 / PK-SPEC-P7 §4.3）。
 // **運用者向け。テナント向けの API・画面から呼ばないこと**
 // （シャード番号を持つ / CLAUDE.md §4・`shardUsage.ts` の注記）。

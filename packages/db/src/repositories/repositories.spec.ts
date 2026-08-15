@@ -43,6 +43,7 @@ import * as evidenceRepo from "./evidence.js";
 import * as inspectionRepo from "./inspection.js";
 import * as integrationRepo from "./integration.js";
 import * as apiKeyRepo from "./apiKey.js";
+import * as archiveRepo from "./archive.js";
 import * as outboundWebhookRepo from "./outboundWebhook.js";
 import * as notificationRepo from "./notification.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
@@ -91,6 +92,9 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // P6-12 が登録した公開 API のキー（PK-SPEC-P6 §6.1）。
   // **平文のトークンを受け取る関数も返す関数も無い**（security.md §7）。
   apiKey: apiKeyRepo,
+  // P7-08 が登録した年次アーカイブの記録（PK-SPEC-P0 §19.7）。
+  // **記録を消す関数が無い**（復元の起点になる）。
+  archive: archiveRepo,
   // P6-13 が登録した送信 Webhook（PK-SPEC-P6 §6.4）。
   // **署名鍵そのものを返す関数が無い**（security.md §7）。
   outboundWebhook: outboundWebhookRepo,
@@ -2703,6 +2707,38 @@ const INVOCATIONS: Invocation[] = [
       integrationRepo.markIntegrationSynced(env, ctx, {
         integrationId: OTHER_ID.integration,
         ok: false,
+      }),
+  },
+  {
+    // P7-08: 年次アーカイブの記録（§19.7）。
+    name: "archive.recordArchiveManifest",
+    kind: "tenant",
+    run: (env, ctx) =>
+      archiveRepo.recordArchiveManifest(env, ctx, {
+        year: 2025,
+        tableName: "cleaning_task",
+        objectKey: `archive/${ctx.organizationId}/2025/cleaning_task.jsonl.gz`,
+        rowCount: 1,
+        sha256: "0".repeat(64),
+        sizeBytes: 10,
+        cutoffBusinessDate: "2025-08-10",
+      }),
+  },
+  {
+    name: "archive.listArchiveManifests",
+    kind: "tenant",
+    run: (env, ctx) => archiveRepo.listArchiveManifests(env, ctx),
+  },
+  {
+    // 退避する行の読み取り（§19.7 の手順 1）。`businessDate` を自分で持つ
+    // 5 表だけ（OPEN_QUESTIONS #096）。**組織条件が載ること**をここで見る。
+    name: "archive.listArchiveTableRows",
+    kind: "tenant",
+    run: (env, ctx) =>
+      archiveRepo.listArchiveTableRows(env, ctx, {
+        table: "cleaning_task",
+        from: "2025-01-01",
+        to: "2025-08-10",
       }),
   },
   {

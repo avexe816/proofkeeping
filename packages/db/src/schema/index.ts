@@ -210,6 +210,7 @@ export {
   SYNC_STATUSES,
   SYNC_TRIGGERS,
   apiKey,
+  archiveManifest,
   externalMapping,
   integration,
   notificationPreference,

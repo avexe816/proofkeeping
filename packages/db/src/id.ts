@@ -155,6 +155,8 @@ export const ENTITY_PREFIXES = [
   "npref", // notificationPreference
   "akey", // apiKey
   "owh", // outboundWebhook
+  // P7-08。年次アーカイブの記録（PK-SPEC-P0 §19.7）。
+  "arcm", // archiveManifest
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

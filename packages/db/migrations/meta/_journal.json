@@ -134,6 +134,13 @@
       "when": 1786725739307,
       "tag": "0018_p6_04_signal_dedupe",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1786769284250,
+      "tag": "0019_p7_08_archive_manifest",
+      "breakpoints": true
     }
   ]
 }

@@ -262,6 +262,20 @@ max_batch_size = 10
 max_batch_timeout = 5
 max_retries = 3
 
+# 年次アーカイブ（P7-08 / PK-SPEC-P0 §19.7）。1 組織 × 1 年ぶんを
+# JSONL → gzip → R2 へ退避する。**「削除」ではない**（D1 の行は残る /
+# docs/DECISIONS.md #159）。
+#
+# max_batch_size = 1。1 件が重い（表 5 本ぶんの全行読み取りと R2 への PUT）。
+# 束ねると 1 件の失敗で全部が再送になる。
+# max_retries = 3。年次の実行なので急いで直す理由が無く、
+# 再送しても直らないもの（組織が無い等）は消費側が ack して落とす。
+[[queues.consumers]]
+queue = "pk-archive-restore-local"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -460,6 +474,13 @@ max_batch_size = 10
 max_batch_timeout = 5
 max_retries = 3
 
+# 年次アーカイブ（P7-08 / PK-SPEC-P0 §19.7）。理由は top-level を参照。
+[[env.preview.queues.consumers]]
+queue = "pk-archive-restore-preview"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 3
+
 # --- Durable Objects（P0-17）------------------------------------------------
 # architecture.md §4 の 4 用途に限る。**クラスを実装した task だけが
 # ここへ binding を足す。** 実装のない binding を宣言すると wrangler が
@@ -646,6 +667,13 @@ max_retries = 3
 queue = "pk-rollup-update-staging"
 max_batch_size = 10
 max_batch_timeout = 5
+max_retries = 3
+
+# 年次アーカイブ（P7-08 / PK-SPEC-P0 §19.7）。理由は top-level を参照。
+[[env.staging.queues.consumers]]
+queue = "pk-archive-restore-staging"
+max_batch_size = 1
+max_batch_timeout = 30
 max_retries = 3
 
 # --- Durable Objects（P0-17）------------------------------------------------
@@ -908,6 +936,13 @@ max_retries = 3
 queue = "pk-rollup-update"
 max_batch_size = 10
 max_batch_timeout = 5
+max_retries = 3
+
+# 年次アーカイブ（P7-08 / PK-SPEC-P0 §19.7）。理由は top-level を参照。
+[[env.production.queues.consumers]]
+queue = "pk-archive-restore"
+max_batch_size = 1
+max_batch_timeout = 30
 max_retries = 3
 
 # --- Durable Objects（P0-17）------------------------------------------------

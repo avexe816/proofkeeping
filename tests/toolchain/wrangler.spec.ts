@@ -272,6 +272,8 @@ describe("P0-02 wrangler.toml の構成", () => {
     "pk-notification",
     // 日次集計の更新（P5-14 / PK-SPEC-P0 §19.6）。**再計算方式。**
     "pk-rollup-update",
+    // 年次アーカイブ（P7-08 / PK-SPEC-P0 §19.7）。**退避であって削除ではない。**
+    "pk-archive-restore",
   ] as const;
 
   it.each(ENVIRONMENTS)("$label: 実装済みの Queue コンシューマだけを宣言する", ({ section }) => {
