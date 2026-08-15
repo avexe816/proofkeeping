@@ -43,6 +43,7 @@ import * as evidenceRepo from "./evidence.js";
 import * as inspectionRepo from "./inspection.js";
 import * as integrationRepo from "./integration.js";
 import * as apiKeyRepo from "./apiKey.js";
+import * as outboundWebhookRepo from "./outboundWebhook.js";
 import * as notificationRepo from "./notification.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
 import * as invoiceRepo from "./invoice.js";
@@ -90,6 +91,9 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // P6-12 が登録した公開 API のキー（PK-SPEC-P6 §6.1）。
   // **平文のトークンを受け取る関数も返す関数も無い**（security.md §7）。
   apiKey: apiKeyRepo,
+  // P6-13 が登録した送信 Webhook（PK-SPEC-P6 §6.4）。
+  // **署名鍵そのものを返す関数が無い**（security.md §7）。
+  outboundWebhook: outboundWebhookRepo,
   // P2-08 が登録した証跡。**INSERT と SELECT だけ**であることも下で検査する。
   evidence: evidenceRepo,
   // P2-02 が登録した検査方式。P2-04 が検査そのもの。
@@ -130,6 +134,7 @@ const ROLLUP_COUNTS = {
 const OWN_ID = {
   // P6-12。
   apiKey: generateId(TEST_ORG.orgShortId, "akey"),
+  outboundWebhook: generateId(TEST_ORG.orgShortId, "owh"),
   user: generateId(TEST_ORG.orgShortId, "usr"),
   membership: generateId(TEST_ORG.orgShortId, "mem"),
   property: generateId(TEST_ORG.orgShortId, "prop"),
@@ -210,6 +215,7 @@ const INSPECTION_POLICY = {
 const OTHER_ID = {
   // P6-12。
   apiKey: generateId(OTHER_ORG.orgShortId, "akey"),
+  outboundWebhook: generateId(OTHER_ORG.orgShortId, "owh"),
   user: generateId(OTHER_ORG.orgShortId, "usr"),
   membership: generateId(OTHER_ORG.orgShortId, "mem"),
   property: generateId(OTHER_ORG.orgShortId, "prop"),
@@ -2698,6 +2704,66 @@ const INVOCATIONS: Invocation[] = [
         integrationId: OTHER_ID.integration,
         ok: false,
       }),
+  },
+  {
+    // P6-13: 送信 Webhook（§6.4）。
+    name: "outboundWebhook.createOutboundWebhook",
+    kind: "tenant",
+    run: (env, ctx) =>
+      outboundWebhookRepo.createOutboundWebhook(env, ctx, {
+        url: "https://example.test/hook",
+        secretRef: "cred:x",
+        events: ["invoice.issued"],
+      }),
+  },
+  {
+    name: "outboundWebhook.listOutboundWebhooks",
+    kind: "tenant",
+    run: (env, ctx) => outboundWebhookRepo.listOutboundWebhooks(env, ctx),
+  },
+  {
+    name: "outboundWebhook.listActiveOutboundWebhooks",
+    kind: "tenant",
+    run: (env, ctx) => outboundWebhookRepo.listActiveOutboundWebhooks(env, ctx),
+  },
+  {
+    name: "outboundWebhook.findOutboundWebhookById",
+    kind: "tenant",
+    run: (env, ctx) =>
+      outboundWebhookRepo.findOutboundWebhookById(env, ctx, OWN_ID.outboundWebhook),
+    crossTenant: (env, ctx) =>
+      outboundWebhookRepo.findOutboundWebhookById(env, ctx, OTHER_ID.outboundWebhook),
+  },
+  {
+    name: "outboundWebhook.markOutboundDelivered",
+    kind: "tenant",
+    run: (env, ctx) =>
+      outboundWebhookRepo.markOutboundDelivered(env, ctx, OWN_ID.outboundWebhook),
+    crossTenant: (env, ctx) =>
+      outboundWebhookRepo.markOutboundDelivered(env, ctx, OTHER_ID.outboundWebhook),
+  },
+  {
+    name: "outboundWebhook.markOutboundFailed",
+    kind: "tenant",
+    run: (env, ctx) => outboundWebhookRepo.markOutboundFailed(env, ctx, OWN_ID.outboundWebhook),
+    crossTenant: (env, ctx) =>
+      outboundWebhookRepo.markOutboundFailed(env, ctx, OTHER_ID.outboundWebhook),
+  },
+  {
+    name: "outboundWebhook.deactivateOutboundWebhook",
+    kind: "tenant",
+    run: (env, ctx) =>
+      outboundWebhookRepo.deactivateOutboundWebhook(env, ctx, OWN_ID.outboundWebhook),
+    crossTenant: (env, ctx) =>
+      outboundWebhookRepo.deactivateOutboundWebhook(env, ctx, OTHER_ID.outboundWebhook),
+  },
+  {
+    name: "outboundWebhook.reactivateOutboundWebhook",
+    kind: "tenant",
+    run: (env, ctx) =>
+      outboundWebhookRepo.reactivateOutboundWebhook(env, ctx, OWN_ID.outboundWebhook),
+    crossTenant: (env, ctx) =>
+      outboundWebhookRepo.reactivateOutboundWebhook(env, ctx, OTHER_ID.outboundWebhook),
   },
   {
     // P6-12: 公開 API のキー（§6.1）。

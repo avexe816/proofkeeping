@@ -458,6 +458,20 @@ export {
 // 外部連携（P6-01 / P6-04 / P6-07 / PK-SPEC-P6 §2・§3.4）。
 // **資格情報そのものを返す関数が無い。** 返すのは KV の参照キーまでで、
 // 復号は `apps/web/src/lib/integration/credentials.ts` の責務（security.md §7）。
+// 送信 Webhook（P6-13 / PK-SPEC-P6 §6.4）。
+// **署名鍵そのものを返す関数が無い**（返すのは KV の参照キーまで）。
+export {
+  createOutboundWebhook,
+  deactivateOutboundWebhook,
+  findOutboundWebhookById,
+  listActiveOutboundWebhooks,
+  listOutboundWebhooks,
+  markOutboundDelivered,
+  markOutboundFailed,
+  reactivateOutboundWebhook,
+  type CreateOutboundWebhookInput,
+} from "./outboundWebhook.js";
+
 // 公開 API のキー（P6-12 / PK-SPEC-P6 §6.1）。
 // **平文のトークンを受け取る関数も返す関数も無い**（security.md §7）。
 export {

@@ -1,111 +1,60 @@
 # CONTINUE
 
 ## 最終状態
-- main HEAD: `1bf85b4` P6-05・P6-07・P6-08 (#66) の次
-- 完了: **P6-09**（112 task）
-- **P6-06 は ⏳ 人間待ち**（実接続する PMS が未確定）
-- 次: **P6-10（Web Push）から P6-15 まで**
+- main HEAD: `e474413` P6-09 通知基盤 (#67) の次
+- 完了: **P6-12 / P6-13 / P6-14 / P6-15**（116 task）
+- **Phase 6 は残り 3 task。すべて人間待ち**（P6-06 / P6-10 / P6-11）
+- 次: **Phase 7（GA とスケール）P7-01 から**
 
 ## 次にやること
 1. `git fetch origin && git checkout main && git pull`
-2. `docs/tasks/P6-10.md` を読む（依存は P6-09。**満たされている**）
-3. `docs/PK-SPEC-P6.md` §5.2 と `.claude/rules/ui-writing.md` §6 を読む
+2. **P6-06 / P6-10 / P6-11 の前提が揃っているか人間に確認する。**
+   揃っていなければ `docs/tasks/P7-01.md` から Phase 7 へ入る
+3. `docs/PK-SPEC-P7.md` を読む。**P7 は新機能を追加しない**
+   （CLAUDE.md §9）。既存機能の完成度を上げるフェーズ
 
-### P6-10 に入る前に
-- **VAPID 鍵が要る。** Web Push の署名（ES256 の JWT）と `aes128gcm` の
-  ペイロード暗号化を WebCrypto で自前実装することになる。`web-push` は
-  Workers で動かない。**鍵の生成と `wrangler secret put` は人間の作業。**
-  接続情報が要る task なので、**着手前に止まって確認すること**
-  （workflow.md §2）。
-- 受け皿は既にある: `push_subscription` 表（P6-01）、
-  `listDeliverablePushMembershipIds()`（P6-09）、
-  `resolveChannels()` の `pushAvailable`（いまは固定で `false`）。
-  **P6-10 は購読の登録・失効・送信と、`pushAvailable` の差し替えだけ。**
-- `PUSH_FAILURE_LIMIT = 3`（§5.2 MUST）は `packages/db` に置いてある。
+## 人間待ちの 3 task（前提が揃えば即着手できる）
 
-### P6-11（LINE）に入る前に
-- **§5.4 と §11 の未決事項 5 が食い違っている。** §5.4 は「LINE 公式
-  アカウント（Messaging API）」と方式を書いているのに、§11 は
-  「LINE 公式アカウントで行うか、LINE WORKS を対象にするか」を未決として
-  挙げている。**着手前に人間に確認すること**（workflow.md §6 の停止条件）。
+| task | 要るもの | 受け皿の状況 |
+|---|---|---|
+| P6-06 PMS アダプタ 1 社 | 実接続する PMS の確定と接続情報 | アダプタ interface（P6-03）・マッピング（P6-05）・リトライ（P6-07）は揃っている |
+| P6-10 Web Push | VAPID 鍵 3 つ（`wrangler secret put`） | `push_subscription` 表・`listDeliverablePushMembershipIds()`・`pushAvailable` の差し込み口が揃っている |
+| P6-11 LINE 通知 | LINE 公式アカウントのチャネルとトークン | **方式は (a) Messaging API で確定**（2026-08-15）。`resolveChannels()` が `LINE` を返す形になっている |
 
-## 今回置いたもの（P6-09 通知基盤）
+## 今回置いたもの（P6-12〜P6-15）
 
-- `lib/notification/events.ts` — **§5.1 の表そのもの（10 件）。**
-- `lib/notification/routing.ts` — `resolveChannels()`（純粋）。
-  ①相手 ②既定/設定 ③`PUSH` のフォールバック ④静音時間 の順。
-- `packages/db/src/repositories/notification.ts` — 宛先・設定・購読の読み。
-- `consumers/notify.ts` — `pk-notification` に相乗りする `kind: "NOTIFY"`。
+- `lib/auth/apiKey.ts` / `middleware/apiKey.ts` / `routes/api/v1/public.ts` /
+  `routes/api/v1/apiKeys.ts` — 公開 API 一式
+- `packages/integrations/src/core/outboundDelivery.ts` /
+  `consumers/outboundWebhook.ts` — 送信 Webhook
+- `routes/app/integrationSettings.tsx` — W-13 / W-24
+- `docs/PK-API.md` — 顧客向けの接続手順
 
 ### 覚えておくこと
 
-- **`IN_APP` は「外へは送らない」**（DECISIONS #146）。§2 に通知を貯める表が
-  無く、§5.2 MUST が「必ず画面内でも同じ情報を提示する」と定めている。
-  `outboundChannelsOf()` が落とす。**表を足したくなったら #146 を先に読む。**
-- **`CLEANER` の境界は表と定数の二重**（DECISIONS #147）。
-  `events.ts` の `audience` を編集しただけでは清掃スタッフへ流れない。
-  **この重ね掛けを「冗長だから」と外さないこと。**
-- **重複は `CONFIG` KV の `dedupeKey`**（DECISIONS #148）。鍵は**投入側が
-  決める**。D1 を引く前に見て、**送り終えてから置く。**
-- **業務通知を `document_delivery` に記録しない**（DECISIONS #149）。
-  あれは電子取引の記録そのもの（billing.md §2）。
-- `notify()` は**失敗を握りつぶす。** 通知は補助機能（§1.3 MUST）で、
-  投入に失敗しても業務を止めない。
+- **公開 API で `assertPermission()` を呼ばない**（DECISIONS #151）。
+  `TenantContext.role` は施設スコープを効かせるためだけの値。
+  **`public.spec.ts` がソースを走査して固定している**ので、
+  1 か所でも呼ぶと落ちる。
+- **平文のトークンを再表示する口を作らない**（§6.1 MUST）。
+  `apiKeys.ts` に `issued.token` が 1 回しか現れないことも spec が数えている。
+- **公開 API は ProofKeeping の ID だけ**（#152）。外部 ID の変換は
+  汎用 Webhook の担当。
+- **送信 Webhook は 2xx だけを成功とする。** 3xx を成功に数えると、
+  リダイレクト先へ署名付きの本文が飛ぶ。
+- **UI 文言に「失敗」を書かない。** 禁止語（`forbidden-words-list.js`）。
+  W-13 では「取得できなかった」「取込不可」に言い換えた。
+- **レート制限を使うテストは時計を固定する。** 窓が `floor(now/60000)` なので、
+  実時計のままループすると分の境界で数 % 落ちる（`auth.spec.ts` の注記）。
 
-### 繋いだ producer は 2 つ
-`integration.error`（サーキットブレーカーが開いた回だけ）と
-`finding.high`（照合が新しく差異を足した回だけ）。**残り 8 つは、それぞれの
-業務フロー側の task が `notify()` を 1 回呼べば動く。**
+## 前回置いたもの（P6-09 通知基盤）
 
-## 前回置いたもの（P6-05 / P6-07 / P6-08）
-
-### P6-05 マッピングと W-23
-`/app/settings/integrations/:integrationId/mappings`。
-
-- **突き合わせは部屋番号の完全一致だけ**（DECISIONS #142）。
-  `305` と `0305` を結ばない。§7.2 の見本がその組を「手動設定」と
-  描いており、仕様が前ゼロを一致とみなしていない。外したときに起きるのは
-  「302 号室の稼働記録が 303 号室に入る」ことで、誤りの向きが悪すぎる。
-- 同じ番号が片側に 2 つ以上あれば**どちらも結ばない**（`ambiguous`）。
-- **外部システム側の一覧は利用者の貼り付け**（DECISIONS #144）。アダプタが
-  1 つも無いので `listRooms()` を呼べない。アダプタが入ったら入力元を
-  差し替えるだけ（`autoMapRooms()` はそのまま）。
-- 権限 `integration.read` / `integration.write` を新設。`OWNER` / `ORG_ADMIN`
-  だけ、`AUDITOR` は読み取り（DECISIONS #143）。
-
-### P6-07 リトライとサーキットブレーカー
-- **P6-06 を待たずに実装した**（DECISIONS #141）。§3.4 の判断は
-  `consecutiveFailures` と失敗回数しか見ず、アダプタを参照しない。
-- 5 分 → 15 分 → 60 分、4 回目で打ち止め。Queue の `retry({ delaySeconds })`。
-- `consecutiveFailures >= 5` で `status = ERROR`。**`SUSPENDED` は上書きしない。**
-- `openCircuitIfNeeded()` は「**この回で開いたか**」を返す。毎回の失敗で
-  `integration.error` を送らせないため（通知は P6-09 の仕事）。
-- `POST /api/v1/integrations/:id/reconnect` で閉じる。**まだ実際には
-  接続していない**（OPEN_QUESTIONS #088 / DECISIONS #145）。
-
-### P6-08 スタッフキー除外と R002 検証
-- `packages/engine/src/reconciliation/staffKey.ts`。R002 と R013 が共有。
-- **§4.4 の方法 2（清掃の start / complete の前後 10 分）を既定**にした。
-  方法 1（`STAFF_KEY` / `MASTER_KEY`）も併せて掛ける。
-- `TaskFact.startedAt` を足した。**`completedAt` から逆算しない。**
-- **`actorType` 不明の解錠を数に入れ、確信度を 25 下げる**（§4.3）。
-  数えない実装だと、鍵の種別を返さない機種でルールが一度も立たない。
-  **不明を `GUEST_KEY` に書き換えていない。**
-- 減点で `matchedSignals` を増やさない。あの件数は §1.3 の
-  「単一シグナルで 80 以上を出さない」を解く鍵で、増やすと
-  **不明であることが確信度の上限を上げる**という逆立ちが起きる。
-- `RECONCILIATION_ENGINE_VERSION` を `1.1` → `1.2`。**判定が変わった。**
-
-### 前回から覚えておくこと
-
-- **`integration` を照合バッチと CSV 取込から読まない。** §1.2 / §3.4 MUST の
-  「ERROR でも照合が完走する」「手動 CSV 取込が常に使える」は、この
-  依存の不在で成り立っている。`apps/web/src/consumers/circuitBreaker.spec.ts`
-  が構造として検査しているので、読むコードを足すと落ちる。
-- **連携先固有の分岐を `packages/integrations` の外に書かない**（§1.1 MUST）。
-  同じ spec が `vendorCode ===` を走査している。
-- **通知は業務の必須要素にしない**（ui-writing.md §6）。P6-09〜P6-11 で
-  いちばん効く制約。`CLEANER` に届いてよいのは `task.rework_assigned` だけ。
+- `lib/notification/events.ts` — **§5.1 の表そのもの（10 件）。**
+- `lib/notification/routing.ts` — `resolveChannels()`（純粋）。
+- `consumers/notify.ts` — `pk-notification` に相乗りする `kind: "NOTIFY"`。
+- **`IN_APP` は「外へは送らない」**（DECISIONS #146）。
+- **`CLEANER` の境界は表と定数の二重**（#147）。
+- 繋いだ producer は `integration.error` / `finding.high` / `invoice.issued`。
 
 ## 申し送り
 
@@ -113,9 +62,8 @@
 1. **VAPID 鍵の生成と設定**（P6-10 の前提）。Web Push の署名に要る。
    `wrangler secret put` で `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` /
    `VAPID_SUBJECT`（`mailto:` か URL）。**無いと P6-10 に着手できない。**
-2. **LINE の方式を決める**（P6-11 の前提）。§5.4 は「LINE 公式アカウント
-   （Messaging API）」と書くが、§11 の未決事項 5 は LINE WORKS も候補に
-   挙げている。**仕様の 2 か所が食い違っている。**
+2. **LINE 公式アカウントのチャネル発行とアクセストークンの設定**（P6-11 の前提）。
+   **方式は (a) Messaging API で確定済み**（2026-08-15）。
 3. **最初に実接続する PMS を確定する**（§11 の未決事項 1）。**P6-06 の前提。**
    決まるまで P6-06 は着手しない（§3.2 MUST「想定で作らない」）。
 4. **スマートロックの対象機種を確定する**（§11 の未決事項 2）。
@@ -130,6 +78,9 @@
 - **P6-06 PMS アダプタ 1 社。** 上記 1 が決まるまで。
 
 ### 未解決の問い（新しい順）
+- #094 送信 Webhook を管理する画面と API が仕様に無い → 配信側だけ実装
+- #093 送信 Webhook の停止を知らせるイベントが §5.1 に無い → `integration.error`
+- #092 `/rooms` に対応するスコープが §6.2 に無い → `tasks:read` に寄せた
 - #091 通知が届いたかを事後に追えない → 当面は運用で受ける
 - #090 取引先（組織の外）への通知の宛先を引く経路が無い → 送っていない
 - #089 アプリ内通知を貯める表が無い → `IN_APP` は既存の画面が正
@@ -142,6 +93,12 @@
 - #082〜#063 は P5 以前（DECISIONS / CONTINUE の履歴を参照）
 
 ### 直近の設計判断
+- #155 送信 Webhook のリトライ表を受信側と分ける
+- #154 W-24（同期ログ）を W-13 と同じ画面に置く
+- #153 公開 API からの稼働記録は `PMS_API` を名乗る
+- #152 公開 API は ProofKeeping の ID だけを受け取る
+- #151 公開 API では `assertPermission()` を呼ばない
+- #150 API キーのトークンに組織短縮 ID を埋める
 - #149 業務通知を `document_delivery` に記録しない
 - #148 通知の重複を `CONFIG` KV の `dedupeKey` で止める
 - #147 `CLEANER` の境界を表と定数で二重に締める

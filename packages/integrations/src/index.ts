@@ -21,6 +21,19 @@ export {
   type CircuitState,
 } from "./core/circuitBreaker.js";
 
+// 送信 Webhook の配信規則（P6-13 / §6.4）。**受信側の刻みと別の表。**
+export {
+  OUTBOUND_DISABLE_THRESHOLD,
+  OUTBOUND_EVENT_VALUES,
+  OUTBOUND_MAX_ATTEMPTS,
+  OUTBOUND_RETRY_DELAYS_MINUTES,
+  isDeliverySuccess,
+  outboundRetryDelaySeconds,
+  shouldDisableOutbound,
+  subscribesTo,
+  type OutboundEvent,
+} from "./core/outboundDelivery.js";
+
 // 外部 ID の自動マッピング（P6-05 / §2.3・§7.2）。
 export {
   autoMapRooms,

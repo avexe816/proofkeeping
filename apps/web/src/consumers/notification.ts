@@ -30,6 +30,10 @@ import { parseDeliveryEvent } from "../lib/billing/webhookEvent.js";
 
 import { isNotifyMessage, runNotify } from "./notify.js";
 import {
+  handleOutboundWebhookBatch,
+  isOutboundWebhookMessage,
+} from "./outboundWebhook.js";
+import {
   findInvoiceById,
   findReceiptById,
   lookupOrganizationId,
@@ -231,6 +235,13 @@ export async function handleNotificationBatch(env: Env, batch: MessageBatch): Pr
   for (const message of batch.messages) {
     // 業務通知（P6-09 / PK-SPEC-P6 §5）。**帳票の送付とは別物。**
     // あちらは電帳法の記録（billing.md §2）、こちらは補助機能（§1.3）。
+    // 送信 Webhook（P6-13 / PK-SPEC-P6 §6.4）。**同じ `pk-notification`。**
+    // リトライの刻みが違う（1 分〜6 時間）ので、バッチの扱いは
+    // `handleOutboundWebhookBatch()` に寄せてある。
+    if (isOutboundWebhookMessage(message.body)) {
+      await handleOutboundWebhookBatch(env, { ...batch, messages: [message] });
+      continue;
+    }
     if (isNotifyMessage(message.body)) {
       const notifyOutcome = await runNotify(env, message.body);
       if (notifyOutcome.kind === "FAILED") message.retry();
