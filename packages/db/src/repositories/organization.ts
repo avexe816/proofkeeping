@@ -15,7 +15,11 @@
 import type { Env } from "../env.js";
 import { generateId } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
-import { organization, organizationTaxProfile } from "../schema/organization.js";
+import {
+  organization,
+  organizationTaxProfile,
+  type OrgType,
+} from "../schema/organization.js";
 
 import { NO_PROPERTY_SCOPE, withTenantScope } from "./base.js";
 
@@ -67,6 +71,42 @@ export async function updateOrganizationSettings(
   await db
     .update(organization)
     .set({ propertySelectionThreshold: input.propertySelectionThreshold, updatedAt: ctx.now })
+    .where(withTenantScope(organization, ctx, NO_PROPERTY_SCOPE));
+}
+
+/**
+ * セットアップウィザードの Step 1 と進行状態を書く（P7-01 / §2.3）。
+ *
+ * ── なぜ `updateOrganizationSettings()` と分けるのか ────
+ * あちらは「組織の設定画面（W-14）が触る値」で、ここは
+ * **ウィザードだけが触る値。** 1 つにまとめると、設定画面が
+ * 進行状態を巻き戻せる形になる（`undefined` の扱いを間違えたときに、
+ * 気づけない形で壊れる）。
+ *
+ * **渡された項目だけを書く。** `undefined` は「触らない」。
+ * `orgType` は `null`（未回答へ戻す）を許す。
+ *
+ * 監査ログ（`organization.updated`）は呼び出し側が書く（P0-07 の方針）。
+ */
+export async function updateOrganizationSetup(
+  env: Env,
+  ctx: TenantContext,
+  input: {
+    name?: string | undefined;
+    orgType?: OrgType | null | undefined;
+    /** `setupStateSchema` を通した JSON 文字列。**この層は中身を見ない。** */
+    setupState?: string | undefined;
+  },
+): Promise<void> {
+  const db = await getTenantDb(env, ctx);
+  await db
+    .update(organization)
+    .set({
+      ...(input.name === undefined ? {} : { name: input.name }),
+      ...(input.orgType === undefined ? {} : { orgType: input.orgType }),
+      ...(input.setupState === undefined ? {} : { setupState: input.setupState }),
+      updatedAt: ctx.now,
+    })
     .where(withTenantScope(organization, ctx, NO_PROPERTY_SCOPE));
 }
 

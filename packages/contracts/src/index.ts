@@ -739,3 +739,20 @@ export {
   type FieldStaffCreateResponse,
   type FieldStaffRoleValue,
 } from "./user.js";
+
+// セットアップウィザードの進行（P7-01 / PK-SPEC-P7 §2.3）。
+// **スキップを状態として持つ**（「やっていない」と「やらないと決めた」は違う）。
+export {
+  EMPTY_SETUP_STATE,
+  SETUP_STATE_VERSION,
+  SETUP_STEPS,
+  SETUP_STEP_STATES,
+  setupCompanySchema,
+  setupStateSchema,
+  setupStepSchema,
+  setupStepStateSchema,
+  type SetupCompanyRequest,
+  type SetupState,
+  type SetupStep,
+  type SetupStepState,
+} from "./setup.js";

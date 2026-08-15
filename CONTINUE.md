@@ -1,9 +1,9 @@
 # CONTINUE
 
 ## 最終状態
-- main HEAD: `39e63c0`（P7-15 / P7-16）＋ P7-01 の着手判断
-- 完了: 123 task
-- 次: **P7-01 の残り**（Step 5 の土台は実装済み）
+- main HEAD: P7-01 の PR（`claude/continue-z1xuml`）
+- 完了: 124 task
+- 次: **P7-03（トライアル管理）。** P7-02 は QR の判断が先
 
 ## 次にやること
 
@@ -11,17 +11,18 @@
 git fetch origin && git checkout main && git pull
 ```
 
-1. **`docs/tasks/P7-01.md` の作業ログを読む。** Step 5 の土台
-   （現場スタッフの登録・PIN 発行）は実装済み。**残りが 4 つ**書いてある。
-2. `docs/DECISIONS.md` #176〜#178 と `docs/PK-SPEC-P7.md` §2.3 を読む。
+1. `docs/tasks/P7-03.md` と `docs/PK-SPEC-P7.md` §2.5 を読む。
+   **P7-02 より先に P7-03。** P7-02 は QR コードの生成手段が無く、
+   依存を足す判断（DECISIONS への根拠）が先に要る。
+2. `docs/DECISIONS.md` #176〜#181 に P7-01 の判断がある。
 3. 実装を始める。
 
 **P8 の task ファイルを作らないこと**（GA 判定を通過するまで / CLAUDE.md §9）。
 
 | task | 誰が | 何をする |
 |---|---|---|
-| **P7-01 の残り** | **Claude** | 会社種別の列 / 進行状態 / 6 ステップの画面 |
-| **P7-02 / P7-03** | **Claude** | 着手できる。**P7-02 は QR の生成手段が無い** |
+| **P7-03 トライアル管理** | **Claude** | 着手できる（§2.5） |
+| **P7-02 ログイン案内カード PDF** | **Claude** | **QR の生成手段が無い。** 依存を足す判断が先 |
 | P7-04 / P7-05 | — | **Stripe の API キー待ち**（P7-05 は P7-04 に依存） |
 | P7-12 負荷試験 | 人間 | 実測（ハーネスは実装済み） |
 | P7-13 セキュリティ再検証 | 人間 | 外部ペネトレーションテスト |
@@ -29,7 +30,7 @@ git fetch origin && git checkout main && git pull
 | P7-16 の残り | 人間 | P7-14 と同時に「手順書だけで対応できた」を確かめる |
 | P7-17 GA 判定 | 人間 | 有償顧客 5 社の稼働ほか |
 
-## 今回置いたもの（P7-01 / Step 5 の土台）
+## 今回置いたもの（P7-01 セットアップウィザード）
 
 | ファイル | 役割 |
 |---|---|
@@ -37,6 +38,10 @@ git fetch origin && git checkout main && git pull
 | `packages/db/src/repositories/user.ts` | `createFieldStaff()`（**3 表を 1 関数で**） |
 | `apps/web/src/lib/auth/pin.ts` | `generateInitialPin()` |
 | `apps/web/src/routes/api/v1/users.ts` | `POST /api/v1/users` |
+| `packages/db/migrations/0022_p7_01_setup.sql` | `org_type` / `setup_state`（**追加のみ**） |
+| `packages/contracts/src/setup.ts` | 6 ステップと進行状態のスキーマ |
+| `apps/web/src/lib/setup/state.ts` | 進行の読み書き（**純粋**） |
+| `apps/web/src/routes/app/setup.tsx` | `/app/setup` |
 
 ### 覚えておくこと
 
@@ -52,23 +57,25 @@ git fetch origin && git checkout main && git pull
   `FIELD_STAFF_ROLES` の 2 つだけ。**推測でトークンの寿命を決めないこと。**
 - **リポジトリ関数を足したら `repositories.spec.ts` の `INVOCATIONS` に
   1 行足す。** 登録漏れを検出する spec がある。
+- **`orgType` を見て分岐するコードを書かない**（DECISIONS #179）。
+  記録するだけの列。書くなら OPEN_QUESTIONS #083 を先に決着させる。
+- **`setup_state` を直接 `JSON.parse` しない。** `lib/setup/state.ts` を通す。
+  **壊れた値は「まだ何もしていない」として扱う**（throw すると
+  壊れた 1 列で管理画面が開かなくなる）。
+- **進捗は自動では進まない。** 客室を登録しても Step 3 は完了にならない。
+  導入前から客室がある組織と区別できないため。
+- **ウィザードに同じフォームを 2 つ置かない**（#181）。送り出すだけ。
+  **画面ができたら `STEP_HREF` に 1 行足す**（OPEN_QUESTIONS #103）。
 
-## P7-01 の残り（着手前に必ず読む）
+## P7-02 に着手する前に
 
-| 要るもの | 現状 |
-|---|---|
-| 会社種別（運営会社・清掃会社・オーナー） | **列が無い。** §2.3 Step 1。`organization` へ後方互換で追加。**OPEN_QUESTIONS #083（`orgType`）を先に読むこと** |
-| ウィザードの進行状態 | **無い。**「各ステップがスキップできる」（§2.3 MUST）を満たすには、どこまで進んだかを持つ必要がある。置き場所は設計判断 |
-| 6 ステップの画面（`/app/setup`） | **無い。** Step 2〜4 は既存の画面と repository を繋ぐ。Step 3 の「部屋番号を範囲指定」は新規 |
+**QR コードの生成手段が無い。** `packages/pdf` に QR は無く、仕様にも
+指定が無い。依存を足す判断が要る（着手時に DECISIONS へ根拠を書くこと）。
+`@react-pdf/renderer` は画像を受けるので、**QR を SVG か PNG にする何か**が要る。
 
-**満たされているものもある。**
-
-- 完了条件 2「100 室の一括登録が 3 分以内」→ `/app/settings/rooms` の CSV 取込が既に持つ
-- 完了条件 3「標準テンプレートが選べる」→ `packages/db/src/seedChecklists.ts` の
-  `SEED_CHECKLIST_TEMPLATES`。ただし **seed 専用の置き場所**なので共有できる形へ出す
-
-**P7-02 は QR コードの生成手段が無い。** `packages/pdf` に QR は無く、
-依存を足す判断が要る（仕様に指定が無い）。着手時に DECISIONS へ根拠を書くこと。
+**カードに刷る PIN は保存されていない**（DECISIONS #177）。
+`POST /api/v1/users` の応答で 1 回だけ返る値を、その場で PDF にする形になる。
+**PDF のために PIN を保存し直さないこと。**
 
 ## 今回置いたもの（P7-15 顧客向けドキュメント）
 
@@ -179,6 +186,7 @@ git fetch origin && git checkout main && git pull
 - **P6-06 PMS アダプタ 1 社。**
 
 ### 未解決の問い（新しい順）
+- #103 施設の作成画面とスタッフの登録画面が無い → 偽のリンクを置かず案内を出す
 - #102 §2.4 の「PIN 初回は 0000」が security.md §2 と矛盾 → 規則を採った
 - #101 管理者のメール招待の経路が仕様に無い → 現場スタッフだけを実装
 - #100 申込み〜組織作成の経路が無い → 「当社が行います」と書いた（P7-01 待ち）
@@ -202,6 +210,9 @@ git fetch origin && git checkout main && git pull
 - #082〜#063 は P5 以前（DECISIONS / CONTINUE の履歴を参照）
 
 ### 直近の設計判断
+- #181 ウィザードは既存の画面へ送り出す。同じフォームを 2 つ置かない
+- #180 ウィザードの進行は表にせず `organization` の JSON 1 列で持つ
+- #179 `organization.orgType` は記録するだけで、機能の出し分けに使わない
 - #178 現場スタッフの登録は 3 表を 1 関数で作る
 - #177 初期 PIN はサーバーが発行し、応答で 1 回だけ返す
 - #176 P7-01 の依存「P6 完了」は着手を止めない（残り 3 件は接続情報待ち）

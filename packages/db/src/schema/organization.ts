@@ -12,6 +12,16 @@ import { activeFlag, primaryId, tenantColumn, timestamps } from "./columns.js";
 /** 端数処理方式（.claude/rules/billing.md §4）。 */
 export const TAX_ROUNDING_MODES = ["FLOOR", "CEIL", "ROUND"] as const;
 
+/**
+ * 会社の種別（PK-SPEC-P7 §2.3 Step 1「運営会社・清掃会社・オーナー」）。
+ *
+ * **機能の出し分けに使わない**（`organization.orgType` の注記 /
+ * OPEN_QUESTIONS #083）。契約（`module_entitlement`）と二重にしないこと。
+ */
+export const ORG_TYPES = ["OPERATOR", "VENDOR", "OWNER"] as const;
+
+export type OrgType = (typeof ORG_TYPES)[number];
+
 /** 採番する書類の種別（.claude/rules/billing.md §5）。 */
 export const DOCUMENT_TYPES = ["INVOICE", "RECEIPT", "REPORT"] as const;
 
@@ -63,6 +73,33 @@ export const organization = sqliteTable(
      * 既定は版数から引く（値の出どころを 1 つにする）。
      */
     photoRetentionMonths: integer("photo_retention_months"),
+    /**
+     * 会社の種別（PK-SPEC-P7 §2.3 Step 1）。**記録するだけ。**
+     *
+     * ── 機能の出し分けに使わないこと ──────────────────────
+     * OPEN_QUESTIONS #083 は「組織の種別で機能が変わる形を持ち込むと
+     * エンタイトルメントと二重の出し分けになる」と書き、決着していない。
+     * **ここは §2.3 Step 1 が聞く「会社情報」を落とす先**であって、
+     * 権限でも契約でもない。`VENDOR_PLAN` 画面の出し分けは今のまま
+     * `assertEntitlement()` で行う（DECISIONS #179）。
+     *
+     * `null` は「未回答」。ウィザードの Step 1 はスキップできる（§2.3 MUST）。
+     */
+    orgType: text("org_type", { enum: ORG_TYPES }),
+    /**
+     * セットアップウィザードの進行（PK-SPEC-P7 §2.3）。**JSON。**
+     *
+     * 形は `setupStateSchema`（@pk/contracts）。読み書きは
+     * `apps/web/src/lib/setup/state.ts` の純粋関数を通す。
+     * **この列を直接 JSON.parse しないこと。** 壊れた値は
+     * 「まだ何もしていない」として扱う（ウィザードが出るだけで害が無い）。
+     *
+     * ── なぜ表にしないのか ────────────────────────────────
+     * 6 ステップ × 1 組織で、**行が増えない。** 検索も集計もしない。
+     * 表にすると越境テスト 4 本と repository が要るのに、得るものが
+     * 「JSON を解さずに済む」だけになる（DECISIONS #180）。
+     */
+    setupState: text("setup_state"),
     ...activeFlag,
     ...timestamps,
   },
