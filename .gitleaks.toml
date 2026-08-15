@@ -1,0 +1,46 @@
+# 秘密情報のコミット検査の設定（PK-SPEC-P7 §6.1 / P7-13）。
+#
+# ── 経路ごと除外しない ──────────────────────────────────
+# **`paths` で spec や docs をまるごと除外しない。** それをやると
+# 「テストに置けば検査を通る」ことになり、実際の鍵を spec に書いた事故を
+# 検出できなくなる。**値そのものを 1 つずつ許す**形にしてある。
+#
+# ここへ足すときは、その値が
+#   ① 何の値なのか
+#   ② なぜ本物ではないと言えるのか（復号した中身・出典）
+# を必ず書くこと。書けないものは許可しない。**鍵を回すほうが安い。**
+#
+# ── 履歴に効く ──────────────────────────────────────────
+# `gitleaks detect` は git の履歴を走査するので、いま消しても過去の
+# コミットに残る。許可は正規表現で書いておけば、どのコミットにも効く。
+
+[extend]
+# 既定のルール一式を使う。**独自ルールだけにしない**（既定が更新される）。
+useDefault = true
+
+[allowlist]
+description = "本物ではないと確認済みの値（P7-13 の再検証で 1 つずつ確かめた）"
+regexes = [
+  # docs/PK-API.md — 顧客向けの接続手順に載せている**書式の例**。
+  # `o7k2m9` は仕様書 §19.4 が使う例の組織短縮 ID で、実在しない。
+  # 後半も採番されたものではない（`akey` の実物は DB にしか無い）。
+  # 接尾辞なしの `keyPrefix`（一覧が返す値）も同じ行に出るので、任意にする。
+  '''pk_live_o7k2m9(_[0-9A-HJKMNP-TV-Z]+)?''',
+
+  # credentials.spec.ts / integrationWebhooks.spec.ts の暗号鍵の代役。
+  # base64url を戻すと `0123456789abcdef0123456789abcdef`。
+  # **32 バイトであることだけが要件**のテスト用の値。
+  '''MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY''',
+
+  # 同上。戻すと `fedcba9876543210fedcba9876543210`。
+  # 「別の鍵では復号できない」ことを見るテストの 2 本目。
+  '''ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA''',
+
+  # webhook.spec.ts の署名鍵の代役。
+  # base64 を戻すと `test-secret-for-webhook-signing`。
+  '''whsec_dGVzdC1zZWNyZXQtZm9yLXdlYmhvb2stc2lnbmluZw==''',
+
+  # observations.spec.ts の `Idempotency-Key`。**そもそも秘密ではない。**
+  # 冪等性の鍵で、クライアントが採番して平文で送る（CLAUDE.md §5）。
+  '''8f0f0d5e-0d2e-4a9f-9a04-0c5d1a7d2b31''',
+]
