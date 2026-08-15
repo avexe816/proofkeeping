@@ -40,6 +40,10 @@ const EXPECTED_ROOT_SCRIPTS = [
   // **運用者向けの CLI。** テナントの画面へは出さない
   // （`packages/db/src/shardUsage.ts` の注記 / CLAUDE.md §4）。
   "shards:usage",
+  // P7-07。テナント移送（PK-SPEC-P7 §4.4）。**運用者向けの CLI。**
+  // 既定は `--plan`（何も触らない）。手順 4・6 は自動化していない
+  // （docs/DECISIONS.md #162）。
+  "shards:move",
 ] as const;
 
 /**
