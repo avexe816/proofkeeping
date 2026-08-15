@@ -152,6 +152,17 @@ export interface EnvSecrets {
   CREDENTIAL_ENCRYPTION_KEY: string;
   /** Sentry の DSN。採用可否は PK-SPEC-P0 §20 で未決。 */
   SENTRY_DSN: string;
+  /**
+   * staging でシード投入を許すための鍵（DECISIONS #189）。
+   *
+   * **これを置いた環境だけが `POST /api/v1/dev/seed` を受ける。**
+   * 置かなければ staging でも 404 のままで、production と preview は
+   * 鍵の有無に関わらず 404（環境名で先に落とす）。
+   *
+   * **staging 以外へ置かないこと。** 置いても経路は開かないが、
+   * 「開くつもりで置いた」ことが後から読めなくなる。
+   */
+  STAGING_SEED_TOKEN: string;
 }
 
 /** Worker が受け取る env の全体。 */

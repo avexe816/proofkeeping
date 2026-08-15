@@ -17,3 +17,9 @@ CREDENTIAL_ENCRYPTION_KEY="dev-only-credential-encryption-key"
 
 # Sentry の DSN。空でよい（採用可否は PK-SPEC-P0 §20 で未決）。
 SENTRY_DSN=""
+
+# staging でシード投入（POST /api/v1/dev/seed）を許すための鍵。
+# **ローカルでは不要**（local は鍵を見ずに受ける）。
+# staging へは `wrangler secret put STAGING_SEED_TOKEN --env staging` で入れる。
+# 置かなければ staging でも 404 のまま。production / preview は常に 404。
+STAGING_SEED_TOKEN=""

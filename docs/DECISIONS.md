@@ -4182,3 +4182,97 @@
     （v6 の README）。今回は移行していない。乗り換えは別途判断する。
   - Dependabot の PR は 3 本とも `ci.yml` の**隣接行**を触るため、
     1 本マージすると残りが衝突する。**`@dependabot rebase` で 1 本ずつ通す。**
+
+## #188 外部送信は「環境名」ではなく「鍵の有無」で止める
+
+- 日付: 2026-08-15
+- task: なし（staging 環境の構築 / 人間の指示）
+- 文脈: staging から実際のメールが飛ばないようにする必要があった。
+  `sendNotificationEmail()` は `RESEND_API_KEY` を無条件に `Bearer` へ載せて
+  Resend を叩いていた。鍵を置かなければ `Bearer undefined` で 401 を受け、
+  `false` を返す。**「送れない」という結果は同じだが、通知 1 件ごとに
+  外部へリクエストが出る。宛先（メールアドレス）が body に載ったまま。**
+- 選択肢:
+  - (a) `ENVIRONMENT === "production"` のときだけ送る
+  - (b) `ENVIRONMENT !== "local"` のとき送る（現状維持に近い）
+  - (c) **`RESEND_API_KEY` が空なら `fetch` そのものを呼ばない**
+- 決定: **(c)。**
+- 理由:
+  - **(a) は環境を増やすたびに条件が増える。** 書き漏らした環境から実送信が
+    漏れる形になっていて、漏れる方向が危険側。
+  - (c) は**止める操作が「鍵を置かないこと」の 1 つだけ**になる。
+    staging は `wrangler secret put RESEND_API_KEY` をしない。それで止まる。
+  - 401 を受けて false を返すのと、fetch を呼ばないのは**外から見て違う。**
+    前者は宛先が外部サービスのログに残りうる（security.md §3）。
+- 影響:
+  - staging では `RESEND_API_KEY` を**設定しない**（runbook §3.5 ③に明記）。
+  - `runNotify` の戻り値は `withheld` として数える。DROPPED にしない
+    （宛先の解決までは成功しているため）。
+  - **local の `.dev.vars.example` はダミーの鍵を持ったまま。**
+    ローカルで送信経路を通したい場合に備える。ダミーなので実送信はされない。
+
+## #189 staging のシード投入は鍵を持っているときだけ開く
+
+- 日付: 2026-08-15
+- task: なし（staging 環境の構築 / 人間の指示）
+- 文脈: `POST /api/v1/dev/seed` は `ENVIRONMENT !== "local"` で 404 を返す
+  （P0-18）。**staging の D1 は空なので、この経路が閉じたままだと
+  ログイン画面から先へ一歩も進めない。** 画面を継続的に確認するための
+  環境なので、初期データを入れる手段が要る。
+  一方で staging は `workers_dev = true` で**公開 URL を持つ**（#190）。
+  local と同じ「無認証で誰でも叩ける」ままにはできない。
+- 選択肢:
+  - (a) `ENVIRONMENT !== "production"` へ緩める
+  - (b) シードを SQL として書き出し、`wrangler d1 execute --remote` で流す
+  - (c) **`STAGING_SEED_TOKEN` が設定され、かつ同じ値がヘッダに載っている
+    ときだけ staging で受ける**
+- 決定: **(c)。** 判定は `isSeedAllowed()` の 1 関数に閉じ、
+  `dev.spec.ts` が 15 件で経路を固定する。
+- 理由:
+  - **(a) は preview も開く。** preview は PR ごとに URL が生え、
+    URL を知る人が増える。開ける必要がないものを開けない。
+  - **(b) は `runSeed()` の二重実装になる。** パスワードは PBKDF2 210,000 回
+    （security.md §2）で、SQL 側に同じ導出を持たせると**片方だけ直る事故**が
+    起きる。シードは 1 本にしておきたい。
+  - (c) は**既定が閉じている。** 鍵を置かなければ staging でも 404 で、
+    「開いていることに気づかない」状態が作れない。
+  - **判定の順序は環境名が先。** production / preview は鍵の有無を見ずに
+    落とす。鍵の比較まで進ませない。
+- 影響:
+  - `Env` に `STAGING_SEED_TOKEN` が増えた。**必須 secret にはしない**
+    （`REQUIRED_SECRETS` に足さない）。無くても起動はする。
+  - 比較は定数時間で行う（`timingSafeEqual`）。この経路にはレート制限が
+    掛かっていないため、早期 return だと 1 文字ずつ絞り込める。
+  - **`STAGING_SEED_TOKEN` を production へ置かないこと。** 置いても
+    経路は開かないが、意図が読めなくなる。
+
+## #190 staging だけ `workers_dev = true` にする
+
+- 日付: 2026-08-15
+- task: なし（staging 環境の構築 / 人間の指示）
+- 文脈: staging に「継続的に画面を確認できる固定 URL」が要る。
+  `wrangler.toml` の top-level に `workers_dev = false` があり、
+  **これは binding と違って [env.*] へ継承されるキー。**
+  staging には独自ドメインの route を宣言していないため、
+  **そのままデプロイすると URL を 1 つも持たない Worker が出来上がる。**
+  デプロイは成功するので、叩ける先が無いことに後から気づく。
+- 選択肢:
+  - (a) staging に独自ドメインの route を宣言する
+  - (b) **`[env.staging]` に `workers_dev = true` を書く**
+  - (c) top-level の `workers_dev` を消す（既定 true に戻す）
+- 決定: **(b)。**
+- 理由:
+  - (a) は Cloudflare 上に zone が要る。**staging のために独自ドメインを
+    1 本用意するのは重い。** workers.dev のサブドメインで足りる。
+  - **(c) は production と preview まで workers.dev に出る。**
+    「独自ドメインのみで公開する」という top-level の判断を崩す。
+  - (b) なら影響が staging に閉じる。**Worker 名 `pk-staging` が固定なので
+    URL も固定**で、デプロイのたびに変わらない。
+- 影響:
+  - staging の URL は `https://pk-staging.<アカウントのサブドメイン>.workers.dev`。
+    **サブドメインは初回デプロイの出力で分かる。**
+  - `[env.staging.vars]` の `APP_BASE_URL` は今もプレースホルダ
+    （`https://staging.proofkeeping.example`）。**初回デプロイ後に実 URL へ
+    書き戻す**（runbook §3.5 ⑤）。案内カードの QR とメールのリンクが使う。
+  - **この行を production へ書き写さないこと。**
+  - staging が公開 URL を持つことが #189（シードの鍵）の前提になっている。

@@ -529,6 +529,21 @@ crons = ["0 17 * * *", "*/10 * * * *", "0 18 * * 6", "0 19 28-31 * *"]
 [env.staging]
 name = "pk-staging"
 
+# **staging だけは workers.dev に出す。**
+#
+# top-level の `workers_dev = false` は**継承されるキー**で、binding と違って
+# [env.*] へ書かなくても効いてしまう。staging には独自ドメインの route を
+# 宣言していないため、**false のままだと URL を 1 つも持たない Worker が
+# 出来上がる。** デプロイは成功し、叩ける先が無い状態になる。
+#
+# staging は「画面を継続的に確認するための固定 URL」が存在理由なので、
+# ここだけ true にして `https://pk-staging.<アカウントのサブドメイン>.workers.dev`
+# を得る。**URL はデプロイのたびに変わらない**（Worker 名が固定のため）。
+#
+# production を false のままにしてあるのは意図的（独自ドメインのみで公開する）。
+# **この行を production へ書き写さないこと。**
+workers_dev = true
+
 # 静的アセット（P0-14）。[env.*] は top-level を継承しないため環境ごとに書く。
 [env.staging.assets]
 directory = "build/client"

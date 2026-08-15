@@ -26,6 +26,17 @@
 git fetch origin && git checkout main && git pull
 ```
 
+## staging 環境（2026-08-15 / 人間の指示）
+
+**コード側は揃った。Cloudflare のリソース作成と初回デプロイだけが残っている。**
+
+- 手順は `docs/runbook/deploy.md` §3.5 に 6 ステップで書いた。**すべて人間の端末で実行する。**
+- 判断は DECISIONS #188（外部送信）・#189（シードの鍵）・#190（固定 URL）。
+- **Claude は Cloudflare の認証情報を持っていない。** `wrangler whoami` が未認証で、
+  `CLOUDFLARE_API_TOKEN` も無い。リソース作成もデプロイも代行できない。
+- 初回デプロイ後、**`[env.staging.vars]` の `APP_BASE_URL` を実 URL へ書き戻す**
+  （今はプレースホルダ）。ここだけコード変更が 1 行残る。
+
 | task | 要るもの |
 |---|---|
 | P7-04 Stripe 連携 | **Stripe の API キー** |

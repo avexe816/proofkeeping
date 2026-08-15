@@ -280,11 +280,26 @@ export function notificationBody(
  * `documentDelivery` に記録しないのは、あれが**帳票の送付**の記録で
  * （電帳法 / billing.md §2）、業務通知を混ぜると「いつ請求書を送ったか」
  * が引けなくなるため（OPEN_QUESTIONS #091）。
+ *
+ * ── API キーが無いときは送らない（DECISIONS #188）────────
+ * `RESEND_API_KEY` が未設定・空白のときは **fetch そのものを行わない。**
+ * 以前は `Bearer undefined` を付けて Resend を叩き、401 を受けて false を
+ * 返していた。動作としては「送れない」で同じだが、**通知 1 件ごとに
+ * 外部へリクエストが出る。** staging のように鍵を置かない環境では、
+ * 外部送信を止めたつもりで宛先だけが外へ出続けることになる。
+ *
+ * **環境名で分岐しない。** `ENVIRONMENT === "staging"` で切ると、
+ * 環境を増やすたびに条件が増え、書き漏らした環境から実送信が漏れる。
+ * 「鍵が無ければ送らない」なら、鍵を置かないことが即座に停止を意味する。
  */
 async function sendNotificationEmail(
   env: Env,
   input: { to: string; subject: string; body: string },
 ): Promise<boolean> {
+  if (typeof env.RESEND_API_KEY !== "string" || env.RESEND_API_KEY.trim() === "") {
+    return false;
+  }
+
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",

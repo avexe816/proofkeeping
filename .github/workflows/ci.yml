@@ -211,3 +211,41 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # ── staging（§9.2「main マージで自動」）─────────────────
+      #
+      # **main への push だけ。** PR では走らない（preview がその役）。
+      # 同じ Worker 名 `pk-staging` へ上書きするので、**URL は変わらない。**
+      # これが「継続的に画面を確認する固定 URL」の実体。
+      #
+      # **build と同じジョブに入れてある。** preview と同じ理由で、
+      # 上の `build` の成果物をそのまま使える（checkout / install / build が
+      # もう一度要らない）。無料枠が尽きた経緯は DECISIONS #185。
+      #
+      # **migration をここで流さない。** `pnpm db:migrate --env staging` は
+      # `--remote` で実在の D1 を書き換える。CI から自動で流すと、
+      # 後方互換でない変更が入ったときに気づく前に適用される。
+      # 適用は人が runbook（docs/runbook/deploy.md §3）に沿って行う。
+      #
+      # 実行できるようになる条件: P0-02 が staging の D1 / KV / R2 / Queue を
+      # 作り、wrangler.toml の TODO-P0-02-STAGING-* を実 ID へ差し替えること。
+      - name: staging を実施するか判定する
+        id: staging_guard
+        run: |
+          if [ "${{ github.event_name }}" != "push" ] || [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "staging: main への push ではないため実施しません。"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "staging: CLOUDFLARE_API_TOKEN が未設定のため実施しません（P0-02 が未完）。"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: staging デプロイ
+        if: steps.staging_guard.outputs.ready == 'true'
+        run: pnpm exec wrangler deploy --env staging
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
