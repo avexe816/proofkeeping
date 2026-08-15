@@ -12,6 +12,16 @@
 **新しい task は無い。** 人間の作業（下の表）が 1 つでも片付いたら、
 その task から再開する。
 
+**task が無い間も Dependabot の PR は溜まる。** P7-13 で設置したので、
+週次で出てくる。処理の仕方は DECISIONS #187 に書いた。要点は 2 つ。
+
+- **「CI が緑」を根拠にしない。** 破壊的変更を 1 件ずつ読み、このリポジトリが
+  使っているトリガと入力に当たるかを確かめる。fork PR や npm publish のように
+  **まだ通っていない経路**の破壊的変更は、緑では検出できない。
+- **`ci.yml` を触る PR は隣接行で衝突する。** 1 本マージすると残りが `dirty` に
+  なるので、`@dependabot rebase` で 1 本ずつ通す。反応が無ければ
+  ブランチ更新（`update_pull_request_branch`）を直接かける。
+
 ```bash
 git fetch origin && git checkout main && git pull
 ```
@@ -28,6 +38,23 @@ git fetch origin && git checkout main && git pull
 | P6-06 PMS アダプタ 1 社 | 実接続する PMS の確定と接続情報（**未確定のまま飛ばしている**） |
 | P6-10 Web Push | VAPID 鍵 3 つ（`wrangler secret put`）。**人間が設定中** |
 | P6-11 LINE 通知 | チャネルとアクセストークン。方式は (a) Messaging API で確定 |
+
+## 直近で処理した Dependabot の PR（2026-08-15）
+
+| PR | 更新 | 結果 |
+|---|---|---|
+| #77 | actions/checkout 4 → 7 | マージ済み |
+| #79 | actions/setup-node 4 → 7 | マージ済み |
+| #78 | pnpm/action-setup 4 → 6 | マージ済み（rebase 1 回） |
+| #80 | dev-dependencies 2 件 | マージ済み（ブランチ更新 1 回） |
+
+**#80 だけ扱いが違った理由。** この PR の CI は 9 ジョブ構成だった頃
+（#89 のマージ前）に走っており、**検証済みのツリーが古かった。**
+lockfile を触る PR は、古いツリーで緑でも今のツリーで緑とは限らない。
+ブランチを更新して 3 ジョブ構成で走り直させてからマージした。
+
+**`pnpm/action-setup` には後継 `pnpm/setup` がある**（v6 の README が案内）。
+今回は乗り換えていない。判断するときは DECISIONS #187 を見ること。
 
 ## 今回置いたもの（P7-02 現場掲示用の案内）
 
