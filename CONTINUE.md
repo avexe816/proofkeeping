@@ -31,6 +31,9 @@ git fetch origin && git checkout main && git pull
 **コード側は揃った。Cloudflare のリソース作成と初回デプロイだけが残っている。**
 
 - 手順は `docs/runbook/deploy.md` §3.5 に 6 ステップで書いた。**すべて人間の端末で実行する。**
+- **`pnpm` はリポジトリルート、`wrangler` は apps/web** で実行する。手順書が
+  cwd を書いておらず `Command "db:migrate" not found` を踏んだため、
+  冒頭に「実行位置」の節を足して各節がルートへ戻る形にした（DECISIONS #191）。
 - 判断は DECISIONS #188（外部送信）・#189（シードの鍵）・#190（固定 URL）。
 - **Claude は Cloudflare の認証情報を持っていない。** `wrangler whoami` が未認証で、
   `CLOUDFLARE_API_TOKEN` も無い。リソース作成もデプロイも代行できない。

@@ -4276,3 +4276,52 @@
     書き戻す**（runbook §3.5 ⑤）。案内カードの QR とメールのリンクが使う。
   - **この行を production へ書き写さないこと。**
   - staging が公開 URL を持つことが #189（シードの鍵）の前提になっている。
+
+## #191 RUNBOOK のコマンドは「ルートで実行する」に統一する
+
+- 日付: 2026-08-15
+- task: なし（運用中に踏んだ不具合の修正 / 人間の報告）
+- 文脈: staging 構築の手順（runbook §3.5）で、③ が `cd apps/web` して
+  終わり、④ が `pnpm db:migrate --env staging` から始まっていた。
+  **`cd` の状態は節をまたいで残る**ので、手順どおりに進めた人は
+  必ず apps/web で叩くことになる。
+
+  ```
+  ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command "db:migrate" not found
+  ```
+
+  **文面が「script が無い」と読める。** 実際には script はルートにあり、
+  居る場所が違うだけ。読んだ人は `package.json` や `--env` の綴りを疑う。
+  逆に `wrangler` はルートでは通らない（ルートに wrangler が無く、
+  `wrangler.toml` は `apps/web/`）。**要求する cwd が逆の 2 種類が
+  同じ文書に混在していた。** §3・§5 と `recovery.md` §2.3・§3.1、
+  `shard-move.md` ④ は `wrangler` を素で書いており、ルートで実行すると
+  同じく command not found になる。
+- 選択肢:
+  - (a) 手順書に cwd を明示し、節の終わりでルートへ戻す
+  - (b) `apps/web/package.json` へ `db:migrate` などの委譲 script を足す
+  - (c) 手順書に `pnpm -w` と書く
+- 決定: **(a)。** 加えて `wrangler` の 1〜2 行の呼び出しは
+  `pnpm --filter @pk/web exec wrangler ...` に置き換え、**ルートに居たまま
+  通る形**にした。`-w` は逃げ道として冒頭に併記するに留める。
+- 理由:
+  - (b) は「同じ名前の script が 2 か所にある」状態を作る。どちらが走ったか
+    出力から判別できず、`tests/toolchain/workspace.spec.ts` が守っている
+    「script は実体のある場所にだけ置く」の逆を行く。
+  - (c) だけでは、手順どおりに読む人が `-w` を落としたときに元へ戻る。
+    **cwd を書かない限り、同じ事故がまた起きる。**
+  - (a) は手順書の中で完結し、実行環境に何も足さない。
+- 影響:
+  - `deploy.md` の冒頭に「実行位置」の節を置いた。**エラー文面をそのまま
+    載せてある**ので、検索した人がここへ来る。
+  - ルートへ戻る書き方を `cd "$(git rev-parse --show-toplevel)"` の 1 つに
+    絞った。**表記を絞ったのは機械的に検出するため。**
+  - `tests/toolchain/runbook-commands.spec.ts` を足した。3 つを押さえる。
+    ① 手順書の `pnpm <script>` がルートに実在すること（未配線の script を
+    書かせない）② ルートの script を apps/web に居るまま叩かせないこと
+    ③ `wrangler` をルートに居るまま叩かせないこと。
+  - **③ は追加した時点で `recovery.md` の 3 か所を検出した。** 人が読んで
+    気づける類ではないという判断の裏付けになっている。
+  - CLAUDE.md §8 に「すべてリポジトリルートで実行する」を明記した。
+    `db:seed` が未配線（OPEN_QUESTIONS #031）であることも併記した。
+    **§8 のコマンド一覧を見て叩いた人が同じ文面のエラーに当たる**ため。

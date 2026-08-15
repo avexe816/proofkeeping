@@ -10,6 +10,31 @@
 
 ---
 
+## 実行位置（先に読む）
+
+**`pnpm` はリポジトリルートで実行する。**
+`db:migrate` / `shards:usage` / `shards:move` などの運用 CLI は
+**ルートの `package.json` にしかない。** `apps/web` のような
+サブディレクトリで叩くと、pnpm はそのパッケージの script を探して失敗する。
+
+```
+ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command "db:migrate" not found
+```
+
+**これは「script が無い」ではなく「居る場所が違う」という意味。**
+`--env` の綴りや wrangler の設定を疑う前に `pwd` を見る。
+
+本書で `cd apps/web` と書いてあるのは wrangler をそこで叩くための例外
+（§3.5 ①③）。**その節を抜けたらルートへ戻る。** 戻さずに叩きたいときは
+`-w`（ワークスペースルート）を付ける。
+
+```bash
+cd "$(git rev-parse --show-toplevel)"     # ルートへ戻る
+pnpm -w db:migrate --env production       # または、どこからでも -w で叩く
+```
+
+---
+
 ## 0. 順序
 
 ```
@@ -94,8 +119,13 @@ curl -s https://<host>/api/health | jq '.shards'
 
 ```bash
 pnpm --filter @pk/web build
-wrangler deploy --env production
+pnpm --filter @pk/web exec wrangler deploy --env production
 ```
+
+**`wrangler` を素で叩かない。** ルートの `package.json` に wrangler は無く、
+`wrangler.toml` も `apps/web/` にある。`--filter @pk/web exec` を通すと
+**ルートに居たまま** apps/web で実行される。`cd apps/web` してから
+`wrangler deploy --env production` でも同じだが、その場合は戻ること。
 
 ### 環境
 
@@ -116,11 +146,15 @@ fork からの PR で常に赤くならないようにするため。
 ### 秘密の設定（初回・変更時のみ）
 
 ```bash
+cd apps/web
+
 wrangler secret put RESEND_API_KEY --env production
 wrangler secret put RESEND_WEBHOOK_SECRET --env production
 wrangler secret put VAPID_PUBLIC_KEY --env production
 wrangler secret put VAPID_PRIVATE_KEY --env production
 wrangler secret put VAPID_SUBJECT --env production
+
+cd "$(git rev-parse --show-toplevel)"   # ルートへ戻る
 ```
 
 **`wrangler.toml` に秘密を書かない。** `gitleaks` が落とす。
@@ -159,6 +193,8 @@ for q in pdf-generation evidence-export reconciliation rollup-update \
          baseline-learning notification archive-restore; do
   wrangler queues create "pk-${q}-staging"
 done
+
+cd "$(git rev-parse --show-toplevel)"   # ルートへ戻る
 ```
 
 ### ② 出力された ID を `wrangler.toml` へ差し替える
@@ -189,14 +225,20 @@ wrangler secret put VAPID_SUBJECT --env staging
 
 ```bash
 wrangler secret list --env staging
+
+cd "$(git rev-parse --show-toplevel)"   # ルートへ戻る
 ```
 
 ### ④ migration を流す
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"   # ③ で apps/web にいる。ルートへ戻る
+
 pnpm db:migrate --env staging --check   # 未適用の検出だけ
 pnpm db:migrate --env staging           # 適用
 ```
+
+**`cd` を忘れると `Command "db:migrate" not found` になる**（冒頭「実行位置」）。
 
 **CI は migration を流さない。** 後方互換でない変更が、気づく前に
 適用されるのを避けるため。
@@ -205,7 +247,7 @@ pnpm db:migrate --env staging           # 適用
 
 ```bash
 pnpm --filter @pk/web build
-cd apps/web && wrangler deploy --env staging
+pnpm --filter @pk/web exec wrangler deploy --env staging
 ```
 
 出力された `https://pk-staging.<サブドメイン>.workers.dev` を
@@ -246,7 +288,7 @@ curl -X POST "https://pk-staging.<サブドメイン>.workers.dev/api/v1/dev/see
 ## 5. ロールバック
 
 ```bash
-wrangler rollback --env production
+pnpm --filter @pk/web exec wrangler rollback --env production
 ```
 
 **コードは戻せる。スキーマは戻せない。**

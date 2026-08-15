@@ -155,6 +155,10 @@ docs/                     仕様・task・進捗
 
 ## 8. よく使うコマンド
 
+**すべてリポジトリルートで実行する。** script はルートの `package.json` にしかなく、
+`apps/web` などで叩くと `Command "..." not found` になる（`pnpm -w <script>` なら
+どこからでも通る）。`db:seed` は未配線（OPEN_QUESTIONS #031）。
+
 ```bash
 pnpm dev                    # wrangler dev（SHARD_COUNT=1）
 pnpm db:generate            # Drizzle スキーマ → migration
