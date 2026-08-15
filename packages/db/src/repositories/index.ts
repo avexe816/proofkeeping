@@ -228,6 +228,7 @@ export {
 export {
   PASSWORD_HISTORY_GENERATIONS,
   countActiveMembershipsByRole,
+  createFieldStaff,
   findMembershipByUserId,
   findMembershipStartedAt,
   findUserById,
@@ -239,6 +240,8 @@ export {
   recordLoginAttempt,
   setPasswordHash,
   setUserLocale,
+  type CreateFieldStaffInput,
+  type CreateFieldStaffResult,
   type LoginAttemptInput,
   type PropertyStaff,
   type SetPasswordHashInput,

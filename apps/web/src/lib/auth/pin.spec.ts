@@ -9,7 +9,15 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { hashPassword } from "./password.js";
-import { PIN_PBKDF2_PARAMS, hashPin, pinNeedsRehash, verifyPin } from "./pin.js";
+import { pinSchema } from "@pk/contracts";
+
+import {
+  PIN_PBKDF2_PARAMS,
+  generateInitialPin,
+  hashPin,
+  pinNeedsRehash,
+  verifyPin,
+} from "./pin.js";
 
 const PIN = "8261";
 let stored = "";
@@ -110,5 +118,47 @@ describe("pinNeedsRehash", () => {
 
   it("解析できない値は true（作り直させる）", () => {
     expect(pinNeedsRehash("壊れた値")).toBe(true);
+  });
+});
+
+describe("generateInitialPin", () => {
+  it("4 桁の数字を返す", () => {
+    for (let i = 0; i < 200; i++) {
+      expect(generateInitialPin()).toMatch(/^[0-9]{4}$/);
+    }
+  });
+
+  it("**`pinSchema` を通る値しか返さない**（連番・ゾロ目を発行しない）", () => {
+    for (let i = 0; i < 500; i++) {
+      expect(pinSchema.safeParse(generateInitialPin()).success).toBe(true);
+    }
+  });
+
+  it("同じ値が並ばない（管理者に選ばせない理由 / DECISIONS #177）", () => {
+    const issued = new Set<string>();
+    for (let i = 0; i < 200; i++) issued.add(generateInitialPin());
+    // 一様なら 200 回で重複はごくわずか。**1 種類しか出ないなら壊れている。**
+    expect(issued.size).toBeGreaterThan(150);
+  });
+
+  it("**剰余で丸めない**（250 以上のバイトは捨てて引き直す）", () => {
+    // 250〜255 だけを返す乱数源。丸めていれば 0〜5 の桁が出てしまう。
+    const bytes = [250, 251, 252, 253];
+    let call = 0;
+    const source = (size: number): Uint8Array => {
+      call += 1;
+      // 1 回目は全部 250 以上（捨てられる）、2 回目以降は普通の値。
+      if (call === 1) return Uint8Array.from(bytes.slice(0, size));
+      return Uint8Array.from(Array.from({ length: size }, (_, i) => (i * 37 + 13) % 250));
+    };
+    const pin = generateInitialPin(source);
+    expect(pin).toMatch(/^[0-9]{4}$/);
+    expect(call).toBeGreaterThan(1);
+  });
+
+  it("上限まで引いて通らなければ投げる（無限ループにしない）", () => {
+    // 常に 0000（ゾロ目）を作る乱数源。`pinSchema` が必ず弾く。
+    const source = (size: number): Uint8Array => new Uint8Array(size);
+    expect(() => generateInitialPin(source)).toThrow(/PIN_GENERATION_FAILED/);
   });
 });

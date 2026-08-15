@@ -1113,6 +1113,32 @@ const INVOCATIONS: Invocation[] = [
       userRepo.setPasswordHash(env, ctx, { userId: OTHER_ID.user, passwordHash: FAKE_HASH }),
   },
   {
+    // P7-01。**3 表を作る。** 越境は propertyIds と invitedBy の両方で見る
+    // （`createFieldStaff()` はどちらも `assertIdBelongsToTenant()` に通す）。
+    name: "user.createFieldStaff",
+    kind: "tenant",
+    run: (env, ctx) =>
+      userRepo.createFieldStaff(env, ctx, {
+        displayName: "テスト 太郎",
+        staffNumber: "S-9001",
+        role: "CLEANER",
+        email: null,
+        pinHash: FAKE_HASH,
+        propertyIds: [OWN_ID.property],
+        invitedBy: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      userRepo.createFieldStaff(env, ctx, {
+        displayName: "テスト 太郎",
+        staffNumber: "S-9002",
+        role: "CLEANER",
+        email: null,
+        pinHash: FAKE_HASH,
+        propertyIds: [OTHER_ID.property],
+        invitedBy: OWN_ID.membership,
+      }),
+  },
+  {
     name: "user.listPropertyStaff",
     kind: "tenant",
     run: (env, ctx) => userRepo.listPropertyStaff(env, ctx, OWN_ID.property),
