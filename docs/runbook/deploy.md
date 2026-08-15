@@ -99,15 +99,19 @@ wrangler deploy --env production
 
 ### 環境
 
-| 環境 | Worker 名 | シャード |
-|---|---|---|
-| local | `pk-local` | 1（miniflare） |
-| preview | PR ごと（`pk-pr-{n}`） | 1 |
-| staging | `pk-staging` | 16 |
-| production | `pk-production` | 16 |
+| 環境 | Worker 名 | シャード | 公開 URL | デプロイ |
+|---|---|---|---|---|
+| local | `pk-local` | 1（miniflare） | なし | `pnpm dev` |
+| preview | PR ごと（`pk-pr-{n}`） | 1 | なし（`workers_dev = false`） | PR で自動 |
+| staging | `pk-staging` | 2 | `https://pk-staging.<サブドメイン>.workers.dev` | **main への push で自動** |
+| production | `pk-prod` | 16 | 独自ドメイン | 手動 |
 
-**preview は `CLOUDFLARE_API_TOKEN` が未設定なら何もせずに抜ける。**
+**preview と staging は `CLOUDFLARE_API_TOKEN` が未設定なら何もせずに抜ける。**
 fork からの PR で常に赤くならないようにするため。
+
+**staging だけが `workers_dev = true`。** 継承されるキーなので、
+[env.*] に書かないと top-level の `false` が効き、**URL を持たない Worker**
+が出来上がる。理由は `apps/web/wrangler.toml` の `[env.staging]` に書いてある。
 
 ### 秘密の設定（初回・変更時のみ）
 
@@ -120,6 +124,109 @@ wrangler secret put VAPID_SUBJECT --env production
 ```
 
 **`wrangler.toml` に秘密を書かない。** `gitleaks` が落とす。
+
+---
+
+## 3.5 staging の初期構築（1 回だけ）
+
+**`docs/tasks/P0-02.md` の Cloudflare リソース作成が前提。** 以下は
+staging ぶんだけを抜き出した手順。**すべて人間の端末で実行する。**
+
+### ① リソースを作る
+
+```bash
+cd apps/web
+
+# D1（2 本）
+wrangler d1 create proofkeeping-shard-00-staging
+wrangler d1 create proofkeeping-shard-01-staging
+
+# KV（5 本）
+wrangler kv namespace create SESSION      --env staging
+wrangler kv namespace create RATELIMIT    --env staging
+wrangler kv namespace create CONFIG       --env staging
+wrangler kv namespace create CREDENTIALS  --env staging
+wrangler kv namespace create SHARD_MAP    --env staging
+
+# R2（4 本）
+wrangler r2 bucket create pk-photos-staging
+wrangler r2 bucket create pk-documents-staging
+wrangler r2 bucket create pk-evidence-staging
+wrangler r2 bucket create pk-archive-staging
+
+# Queues（7 本）
+for q in pdf-generation evidence-export reconciliation rollup-update \
+         baseline-learning notification archive-restore; do
+  wrangler queues create "pk-${q}-staging"
+done
+```
+
+### ② 出力された ID を `wrangler.toml` へ差し替える
+
+```bash
+grep -n "TODO-P0-02-未作成-STAGING" apps/web/wrangler.toml
+```
+
+D1 は 2 件、KV は 5 件。**推測した UUID を書かないこと。**
+
+### ③ 秘密を入れる
+
+```bash
+cd apps/web
+wrangler secret put SESSION_SECRET --env staging        # 必須。無いと 503
+wrangler secret put STAGING_SEED_TOKEN --env staging    # シード投入の鍵
+wrangler secret put CREDENTIAL_ENCRYPTION_KEY --env staging
+wrangler secret put VAPID_PUBLIC_KEY --env staging
+wrangler secret put VAPID_PRIVATE_KEY --env staging
+wrangler secret put VAPID_SUBJECT --env staging
+```
+
+**`RESEND_API_KEY` を staging へ置かない。** 置かなければメールの
+`fetch` そのものが飛ばない（DECISIONS #188）。**外部送信を止める操作は
+「鍵を置かないこと」。**
+
+設定済みの**名前だけ**を確認する（値は表示されない）。
+
+```bash
+wrangler secret list --env staging
+```
+
+### ④ migration を流す
+
+```bash
+pnpm db:migrate --env staging --check   # 未適用の検出だけ
+pnpm db:migrate --env staging           # 適用
+```
+
+**CI は migration を流さない。** 後方互換でない変更が、気づく前に
+適用されるのを避けるため。
+
+### ⑤ 初回デプロイ
+
+```bash
+pnpm --filter @pk/web build
+cd apps/web && wrangler deploy --env staging
+```
+
+出力された `https://pk-staging.<サブドメイン>.workers.dev` を
+**`[env.staging.vars]` の `APP_BASE_URL` へ書き戻す**（今は
+`https://staging.proofkeeping.example` のプレースホルダ）。
+案内カードの QR とメールのリンクがこの値を使う。
+
+### ⑥ テスト用の組織とアカウントを作る
+
+```bash
+curl -X POST "https://pk-staging.<サブドメイン>.workers.dev/api/v1/dev/seed" \
+  -H "content-type: application/json" \
+  -H "x-pk-seed-token: <STAGING_SEED_TOKEN に入れた値>" \
+  -d '{"ownerPassword":"<10 文字以上・英大小・数字>"}'
+```
+
+応答の `orgShortId` でログインする（`/m/login` と `/app/login`）。
+**`STAGING_SEED_TOKEN` を設定していなければ 404。** 既定は閉じている。
+
+以後は main へマージするたびに同じ URL へ自動反映される。**②〜④ は
+リソースを増やしたときだけ**やり直す。
 
 ---
 

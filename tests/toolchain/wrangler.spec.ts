@@ -34,12 +34,19 @@ const QUEUE_BINDINGS = [
   "QUEUE_ARCHIVE_RESTORE",
 ] as const;
 
-/** wrangler.toml に絶対に現れてはいけない名前。secret は `wrangler secret put` で入れる。 */
+/**
+ * wrangler.toml に絶対に現れてはいけない名前。secret は `wrangler secret put` で入れる。
+ *
+ * **`EnvSecrets` に足したら、ここにも足すこと。** この配列が
+ * `packages/db/src/env.ts` の `EnvSecrets` と対応している。
+ */
 const SECRET_NAMES = [
   "SESSION_SECRET",
   "RESEND_API_KEY",
+  "RESEND_WEBHOOK_SECRET",
   "CREDENTIAL_ENCRYPTION_KEY",
   "SENTRY_DSN",
+  "STAGING_SEED_TOKEN",
 ] as const;
 
 interface D1Entry {

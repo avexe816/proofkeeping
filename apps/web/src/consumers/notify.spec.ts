@@ -135,6 +135,41 @@ describe("runNotify — 送る", () => {
   });
 });
 
+describe("runNotify — API キーが無ければ外へ出さない（DECISIONS #188）", () => {
+  /**
+   * staging は `RESEND_API_KEY` を置かないことで外部送信を止める。
+   * **止まっているとは「fetch が飛ばない」こと。** 401 を受けて false を
+   * 返すのでは、宛先が外へ出てしまう。
+   */
+  it("`RESEND_API_KEY` が未設定なら **fetch を呼ばない**", async () => {
+    const fake = createFakeD1();
+    primeFake(fake);
+    const calls = stubFetch();
+    const env = { ...(envWith(fake) as object), RESEND_API_KEY: undefined } as never;
+    const outcome = await runNotify(env, MESSAGE);
+    expect(calls).toHaveLength(0);
+    expect(outcome).toEqual({ kind: "OK", sent: 0, withheld: 1 });
+  });
+
+  it("空文字の `RESEND_API_KEY` でも fetch を呼ばない", async () => {
+    const fake = createFakeD1();
+    primeFake(fake);
+    const calls = stubFetch();
+    const env = { ...(envWith(fake) as object), RESEND_API_KEY: "" } as never;
+    await runNotify(env, MESSAGE);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("空白だけの `RESEND_API_KEY` でも fetch を呼ばない", async () => {
+    const fake = createFakeD1();
+    primeFake(fake);
+    const calls = stubFetch();
+    const env = { ...(envWith(fake) as object), RESEND_API_KEY: "   " } as never;
+    await runNotify(env, MESSAGE);
+    expect(calls).toHaveLength(0);
+  });
+});
+
 describe("runNotify — 送らない", () => {
   it("**同じ `dedupeKey` は 2 度送らない**（冪等 / testing.md §4）", async () => {
     const fake = createFakeD1();
