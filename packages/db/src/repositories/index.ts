@@ -30,7 +30,7 @@ export {
   type RecordAuditInput,
 } from "./audit.js";
 
-export { isModuleEnabled, listEnabledModules } from "./entitlement.js";
+export { findSubscription, isModuleEnabled, listEnabledModules } from "./entitlement.js";
 
 // 清掃タスク（P1-01 / P1-03 / P1-05）。
 export {
@@ -468,6 +468,16 @@ export {
   type ArchiveManifestFilter,
   type RecordArchiveManifestInput,
 } from "./archive.js";
+
+// 写真の保持期限（P7-10 / PK-SPEC-P7 §4.5 / security.md §4）。
+// **これは「退避」ではない。写しを作らずに消す**ので `delete` と書く。
+// 消す順序（D1 の行 → R2 の実体）は消費側が持つ（`photoRetention.ts` の注記）。
+export {
+  deletePhotoRows,
+  listPhotosUploadedBefore,
+  type ExpiringPhoto,
+  type PhotoSourceTable,
+} from "./photoRetention.js";
 
 // 送信 Webhook（P6-13 / PK-SPEC-P6 §6.4）。
 // **署名鍵そのものを返す関数が無い**（返すのは KV の参照キーまで）。

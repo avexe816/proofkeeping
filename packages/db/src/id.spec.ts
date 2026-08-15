@@ -175,6 +175,9 @@ describe("ENTITY_PREFIXES", () => {
       "owh",
       // P7-08。
       "arcm",
+      // P7-10。**実体の無い、バッチを表す操作者**（DECISIONS #164）。
+      // この接頭辞を持つ表は無い。
+      "sys",
     ]);
   });
 

@@ -3508,3 +3508,71 @@
   - 移送する表は **schema からではなく移送元の `sqlite_master` から取る。**
     schema に載っていないが D1 には在る表を置き去りにしないため。
     移してはならない表（`schema_version` / `org_directory`）だけを名指しで除く。
+
+## #163 通知イベントを 11 件目として足す（§5.1 の表に無い）
+
+- 日付: 2026-08-15
+- task: P7-10
+- 文脈: PK-SPEC-P7 §4.5 MUST は「削除の 30 日前に**管理者へ通知**し」と定める。
+  一方、通知イベントの表（PK-SPEC-P6 §5.1）は 10 件で、P7 を織り込んでいない。
+- 決定: `photo.retention_due` を **11 件目**として足す。
+  宛先は `OWNER` / `ORG_ADMIN`、チャネルは `IN_APP` + `EMAIL`。
+- 理由: §4.5 は MUST で、満たさない選択肢が無い。既存で近いのは
+  `lostitem.retention_due` だが、**宛先が `PROPERTY_MANAGER`** で
+  §4.5 の「管理者へ」と合わない。忘れ物の保管期限と写真の保持期限は
+  読み手も対処も違うので、同じイベントに寄せると通知の意味が薄まる。
+  DECISIONS #093（§5.1 に無い事象を `integration.error` へ寄せた）と
+  違う判断にしたのは、**あちらは宛先が一致していた**ため。
+- 影響:
+  - `NOTIFICATION_EVENT_CODES`（`packages/db`）と `NOTIFICATION_EVENTS`
+    （`apps/web`）が 11 件になる。`routing.spec.ts` の件数も 11 へ。
+  - **`CLEANER` には届かない**（`audience` に含めていない）。
+    `CLEANER` が受け取ってよいのは `task.rework_assigned` だけという
+    境界は変わらない（§5.1 MUST / security.md §1）。
+  - **仕様の版上げで §5.1 の表へ入れること**（OPEN_QUESTIONS #097）。
+
+## #164 バッチの監査ログに人の ID を借りない
+
+- 日付: 2026-08-15
+- task: P7-10
+- 文脈: §4.5 は「削除件数を監査ログに記録する」と定めるが、削除は日次
+  バッチで**誰も操作していない。** `recordAudit()` は `actorId` を必須に
+  取り、`assertIdBelongsToTenant()` を掛ける（architecture.md §2 第 2 層）。
+- 決定: **実在しない操作者 ID を使う。** `systemActorId(orgShortId)` が
+  `{orgShortId}__sys_00000000000000000000000000` を返す。
+  `sys` を `ENTITY_PREFIXES` へ登録したが、**この接頭辞を持つ表は無い。**
+- 理由: 組織の `OWNER` を借りると、監査ログが「その人が消した」と読める
+  記録を作る。security.md §5 は従業員データの扱いに注意を求めており、
+  **やっていないことを記録に残さない**のが向き。一方で
+  `assertIdBelongsToTenant()` を素通りさせる抜け道は作りたくないので、
+  自己記述 ID の形（`{orgShortId}__{prefix}_{ulid}`）には従う。
+  ULID 部を採番せず固定にしてあるのは、**実行のたびに違う ID が並ぶと
+  「別々の誰かが操作した」ように読めるため。** バッチは 1 つの主体。
+- 影響:
+  - `isSystemActorId()` を用意した。監査ログを表示する画面は、
+    これが真なら人名ではなく「システム」と出すこと。
+  - **`repositories/audit.ts` には置いていない。** あちらは
+    `recordAudit` と `listAuditLogs` の 2 つしか公開しないことを spec が
+    固定している（INV-30）。関数を足すとその守りが緩むので
+    `packages/db/src/systemActor.ts` に分けた。
+
+## #165 写真の保持期限のバッチを夜間の cron に相乗りさせる
+
+- 日付: 2026-08-15
+- task: P7-10
+- 文脈: §4.5 は「日次バッチ」とだけ書き、時刻を定めていない。
+- 決定: 夜間の回（`0 17 * * *` / タスク生成と稼働照合）に相乗りさせ、
+  キューは `pk-archive-restore` に `kind: "PHOTO_RETENTION"` で載せる。
+  **cron もキューも増やさない。**
+- 理由: DECISIONS #140（8 本目のキューを足さず `pk-reconciliation` に
+  相乗り）・#160（年次アーカイブを月次締めに相乗り）と同じ判断。
+  4 環境ぶんの Cloudflare リソース作成を人手で待つ間、機能が動かせない。
+  `pk-archive-restore` を選んだのは、**どちらも R2 のライフサイクル**を
+  扱うため（退避と保持期限）。
+- 影響:
+  - `queue()` の分岐が `kind` で 2 つに分かれる。
+    **`isArchiveExportMessage` / `isPhotoRetentionMessage` の両方に
+    当てはまらないメッセージ**は従来どおり ack して落とす。
+  - **版数が引けない組織へは投げない**（`dispatchPhotoRetention()`）。
+    「引けないから既定の 6 か月」にすると、上位プラン（13 か月）の
+    組織の写真を 7 か月早く消しうる。**消すのは取り返しがつかない。**

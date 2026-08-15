@@ -1,0 +1,1 @@
+ALTER TABLE `organization` ADD `photo_retention_months` integer;

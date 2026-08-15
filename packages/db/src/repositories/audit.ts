@@ -207,6 +207,9 @@ export const AUDIT_ACTIONS = {
   "entitlement.updated": { requiresReason: false },
   // ログイン失敗（5 回目のみ）。**成功を記録しない**（security.md §6 の列挙に無い）
   "auth.loginFailed": { requiresReason: false },
+  // 写真の保持期限切れによる削除（P7-10 / PK-SPEC-P7 §4.5「削除件数を
+  // 監査ログに記録する」）。**操作者は人ではない**（`systemActorId()`）。
+  "photo.retentionDeleted": { requiresReason: false },
 } as const satisfies Record<string, { requiresReason: boolean }>;
 
 /** `AUDIT_ACTIONS` に載っている操作だけを許す型。 */

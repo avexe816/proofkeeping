@@ -50,6 +50,19 @@ export const organization = sqliteTable(
      * ないため（§19.4 の閾値は組織設定と明記されている）。
      */
     propertySelectionThreshold: integer("property_selection_threshold").notNull().default(4),
+    /**
+     * 写真の保持期間（月）。**延長した場合だけ値が入る**（PK-SPEC-P7 §4.5）。
+     *
+     * `null` は「版数の既定に従う」。§4.5 MUST の「必要なら期間延長できる
+     * ようにする」を受ける列で、**短くする用途には使わない**
+     * （`lib/photo/retention.ts` の `resolvePhotoRetentionMonths()` が
+     * 版数の既定を下限にする）。
+     *
+     * **`notNull` にしない。** 既定値を DB 側に持たせると、版数を上げた
+     * ときに古い値が残って「上位プランなのに 6 か月で消える」が起きる。
+     * 既定は版数から引く（値の出どころを 1 つにする）。
+     */
+    photoRetentionMonths: integer("photo_retention_months"),
     ...activeFlag,
     ...timestamps,
   },

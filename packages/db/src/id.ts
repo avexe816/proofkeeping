@@ -157,6 +157,9 @@ export const ENTITY_PREFIXES = [
   "owh", // outboundWebhook
   // P7-08。年次アーカイブの記録（PK-SPEC-P0 §19.7）。
   "arcm", // archiveManifest
+  // P7-10。**実体の無い、バッチを表す操作者**（`repositories/audit.ts` の
+  // `systemActorId()` / DECISIONS #164）。この接頭辞を持つ表は無い。
+  "sys", // システム（バッチ）
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

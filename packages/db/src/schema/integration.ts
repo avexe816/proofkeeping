@@ -132,6 +132,11 @@ export const NOTIFICATION_EVENT_CODES = [
   "invoice.overdue",
   "period.review_requested",
   "lostitem.retention_due",
+  // P7-10。写真の保持期限が 30 日後に来る（PK-SPEC-P7 §4.5 MUST /
+  // security.md §4）。**§5.1 の 10 件に無い 11 件目**（docs/DECISIONS.md #163 /
+  // docs/OPEN_QUESTIONS.md #097）。§4.5 が「管理者へ通知し」と定めており、
+  // 宛先が `PROPERTY_MANAGER` の `lostitem.retention_due` では代用できない。
+  "photo.retention_due",
 ] as const;
 
 export type NotificationEventCode = (typeof NOTIFICATION_EVENT_CODES)[number];
