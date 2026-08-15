@@ -141,6 +141,13 @@
       "when": 1786769284250,
       "tag": "0019_p7_08_archive_manifest",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1786773797729,
+      "tag": "0020_p7_10_photo_retention",
+      "breakpoints": true
     }
   ]
 }

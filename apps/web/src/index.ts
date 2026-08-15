@@ -2,12 +2,13 @@ import type { Env } from "@pk/db";
 import { Hono } from "hono";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 
-import { handleArchiveExportBatch } from "./consumers/archive.js";
+import { handleArchiveExportBatch, isArchiveExportMessage } from "./consumers/archive.js";
 import { handleBaselineLearningBatch } from "./consumers/baselineLearning.js";
 import { handleDailyReportBatch } from "./consumers/dailyReport.js";
 import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
 import { handleNotificationBatch } from "./consumers/notification.js";
 import { handleReconciliationBatch } from "./consumers/reconciliation.js";
+import { handlePhotoRetentionBatch, isPhotoRetentionMessage } from "./consumers/photoRetention.js";
 import { handleRollupUpdateBatch } from "./consumers/rollup.js";
 import { handleSignalIngestBatch, isSignalIngestMessage } from "./consumers/signalIngest.js";
 import {
@@ -16,6 +17,7 @@ import {
 } from "./lib/config/requiredSecrets.js";
 import { cloudflareContext } from "./lib/ui/cloudflare.js";
 import { dispatchArchiveExport, isArchiveDispatchMoment } from "./lib/archive/dispatch.js";
+import { dispatchPhotoRetention } from "./lib/photo/retentionDispatch.js";
 import {
   apiErrorHandler,
   apiNotFoundHandler,
@@ -368,10 +370,29 @@ export default {
       await handleRollupUpdateBatch(env, batch);
       return;
     }
-    // 年次アーカイブ（P7-08 / PK-SPEC-P0 §19.7）。**退避であって削除ではない。**
-    // D1 の行はここでは外さない（docs/DECISIONS.md #159）。
+    // R2 のライフサイクル 2 種（P7-08 / P7-10）。**`kind` で分ける。**
+    //
+    // 年次アーカイブ（§19.7）は**退避であって削除ではない**（#159）。
+    // 写真の保持期限（§4.5）は**本当に消える**（写しを作らない）。
+    // 別のキューにしないのは、4 環境ぶんの Cloudflare リソース作成を
+    // 待たずに動かすため（DECISIONS #140 / #160 と同じ判断）。
     if (batch.queue.startsWith("pk-archive-restore")) {
-      await handleArchiveExportBatch(env, batch);
+      const archiveExport = batch.messages.filter((message) =>
+        isArchiveExportMessage(message.body),
+      );
+      const photoRetention = batch.messages.filter((message) =>
+        isPhotoRetentionMessage(message.body),
+      );
+      if (archiveExport.length > 0) {
+        await handleArchiveExportBatch(env, { ...batch, messages: archiveExport });
+      }
+      if (photoRetention.length > 0) {
+        await handlePhotoRetentionBatch(env, { ...batch, messages: photoRetention });
+      }
+      // どちらでもないメッセージは `handleArchiveExportBatch` が ack して落とす。
+      if (archiveExport.length === 0 && photoRetention.length === 0) {
+        await handleArchiveExportBatch(env, batch);
+      }
       return;
     }
     // 知らないキュー。**ack も retry もしない**（既定の再送に任せる）。
@@ -451,6 +472,16 @@ export default {
       `reconciliation-dispatch organizations=${String(reconciliation.organizations)} ` +
         `queued=${String(reconciliation.queued)} ` +
         `failed=${String(reconciliation.failedOrganizations)}`,
+    );
+
+    // 写真の保持期限（P7-10 / §4.5「日次バッチ」）。**同じ cron に相乗り**
+    // （DECISIONS #165）。**版数が引けない組織は投げない**（消さない側へ倒す）。
+    const retention = await dispatchPhotoRetention(env, now);
+    console.log(
+      `photo-retention-dispatch organizations=${String(retention.organizations)} ` +
+        `queued=${String(retention.queued)} ` +
+        `skippedNoPlan=${String(retention.skippedNoPlan)} ` +
+        `failed=${String(retention.failedOrganizations)}`,
     );
   },
 } satisfies ExportedHandler<Env>;

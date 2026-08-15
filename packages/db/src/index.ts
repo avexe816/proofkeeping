@@ -80,6 +80,10 @@ export {
   type TenantMoveVerification,
 } from "./tenantMove.js";
 
+// バッチが監査ログを書くときの操作者（P7-10 / PK-SPEC-P7 §4.5）。**純粋。**
+// **`membership` の行ではない**（DECISIONS #164）。
+export { isSystemActorId, systemActorId } from "./systemActor.js";
+
 // D1 の 1 文あたりバインド変数上限（100）と、それに収める分割。
 // **「SQLite の 999」で分割の大きさを決めないこと**（limits.ts の注記）。
 export {

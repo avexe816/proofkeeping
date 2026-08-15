@@ -44,6 +44,7 @@ import * as inspectionRepo from "./inspection.js";
 import * as integrationRepo from "./integration.js";
 import * as apiKeyRepo from "./apiKey.js";
 import * as archiveRepo from "./archive.js";
+import * as photoRetentionRepo from "./photoRetention.js";
 import * as outboundWebhookRepo from "./outboundWebhook.js";
 import * as notificationRepo from "./notification.js";
 import * as inspectionPolicyRepo from "./inspectionPolicy.js";
@@ -95,6 +96,7 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // P7-08 が登録した年次アーカイブの記録（PK-SPEC-P0 §19.7）。
   // **記録を消す関数が無い**（復元の起点になる）。
   archive: archiveRepo,
+  photoRetention: photoRetentionRepo,
   // P6-13 が登録した送信 Webhook（PK-SPEC-P6 §6.4）。
   // **署名鍵そのものを返す関数が無い**（security.md §7）。
   outboundWebhook: outboundWebhookRepo,
@@ -620,6 +622,12 @@ const INVOCATIONS: Invocation[] = [
     kind: "tenant",
     run: (env, ctx) => entitlementRepo.isModuleEnabled(env, ctx, "AUDIT", null),
     crossTenant: (env, ctx) => entitlementRepo.isModuleEnabled(env, ctx, "AUDIT", OTHER_ID.property),
+  },
+  {
+    // P7-10。写真の保持期間の既定を決める版数を読む（PK-SPEC-P7 §4.5）。
+    name: "entitlement.findSubscription",
+    kind: "tenant",
+    run: (env, ctx) => entitlementRepo.findSubscription(env, ctx),
   },
   {
     name: "entitlement.listEnabledModules",
@@ -2728,6 +2736,24 @@ const INVOCATIONS: Invocation[] = [
     name: "archive.listArchiveManifests",
     kind: "tenant",
     run: (env, ctx) => archiveRepo.listArchiveManifests(env, ctx),
+  },
+  {
+    // P7-10。写真の保持期限（PK-SPEC-P7 §4.5）。**これは「退避」ではない。**
+    // 写しを作らずに消すので `delete` と書く。
+    name: "photoRetention.listPhotosUploadedBefore",
+    kind: "tenant",
+    run: (env, ctx) =>
+      photoRetentionRepo.listPhotosUploadedBefore(env, ctx, {
+        table: "task_photo",
+        beforeMs: 0,
+        limit: 10,
+      }),
+  },
+  {
+    name: "photoRetention.deletePhotoRows",
+    kind: "tenant",
+    run: (env, ctx) =>
+      photoRetentionRepo.deletePhotoRows(env, ctx, { table: "task_photo", ids: ["p1"] }),
   },
   {
     // 退避する行の読み取り（§19.7 の手順 1）。`businessDate` を自分で持つ

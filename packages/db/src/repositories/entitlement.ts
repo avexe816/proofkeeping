@@ -27,7 +27,7 @@ import { and, eq, gt, isNull, lte, or, type SQL } from "drizzle-orm";
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant } from "../id.js";
 import { getTenantDb, type TenantContext } from "../router.js";
-import { moduleEntitlement, type ModuleCode } from "../schema/billing.js";
+import { moduleEntitlement, subscription, type ModuleCode } from "../schema/billing.js";
 
 import { NO_PROPERTY_SCOPE, withTenantScope } from "./base.js";
 
@@ -145,4 +145,22 @@ export async function listEnabledModules(
   // 組織全体の行と施設単位の行が同じモジュールで両方立ちうる（判定は OR）。
   // 重複を畳んで返す。
   return [...new Set(rows.map((row) => row.moduleCode))];
+}
+
+/**
+ * 組織の契約を読む（1 組織 1 行 / `uq_subscription_org`）。
+ *
+ * **未契約なら `undefined`。既定の版数を返さない。** 版数は写真の保持期間
+ * （PK-SPEC-P7 §4.5）を決める値で、引けないまま既定（`BASE` = 6 か月）へ
+ * 倒すと、上位プランの組織の写真を 7 か月早く消しうる。
+ * **消すのは取り返しがつかないので、疑わしいときは何もしない側へ。**
+ */
+export async function findSubscription(env: Env, ctx: TenantContext) {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select()
+    .from(subscription)
+    .where(withTenantScope(subscription, ctx, NO_PROPERTY_SCOPE))
+    .limit(1);
+  return rows[0];
 }
