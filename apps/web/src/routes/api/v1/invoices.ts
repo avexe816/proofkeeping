@@ -48,6 +48,8 @@ import {
 } from "@pk/db";
 import { Hono } from "hono";
 
+import { emitOutboundEvent } from "../../../consumers/outboundWebhook.js";
+
 import { ORGANIZATION_TARGET, assertPermission } from "../../../lib/auth/permission.js";
 import {
   enqueueInvoicePdf,
@@ -269,6 +271,20 @@ invoices.post("/issue-and-send", async (c) => {
       warnings: outcome.draft.warnings.length,
     },
     ...ipOf(c.req.header("CF-Connecting-IP")),
+  });
+
+  // ⑭ 送信 Webhook（P6-13 / PK-SPEC-P6 §6.4 の `invoice.issued`）。
+  // **失敗を握りつぶす。** 顧客の都合で足す通知経路で、届かなくても
+  // 請求書の発行は成立している（`emitOutboundEvent()` の注記）。
+  // **本文に金額を載せない。** 受け取った側は `invoiceId` で
+  // 公開 API（`GET /api/v1/public/invoices`）を引く。
+  await emitOutboundEvent(c.env, {
+    orgShortId: ctx.orgShortId,
+    event: "invoice.issued",
+    targetId: outcome.invoiceId,
+    propertyId: null,
+    eventId: `invoice.issued:${outcome.invoiceId}`,
+    occurredAtMs: ctx.now.getTime(),
   });
 
   return c.json(

@@ -74,6 +74,8 @@ const EXPECTED: Record<PermissionAction, string> = {
   "ruleConfig.write": "OO-----",
   "integration.read": "OO----O",
   "integration.write": "OO-----",
+  "apiKey.read": "OO----O",
+  "apiKey.write": "OO-----",
   "lostItem.readStorage": "OOAA-AO",
   "billing.read": "OOA---O",
   "billing.write": "OO-----",

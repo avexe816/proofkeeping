@@ -704,3 +704,14 @@ export {
   type WebhookSignalBody,
   type WebhookSignalEvent,
 } from "./integration.js";
+
+// 公開 API のキー（P6-12 / PK-SPEC-P6 §6.1・§6.2）。
+// **平文のトークンを受け取る欄が無い**（サーバーが採番する）。
+export {
+  API_SCOPE_CODES,
+  MAX_API_KEY_NAME_LENGTH,
+  apiKeyCreateRequestSchema,
+  apiScopeSchema,
+  type ApiKeyCreateRequest,
+  type ApiScopeCode,
+} from "./apiKey.js";

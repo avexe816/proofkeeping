@@ -143,6 +143,20 @@ export const PERMISSION_ACTIONS = {
   "integration.read": { write: false },
   "integration.write": { write: true },
   /**
+   * 公開 API のキー（PK-SPEC-P6 §6.1 / P6-12）。
+   *
+   * **`integration.*` と同じ 2 ロール**（`OWNER` / `ORG_ADMIN`）。
+   * キーは組織のデータへ外から届く経路そのもので、施設責任者に
+   * 作らせる根拠が仕様に無い。`AUDITOR` は読み取りのみ（どんな鍵が
+   * 生きているかを確かめられないと棚卸しにならない）。
+   *
+   * **別の操作にしてある理由。** `integration.*` に相乗りさせると、
+   * 監査ログで「連携を触った」と「鍵を作った」が同じ操作に見える。
+   * 鍵の発行は漏洩時の影響範囲が違う（§9 の「API キー漏洩」）。
+   */
+  "apiKey.read": { write: false },
+  "apiKey.write": { write: true },
+  /**
    * 忘れ物の保管場所・返却先。**`CLEANER` は見られない**（security.md §1）。
    * 忘れ物そのものの記録とは別の操作。P0 に実体は無い。
    */
@@ -678,6 +692,26 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     AUDITOR: "ORG",
   },
   "integration.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+  },
+  // PK-SPEC-P6 §6.1: API キーは OWNER / ORG_ADMIN だけ。
+  // **鍵は組織のデータへ外から届く経路そのもの。**
+  "apiKey.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+  },
+  "apiKey.write": {
     OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "DENY",

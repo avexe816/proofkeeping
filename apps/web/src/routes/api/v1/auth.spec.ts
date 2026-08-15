@@ -8,7 +8,7 @@
  */
 
 import { loginResponseSchema, pinLoginResponseSchema } from "@pk/contracts";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const lookupOrganizationId = vi.fn();
 const findUserByStaffNumber = vi.fn();
@@ -30,6 +30,25 @@ const auth = (await import("./auth.js")).default;
 
 type Env = import("@pk/db").Env;
 type FakeKv = import("../../../lib/auth/test-support/fake-kv.js").FakeKv;
+
+/**
+ * テストの「いま」。**分の途中に固定する。**
+ *
+ * ── なぜ時計を止めるのか ────────────────────────────────
+ * レート制限の窓は `windowIndex = floor(now / 60000)`（`lib/auth/rateLimit.ts`）。
+ * 下のレート制限テストは 11〜21 回続けて POST し、1 回あたり PBKDF2 が
+ * 走るので 0.5〜1 秒かかる。**実時刻のままだと、そのループが分の境界を
+ * またいだ回だけ窓が切り替わってカウンタが 0 に戻り、最後の 1 回が
+ * 429 ではなく 401 になる。**
+ *
+ * 実際にこれで CI が落ちた（フルランでは `/pin-login` が、単体では
+ * 別のテストが落ち、走らせ直すと通る）。**再現率が数 % のフレークは
+ * 「たまたま赤い」として扱われ、本物の失敗を隠す。**
+ *
+ * 秒を 30 に置いてあるのは、固定し忘れた経路が混じったときに
+ * 前後 30 秒の余裕で気づけるようにするため。
+ */
+const FIXED_NOW = new Date("2026-09-10T05:00:30.000Z");
 
 const ORG = { organizationId: "org_test_alpha", orgShortId: "a1b2c3" } as const;
 const PASSWORD = "Correct1Horse";
@@ -56,6 +75,10 @@ async function post(body: unknown, headers: Record<string, string> = {}): Promis
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  // **`Date` だけを固定する。** タイマーまで差し替えると、WebCrypto を
+  // 待つ `await` が進まなくなる。
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(FIXED_NOW);
   // PBKDF2 は遅い。ファイル全体で 1 回ずつしか作らない。
   if (passwordHash === "") passwordHash = await hashPassword(PASSWORD);
   if (pinHash === "") pinHash = await hashPin(PIN);
@@ -87,6 +110,10 @@ beforeEach(async () => {
     isActive: true,
   });
   recordLoginAttempt.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("POST /login", () => {

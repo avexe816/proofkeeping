@@ -177,10 +177,9 @@ const UNCOVERED_TABLES: Partial<Record<(typeof TENANT_TABLES)[number], string>> 
   // `notification_preference` / `push_subscription` は P6-09 が配信の
   // 読み取りを作り、notification.spec.ts でカバーした（`push_subscription`
   // の**書き込み**は P6-10 だが、越境の検査は読み取りで足りる）。
-  // 残る 2 表は下の task が関数を作って行を消すこと。
-  // **表だけ足して放置しないこと。**
-  api_key: "作成・失効・認証は P6-12（公開 API）",
-  outbound_webhook: "登録と配信は P6-13（送信 Webhook）",
+  // `api_key` は P6-12 が発行・失効・認証を作り、apiKey.spec.ts でカバーした。
+  // `outbound_webhook` は P6-13 が登録と配信を作り、
+  // outboundWebhook.spec.ts でカバーした。**P6-01 が足した 7 表は全部埋まった。**
 };
 
 describe("同一シャードの組織ペア（fixtures/shard-pairs.ts）", () => {
