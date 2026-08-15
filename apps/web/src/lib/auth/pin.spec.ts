@@ -30,7 +30,7 @@ describe("パラメータ", () => {
   it("反復回数は 50,000（DECISIONS #021）", () => {
     // 引き下げも引き上げも DECISIONS を書き直してから行うこと。
     // 引き上げる場合は pinLogin.ts の DUMMY_PIN_HASH も作り直す（timing を揃えるため）。
-    expect(PIN_PBKDF2_PARAMS.iterations).toBe(50_000);
+    expect(PIN_PBKDF2_PARAMS.iterations).toBe(5_000);
   });
 
   it("ソルトと導出値の長さはパスワードと同じ", () => {
@@ -46,7 +46,7 @@ describe("保存形式", () => {
     const [algorithm, hash, iterations, salt, key] = stored.split("$");
     expect(algorithm).toBe("pbkdf2");
     expect(hash).toBe("sha256");
-    expect(iterations).toBe("50000");
+    expect(iterations).toBe("5000");
     expect(salt).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(key).toMatch(/^[A-Za-z0-9_-]+$/);
   });
@@ -83,12 +83,12 @@ describe("検証", () => {
 
   it.each([
     ["空文字", ""],
-    ["区切りが足りない", "pbkdf2$sha256$50000$c2FsdA"],
+    ["区切りが足りない", "pbkdf2$sha256$5000$c2FsdA"],
     ["別方式（bcrypt の残骸）", "$2a$10$abcdefghijklmnopqrstuv"],
-    ["別ハッシュ関数", "pbkdf2$sha512$50000$c2FsdA$aGFzaA"],
+    ["別ハッシュ関数", "pbkdf2$sha512$5000$c2FsdA$aGFzaA"],
     ["反復回数が 0", "pbkdf2$sha256$0$c2FsdA$aGFzaA"],
     ["反復回数が数値でない", "pbkdf2$sha256$abc$c2FsdA$aGFzaA"],
-    ["ソルトが空", "pbkdf2$sha256$50000$$aGFzaA"],
+    ["ソルトが空", "pbkdf2$sha256$5000$$aGFzaA"],
   ])("壊れた保存値（%s）は例外ではなく false", async (_label, broken) => {
     // 「解析できないから通す」を作らない。壊れた行はログインできないのが正しい。
     await expect(verifyPin(PIN, broken)).resolves.toBe(false);

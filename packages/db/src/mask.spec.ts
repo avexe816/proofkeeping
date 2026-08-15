@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { MASKED, maskSensitive, serializeAuditPayload } from "./mask.js";
 
 /** 実在の認証情報から作った値ではない。形だけを再現している。 */
-const HASH = "pbkdf2$sha256$210000$c2FsdA$aGFzaA";
+const HASH = "pbkdf2$sha256$5000$c2FsdA$aGFzaA";
 
 describe("maskSensitive", () => {
   it.each([

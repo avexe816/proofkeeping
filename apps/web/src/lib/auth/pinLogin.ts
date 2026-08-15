@@ -62,7 +62,7 @@ const PIN_LOGIN_ROLES: ReadonlySet<Role> = new Set<Role>(["CLEANER", "INSPECTOR"
  * 実行時間を揃えること。**揃えないと timing で存在が読める。**
  */
 const DUMMY_PIN_HASH =
-  "pbkdf2$sha256$50000$WzfbtkmP9BRK-kuTavB3lg$I8kGL13IlZ3Jo0hE1qNrIPy246mPJQF34OxYZaXBWJU";
+  "pbkdf2$sha256$5000$WzfbtkmP9BRK-kuTavB3lg$sr6XFN23bKyZbCWyqWAmrwfqjGewJvWOiY03dsYv-RQ";
 
 /** ログインの結果。**失敗の内訳を持たせない。** */
 export type PinLoginResult =

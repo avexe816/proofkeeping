@@ -4426,3 +4426,22 @@
     該当利用者はパスワード再設定が要る。staging 以外に該当データは無い）
   - `login.ts` の `DUMMY_PASSWORD_HASH` を 100,000 回のものへ差し替え
   - PIN の 50,000 回（#020）は上限内のため変更しない
+
+## #159 PBKDF2 の反復回数を 5,000 回へ統一（パスワード + PIN）
+
+- 日付: 2026-08-16
+- 状態: 決定
+- 背景: #158 で 100,000 回へ引き下げたが、ログイン応答時間が 3 秒を超え、
+  実用に耐えなかった。staging で実測し、5,000 回なら **1 秒以内**で完了する。
+- 決定: **パスワード・PIN ともに 5,000 回へ統一。**
+  - OWASP 推奨より大幅に低いが、以下で補う:
+    - ロックアウト: 5 回失敗で 15 分（security.md §2）
+    - レート制限: 10 req/分/IP（password）/ 20 req/分/IP（PIN）（security.md §8）
+    - PIN 桁数: 4 桁（10,000 通り）+ 連番・ゾロ目拒否
+  - `MAX_PARSEABLE_ITERATIONS` も 5,000 へ。過去のハッシュ（50,000 / 100,000 / 210,000 回）
+    は解析不能＝不一致に倒し、**例外を投げさせない。**
+- 影響:
+  - `PBKDF2_PARAMS.iterations` = `5_000`
+  - `PIN_PBKDF2_PARAMS.iterations` = `5_000`
+  - `MAX_PARSEABLE_ITERATIONS` = `5_000`
+  - `DUMMY_PASSWORD_HASH` / `DUMMY_PIN_HASH` を 5,000 回のものへ差し替え

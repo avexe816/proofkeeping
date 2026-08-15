@@ -49,7 +49,7 @@ import {
  */
 export const PIN_PBKDF2_PARAMS: Pbkdf2Params = {
   ...PBKDF2_PARAMS,
-  iterations: 50_000,
+  iterations: 5_000,
 } as const;
 
 /**

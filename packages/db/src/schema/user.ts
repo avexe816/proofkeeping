@@ -68,7 +68,7 @@ export const user = sqliteTable(
     email: text("email"),
     /**
      * PBKDF2-SHA256 のハッシュ（DECISIONS #019）。
-     * `pbkdf2$sha256$210000$<salt>$<hash>` の自己記述文字列で、方式と反復回数を含む。
+     * `pbkdf2$sha256$5000$<salt>$<hash>` の自己記述文字列で、方式と反復回数を含む。
      * **形式を解釈してよいのは `apps/web/src/lib/auth/password.ts` だけ。**
      */
     passwordHash: text("password_hash"),
@@ -82,7 +82,7 @@ export const user = sqliteTable(
     staffNumber: text("staff_number"),
     /**
      * PBKDF2-SHA256 のハッシュ（DECISIONS #021）。
-     * `pbkdf2$sha256$50000$<salt>$<hash>` の自己記述文字列。
+     * `pbkdf2$sha256$5000$<salt>$<hash>` の自己記述文字列。
      * **反復回数がパスワードより低い**のは、4 桁 PIN では KDF の強度差が
      * 効かないため（理由は `apps/web/src/lib/auth/pin.ts` の冒頭）。
      * **形式を解釈してよいのは `apps/web/src/lib/auth/pin.ts` だけ。**

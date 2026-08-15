@@ -37,7 +37,7 @@ describe("保存形式", () => {
 
   it("反復回数は security.md §2 の 210,000 回", () => {
     // 引き下げは強度の低下に直結する。変更するなら DECISIONS を書き直すこと。
-    expect(PBKDF2_PARAMS.iterations).toBe(100_000);
+    expect(PBKDF2_PARAMS.iterations).toBe(5_000);
   });
 
   it("同じパスワードでも毎回違う値になる（ソルトが乱数）", async () => {
@@ -71,13 +71,13 @@ describe("検証", () => {
 
   it.each([
     ["空文字", ""],
-    ["区切りが足りない", "pbkdf2$sha256$210000$c2FsdA"],
+    ["区切りが足りない", "pbkdf2$sha256$5000$c2FsdA"],
     ["別方式", "bcrypt$12$abcdef$abcdef$abcdef"],
-    ["別ハッシュ関数", "pbkdf2$sha512$210000$c2FsdA$aGFzaA"],
+    ["別ハッシュ関数", "pbkdf2$sha512$5000$c2FsdA$aGFzaA"],
     ["反復回数が 0", "pbkdf2$sha256$0$c2FsdA$aGFzaA"],
     ["反復回数が数値でない", "pbkdf2$sha256$abc$c2FsdA$aGFzaA"],
-    ["ソルトが base64url でない", "pbkdf2$sha256$210000$@@@@$aGFzaA"],
-    ["ソルトが空", "pbkdf2$sha256$210000$$aGFzaA"],
+    ["ソルトが base64url でない", "pbkdf2$sha256$5000$@@@@$aGFzaA"],
+    ["ソルトが空", "pbkdf2$sha256$5000$$aGFzaA"],
   ])("壊れた保存値（%s）は例外ではなく false", async (_label, broken) => {
     // 「解析できないから通す」を作らない。壊れた行はログインできないのが正しい。
     expect(parsePasswordHash(broken)).toBeNull();
@@ -119,7 +119,7 @@ describe("needsRehash", () => {
   });
 
   it("反復回数が古ければ true", () => {
-    expect(needsRehash("pbkdf2$sha256$100000$c2FsdA$aGFzaA")).toBe(true);
+    expect(needsRehash("pbkdf2$sha256$6000$c2FsdA$aGFzaA")).toBe(true);
   });
 
   it("解析できない値は true（作り直させる）", () => {

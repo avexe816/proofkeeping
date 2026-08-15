@@ -187,7 +187,7 @@ const OWN_ID = {
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
-const FAKE_HASH = "pbkdf2$sha256$210000$c2FsdA$aGFzaA";
+const FAKE_HASH = "pbkdf2$sha256$5000$c2FsdA$aGFzaA";
 
 /** 日報 1 行ぶんの値（P2-14 / PK-SPEC-P2 §9.4）。**集計値の中身は問わない。** */
 const DAILY_REPORT = {

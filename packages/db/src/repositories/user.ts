@@ -452,7 +452,7 @@ export interface CreateFieldStaffInput {
   role: Extract<Role, "CLEANER" | "INSPECTOR">;
   /** 通知の送信先。持たなくてよい（DECISIONS #018）。 */
   email: string | null;
-  /** `pbkdf2$sha256$50000$...` 形式（DECISIONS #021）。 */
+  /** `pbkdf2$sha256$5000$...` 形式（DECISIONS #021）。 */
   pinHash: string;
   locale?: string | undefined;
   /** 担当施設。**空で呼ばないこと**（割当が無いとタスクが 1 件も出ない）。 */

@@ -46,7 +46,7 @@ export interface Pbkdf2Params {
  * `pin_hash` に強いパラメータのハッシュが入った瞬間に「解析できない → 不一致」へ
  * 倒れ、正しい PIN で締め出される。上限は CPU の安全弁であって方式の識別子ではない。
  */
-export const MAX_PARSEABLE_ITERATIONS = 100_000;
+export const MAX_PARSEABLE_ITERATIONS = 5_000;
 
 /** WebCrypto の hash 名。保存形式の `sha256` と 1 対 1 で対応させる。 */
 const SUBTLE_HASH = "SHA-256";

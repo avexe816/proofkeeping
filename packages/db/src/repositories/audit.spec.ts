@@ -30,7 +30,7 @@ const ACTOR = generateId(TEST_ORG.orgShortId, "mem");
 const TARGET = generateId(TEST_ORG.orgShortId, "room");
 
 /** 実在の認証情報から作った値ではない。形だけを再現している。 */
-const HASH = "pbkdf2$sha256$210000$c2FsdA$aGFzaA";
+const HASH = "pbkdf2$sha256$5000$c2FsdA$aGFzaA";
 
 describe("recordAudit", () => {
   it("INSERT を 1 件だけ発行する", async () => {
