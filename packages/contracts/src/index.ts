@@ -727,3 +727,15 @@ export {
   type ArchiveRestoreStatusCode,
   type ArchiveRestoreView,
 } from "./archive.js";
+
+// 現場スタッフの登録（P7-01 / PK-SPEC-P7 §2.3 Step 5）。
+// **PIN はサーバーが発行し、作成の応答で 1 回だけ返す**（DECISIONS #177）。
+// 管理者のメール招待は未実装（OPEN_QUESTIONS #101）。
+export {
+  FIELD_STAFF_ROLES,
+  fieldStaffCreateSchema,
+  fieldStaffRoleSchema,
+  type FieldStaffCreateRequest,
+  type FieldStaffCreateResponse,
+  type FieldStaffRoleValue,
+} from "./user.js";
