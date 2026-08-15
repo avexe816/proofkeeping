@@ -148,9 +148,22 @@ jobs:
       - name: Check for committed secrets
         run: |
           docker run --rm -v "$PWD:/repo" \
-            zricethezav/gitleaks:latest \
+            "ghcr.io/gitleaks/gitleaks:v${GITLEAKS_VERSION}" \
             detect --source /repo --config /repo/.gitleaks.toml \
-            --no-banner --redact --exit-code 1
+            --no-banner --redact --verbose --exit-code 1
+        env:
+          # **版を固定する。** `:latest` にすると、ルール一式が更新された
+          # 日に「昨日まで緑だった main」が赤くなる。検査の門は
+          # **再現するもの**でなければ、赤を見たときに「自分の変更か
+          # ルールの更新か」を切り分けられない（workflow.md §4 の
+          # 「原因が自分の変更以外なら止まって報告する」が判断できなくなる）。
+          #
+          # **`zricethezav/...` は旧い名前。** 中身の版が違い、手元で
+          # 確かめた結果と CI の結果が食い違った（DECISIONS #172）。
+          # 公式の配布は `ghcr.io/gitleaks/gitleaks`。
+          #
+          # 上げるときは、手元で同じ版を走らせて差分を確かめてから。
+          GITLEAKS_VERSION: "8.28.0"
 
   # E2E。接続先（preview）が無い間は未実施として緑で抜ける。
   # 実体と、なぜ今そうしているかは scripts/e2e.ts の冒頭に書いてある。

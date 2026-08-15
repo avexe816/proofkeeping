@@ -18,6 +18,16 @@ const ROOT = join(import.meta.dirname, "..", "..");
 
 const DEPENDABOT = readFileSync(join(ROOT, ".github", "dependabot.yml"), "utf8");
 const CI = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
+
+/**
+ * YAML のコメントを落とした CI。
+ *
+ * **注記を検査対象にしない。** 「`zricethezav` は使わない」と**書いた注記**が
+ * 「`zricethezav` を使っている」と読まれてしまう。
+ */
+const CI_CODE = CI.split("\n")
+  .filter((line) => !line.trim().startsWith("#"))
+  .join("\n");
 const GITLEAKS_CONFIG = readFileSync(join(ROOT, ".gitleaks.toml"), "utf8");
 
 describe("§6.1 Dependabot", () => {
@@ -45,10 +55,28 @@ describe("§6.1 gitleaks", () => {
   it("**公式 action を使わない**（API 権限に依存させない / DECISIONS #170）", () => {
     // `gitleaks-action` は PR のコミット一覧を GitHub API から引くため、
     // 既定の `GITHUB_TOKEN` の権限では 403 で落ちる。
-    expect(CI).not.toContain("gitleaks/gitleaks-action");
+    expect(CI_CODE).not.toContain("gitleaks/gitleaks-action");
   });
   it("設定を読ませている", () => {
     expect(CI).toContain(".gitleaks.toml");
+  });
+
+  it("**版を固定している**（`:latest` を使わない / DECISIONS #172）", () => {
+    // `:latest` だと、ルール一式が更新された日に「昨日まで緑だった main」が
+    // 赤くなる。赤を見たときに自分の変更かルールの更新かを切り分けられない。
+    expect(CI_CODE).toMatch(/GITLEAKS_VERSION:\s*"\d+\.\d+\.\d+"/);
+    expect(CI_CODE).not.toContain("gitleaks:latest");
+  });
+
+  it("**公式の配布名を使う**（`zricethezav/...` は旧い名前）", () => {
+    expect(CI_CODE).toContain("ghcr.io/gitleaks/gitleaks");
+    expect(CI_CODE).not.toContain("zricethezav/");
+  });
+
+  it("**見つかった場所がログに出る**（`--verbose`。値は `--redact` で伏せる）", () => {
+    // これが無いと、赤くなったときに手元で再現するまで場所が分からない。
+    expect(CI).toContain("--verbose");
+    expect(CI).toContain("--redact");
   });
 });
 
