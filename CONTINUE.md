@@ -8,7 +8,49 @@
 ## 次にやること
 1. `git fetch origin && git checkout main && git pull`
 2. `docs/tasks/P7-08.md` を読む（依存は P7-06。**満たされている**）
-3. `docs/PK-SPEC-P0.md` §19.7（アーカイブ）と architecture.md を読む
+3. `docs/PK-SPEC-P0.md` §19.7（年次アーカイブ）を読む。**下の下調べを先に読むこと。**
+
+### P7-08 の下調べ（このセッションで調べた分）
+
+**`archive_manifest` 表がまだ無い。** §19.7 が名前を挙げているだけで、
+schema にも migration にも実体が無い。**P7-08 は表の追加から始まる**
+（drizzle の生成物を含む migration が要る / architecture.md §6 は後方互換のみ）。
+
+受け皿は揃っている:
+- `env.ARCHIVE`（R2 バケット）と `env.QUEUE_ARCHIVE_RESTORE`（Queue）は宣言済み
+- `packages/db/src/shardUsageCollector.ts` が「どのシャードが重いか」を返す
+  （P7-06）。アーカイブを走らせる判断材料になる
+
+§19.7 の中身（写し）:
+```
+対象: businessDate が 13 か月以上前のレコード
+  - cleaningTask / taskTimeLog / taskChecklistResult
+  - inspection / inspectionItemResult
+  - roomObservation / linenRecord
+  - occupancySnapshot / physicalSignal
+
+処理:
+  1. R2 へ JSONL 形式で  archive/{orgId}/{year}/{table}.jsonl.gz
+  2. SHA-256 を計算して archive_manifest テーブルへ記録
+  3. D1 から DELETE
+  4. VACUUM 相当（D1 の Time Travel 設定に注意）
+
+除外（アーカイブしない）:
+  - evidenceSnapshot のハッシュ行（payload は元から R2）
+  - auditLog（別途 5 年保持）
+  - invoice / receipt（法定保存期間に従う）
+  - organization / property / room などマスタ
+```
+
+**除外リストを純粋関数＋語彙で持つこと。** 完了条件の
+「除外対象（証跡ハッシュ・監査ログ・帳票・マスタ）が守られる」は、
+**表の一覧を手で書いた if 文では守れない**（表が増えるたびに漏れる）。
+`packages/db` の表の集合から「アーカイブ対象」を導き、
+**知らない表は既定で除外**へ倒すのが安全側（`base.ts` の
+`ORG_WIDE_ROLES` と同じ向き）。
+
+**「削除」と表現しない。** P7 固有の絶対ルール:「アーカイブを『削除』と
+表現しない。『退避』と表現する。」UI 文言だけでなく関数名・ログにも効く。
 
 ### なぜ P7-01 から入らないのか
 **P7-01 の依存は「P6 完了」で、満たされていない**（P6-06 / P6-10 / P6-11 が
