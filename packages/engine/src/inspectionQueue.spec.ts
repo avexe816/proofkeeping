@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   INSPECTION_URGENT_CHECKIN_MINUTES,
+  compareInspectionQueue,
   sortInspectionQueue,
   summarizeInspectionQueue,
   waitStateOf,
@@ -181,6 +182,75 @@ describe("sortInspectionQueue — §11.2 の 4 段", () => {
 
   it("空でも落ちない", () => {
     expect(sortInspectionQueue([], NOW, SLA)).toEqual([]);
+  });
+});
+
+/**
+ * 施設をまたぐ一覧（P7-18）。**施設ごとに SLA が違う配列を 1 本に並べる。**
+ *
+ * `sortInspectionQueue()` は SLA を全件へ掛けるのでこの用途に使えない。
+ * `waitStateOf()` を施設ごとの SLA で通してから比較関数で並べる。
+ */
+describe("compareInspectionQueue — 施設をまたぐ並び", () => {
+  it("施設ごとの SLA で束が決まる", () => {
+    // どちらも完了から 30 分。**A（目安 20 分）だけが超過。**
+    const a = waitStateOf(entry("101", { completedAtMs: minutesAgo(30) }), NOW, 20);
+    const b = waitStateOf(entry("201", { completedAtMs: minutesAgo(30) }), NOW, 90);
+    expect(a.isOverSla).toBe(true);
+    expect(b.isOverSla).toBe(false);
+    expect([b, a].sort(compareInspectionQueue).map((row) => row.roomNumber)).toEqual(["101", "201"]);
+  });
+
+  it("超過していない古い件より、超過した新しい件が先", () => {
+    const older = waitStateOf(entry("201", { completedAtMs: minutesAgo(60) }), NOW, 90);
+    const newerOver = waitStateOf(entry("101", { completedAtMs: minutesAgo(30) }), NOW, 20);
+    expect([older, newerOver].sort(compareInspectionQueue).map((row) => row.roomNumber)).toEqual([
+      "101",
+      "201",
+    ]);
+  });
+
+  it("緊急は SLA 超過より先（段を跨いだ入れ替えをしない）", () => {
+    const over = waitStateOf(entry("101", { completedAtMs: minutesAgo(60) }), NOW, 20);
+    const urgent = waitStateOf(
+      entry("201", { completedAtMs: minutesAgo(1), checkInAtMs: NOW + 10 * 60_000 }),
+      NOW,
+      90,
+    );
+    expect([over, urgent].sort(compareInspectionQueue).map((row) => row.roomNumber)).toEqual([
+      "201",
+      "101",
+    ]);
+  });
+
+  it("同じ束なら完了時刻の古い順", () => {
+    const first = waitStateOf(entry("101", { completedAtMs: minutesAgo(10) }), NOW, 90);
+    const second = waitStateOf(entry("201", { completedAtMs: minutesAgo(5) }), NOW, 20);
+    expect([second, first].sort(compareInspectionQueue).map((row) => row.roomNumber)).toEqual([
+      "101",
+      "201",
+    ]);
+  });
+
+  it("同着は客室番号で安定する", () => {
+    const a = waitStateOf(entry("102", { completedAtMs: minutesAgo(5) }), NOW, 90);
+    const b = waitStateOf(entry("101", { completedAtMs: minutesAgo(5) }), NOW, 20);
+    expect([a, b].sort(compareInspectionQueue).map((row) => row.roomNumber)).toEqual(["101", "102"]);
+  });
+
+  it("`sortInspectionQueue()` と同じ並びになる（単一 SLA のとき）", () => {
+    const entries = [
+      entry("302", { checkInAtMs: NOW + 10 * 60_000 }),
+      entry("305", { completedAtMs: minutesAgo(30) }),
+      entry("210", { completedRounds: 2 }),
+      entry("401"),
+    ];
+    const viaSort = sortInspectionQueue(entries, NOW, SLA).map((row) => row.roomNumber);
+    const viaCompare = entries
+      .map((row) => waitStateOf(row, NOW, SLA))
+      .sort(compareInspectionQueue)
+      .map((row) => row.roomNumber);
+    expect(viaCompare).toEqual(viaSort);
   });
 });
 

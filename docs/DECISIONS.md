@@ -4445,3 +4445,57 @@
   - `PIN_PBKDF2_PARAMS.iterations` = `5_000`
   - `MAX_PARSEABLE_ITERATIONS` = `5_000`
   - `DUMMY_PASSWORD_HASH` / `DUMMY_PIN_HASH` を 5,000 回のものへ差し替え
+
+## #193 検査キューに担当者名を出さない（task の記述より INV-09 を優先）
+
+- 日付: 2026-08-16
+- 状態: 決定
+- 背景: `docs/tasks/P7-18.md` の「やること」は検査キューの列として
+  **施設・客室・担当者・完了時刻**を挙げている。しかし
+  `docs/PK-IMPL-CONTRACT.md` の **INV-09**「検査結果を入力するまで
+  担当者名を表示しない（清掃会社の画面でも同様）」と衝突する。
+  プロトタイプ 04（`ui-prototypes/ops/pkops-A-daily-quality.html`）自身も
+  「検査は担当者名を見ずに行います」を画面に出しており、
+  `docs/PK-SPEC-UI.md` §13 も同じ。
+- 決定: **担当者を表示しない。列を作らないだけでなく、API が返さない。**
+  - CLAUDE.md §7「仕様書と矛盾した場合は PK-IMPL-CONTRACT を優先」に従う。
+  - 判断できる矛盾なので停止条件（workflow.md §6）には当たらないとした。
+    task ファイルは仕様書ではなく、実装契約が明示的に優先する側にある。
+  - `inspectionQueueItemSchema` に `assigneeId` / 担当者名を持たせない。
+    `queue.spec.ts` が**応答の JSON に membership ID が現れないこと**を
+    値で固定する（列名を変えても漏れは漏れ）。
+- 影響:
+  - `assigneeId` はサーバー側で「自分が清掃したタスクか」を見るためだけに使う。
+  - 画面が担当者を知らなくても成立する。自己検査の除外は済んでいるため。
+  - `docs/tasks/P7-18.md` に「実装したときの差異」を追記した。
+
+## #194 施設横断の一覧の scope 判定を `resolveListScope()` に切り出す
+
+- 日付: 2026-08-16
+- 状態: 決定
+- 背景: 施設を選ばない一覧の権限判定に、既存の書き方が 1 つしか無かった。
+  差異レポート（P4-06）は
+  `propertyId === undefined ? ORGANIZATION_TARGET : propertyTarget([id])`
+  と書く。**「施設を選ばない一覧＝組織全体の権限」**という判定で、
+  `finding.read` を `ASSIGNED` で持つロールが施設横断を見ない前提なら正しい。
+  検査キュー（P7-18）では成り立たない。主な利用者の `INSPECTOR` は
+  `inspection.read` が `ASSIGNED` なので、この書き方だと施設横断の
+  検査キューに到達できるロールが 1 つも無くなる。
+- 決定: **第 3 の判定を共通関数として置く。**
+  施設スコープロールには「組織全体」ではなく
+  **`ctx.allowedPropertyIds` の集合そのもの**を対象にして権限を問う。
+  `can()` は部分集合判定なので、担当施設を全部並べた対象は通り、
+  担当外が 1 つでも混じれば通らない。
+  - 置き場所: `apps/web/src/lib/property/listScope.ts`
+  - 担当施設ゼロの施設スコープロールは **404**（空の一覧を 200 で返さない。
+    割当漏れを「今日は仕事が無い」と誤読させるため）。
+  - `isOrgWideRole()` で分岐しない。「組織全体を見られるか」は
+    ロールの属性ではなく操作ごとの `PERMISSION_MATRIX` の値で決まる。
+- 影響:
+  - **P7-20（監査ログの閲覧）が同じ関数を使う。** task の「自分の受託施設
+    スコープ内のみ（P7-18 と同じ scope 判定を再利用する）」がこれ。
+  - `tests/security/accessMatrix.spec.ts` の画面走査に 4 つ目の形として
+    `resolveListScope(` を足した。**委任先が実際に `assertPermission()` を
+    呼ぶことを別のテストで固定してある**（マーカーだけ増えるのを防ぐ）。
+  - `findings.ts` は今回変更していない。あちらの判定は現状の権限配分では
+    正しく、変えると `PROPERTY_MANAGER` の見え方が変わる。

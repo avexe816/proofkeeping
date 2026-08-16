@@ -154,13 +154,24 @@ describe("§6.4 全画面が権限判定を通る", () => {
       const source = code(join(APP_DIR, name));
       // **3 つ目の形**: `ScopeForbiddenError` を捕まえて戻す
       // （`orgDashboard.tsx`）。判定そのものは呼んだ lib が行っている。
+      // **4 つ目の形**: `resolveListScope()`（P7-18 / `lib/property/listScope.ts`）。
+      // 施設横断の一覧の scope 判定で、中で `assertPermission()` を呼ぶ。
+      // **委任先が本当に判定していることは下のテストが固定する。**
       const guarded =
         source.includes("assertPermission(") ||
         source.includes("can(") ||
-        source.includes("ScopeForbiddenError");
+        source.includes("ScopeForbiddenError") ||
+        source.includes("resolveListScope(");
       expect(guarded, name).toBe(true);
     },
   );
+
+  // 上の 4 つ目の形の裏付け。**マーカーだけ増やして中身が空になる**のを防ぐ。
+  it("resolveListScope() が assertPermission() を呼ぶ", () => {
+    expect(
+      code(join(ROOT, "apps", "web", "src", "lib", "property", "listScope.ts")),
+    ).toContain("assertPermission(");
+  });
 
   it("**免除に理由が書いてある**", () => {
     for (const [name, reason] of Object.entries(SCREEN_EXEMPTIONS)) {

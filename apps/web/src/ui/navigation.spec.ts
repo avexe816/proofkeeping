@@ -75,6 +75,8 @@ describe("登録簿の不変条件", () => {
       "nav.findings",
       // W-06 証跡一覧（P2-09）。「記録の確認」の 1 つめ。
       "nav.cleaningRecords",
+      // 検査キュー（P7-18）。「記録の確認」の証跡一覧の直後。
+      "nav.inspection",
       // W-22 データ品質ダッシュボード（P3-12）。「資材と分析」の 1 つめ。
       "nav.dataQuality",
       // §7.2 清掃会社プラン（P5-15）。「資材と分析」の最後。
@@ -124,6 +126,20 @@ describe("登録簿の不変条件", () => {
 
   it("INSPECTOR にタスク管理を出さない", () => {
     expect(keysFor("INSPECTOR")).not.toContain("nav.tasks");
+  });
+
+  // P7-18。**`inspection.read` が `DENY` のロールには項目ごと出さない。**
+  // グレー（未契約）にしない。グレーは「契約すれば見られる」の意味になる。
+  it("CLEANER に検査キューを出さない", () => {
+    expect(keysFor("CLEANER")).not.toContain("nav.inspection");
+  });
+
+  it("VENDOR_ADMIN に検査キューを出さない（自社の清掃を自社が検査しない）", () => {
+    expect(keysFor("VENDOR_ADMIN")).not.toContain("nav.inspection");
+  });
+
+  it("INSPECTOR に検査キューを出す", () => {
+    expect(keysFor("INSPECTOR")).toContain("nav.inspection");
   });
 
   it("項目のキーが重複しない", () => {

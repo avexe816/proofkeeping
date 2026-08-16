@@ -183,14 +183,22 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/evidence`,
   },
+  // 検査キュー（P7-18 / ui-prototypes/ops/pkops-A-daily-quality.html 04）。
+  // **`action` を `property.read` から `inspection.read` へ差し替えた。**
+  // 冒頭「`action` の暫定的な当て方」が言う「画面を作る task が差し替える」
+  // のがこれ。`property.read` のままだと `CLEANER` の項目が残る
+  // （あちらは現場ロールにも配られている）。
+  // **`href` に `{propertyId}` を持たない。** 施設横断の一覧で、施設は
+  // 画面のセレクタで絞る（`nav.findings` と同じ判断）。
   {
     key: "nav.inspection",
     icon: "👁️",
     section: "records",
     moduleCode: "HOUSEKEEPING_CORE",
-    action: "property.read",
+    action: "inspection.read",
     scope: "PROPERTY",
-    status: "PLANNED",
+    status: "READY",
+    href: "/app/inspections/queue",
   },
   // ── 資材と分析 ────────────────────────────────────────
   // W-22 データ品質ダッシュボード（P3-12 / PK-SPEC-P3 §6.3）。
