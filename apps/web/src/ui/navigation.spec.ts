@@ -68,6 +68,8 @@ describe("登録簿の不変条件", () => {
     expect(NAV_ITEMS.filter((item) => item.status === "READY").map((item) => item.key)).toEqual([
       "nav.dashboard",
       "nav.board",
+      // 進捗モニタ（P7-19）。「日次運用」で客室ボードの直後。
+      "nav.progress",
       "nav.tasks",
       // W-05（P1-04 の未達分）。
       "nav.plan",

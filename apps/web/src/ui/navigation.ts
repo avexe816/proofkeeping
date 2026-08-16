@@ -115,6 +115,19 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/board`,
   },
+  // P7-19 進捗モニタ。**施設横断**の画面で URL に施設 ID を持たない
+  // （`nav.inspection` と同じ形）。操作は `property.read` なので
+  // 施設スコープロールは担当施設ぶんだけが見える。
+  {
+    key: "nav.progress",
+    icon: "📶",
+    section: "daily",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "property.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: "/app/ops/progress",
+  },
   // W-04（P1-14）。**`task.manage`。** 配分は施設責任者の判断で、
   // 「盤面が見える人＝配れる人」ではない（§10.1 / §5.3）。
   {
