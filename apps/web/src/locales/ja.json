@@ -1202,5 +1202,19 @@
   "opsProgress.column.linenCollected": "リネン回収",
   "opsProgress.column.linenSupplied": "リネン供給",
   "opsProgress.totals.linen": "リネン 回収/供給",
-  "opsProgress.noLinen": "記録なし"
+  "opsProgress.noLinen": "記録なし",
+  "nav.auditLogs": "監査ログ",
+  "auditLogs.title": "監査ログ",
+  "auditLogs.intro": "設定の変更・帳票の発行・検査の確定などの操作記録です。閲覧のみで、追記も削除もできません。",
+  "auditLogs.filter.property": "施設",
+  "auditLogs.filter.all": "全施設",
+  "auditLogs.filter.from": "開始日",
+  "auditLogs.filter.to": "終了日",
+  "auditLogs.filter.apply": "表示",
+  "auditLogs.empty": "この期間の記録はありません。",
+  "auditLogs.orgWide": "組織全体",
+  "auditLogs.column.at": "日時",
+  "auditLogs.column.action": "操作",
+  "auditLogs.column.target": "対象",
+  "auditLogs.column.property": "施設"
 }

@@ -99,6 +99,8 @@ describe("登録簿の不変条件", () => {
       "nav.taxProfile",
       // 取引先と料金（P5-02 / P5-03）。事業者・税務設定の直後。
       "nav.counterparties",
+      // 監査ログの閲覧（P7-20）。取引先の直後。
+      "nav.auditLogs",
     ]);
   });
 
