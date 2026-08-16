@@ -179,6 +179,14 @@ cd "$(git rev-parse --show-toplevel)"   # ルートへ戻る
 **`docs/tasks/P0-02.md` の Cloudflare リソース作成が前提。** 以下は
 staging ぶんだけを抜き出した手順。**すべて人間の端末で実行する。**
 
+> **端末で打たずに済ませる道がある。** 同じ手順を
+> `.github/workflows/staging-bootstrap.yml`（`workflow_dispatch`）に写してある。
+> GitHub の Actions から `phase=resources` → PR をマージ → `phase=secrets-and-seed`
+> の順に押せば、①〜⑥ が runner 上で走る。**Actions の runner は
+> Cloudflare へ到達できるので、手元の認証も要らない**（GitHub Secrets の
+> `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` を使う）。
+> **以下は、その経路が使えないときの手順として残してある。**
+
 > **Queues は Workers の有料プランでのみ作成できる**（無料プランでは ①
 > の `wrangler queues create` が通らない）。R2 もバケット作成の前に R2 の
 > 有効化が要る。**課金の判断が先で、手順はそのあと。**

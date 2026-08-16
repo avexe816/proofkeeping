@@ -551,7 +551,9 @@ directory = "build/client"
 [env.staging.vars]
 ENVIRONMENT = "staging"
 SHARD_COUNT = "2"
-APP_BASE_URL = "https://staging.proofkeeping.example"
+# 初回デプロイの出力と一致すること（runbook §3.5 ⑤）。
+# `pk-staging` は固定名なので URL も固定。**サブドメインはアカウント固有。**
+APP_BASE_URL = "https://pk-staging.ukh816-account.workers.dev"
 RESEND_FROM_ADDRESS = "billing@example.invalid"
 
 [[env.staging.d1_databases]]

@@ -205,6 +205,12 @@ jobs:
           elif [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
             echo "preview: CLOUDFLARE_API_TOKEN が未設定のため実施しません（P0-02 が未完）。"
             echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif grep -q "TODO-P0-02-未作成-PREVIEW" apps/web/wrangler.toml; then
+            # **資源が無い状態で deploy を試すと必ず落ちる**（KV の id が
+            # プレースホルダのままなので API が 10042 を返す）。ここで抜ける。
+            # 資源を作って ID を差し替えたら、この分岐は自然に通らなくなる。
+            echo "preview: wrangler.toml に TODO-P0-02-未作成-PREVIEW が残っているため実施しません。"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
@@ -255,6 +261,11 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
           elif [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
             echo "staging: CLOUDFLARE_API_TOKEN が未設定のため実施しません（P0-02 が未完）。"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif grep -q "TODO-P0-02-未作成-STAGING" apps/web/wrangler.toml; then
+            # preview と同じ理由。**staging-bootstrap（phase=resources）が
+            # 出す PR をマージすると、この分岐を抜けて自動デプロイが始まる。**
+            echo "staging: wrangler.toml に TODO-P0-02-未作成-STAGING が残っているため実施しません。"
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
