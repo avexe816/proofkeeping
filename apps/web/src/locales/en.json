@@ -397,5 +397,9 @@
   "opsProgress.column.planned": "Planned",
   "opsProgress.column.completed": "Completed",
   "opsProgress.column.rework": "Re-cleaning",
-  "opsProgress.column.percent": "Progress"
+  "opsProgress.column.percent": "Progress",
+  "opsProgress.column.linenCollected": "Linen collected",
+  "opsProgress.column.linenSupplied": "Linen supplied",
+  "opsProgress.totals.linen": "Linen in/out",
+  "opsProgress.noLinen": "No records"
 }

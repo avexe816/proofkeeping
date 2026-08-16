@@ -1993,6 +1993,14 @@ const INVOCATIONS: Invocation[] = [
       observationRepo.upsertObservationConfig(env, ctx, CONFIG_INPUT(OTHER_ID)),
   },
   {
+    // P7-19 進捗モニタの列。**業務日 1 日ぶんの合計**なので run だけ
+    // （crossTenant は withTenantScope が組織で切るため、他組織の行は
+    // そもそも合計に載らない。挙動は tenant-isolation 側が見る）。
+    name: "observation.sumLinenByProperty",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.sumLinenByProperty(env, ctx, "2026-08-16"),
+  },
+  {
     name: "observation.listLinenRecordsInRange",
     kind: "tenant",
     run: (env, ctx) =>
