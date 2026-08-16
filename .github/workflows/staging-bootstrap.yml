@@ -31,6 +31,7 @@ on:
         options:
           - check
           - db-status
+          - smoke
           - resources
           - reset-db
           - secrets-and-seed
@@ -59,7 +60,7 @@ jobs:
       # 作る phase だけを CREATE で守る。
       - name: 実行確認
         run: |
-          if [ "${{ inputs.phase }}" = "check" ] || [ "${{ inputs.phase }}" = "db-status" ]; then
+          if [ "${{ inputs.phase }}" = "check" ] || [ "${{ inputs.phase }}" = "db-status" ] || [ "${{ inputs.phase }}" = "smoke" ]; then
             echo "${{ inputs.phase }}: 読み取りのみ。何も変更しません。"
             exit 0
           fi
@@ -289,6 +290,48 @@ jobs:
           gh pr create --base main --head "$branch" \
             --title "chore: staging の D1 / KV を実 ID へ差し替える" \
             --body-file /tmp/pr-body.md
+
+      # ── ⓪-3 通しの確認（ログイン → 画面 → API）─────────────
+      #
+      # **画面が出ることと、入れることは別。** /login が 200 でも、
+      # SESSION_SECRET が無ければログインは 503 で落ちる。実際に
+      # セッションを取り、認証が要る API と画面まで到達して確かめる。
+      - name: 通しで確認する（ログイン・画面・API）
+        if: inputs.phase == 'smoke'
+        working-directory: apps/web
+        run: |
+          base=$(awk '/^\[env.staging.vars\]/,/^\[\[/' wrangler.toml | grep APP_BASE_URL | sed 's/.*= *//' | tr -d '"')
+          jar=/tmp/pk-cookie.txt; rm -f "$jar"
+          ok=0; ng=0
+          say() { if [ "$1" = "0" ]; then ok=$((ok+1)); echo "OK   $2"; else ng=$((ng+1)); echo "NG   $2"; fi; }
+
+          code=$(curl -s -o /tmp/r -w "%{http_code}" --max-time 20 "$base/api/health")
+          grep -q '"state":"ok"' /tmp/r && say 0 "/api/health = ok" || say 1 "/api/health ($code): $(head -c 200 /tmp/r)"
+
+          # **未認証は 401 であること。** 誰でも読める状態になっていないか。
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$base/api/v1/properties/summary")
+          [ "$code" = "401" ] && say 0 "未認証の API = 401" || say 1 "未認証の API が $code"
+
+          code=$(curl -s -o /tmp/r -w "%{http_code}" --max-time 30 -c "$jar" -X POST "$base/api/v1/auth/login" \
+                 -H "content-type: application/json" \
+                 -d "{\"orgShortId\":\"seed01\",\"staffNumber\":\"0001\",\"password\":\"testpass-01\"}")
+          [ "$code" = "200" ] && say 0 "管理ログイン（seed01 / 0001）" || say 1 "管理ログインが $code: $(head -c 200 /tmp/r)"
+
+          code=$(curl -s -o /tmp/r -w "%{http_code}" --max-time 20 -b "$jar" "$base/api/v1/properties/summary")
+          [ "$code" = "200" ] && say 0 "施設一覧 API（$(jq -r '.data | length' /tmp/r 2>/dev/null) 件）" || say 1 "施設一覧 API が $code"
+
+          for path in /app/dashboard /m/today; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 -b "$jar" -L "$base$path")
+            [ "$code" = "200" ] && say 0 "画面 $path" || say 1 "画面 $path が $code"
+          done
+
+          {
+            echo "## 通し確認: 成功 $ok / 失敗 $ng"
+            echo ""
+            echo "- URL: $base/login"
+            echo "- 組織 ID: seed01 / スタッフ番号: 0001 / パスワード: testpass-01"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$ng" = "0" ]
 
       # ── ⓪-2 D1 の中身と、動いている Worker の様子を読む ─────
       #
