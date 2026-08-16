@@ -279,7 +279,38 @@ jobs:
             --title "chore: staging の D1 / KV を実 ID へ差し替える" \
             --body-file /tmp/pr-body.md
 
-      # ── ③ 秘密の登録とシード投入（デプロイ後に実行する）──
+      # ── ③-1 migration（シードより先）──────────────────────
+      #
+      # **空の D1 にシードは入らない。** 表が無いので必ず失敗する。
+      # `pnpm db:migrate --env staging` は `--remote` で実在の D1 を触る。
+      #
+      # **ここが CI（ci.yml）と違う点。** ci.yml は main への push で
+      # migration を流さない（後方互換でない変更が気づく前に当たるのを避ける /
+      # runbook §3.5 ④）。**これは人が明示的に押したときだけ走る**ので流してよい。
+      #
+      # 触る先が staging であることは、**流す前に名前で確かめる。**
+      # `--env` を間違えたときに production の 16 シャードへ当たらないようにする。
+      - name: staging へ migration を流す
+        if: inputs.phase == 'secrets-and-seed'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          # **wrangler.toml の [env.staging] が staging の D1 だけを指すこと。**
+          names=$(awk '/^\[env.staging\]/,/^\[env.production\]/' apps/web/wrangler.toml \
+                  | grep 'database_name' | sed 's/.*= *//' | tr -d '"')
+          echo "対象の D1:"; echo "$names"
+          if echo "$names" | grep -v -- '-staging$' | grep -q .; then
+            echo "staging 以外の D1 が混ざっています。中止します。"
+            exit 1
+          fi
+
+          pnpm db:migrate --env staging --check || true   # 何が未適用かを先に出す
+          pnpm db:migrate --env staging
+
+      # ── ③-2 秘密の登録とシード投入（デプロイ後に実行する）──
       #
       # **値を出力しない。** 生成した SESSION_SECRET はログにも PR にも出さない。
       # シードの鍵も同様で、**このジョブの中だけで使って捨てる。**
