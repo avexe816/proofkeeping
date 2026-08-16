@@ -25,15 +25,16 @@ on:
   workflow_dispatch:
     inputs:
       phase:
-        description: "resources = 資源を作り ID の PR を出す / secrets-and-seed = 秘密の登録とシード投入（デプロイ後）"
+        description: "check = 読むだけ（課金なし） / resources = 資源を作り ID の PR を出す / secrets-and-seed = 秘密の登録とシード投入（デプロイ後）"
         required: true
         type: choice
         options:
+          - check
           - resources
           - secrets-and-seed
       confirm:
-        description: "CREATE と入力すると実行する（課金資源を作成します）"
-        required: true
+        description: "CREATE と入力すると実行する（phase=check では不要）"
+        required: false
         type: string
 
 permissions:
@@ -49,8 +50,14 @@ jobs:
   bootstrap:
     runs-on: ubuntu-latest
     steps:
+      # **check は何も作らないので confirm を要求しない。**
+      # 作る phase だけを CREATE で守る。
       - name: 実行確認
         run: |
+          if [ "${{ inputs.phase }}" = "check" ]; then
+            echo "phase=check: 読み取りのみ。資源は作りません。"
+            exit 0
+          fi
           if [ "${{ inputs.confirm }}" != "CREATE" ]; then
             echo "confirm に CREATE と入力されていません。何もせずに終了します。"
             exit 1
@@ -74,6 +81,32 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # ── ⓪ 現状を読むだけ（課金なし）─────────────────────
+      #
+      # **作る前に、作れるかを確かめる。** Queues は有料プランでしか使えず、
+      # 一覧の取得可否でそれが分かる。落ちても資源は 1 つも作られない。
+      - name: 現状を読む（何も作らない）
+        if: inputs.phase == 'check'
+        working-directory: apps/web
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "## 既存の資源" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### D1" | tee -a "$GITHUB_STEP_SUMMARY"
+          pnpm exec wrangler d1 list 2>&1 | tail -30 | tee -a "$GITHUB_STEP_SUMMARY"
+
+          echo "### KV" | tee -a "$GITHUB_STEP_SUMMARY"
+          pnpm exec wrangler kv namespace list 2>&1 | tail -40 | tee -a "$GITHUB_STEP_SUMMARY"
+
+          echo "### R2" | tee -a "$GITHUB_STEP_SUMMARY"
+          pnpm exec wrangler r2 bucket list 2>&1 | tail -30 | tee -a "$GITHUB_STEP_SUMMARY"
+
+          echo "### Queues（ここが権限エラー以外で落ちるなら無料プラン）" | tee -a "$GITHUB_STEP_SUMMARY"
+          pnpm exec wrangler queues list 2>&1 | tail -30 | tee -a "$GITHUB_STEP_SUMMARY"
 
       # ── ① 資源を作る ────────────────────────────────────
       #
