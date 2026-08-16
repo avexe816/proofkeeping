@@ -1940,7 +1940,7 @@ GA 判定前に P8 の task を作らない（CLAUDE.md §9）方針は変えて
 
 - [x] P7-18 検査キュー（`nav.inspection` を PLANNED → READY）
 - [x] P7-19 進捗モニタ（受託施設の当日進捗 / rollup を引く）
-- [ ] P7-20 監査ログの閲覧（**読み取り専用** / 12 を分割した閲覧側）
+- [x] P7-20 監査ログの閲覧（**読み取り専用** / 12 を分割した閲覧側）
 
 **P7-18 が P7-20 へ渡すもの**: 施設横断の scope 判定
 `resolveListScope()`（`apps/web/src/lib/property/listScope.ts` / DECISIONS #194）。

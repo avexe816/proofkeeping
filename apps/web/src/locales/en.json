@@ -401,5 +401,19 @@
   "opsProgress.column.linenCollected": "Linen collected",
   "opsProgress.column.linenSupplied": "Linen supplied",
   "opsProgress.totals.linen": "Linen in/out",
-  "opsProgress.noLinen": "No records"
+  "opsProgress.noLinen": "No records",
+  "nav.auditLogs": "Audit log",
+  "auditLogs.title": "Audit log",
+  "auditLogs.intro": "A read-only record of settings changes, document issuance, inspection results and other operations.",
+  "auditLogs.filter.property": "Property",
+  "auditLogs.filter.all": "All properties",
+  "auditLogs.filter.from": "From",
+  "auditLogs.filter.to": "To",
+  "auditLogs.filter.apply": "Show",
+  "auditLogs.empty": "No records in this period.",
+  "auditLogs.orgWide": "Organization-wide",
+  "auditLogs.column.at": "Time",
+  "auditLogs.column.action": "Action",
+  "auditLogs.column.target": "Target",
+  "auditLogs.column.property": "Property"
 }

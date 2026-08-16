@@ -172,6 +172,8 @@ export default [
     // 見出しのすぐ下に出す画面。**
     route("app/archive", "routes/app/archive.tsx"),
     route("app/audit/findings", "routes/app/findings.tsx"),
+    // P7-20 監査ログの閲覧（読み取り専用）。門は finding.read。
+    route("app/audit/logs", "routes/app/auditLogs.tsx"),
     route("app/audit/findings/:findingId", "routes/app/findingDetail.tsx"),
     // P7-18。検査キュー（施設横断）。**`:propertyId` を URL に持たない。**
     // 「次に検査するもの」を施設をまたいで選ぶ画面で、施設は `?propertyId=`

@@ -199,7 +199,10 @@ describe("INV-30: 監査ログを消せない", () => {
    * テストの中で 2 度使うので定数にしてある（上のテストは「意図した一覧か」を、
    * 下のテストは「実装が一覧と一致するか」を見る）。
    */
-  const EXPECTED_FUNCTIONS = ["recordAudit", "listAuditLogs"];
+  // P7-20 で listAuditLogsForViewer を追加。権限は決めてある:
+  // 画面の loader が `finding.read`（監査領域の既存の境界）で門を張り、
+  // CLEANER / INSPECTOR は 404、施設スコープは担当施設のみ、読み取り専用。
+  const EXPECTED_FUNCTIONS = ["recordAudit", "listAuditLogs", "listAuditLogsForViewer"];
 
   it("auditLog に対する update / delete がリポジトリに存在しない", () => {
     // INV-30 / PK-IMPL-CONTRACT §11.4。訂正は新レコードの追加で行う。
@@ -220,7 +223,7 @@ describe("INV-30: 監査ログを消せない", () => {
     // ここは名前の一覧を固定するだけ。**汎用の閲覧・検索・エクスポートを
     // 足すときは、この一覧に載せる前に権限（誰が監査ログを読めるか）を
     // 決めること。**
-    expect(EXPECTED_FUNCTIONS).toEqual(["recordAudit", "listAuditLogs"]);
+    expect(EXPECTED_FUNCTIONS).toEqual(["recordAudit", "listAuditLogs", "listAuditLogsForViewer"]);
   });
 
   it("公開している関数が上の一覧と一致する", async () => {

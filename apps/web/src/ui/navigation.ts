@@ -384,6 +384,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/settings/counterparties",
   },
+  // P7-20 監査ログの閲覧。**読み取り専用。** 門は finding.read
+  // （監査領域の既存の境界と同じ。新しい権限区分を作らない）。
+  {
+    key: "nav.auditLogs",
+    icon: "🧭",
+    section: "settings",
+    moduleCode: "AUDIT",
+    action: "finding.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: "/app/audit/logs",
+  },
   {
     key: "nav.propertySettings",
     icon: "⚙️",

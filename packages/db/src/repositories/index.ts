@@ -24,6 +24,7 @@ export {
 export {
   AUDIT_ACTIONS,
   listAuditLogs,
+  listAuditLogsForViewer,
   recordAudit,
   type AuditAction,
   type AuditLogFilter,

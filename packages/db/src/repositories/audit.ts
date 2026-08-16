@@ -22,7 +22,7 @@
  * （`repositories/property.ts` の申し送り）。
  */
 
-import { eq, gte, inArray, lte } from "drizzle-orm";
+import { desc, eq, gte, inArray, lte } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -30,7 +30,7 @@ import { serializeAuditPayload } from "../mask.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import { auditLog } from "../schema/audit.js";
 
-import { withTenantScope } from "./base.js";
+import { ALWAYS_TRUE, withTenantScope } from "./base.js";
 
 /**
  * 監査対象の操作。**閉じたレジストリ。**
@@ -355,4 +355,67 @@ export async function listAuditLogs(env: Env, ctx: TenantContext, filter: AuditL
     )
     .orderBy(auditLog.at, auditLog.id)
     .limit(filter.limit ?? 1000);
+}
+
+/** `listAuditLogsForViewer()` の絞り込み。**シンプルに 3 つだけ。** */
+export interface AuditLogViewerFilter {
+  /** `null` は組織全体（権限判定は呼び出し側の `resolveListScope()`）。 */
+  propertyIds: readonly string[] | null;
+  from: Date;
+  to: Date;
+  limit?: number | undefined;
+}
+
+/**
+ * 監査ログの閲覧（P7-20 / W 権限と監査の閲覧側）。**読み取り専用。**
+ *
+ * `listAuditLogs()`（照合の根拠読み）を広げない、との注記に従い別関数。
+ *
+ * ── `before` / `after` を返さない ───────────────────────
+ * security.md §6 はハッシュのマスクを求める。**列ごと選ばないのが
+ * いちばん確実**で、画面の用途（いつ・誰が・何に・何をしたか）にも足りる。
+ *
+ * ── 新しい順 ────────────────────────────────────────────
+ * 閲覧は「最近なにが起きたか」から見る。照合用の古い順と逆。
+ *
+ * ── 施設に紐づかない行（propertyId が null）────────────
+ * 組織設定の変更などは施設列が null。**組織全体を見られる相手にだけ**
+ * 出る（施設スコープは `inArray` で必ず落ちる）。
+ */
+export async function listAuditLogsForViewer(
+  env: Env,
+  ctx: TenantContext,
+  filter: AuditLogViewerFilter,
+) {
+  // 施設 ID は resolveListScope() 済みの値だが、**ID の形もここで見る**
+  // （第 2 層 / architecture.md §2。別組織の ID は DB へ行く前に 404）。
+  for (const propertyId of filter.propertyIds ?? []) {
+    assertIdBelongsToTenant(propertyId, ctx);
+  }
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select({
+      id: auditLog.id,
+      propertyId: auditLog.propertyId,
+      actorId: auditLog.actorId,
+      action: auditLog.action,
+      targetType: auditLog.targetType,
+      targetId: auditLog.targetId,
+      at: auditLog.at,
+    })
+    .from(auditLog)
+    .where(
+      withTenantScope(
+        auditLog,
+        ctx,
+        auditLog.propertyId,
+        filter.propertyIds === null
+          ? ALWAYS_TRUE
+          : inArray(auditLog.propertyId, [...filter.propertyIds]),
+        gte(auditLog.at, filter.from),
+        lte(auditLog.at, filter.to),
+      ),
+    )
+    .orderBy(desc(auditLog.at), desc(auditLog.id))
+    .limit(filter.limit ?? 200);
 }

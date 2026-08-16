@@ -2001,6 +2001,23 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => observationRepo.sumLinenByProperty(env, ctx, "2026-08-16"),
   },
   {
+    // P7-20 監査ログの閲覧。読み取り専用（書く関数は recordAudit だけ）。
+    name: "audit.listAuditLogsForViewer",
+    kind: "tenant",
+    run: (env, ctx) =>
+      auditRepo.listAuditLogsForViewer(env, ctx, {
+        propertyIds: [OWN_ID.property],
+        from: new Date("2026-08-01T00:00:00Z"),
+        to: new Date("2026-08-31T00:00:00Z"),
+      }),
+    crossTenant: (env, ctx) =>
+      auditRepo.listAuditLogsForViewer(env, ctx, {
+        propertyIds: [OTHER_ID.property],
+        from: new Date("2026-08-01T00:00:00Z"),
+        to: new Date("2026-08-31T00:00:00Z"),
+      }),
+  },
+  {
     name: "observation.listLinenRecordsInRange",
     kind: "tenant",
     run: (env, ctx) =>
