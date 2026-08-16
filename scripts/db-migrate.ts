@@ -19,7 +19,8 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { parse } from "smol-toml";
@@ -144,12 +145,58 @@ function commandArg(sql: string): string {
   return `--command=${sql}`;
 }
 
+/** 適用する SQL を置く一時ディレクトリ。プロセス 1 回につき 1 つ。 */
+const SQL_DIR = mkdtempSync(join(tmpdir(), "pk-migrate-"));
+let sqlFileSeq = 0;
+
+/**
+ * 適用する SQL は**ファイルで渡す**（`--file=<path>`）。
+ *
+ * ── なぜ `--command` ではないのか ───────────────────────
+ * `--command` は 1 引数に SQL 全体を載せる。初回マイグレーション（0000）は
+ * 表 15 個ぶんで数十 KB あり、**`--remote` はこれを受け取れない。**
+ * local（miniflare）は通るので、**ローカルで確かめても分からない。**
+ * 実際、staging の D1 で最初の 1 本目が落ちた。
+ *
+ * `--file` は wrangler が文へ分割して送る。**大きさに依らない。**
+ * 先頭が `--` の SQL も、そもそも引数に載らないので問題にならない。
+ *
+ * 問い合わせ（`--json` の SELECT）は短いので `--command` のままでよい。
+ */
+function fileArg(sql: string): string {
+  sqlFileSeq += 1;
+  const path = join(SQL_DIR, `migration-${String(sqlFileSeq).padStart(4, "0")}.sql`);
+  writeFileSync(path, sql, "utf8");
+  return `--file=${path}`;
+}
+
+/**
+ * wrangler を実行する。**stderr を捨てない。**
+ *
+ * 以前は `stdio` の 3 つ目が `"inherit"` で、失敗したときに例外へ載るのは
+ * 「実行したコマンド（＝ SQL 全文）」だけだった。**wrangler が何と言って
+ * 落ちたのかが、数十 KB の SQL に埋もれて読めない。** 捕まえて、最後の
+ * 数行だけを出す。
+ */
 function runWrangler(environment: Environment, databaseName: string, extra: string[]): string {
-  return execFileSync(
-    "pnpm",
-    ["exec", "wrangler", ...wranglerArgs(environment, databaseName), ...extra],
-    { cwd: join(ROOT, "apps", "web"), encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
-  );
+  try {
+    return execFileSync(
+      "pnpm",
+      ["exec", "wrangler", ...wranglerArgs(environment, databaseName), ...extra],
+      { cwd: join(ROOT, "apps", "web"), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+  } catch (error) {
+    const stderr = (error as { stderr?: string }).stderr ?? "";
+    const stdout = (error as { stdout?: string }).stdout ?? "";
+    const tail = [stdout, stderr]
+      .join("\n")
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .slice(-20)
+      .join("\n");
+    console.error(`wrangler が失敗しました（${databaseName}）:\n${tail}`);
+    throw new Error(`WRANGLER_FAILED:${databaseName}`);
+  }
 }
 
 /**
@@ -177,7 +224,7 @@ async function main(): Promise<void> {
   const result = await runMigrations(
     {
       execute: (target, sql) => {
-        runWrangler(environment, target.databaseName, [commandArg(sql)]);
+        runWrangler(environment, target.databaseName, [fileArg(sql)]);
         return Promise.resolve();
       },
       query: (target, sql) =>

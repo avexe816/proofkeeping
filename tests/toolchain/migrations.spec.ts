@@ -138,8 +138,16 @@ describe("P0-06 マイグレーション", () => {
     // 注意書きとしてコメントに書いてあり、そのままだと自分で引っ掛かる。
     const code = runner.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
+    // 短い問い合わせ（`--json` の SELECT）は引数で渡す。**2 語に分けない。**
     expect(code).toContain("`--command=${sql}`");
     expect(code).not.toMatch(/"--command",\s*sql/);
+
+    // **適用する SQL はファイルで渡す。** `--command` は 1 引数に SQL 全体を
+    // 載せるため、初回マイグレーション（表 15 個・数十 KB）を `--remote` が
+    // 受け取れない。**local（miniflare）は通るので手元では再現しない。**
+    // 実際、staging の D1 で 1 本目が落ちた。
+    expect(code).toContain("`--file=${path}`");
+    expect(code).toMatch(/execute:[\s\S]{0,200}fileArg\(sql\)/);
   });
 
   it("先頭が SQL コメントのマイグレーションが存在する（上のテストの前提）", () => {
