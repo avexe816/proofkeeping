@@ -177,6 +177,8 @@ export default [
     // 「次に検査するもの」を施設をまたいで選ぶ画面で、施設は `?propertyId=`
     // で絞る（差異レポートと同じ形）。`CLEANER` は loader が 404 を投げる。
     route("app/inspections/queue", "routes/app/inspectionQueue.tsx"),
+    // P7-19 進捗モニタ（施設横断）。門は loader の resolveListScope()。
+    route("app/ops/progress", "routes/app/opsProgress.tsx"),
   ]),
   // シェルの外に置く。POST のたびにシェルの loader を動かす必要が無い
   // （切替後のリダイレクトで、どのみち loader は動き直す）。
