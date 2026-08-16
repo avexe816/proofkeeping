@@ -30,6 +30,7 @@ on:
         type: choice
         options:
           - check
+          - db-status
           - resources
           - reset-db
           - secrets-and-seed
@@ -58,8 +59,8 @@ jobs:
       # 作る phase だけを CREATE で守る。
       - name: 実行確認
         run: |
-          if [ "${{ inputs.phase }}" = "check" ]; then
-            echo "phase=check: 読み取りのみ。資源は作りません。"
+          if [ "${{ inputs.phase }}" = "check" ] || [ "${{ inputs.phase }}" = "db-status" ]; then
+            echo "${{ inputs.phase }}: 読み取りのみ。何も変更しません。"
             exit 0
           fi
           if [ "${{ inputs.phase }}" = "reset-db" ]; then
@@ -288,6 +289,40 @@ jobs:
           gh pr create --base main --head "$branch" \
             --title "chore: staging の D1 / KV を実 ID へ差し替える" \
             --body-file /tmp/pr-body.md
+
+      # ── ⓪-2 D1 の中身と、動いている Worker の様子を読む ─────
+      #
+      # **消す前に読む。** reset-db が「org_directory に 1 行ある」で止まった。
+      # 表は 23 本ぶん揃っており、**スキーマは入っていて記録だけが無い**
+      # 可能性がある。どちらなのかで打つ手が変わる。
+      - name: D1 の状態を読む（何も変更しない）
+        if: inputs.phase == 'db-status'
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          q() {  # $1=db $2=sql
+            pnpm exec wrangler d1 execute "$1" --remote --env staging --json --command="$2" \
+              2>/dev/null | sed -n '/\[/,$p' | jq -c '.[].results'
+          }
+
+          for db in proofkeeping-shard-00-staging proofkeeping-shard-01-staging; do
+            echo "== $db =="
+            echo "表の数: $(q "$db" "SELECT count(*) AS n FROM sqlite_master WHERE type='"'"'table'"'"' AND name NOT LIKE '"'"'sqlite_%'"'"';")"
+            echo "適用記録(schema_version): $(q "$db" "SELECT * FROM schema_version ORDER BY 1;")"
+            echo "組織数: $(q "$db" "SELECT count(*) AS n FROM organization;")"
+            echo "利用者数: $(q "$db" "SELECT count(*) AS n FROM user;")"
+            echo "施設数: $(q "$db" "SELECT count(*) AS n FROM property;")"
+          done
+
+          echo "== 動いている Worker =="
+          base=$(awk '/^\[env.staging.vars\]/,/^\[\[/' wrangler.toml | grep APP_BASE_URL | sed 's/.*= *//' | tr -d '"')
+          echo "APP_BASE_URL=$base"
+          echo "--- /api/health ---"
+          curl -s --max-time 20 "$base/api/health" | head -c 600; echo
+          echo "--- /login (HTTP コード) ---"
+          curl -s -o /dev/null -w "%{http_code}\n" --max-time 20 "$base/login"
 
       # ── ②-5 staging の D1 を空にする（復旧用）───────────────
       #
