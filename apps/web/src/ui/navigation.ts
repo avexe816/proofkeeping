@@ -61,6 +61,14 @@ export const NAV_SECTION_LABEL: Record<NavSection, MessageKey> = {
 interface NavItemBase {
   key: MessageKey;
   section: NavSection;
+  /**
+   * 項目のアイコン（A01 §4.1「アイコン + ラベル + 件数バッジ」）。
+   *
+   * **絵文字 1 文字。** 画像を持たないのは、サイドバーのためだけに
+   * スプライトや font を足すと、色とサイズの調整先が 2 つに増えるため。
+   * 幅は CSS（`.pk-nav__icon`）で固定してラベルの左端を揃える。
+   */
+  icon: string;
   /** 未契約ならグレー表示にするモジュール（P0-12）。 */
   moduleCode: ModuleCode;
   /** 権限判定の操作。**全項目が必ず持つ。** */
@@ -89,6 +97,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // ── 日次運用 ──────────────────────────────────────────
   {
     key: "nav.dashboard",
+    icon: "📊",
     section: "daily",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "property.read",
@@ -98,6 +107,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "nav.board",
+    icon: "🏨",
     section: "daily",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "property.read",
@@ -109,6 +119,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // 「盤面が見える人＝配れる人」ではない（§10.1 / §5.3）。
   {
     key: "nav.tasks",
+    icon: "🧹",
     section: "daily",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "task.manage",
@@ -120,6 +131,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // 入力する画面で、読むだけの人が辿る先ではない（§10.1 の `P_MANAGER 以上`）。
   {
     key: "nav.plan",
+    icon: "🛏️",
     section: "daily",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "roomPlan.write",
@@ -134,6 +146,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // 出すため。組織全体を読めない相手には表示中の施設が既定になる。
   {
     key: "nav.findings",
+    icon: "⚠️",
     section: "daily",
     moduleCode: "AUDIT",
     action: "finding.read",
@@ -149,6 +162,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // 起きない導線になる。詳細へは一覧の行から入る。
   {
     key: "nav.findingDetail",
+    icon: "🔍",
     section: "records",
     moduleCode: "AUDIT",
     action: "finding.read",
@@ -161,6 +175,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // ZIP の持ち出しだけが別の権限（`evidence.export`）。
   {
     key: "nav.cleaningRecords",
+    icon: "📋",
     section: "records",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "task.read",
@@ -170,6 +185,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "nav.inspection",
+    icon: "👁️",
     section: "records",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "property.read",
@@ -181,6 +197,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // **`scope` は `PROPERTY`。** 施設と月で見る画面で、URL に施設 ID を持つ。
   {
     key: "nav.dataQuality",
+    icon: "📈",
     section: "analysis",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "dataQuality.read",
@@ -190,6 +207,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "nav.linen",
+    icon: "🧺",
     section: "analysis",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "property.read",
@@ -198,6 +216,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "nav.report",
+    icon: "📄",
     section: "analysis",
     moduleCode: "AUDIT",
     action: "property.read",
@@ -206,6 +225,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "nav.billing",
+    icon: "💴",
     section: "analysis",
     moduleCode: "BILLING",
     action: "billing.read",
@@ -219,6 +239,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // 画面で、1 施設ぶんだけを出しても §7.2 MUST の判定が成り立たない。
   {
     key: "nav.vendorPlan",
+    icon: "🏢",
     section: "analysis",
     moduleCode: "VENDOR_PLAN",
     action: "billing.read",
@@ -232,6 +253,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // 到達経路が無く、URL を直に打つしか無い状態だった。
   {
     key: "nav.rooms",
+    icon: "🚪",
     section: "settings",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "property.write",
@@ -245,6 +267,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // `scope` は `PROPERTY`（`room_type` は施設ごとのマスタ）。
   {
     key: "nav.roomTypes",
+    icon: "🛎️",
     section: "settings",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "property.write",
@@ -257,6 +280,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // 定めており、施設スコープロールには項目ごと出ない。
   {
     key: "nav.checklists",
+    icon: "☑️",
     section: "settings",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "checklistTemplate.write",
@@ -266,6 +290,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "nav.standardTimes",
+    icon: "⏱️",
     section: "settings",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "standardTime.write",
@@ -278,6 +303,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // 表示中の施設だが、到達できるロールは組織単位で決まる。
   {
     key: "nav.observationSettings",
+    icon: "👀",
     section: "settings",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "observationConfig.write",
@@ -292,6 +318,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // §6.4 の表で `OWNER` / `ORG_ADMIN` だけ（`AUDITOR` は読み取り）。
   {
     key: "nav.rules",
+    icon: "⚖️",
     section: "settings",
     moduleCode: "AUDIT",
     action: "ruleConfig.read",
@@ -301,6 +328,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "nav.baseline",
+    icon: "📐",
     section: "settings",
     moduleCode: "HOUSEKEEPING_CORE",
     action: "baseline.override",
@@ -312,6 +340,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // 請求モジュールの契約が無くても要る（未設定でも画面は成立する / P0-16）。
   {
     key: "nav.taxProfile",
+    icon: "🧾",
     section: "settings",
     moduleCode: "PLATFORM",
     action: "taxProfile.write",
@@ -326,6 +355,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // `INSPECTOR` / `CLEANER` に配られていない（security.md §1）。
   {
     key: "nav.counterparties",
+    icon: "🤝",
     section: "settings",
     moduleCode: "BILLING",
     action: "billing.read",
@@ -335,6 +365,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "nav.propertySettings",
+    icon: "⚙️",
     section: "settings",
     moduleCode: "PLATFORM",
     action: "property.write",
@@ -343,6 +374,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "nav.permission",
+    icon: "🔑",
     section: "settings",
     moduleCode: "PLATFORM",
     action: "user.write",

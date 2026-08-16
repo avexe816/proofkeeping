@@ -375,5 +375,8 @@
   "archive.rows.unavailable": "The viewing period has ended. Please request a restore again.",
   "archive.error.RANGE_INVERTED": "The start date is after the end date.",
   "archive.error.RANGE_TOO_WIDE": "A restore can cover at most 3 months.",
-  "archive.error.ALREADY_RUNNING": "Another restore is being prepared. Please try again once it finishes."
+  "archive.error.ALREADY_RUNNING": "Another restore is being prepared. Please try again once it finishes.",
+  "dashboard.noProperty": "No property is assigned to you yet. Please contact your administrator.",
+  "app.brand.proof": "Proof",
+  "app.brand.keeping": "Keeping"
 }

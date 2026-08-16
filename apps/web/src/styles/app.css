@@ -99,6 +99,23 @@ body {
   font-weight: 800;
 }
 
+/* ロゴの後半だけを金にする。`em` の既定の斜体は消す（プロトタイプと同じ）。 */
+.pk-topbar__brandAccent {
+  color: var(--accent2);
+  font-style: normal;
+}
+
+/* サイドバーの項目アイコン（A01 §4.1「アイコン + ラベル + 件数バッジ」）。
+   幅を固定して**ラベルの左端を揃える。** 絵文字は字幅が揃わないため、
+   中央寄せの箱に入れないと 1 文字ぶんずつずれる。 */
+.pk-nav__icon {
+  width: 18px;
+  flex-shrink: 0;
+  font-size: 15px;
+  text-align: center;
+  font-style: normal;
+}
+
 .pk-topbar__right {
   display: flex;
   gap: 10px;

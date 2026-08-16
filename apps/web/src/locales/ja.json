@@ -1129,7 +1129,6 @@
   "setup.step.done.title": "完了",
   "setup.step.done.body": "お疲れさまでした。翌朝からタスクが自動で作られます。",
   "room.trialLimit": "お試し中に登録できる客室は 150 室までです。1 室も登録していません。",
-
   "staff.title": "スタッフの登録",
   "staff.lede": "登録すると、現場に貼れる案内をその場で印刷できます。",
   "staff.noProperty": "先に施設を登録してください。担当する施設が 1 つも無いスタッフは、タスクが表示されません。",
@@ -1154,5 +1153,8 @@
   "staff.card.pin": "PIN",
   "staff.card.notice": "初回ログイン時に PIN を変更してください。",
   "staff.card.pinOnce": "PIN が表示されるのはこの 1 回だけです。印刷するか書き留めてから、この画面を離れてください。",
-  "staff.card.printHint": "ブラウザの印刷機能（Ctrl+P / ⌘+P）で 1 枚に印刷できます。"
+  "staff.card.printHint": "ブラウザの印刷機能（Ctrl+P / ⌘+P）で 1 枚に印刷できます。",
+  "dashboard.noProperty": "担当する施設がまだ割り当てられていません。管理者にご連絡ください。",
+  "app.brand.proof": "Proof",
+  "app.brand.keeping": "Keeping"
 }

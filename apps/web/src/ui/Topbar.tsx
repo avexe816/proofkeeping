@@ -39,7 +39,14 @@ export function Topbar(props: {
 }) {
   return (
     <header className="pk-topbar">
-      <div className="pk-topbar__brand">{t("app.brand")}</div>
+      {/* ロゴは 2 語に分ける。**"Keeping" を `--accent2`（金）にする**
+          （ui-prototypes の `.brand em` / A01 §3 の配色）。i18n の
+          `app.brand` は 1 語のままにし、**表示の都合で分けるのは
+          ここだけ**にする（辞書に markup を持ち込まない）。 */}
+      <div className="pk-topbar__brand">
+        {t("app.brand.proof")}
+        <em className="pk-topbar__brandAccent">{t("app.brand.keeping")}</em>
+      </div>
       <PropertySwitcher
         properties={props.properties}
         selectedPropertyId={props.selectedPropertyId}
