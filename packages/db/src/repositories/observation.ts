@@ -19,7 +19,7 @@
  * **鍵の記録表を別に作っていない**（`taskTimeLog` と同じ判断 / DECISIONS #065）。
  */
 
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -395,6 +395,52 @@ export async function listLinenRecords(env: Env, ctx: TenantContext, taskId: str
       withTenantScope(linenRecord, ctx, linenRecord.propertyId, eq(linenRecord.taskId, taskId)),
     )
     .orderBy(linenRecord.itemCode);
+}
+
+/**
+ * 施設ごとのリネン枚数の合計（1 業務日）。
+ *
+ * P7-19 進捗モニタの列（人間の判断 2026-08-16: リネン消費は新規画面に
+ * せず、進捗モニタの集計列として扱う / DECISIONS #195 の運用）。
+ *
+ * **rollup に列を足さない判断。** リネンは品目別の枚数で、rollup
+ * （タスク数の集計）と粒度が違う。`idx_linen_date` が
+ * (org, property, businessDate) で張ってあり、1 業務日の合計は索引
+ * だけで引ける。行数は 客室数 × 品目数 が上限で、再計算方式の
+ * rollup へ運ぶ利得が無い。
+ *
+ * **テナント内の集計であって、テナント横断ではない**（architecture.md §3
+ * が禁じるのは横断）。`withTenantScope()` が organizationId を強制する。
+ */
+export async function sumLinenByProperty(
+  env: Env,
+  ctx: TenantContext,
+  businessDate: string,
+): Promise<ReadonlyMap<string, { collectedQty: number; suppliedQty: number }>> {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({
+      propertyId: linenRecord.propertyId,
+      collectedQty: sql<number>`sum(${linenRecord.collectedQty})`,
+      suppliedQty: sql<number>`sum(${linenRecord.suppliedQty})`,
+    })
+    .from(linenRecord)
+    .where(
+      withTenantScope(
+        linenRecord,
+        ctx,
+        linenRecord.propertyId,
+        eq(linenRecord.businessDate, businessDate),
+      ),
+    )
+    .groupBy(linenRecord.propertyId);
+
+  return new Map(
+    rows.map((row) => [
+      row.propertyId,
+      { collectedQty: row.collectedQty, suppliedQty: row.suppliedQty },
+    ]),
+  );
 }
 
 /** `listLinenRecordsInRange()` の絞り込み。 */

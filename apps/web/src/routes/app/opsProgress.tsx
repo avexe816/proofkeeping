@@ -32,6 +32,7 @@ import { t } from "../../lib/i18n.js";
 import { buildProgressView, type ProgressView } from "../../lib/ops/progress.js";
 import { resolveListScope } from "../../lib/property/listScope.js";
 import { getPropertySummaries } from "../../lib/property/summary.js";
+import { sumLinenByProperty } from "@pk/db";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
 
@@ -68,14 +69,18 @@ export async function loader({
   );
 
   const businessDate = url.searchParams.get("businessDate") ?? businessDateOf(now);
-  const summaries = await getPropertySummaries(env, tenant, businessDate);
+  // リネンは rollup に無いので別引き（`sumLinenByProperty()` の注記）。
+  const [summaries, linen] = await Promise.all([
+    getPropertySummaries(env, tenant, businessDate),
+    sumLinenByProperty(env, tenant, businessDate),
+  ]);
 
   return {
     businessDate,
     selectedPropertyId: scope.selectedPropertyId,
     canSelectAll: scope.canSelectAll,
     options: summaries.map((summary) => ({ id: summary.propertyId, name: summary.name })),
-    ...buildProgressView(summaries, scope),
+    ...buildProgressView(summaries, scope, linen),
   };
 }
 
@@ -142,6 +147,7 @@ export default function OpsProgress() {
         <li>
           {`${t("opsProgress.totals.percent")} ${data.totals.percent ?? t("opsProgress.noRollup")}`}
         </li>
+        <li>{`${t("opsProgress.totals.linen")} ${String(data.totals.linen.collectedQty)} / ${String(data.totals.linen.suppliedQty)}`}</li>
       </ul>
 
       {/* 集計前の施設を 0% と読ませない（`buildProgressView()` の注記）。 */}
@@ -161,6 +167,8 @@ export default function OpsProgress() {
               <th>{t("opsProgress.column.completed")}</th>
               <th>{t("opsProgress.column.rework")}</th>
               <th>{t("opsProgress.column.percent")}</th>
+              <th>{t("opsProgress.column.linenCollected")}</th>
+              <th>{t("opsProgress.column.linenSupplied")}</th>
             </tr>
           </thead>
           <tbody>
@@ -174,10 +182,12 @@ export default function OpsProgress() {
                     <td>{String(row.completedTasks)}</td>
                     <td>{String(row.reworkTasks)}</td>
                     <td>{row.percent ?? "—"}</td>
+                    <td>{row.linen === null ? t("opsProgress.noLinen") : String(row.linen.collectedQty)}</td>
+                    <td>{row.linen === null ? "" : String(row.linen.suppliedQty)}</td>
                   </>
                 ) : (
                   // 「0」と「集計前」を区別する（`propertySummarySchema` の注記）。
-                  <td colSpan={4}>{t("opsProgress.noRollup")}</td>
+                  <td colSpan={6}>{t("opsProgress.noRollup")}</td>
                 )}
               </tr>
             ))}

@@ -26,6 +26,12 @@ import type { PropertySummary } from "@pk/contracts";
 import { formatPercent } from "../dashboard/format.js";
 import type { ListScope } from "../property/listScope.js";
 
+/** 施設ごとのリネン枚数（`sumLinenByProperty()` の値）。 */
+export interface LinenSum {
+  collectedQty: number;
+  suppliedQty: number;
+}
+
 /** 1 施設ぶんの行。表示に使う値だけを持つ。 */
 export interface ProgressRow {
   propertyId: string;
@@ -38,6 +44,12 @@ export interface ProgressRow {
   reworkTasks: number;
   /** 「75.7%」。分母 0 か rollup 無しなら `null`。 */
   percent: string | null;
+  /**
+   * リネン枚数（回収 / 供給）。**記録が 1 件も無ければ `null`。**
+   * 0 と表示すると「リネンを使っていない」と読める。記録していないのと
+   * 使っていないのは違う（`hasRollup` と同じ判断）。
+   */
+  linen: LinenSum | null;
 }
 
 /** 全施設の合計。**rollup がある施設だけ**を足す。 */
@@ -46,6 +58,8 @@ export interface ProgressTotals {
   completedTasks: number;
   reworkTasks: number;
   percent: string | null;
+  /** リネン枚数の合計。**記録がある施設だけ**を足す。 */
+  linen: LinenSum;
   /** 集計がまだ無い施設の数。0 でなければ画面が注記を出す。 */
   pendingProperties: number;
 }
@@ -66,6 +80,7 @@ export interface ProgressView {
 export function buildProgressView(
   summaries: readonly PropertySummary[],
   scope: ListScope,
+  linenByProperty: ReadonlyMap<string, LinenSum> = new Map(),
 ): ProgressView {
   const allowed = scope.propertyIds === null ? null : new Set(scope.propertyIds);
 
@@ -82,12 +97,23 @@ export function buildProgressView(
       percent: summary.hasRollup
         ? formatPercent(summary.completedTasks, summary.totalTasks)
         : null,
+      linen: linenByProperty.get(summary.propertyId) ?? null,
     }));
 
   const counted = rows.filter((row) => row.hasRollup);
   const totalTasks = counted.reduce((sum, row) => sum + row.totalTasks, 0);
   const completedTasks = counted.reduce((sum, row) => sum + row.completedTasks, 0);
   const reworkTasks = counted.reduce((sum, row) => sum + row.reworkTasks, 0);
+  const linen = rows.reduce(
+    (sum, row) =>
+      row.linen === null
+        ? sum
+        : {
+            collectedQty: sum.collectedQty + row.linen.collectedQty,
+            suppliedQty: sum.suppliedQty + row.linen.suppliedQty,
+          },
+    { collectedQty: 0, suppliedQty: 0 },
+  );
 
   return {
     rows,
@@ -96,6 +122,7 @@ export function buildProgressView(
       completedTasks,
       reworkTasks,
       percent: formatPercent(completedTasks, totalTasks),
+      linen,
       pendingProperties: rows.length - counted.length,
     },
   };

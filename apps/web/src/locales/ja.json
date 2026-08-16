@@ -1198,5 +1198,9 @@
   "opsProgress.column.planned": "予定",
   "opsProgress.column.completed": "完了",
   "opsProgress.column.rework": "再清掃",
-  "opsProgress.column.percent": "進捗率"
+  "opsProgress.column.percent": "進捗率",
+  "opsProgress.column.linenCollected": "リネン回収",
+  "opsProgress.column.linenSupplied": "リネン供給",
+  "opsProgress.totals.linen": "リネン 回収/供給",
+  "opsProgress.noLinen": "記録なし"
 }

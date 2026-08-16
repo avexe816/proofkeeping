@@ -101,6 +101,31 @@ describe("buildProgressView", () => {
     expect(view.totals.reworkTasks).toBe(2);
   });
 
+  it("リネンは記録が無ければ null（0 と区別する）", () => {
+    const view = buildProgressView(
+      [summary({ propertyId: "p1" }), summary({ propertyId: "p2" })],
+      ORG_SCOPE,
+      new Map([["p1", { collectedQty: 12, suppliedQty: 10 }]]),
+    );
+
+    expect(view.rows[0]?.linen).toEqual({ collectedQty: 12, suppliedQty: 10 });
+    expect(view.rows[1]?.linen).toBeNull();
+    expect(view.totals.linen).toEqual({ collectedQty: 12, suppliedQty: 10 });
+  });
+
+  it("リネンの合計は scope で絞った行だけを足す", () => {
+    const view = buildProgressView(
+      [summary({ propertyId: "p1" }), summary({ propertyId: "p2" })],
+      { propertyIds: ["p1"], selectedPropertyId: "p1", canSelectAll: false },
+      new Map([
+        ["p1", { collectedQty: 3, suppliedQty: 4 }],
+        ["p2", { collectedQty: 100, suppliedQty: 100 }],
+      ]),
+    );
+
+    expect(view.totals.linen).toEqual({ collectedQty: 3, suppliedQty: 4 });
+  });
+
   it("行にも合計にも人の識別子が無い（CLAUDE.md §4）", () => {
     const view = buildProgressView([summary({ propertyId: "p1" })], ORG_SCOPE);
 
