@@ -34,6 +34,11 @@ export function UserMenu(props: { displayName: string; role: Role; isOrgWide: bo
 
   return (
     <div className="pk-user">
+      {/* 金の丸に頭文字（プロトタイプの `.usr .av`）。**装飾なので読み上げに
+          出さない**（名前がすぐ隣にある）。 */}
+      <span aria-hidden="true" className="pk-user__avatar">
+        {props.displayName.slice(0, 1)}
+      </span>
       <div className="pk-user__identity">
         <span className="pk-user__name">{props.displayName}</span>
         <span className="pk-user__badge">
