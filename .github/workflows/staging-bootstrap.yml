@@ -25,15 +25,16 @@ on:
   workflow_dispatch:
     inputs:
       phase:
-        description: "check = 読むだけ（課金なし） / resources = 資源を作り ID の PR を出す / secrets-and-seed = 秘密の登録とシード投入（デプロイ後）"
+        description: "check = 読むだけ / resources = 資源を作り ID の PR を出す / reset-db = staging の D1 を空にする（復旧用） / secrets-and-seed = migration・秘密・シード"
         required: true
         type: choice
         options:
           - check
           - resources
+          - reset-db
           - secrets-and-seed
       confirm:
-        description: "CREATE と入力すると実行する（phase=check では不要）"
+        description: "CREATE と入力すると実行する（phase=check では不要 / reset-db は RESET-STAGING-DB）"
         required: false
         type: string
 
@@ -59,6 +60,15 @@ jobs:
         run: |
           if [ "${{ inputs.phase }}" = "check" ]; then
             echo "phase=check: 読み取りのみ。資源は作りません。"
+            exit 0
+          fi
+          if [ "${{ inputs.phase }}" = "reset-db" ]; then
+            # **表を落とす操作だけは合言葉を変える。** CREATE の惰性で
+            # 押せてしまわないようにする。
+            if [ "${{ inputs.confirm }}" != "RESET-STAGING-DB" ]; then
+              echo "phase=reset-db には confirm に RESET-STAGING-DB が要ります。"
+              exit 1
+            fi
             exit 0
           fi
           if [ "${{ inputs.confirm }}" != "CREATE" ]; then
@@ -278,6 +288,64 @@ jobs:
           gh pr create --base main --head "$branch" \
             --title "chore: staging の D1 / KV を実 ID へ差し替える" \
             --body-file /tmp/pr-body.md
+
+      # ── ②-5 staging の D1 を空にする（復旧用）───────────────
+      #
+      # **中途半端に適用された状態から戻すためだけの手順。**
+      # `wrangler d1 execute --file` は文を 1 つずつ送り、途中で落ちても
+      # そこまでは残る。適用記録（`schema_version`）は最後にしか書かれないので、
+      # **失敗した migration は「半分ある・記録は無い」状態になる。**
+      # 再実行すると `table ... already exists` で必ず落ちる。
+      #
+      #   ✘ [ERROR] table `audit_log` already exists at offset 13: SQLITE_ERROR
+      #
+      # **表を落として作り直すのが唯一の戻し方。** migration に「戻す」操作は
+      # 用意していない（runbook §5）。
+      #
+      # ── 安全のための決め事 ──────────────────────────────
+      #   * `confirm` に **RESET-STAGING-DB** と打ったときだけ走る（CREATE では走らない）
+      #   * 対象は `[env.staging]` の D1 だけ。名前が `-staging` で終わることを確かめる
+      #   * **業務データが入っている DB では使わない。** 行数を数えて 0 でなければ止める
+      - name: staging の D1 を空にする
+        if: inputs.phase == 'reset-db'
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          for db in proofkeeping-shard-00-staging proofkeeping-shard-01-staging; do
+            case "$db" in
+              *-staging) ;;
+              *) echo "staging 以外の名前です: $db"; exit 1 ;;
+            esac
+
+            echo "== $db =="
+            tables=$(pnpm exec wrangler d1 execute "$db" --remote --env staging --json \
+              --command="SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%';" \
+              | sed -n '/\[/,$p' | jq -r '.[].results[].name')
+
+            if [ -z "$tables" ]; then echo "表はありません。"; continue; fi
+            echo "落とす表:"; echo "$tables"
+
+            # **業務データが 1 行でもあれば止める。** 失敗した migration の
+            # 後始末にしか使わない手順なので、中身があるのは想定外。
+            for t in $tables; do
+              n=$(pnpm exec wrangler d1 execute "$db" --remote --env staging --json \
+                    --command="SELECT count(*) AS n FROM \`$t\`;" \
+                    | sed -n '/\[/,$p' | jq -r '.[].results[].n')
+              if [ "${n:-0}" != "0" ]; then
+                echo "$t に $n 行あります。中止します（人が確認すること）。"
+                exit 1
+              fi
+            done
+
+            : > /tmp/drop.sql
+            for t in $tables; do echo "DROP TABLE IF EXISTS \`$t\`;" >> /tmp/drop.sql; done
+            pnpm exec wrangler d1 execute "$db" --remote --env staging --file=/tmp/drop.sql
+            echo "$db: 空にしました。"
+          done
 
       # ── ③-1 migration（シードより先）──────────────────────
       #
