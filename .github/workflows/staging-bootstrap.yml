@@ -45,6 +45,9 @@ env:
   # **この 2 つ以外の環境名をこのファイルに書かないこと。**
   WORKER_NAME: pk-staging
   CF_ENV: staging
+  # KV の title は `proofkeeping-{BINDING}-staging`。**環境名は後ろに付く。**
+  # （`wrangler kv namespace create SESSION --env staging` の実際の出力）
+  KV_TITLE_PREFIX: proofkeeping
 
 jobs:
   bootstrap:
@@ -69,6 +72,29 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
 
+      # ── アカウント ID を正規化する ──────────────────────
+      #
+      # 登録されている `CLOUDFLARE_ACCOUNT_ID` に空白か引用符が混ざっており、
+      # `wrangler r2 bucket list` が
+      #   Invalid account ID ... may only contain alphanumeric characters,
+      #   hyphens, and underscores
+      # で落ちた。**D1 / KV / Queues は落ちないので気づきにくい。**
+      # secret を直すのが本筋だが、**混入しても落ちない形にしておく。**
+      # 値そのものは出力しない（`***` でマスクされるが、長さも出さない）。
+      - name: アカウント ID を正規化する
+        id: account
+        run: |
+          raw='${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'
+          clean=$(printf '%s' "$raw" | tr -d '[:space:]"'"'"'')
+          if [ -z "$clean" ]; then
+            echo "CLOUDFLARE_ACCOUNT_ID が未登録です（token から解決を試みます）。"
+          elif [ "$clean" != "$raw" ]; then
+            echo "CLOUDFLARE_ACCOUNT_ID に空白か引用符が含まれていました。除去して使います。"
+            echo "**secret 自体を直すことを勧めます**（Settings → Secrets and variables → Actions）。"
+          fi
+          echo "::add-mask::$clean"
+          echo "value=$clean" >> "$GITHUB_OUTPUT"
+
       - name: 資格情報の確認
         run: |
           if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
@@ -80,7 +106,7 @@ jobs:
         working-directory: apps/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
 
       # ── ⓪ 現状を読むだけ（課金なし）─────────────────────
       #
@@ -89,24 +115,49 @@ jobs:
       - name: 現状を読む（何も作らない）
         if: inputs.phase == 'check'
         working-directory: apps/web
-        continue-on-error: true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
         run: |
-          echo "## 既存の資源" >> "$GITHUB_STEP_SUMMARY"
+          # **一覧をそのまま貼らない。** 件数が増えると末尾が切れて
+          # 「無い」のか「切れた」のかが区別できなくなる（実際に一度切れた）。
+          # staging に要る 18 個だけを、有無の表にして出す。
+          d1=$(pnpm exec wrangler d1 list --json 2>/dev/null || echo '[]')
+          kv=$(pnpm exec wrangler kv namespace list 2>/dev/null || echo '[]')
+          r2=$(pnpm exec wrangler r2 bucket list 2>&1 || true)
+          qs=$(pnpm exec wrangler queues list 2>&1 || true)
 
-          echo "### D1" | tee -a "$GITHUB_STEP_SUMMARY"
-          pnpm exec wrangler d1 list 2>&1 | tail -30 | tee -a "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## staging に要る資源の有無"
+            echo ""
+            echo "| 種別 | 名前 | 状態 |"
+            echo "|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          echo "### KV" | tee -a "$GITHUB_STEP_SUMMARY"
-          pnpm exec wrangler kv namespace list 2>&1 | tail -40 | tee -a "$GITHUB_STEP_SUMMARY"
+          row() { echo "| $1 | $2 | $3 |" >> "$GITHUB_STEP_SUMMARY"; echo "$1 $2: $3"; }
 
-          echo "### R2" | tee -a "$GITHUB_STEP_SUMMARY"
-          pnpm exec wrangler r2 bucket list 2>&1 | tail -30 | tee -a "$GITHUB_STEP_SUMMARY"
+          for n in 00 01; do
+            name="proofkeeping-shard-${n}-staging"
+            uuid=$(echo "$d1" | jq -r --arg n "$name" '.[] | select(.name==$n) | .uuid // empty')
+            row D1 "$name" "${uuid:-**無し**}"
+          done
 
-          echo "### Queues（ここが権限エラー以外で落ちるなら無料プラン）" | tee -a "$GITHUB_STEP_SUMMARY"
-          pnpm exec wrangler queues list 2>&1 | tail -30 | tee -a "$GITHUB_STEP_SUMMARY"
+          for b in SESSION RATELIMIT CONFIG CREDENTIALS SHARD_MAP; do
+            title="${KV_TITLE_PREFIX}-${b}-${CF_ENV}"
+            id=$(echo "$kv" | jq -r --arg t "$title" '.[] | select(.title==$t) | .id // empty')
+            row KV "$title" "${id:-**無し**}"
+          done
+
+          for b in photos documents evidence archive; do
+            if echo "$r2" | grep -q "pk-${b}-staging"; then s="あり"; else s="**無し**"; fi
+            row R2 "pk-${b}-staging" "$s"
+          done
+
+          for q in pdf-generation evidence-export reconciliation rollup-update \
+                   baseline-learning notification archive-restore; do
+            if echo "$qs" | grep -q "pk-${q}-staging"; then s="あり"; else s="**無し**"; fi
+            row Queue "pk-${q}-staging" "$s"
+          done
 
       # ── ① 資源を作る ────────────────────────────────────
       #
@@ -117,7 +168,7 @@ jobs:
         working-directory: apps/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
         run: |
           set -euo pipefail
 
@@ -134,8 +185,9 @@ jobs:
 
           # KV（5 本）。`--env staging` で作ると title に環境名が入る。
           for b in SESSION RATELIMIT CONFIG CREDENTIALS SHARD_MAP; do
-            if pnpm exec wrangler kv namespace list | jq -e --arg b "$b" \
-                 '.[] | select(.title | test("staging.*" + $b + "$"))' >/dev/null; then
+            title="${KV_TITLE_PREFIX}-${b}-${CF_ENV}"
+            if pnpm exec wrangler kv namespace list | jq -e --arg t "$title" \
+                 '.[] | select(.title==$t)' >/dev/null; then
               echo "KV $b: 既にあります"
             else
               echo "KV $b: 作成します"
@@ -162,7 +214,7 @@ jobs:
         working-directory: apps/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
         run: |
           set -euo pipefail
 
@@ -185,8 +237,8 @@ jobs:
           done
 
           for b in SESSION RATELIMIT CONFIG CREDENTIALS SHARD_MAP; do
-            id=$(echo "$kv_json" | jq -r --arg b "$b" \
-                  '[.[] | select(.title | test("staging.*" + $b + "$"))][0].id')
+            id=$(echo "$kv_json" | jq -r --arg t "${KV_TITLE_PREFIX}-${b}-${CF_ENV}" \
+                  '[.[] | select(.title==$t)][0].id')
             replace "TODO-P0-02-未作成-STAGING-${b}" "$id"
           done
 
@@ -236,7 +288,7 @@ jobs:
         working-directory: apps/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
         run: |
           set -euo pipefail
 
