@@ -72,13 +72,16 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   };
 }
 
+/** 行高を 1.2 倍確保する言語（PK-IMPL-CONTRACT §7.1。結合文字が潰れないように）。 */
+const TALL_LINE_LOCALES: readonly Locale[] = ["my", "ne"];
+
 export default function MobileShell(): React.ReactElement {
   const data = useLoaderData<MobileShellData>();
   const t = createTranslator(data.locale);
   const queue = useOfflineQueue();
 
   return (
-    <div className="pk-m">
+    <div className={TALL_LINE_LOCALES.includes(data.locale) ? "pk-m pk-m--tall" : "pk-m"}>
       <OfflineBar t={t} state={queue.state} offline={queue.offline} onSend={queue.sendNow} />
       <InstallBanner t={t} />
       <Outlet />

@@ -26,7 +26,12 @@
  */
 
 import enJson from "./en.json";
+import idJson from "./id.json";
 import jaJson from "./ja.json";
+import myJson from "./my.json";
+import neJson from "./ne.json";
+import viJson from "./vi.json";
+import zhCNJson from "./zh-CN.json";
 
 /**
  * 日本語カタログ。**全キーを持つ唯一のカタログ。**
@@ -51,13 +56,27 @@ export type MessageCatalog = Partial<Record<MessageKey, string>>;
 export const en: MessageCatalog = enJson;
 
 /**
+ * モバイル向けの 5 言語（契約 §7.1 の残り）。**機械翻訳をそのまま載せる**
+ * （人間の承認 2026-08-16 / CONTINUE.md）。§7.3 の「現場スタッフの確認」は
+ * この承認で置き換えられた。「機械翻訳です」の注記は**出さない**
+ * （プロトタイプに無い / PROTOTYPE_GAP 原則 1）。
+ *
+ * 対象キーはモバイル（`m.*` と `/m/*` が使う board.* など）だけ。
+ * 管理画面のキーは訳さない（ui-writing.md §1「管理画面は日本語のみ」）。
+ */
+export const zhCN: MessageCatalog = zhCNJson;
+export const vi: MessageCatalog = viJson;
+export const id: MessageCatalog = idJson;
+export const my: MessageCatalog = myJson;
+export const ne: MessageCatalog = neJson;
+
+/**
  * 対応言語。**翻訳が揃った言語だけを載せる。**
  *
- * 契約 §7.1 は `ja` / `en` / `zh-CN` / `vi` / `id` / `my` / `ne` を挙げるが、
- * 実際に翻訳を持つのは 2 言語。残り 5 言語は現場スタッフの確認を経てから
- * （§7.3「機械翻訳のまま使用しない」）カタログと一緒にここへ足す。
+ * 契約 §7.1 の 7 言語（`ja` / `en` / `zh-CN` / `vi` / `id` / `my` / `ne`）。
+ * 並びは画面の言語切替に出る順（プロトタイプ pk-01 / pk-15 の順）。
  */
-export const LOCALES = ["ja", "en"] as const;
+export const LOCALES = ["ja", "en", "zh-CN", "vi", "id", "my", "ne"] as const;
 
 export type Locale = (typeof LOCALES)[number];
 
@@ -65,4 +84,12 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "ja";
 
 /** 言語ごとのカタログ表。 */
-export const CATALOGS: Record<Locale, MessageCatalog> = { ja, en };
+export const CATALOGS: Record<Locale, MessageCatalog> = {
+  ja,
+  en,
+  "zh-CN": zhCN,
+  vi,
+  id,
+  my,
+  ne,
+};

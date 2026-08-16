@@ -25,10 +25,12 @@
  * 識別子が無い・PIN が違う・ロック中・無効化済みを区別できる応答を
  * 返さない（security.md §2）。画面の文言も 1 種類だけ。
  *
- * ── 言語切替をここに置いていない ────────────────────────
- * プロトタイプは 7 言語の切替を最上部に常設するが、**翻訳が揃っているのは
- * `ja` だけ**（`locales/en.json` は管理画面ぶんの部分集合）。切り替える先の
- * 無い器を先に置かない。M-15 相当の言語切替は P1-18 の担当。
+ * ── 言語切替を最上部に常設する（プロトタイプ pk-01）────
+ * 7 言語（契約 §7.1 / 機械翻訳の承認 2026-08-16）。ログイン前なので
+ * ユーザー属性が無く、**`?lang=` だけで切り替える**（Cookie も
+ * `Accept-Language` も読まない / ui-writing.md §1）。選んだ言語は
+ * この画面の表示のためだけで、ログイン後は `user.locale` が正。
+ * ラベルは常に自言語表記（`m.locale.*` は翻訳しない決まり）。
  */
 
 import { pinLoginRequestSchema } from "@pk/contracts";
@@ -46,7 +48,13 @@ import {
 import { buildSessionCookie } from "../../lib/auth/cookie.js";
 import { pinLogin } from "../../lib/auth/pinLogin.js";
 import { clientIp, consumeRateLimit } from "../../lib/auth/rateLimit.js";
-import { t } from "../../lib/i18n.js";
+import {
+  createTranslator,
+  isLocale,
+  LOCALES,
+  type Locale,
+  type MessageKey,
+} from "../../lib/i18n.js";
 import { safeMobileNextPath } from "../../lib/mobile/session.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { readOptionalSession } from "../../lib/ui/requireSession.js";
@@ -61,7 +69,7 @@ interface ActionData {
   failure: LoginFailure;
 }
 
-const FAILURE_MESSAGE: Record<LoginFailure, Parameters<typeof t>[0]> = {
+const FAILURE_MESSAGE: Record<LoginFailure, MessageKey> = {
   REJECTED: "m.login.rejected",
   RATE_LIMITED: "m.login.rateLimited",
   INVALID: "m.login.invalid",
@@ -108,19 +116,48 @@ export async function action({ request, context }: ActionFunctionArgs) {
   });
 }
 
+/** 言語切替のリンク先。`next` を持ち回る（選び直してもログイン後の行き先を失わない）。 */
+function loginHref(locale: Locale, next: string): string {
+  const params = new URLSearchParams();
+  params.set("lang", locale);
+  params.set("next", next);
+  return `/m/login?${params.toString()}`;
+}
+
 export default function MobileLoginRoute(): React.ReactElement {
   const actionData = useActionData<ActionData>();
   const [searchParams] = useSearchParams();
   const next = safeMobileNextPath(searchParams.get("next"));
   const [pin, setPin] = useState("");
 
+  // ログイン前の表示言語は `?lang=` だけで決める（冒頭の注記）。
+  const langParam = searchParams.get("lang");
+  const locale: Locale = isLocale(langParam) ? langParam : "ja";
+  const t = createTranslator(locale);
+
   const appendDigit = (digit: string): void => {
     setPin((current) => (current.length >= PIN_LENGTH ? current : current + digit));
   };
 
   return (
-    <main className="pk-m">
+    // my / ne は行高 1.2 倍（PK-IMPL-CONTRACT §7.1 / layout.tsx と同じ）。
+    <main className={locale === "my" || locale === "ne" ? "pk-m pk-m--tall" : "pk-m"}>
       <div className="pk-m-login">
+        {/* 7 言語の切替（プロトタイプ pk-01 の最上部）。ラベルは自言語表記。 */}
+        <nav className="pk-m-lang pk-m-lang--bar">
+          {LOCALES.map((code) => (
+            <a
+              key={code}
+              className={
+                code === locale ? "pk-m-lang__item pk-m-lang__item--on" : "pk-m-lang__item"
+              }
+              href={loginHref(code, next)}
+            >
+              {t(`m.locale.${code}` as MessageKey)}
+            </a>
+          ))}
+        </nav>
+
         <p className="pk-m-login__brand">{t("app.brand")}</p>
         <h1 className="pk-m-login__title">{t("m.login.title")}</h1>
         <p className="pk-m-login__sub">{t("m.login.subtitle")}</p>
