@@ -32,6 +32,7 @@ on:
           - check
           - db-status
           - smoke
+          - mark-applied
           - resources
           - reset-db
           - secrets-and-seed
@@ -62,6 +63,13 @@ jobs:
         run: |
           if [ "${{ inputs.phase }}" = "check" ] || [ "${{ inputs.phase }}" = "db-status" ] || [ "${{ inputs.phase }}" = "smoke" ]; then
             echo "${{ inputs.phase }}: 読み取りのみ。何も変更しません。"
+            exit 0
+          fi
+          if [ "${{ inputs.phase }}" = "mark-applied" ]; then
+            if [ "${{ inputs.confirm }}" != "MARK-APPLIED" ]; then
+              echo "phase=mark-applied には confirm に MARK-APPLIED が要ります。"
+              exit 1
+            fi
             exit 0
           fi
           if [ "${{ inputs.phase }}" = "reset-db" ]; then
@@ -424,6 +432,26 @@ jobs:
             pnpm exec wrangler d1 execute "$db" --remote --env staging --file=/tmp/drop.sql
             echo "$db: 空にしました。"
           done
+
+      # ── ②-6 適用済みとして記録する（流さない）──────────────
+      #
+      # **表は揃っているのに `schema_version` が空**、という状態からの復帰。
+      # staging が実際にこれだった（表 23 本ぶん・組織 1・利用者 16 に対し、
+      # 適用記録は空）。この状態で migration を流すと 1 本目から
+      # `table ... already exists` で落ちる。
+      #
+      # **中身は確かめない。「当たっている」と宣言するだけの操作**なので、
+      # 合言葉を分けてある。
+      - name: 適用済みとして記録する（SQL は流さない）
+        if: inputs.phase == 'mark-applied'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          set -euo pipefail
+          pnpm db:migrate --env staging --mark-applied
+          echo "--- 記録後の状態 ---"
+          pnpm db:migrate --env staging --check
 
       # ── ③-1 migration（シードより先）──────────────────────
       #
