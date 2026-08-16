@@ -1119,3 +1119,55 @@ a.pk-nav:hover {
     break-inside: avoid;
   }
 }
+
+/* ──────────────────────────────────────────────────────────
+   月次レポート（owner 09 / DECISIONS #196）
+
+   **PDF を作らず、ブラウザの印刷機能で出す**（案内カードと同じ判断 /
+   DECISIONS #184）。画面ではページ内の記事、印刷では `.pk-print` の
+   仕組みでレポート本体だけが紙に残る。
+   ────────────────────────────────────────────────────────── */
+
+.pk-report {
+  max-width: 800px;
+}
+
+.pk-report__head {
+  margin: 6px 0 10px;
+}
+
+.pk-report__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.pk-report__delta {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-report__footer {
+  margin-top: 18px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.pk-report__footer p {
+  margin: 2px 0;
+  font-size: 11px;
+}
+
+@media print {
+  /* 表や KPI カードをページ境界で割らない。影は紙では汚れに見える。 */
+  .pk-report .pk-stats__item {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .pk-report table {
+    break-inside: avoid;
+  }
+}

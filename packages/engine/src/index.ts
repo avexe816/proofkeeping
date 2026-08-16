@@ -323,6 +323,24 @@ export {
   type WorkMinutesGroup,
 } from "./metrics.js";
 
+// 月次レポート（owner 09 / docs/PROTOTYPE_GAP.md 第2批 09）。
+// **帳票ではない。** 発行・採番・スナップショットをせず、開いた時点の
+// 記録から毎回作り直す（DECISIONS #196）。
+export {
+  computeMonthlyReport,
+  medianMinutes,
+  type MonthlyCount,
+  type MonthlyFindingRow,
+  type MonthlyLinenRow,
+  type MonthlyRate,
+  type MonthlyReport,
+  type MonthlyReportFindingInput,
+  type MonthlyReportInput,
+  type MonthlyReportLinenInput,
+  type MonthlyReportTaskInput,
+  type MonthlyTaskTypeRow,
+} from "./monthlyReport.js";
+
 // 入室時の観察記録の既定値（P3-02 / PK-SPEC-P3 §3.3）。
 // **推定の精度ではなく「1 タップで確定できること」が目的**（同 §1.2）。
 export {

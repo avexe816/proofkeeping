@@ -235,14 +235,19 @@ export const NAV_ITEMS: readonly NavItem[] = [
     scope: "PROPERTY",
     status: "PLANNED",
   },
+  // 月次レポート（owner 09 / docs/PROTOTYPE_GAP.md 第2批 09）。
+  // **`action` を `property.read` から `finding.read` へ差し替えた**
+  // （冒頭「`action` の暫定的な当て方」の差し替え）。§3 に差異の内訳が
+  // 載るので、差異へ到達できないロールには項目ごと出さない。
   {
     key: "nav.report",
     icon: "📄",
     section: "analysis",
     moduleCode: "AUDIT",
-    action: "property.read",
+    action: "finding.read",
     scope: "PROPERTY",
-    status: "PLANNED",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/report`,
   },
   {
     key: "nav.billing",

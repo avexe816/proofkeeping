@@ -161,6 +161,8 @@ export default [
     route("app/settings/observation", "routes/app/observationSettings.tsx"),
     route("app/settings/baseline", "routes/app/baselineSettings.tsx"),
     route("app/p/:propertyId/data-quality", "routes/app/dataQuality.tsx"),
+    // 月次レポート（owner 09）。門は finding.read（§3 に差異の内訳が載る）。
+    route("app/p/:propertyId/report", "routes/app/report.tsx"),
     route("app/settings/rules", "routes/app/ruleSettings.tsx"),
     route("app/settings/integrations", "routes/app/integrationSettings.tsx"),
     route(

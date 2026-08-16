@@ -2018,6 +2018,23 @@ const INVOCATIONS: Invocation[] = [
       }),
   },
   {
+    // 月次レポート（owner 09）の §5。品目別の期間合計。
+    name: "observation.sumLinenByItemInRange",
+    kind: "tenant",
+    run: (env, ctx) =>
+      observationRepo.sumLinenByItemInRange(env, ctx, {
+        propertyId: OWN_ID.property,
+        from: "2026-07-01",
+        to: "2026-07-31",
+      }),
+    crossTenant: (env, ctx) =>
+      observationRepo.sumLinenByItemInRange(env, ctx, {
+        propertyId: OTHER_ID.property,
+        from: "2026-07-01",
+        to: "2026-07-31",
+      }),
+  },
+  {
     name: "observation.listLinenRecordsInRange",
     kind: "tenant",
     run: (env, ctx) =>
