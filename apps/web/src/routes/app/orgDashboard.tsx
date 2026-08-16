@@ -1,6 +1,9 @@
 import { ALL_PROPERTIES, monthSchema, type OrgDashboardResponse } from "@pk/contracts";
+import { listAuditLogsForViewer } from "@pk/db";
 import { Form, redirect, useLoaderData, type LoaderFunctionArgs } from "react-router";
 
+import { ORGANIZATION_TARGET, can } from "../../lib/auth/permission.js";
+import { DEFAULT_DAY_CUTOFF_TIME, businessDateOf } from "../../lib/businessDate.js";
 import { buildOrgDashboard, currentMonthOf } from "../../lib/dashboard/org.js";
 import {
   costPerTask,
@@ -9,8 +12,10 @@ import {
   formatYen,
   orDash,
 } from "../../lib/dashboard/format.js";
-import { t } from "../../lib/i18n.js";
+import { t, type MessageKey } from "../../lib/i18n.js";
+import { formatClock } from "../../lib/mobile/format.js";
 import { ScopeForbiddenError, switchProperty } from "../../lib/property/selection.js";
+import { collectFindingList } from "../../lib/reconciliation/findings.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { HOME_PATH, requireAppContext } from "../../lib/ui/requireSession.js";
 
@@ -59,11 +64,108 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const parsed = requested === null ? null : monthSchema.safeParse(requested);
   const month = parsed?.success === true ? parsed.data : currentMonthOf(now);
 
-  return await buildOrgDashboard(env, tenant, month);
+  const dashboard = await buildOrgDashboard(env, tenant, month);
+
+  // ── 気づきカードと本日の動き（owner 02 の残り / PROTOTYPE_GAP）────
+  // 門は `finding.read`。この画面に来られる組織全体ロールは全員持つが、
+  // 判定はマトリクスに委ねる（ロール名で分岐しない / listScope.ts と同じ）。
+  // 持たない相手には**カードごと出さない**（グレーにしない）。
+  if (!can(tenant, "finding.read", ORGANIZATION_TARGET)) {
+    return { ...dashboard, attention: [], timeline: [] };
+  }
+
+  // 「本日」は業務日（architecture.md §7）。既定の日締め 05:00 Asia/Tokyo で
+  // 窓を作る。施設ごとの日締め設定までは見ない（組織横断の 1 枚なので、
+  // どれか 1 施設の設定を全体へ当てるほうが誤りが大きい）。
+  const businessDate = businessDateOf(now);
+  const dayStart = new Date(`${businessDate}T${DEFAULT_DAY_CUTOFF_TIME}:00+09:00`);
+
+  const [findingList, logs] = await Promise.all([
+    // 未確認の差異だけ。件数は少ないので月で絞らない（古い未確認も見せる）。
+    collectFindingList(env, tenant, { status: ["OPEN", "REVIEWING"], limit: 50 }),
+    listAuditLogsForViewer(env, tenant, {
+      propertyIds: null,
+      from: dayStart,
+      to: now,
+      limit: 200,
+    }),
+  ]);
+
+  const nameOf = new Map(dashboard.properties.map((row) => [row.propertyId, row.name]));
+
+  // プロトタイプの並びは**確信度の高い順**（§1.3 MUST の値をそのまま使う）。
+  const attention = [...findingList.data]
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, ATTENTION_LIMIT)
+    .map((finding) => ({
+      id: finding.id,
+      propertyName: finding.propertyName,
+      roomNumber: finding.roomNumber,
+      title: finding.title,
+      confidence: finding.confidence,
+      businessDate: finding.businessDate,
+    }));
+
+  const timeline = logs
+    .filter((log) => TIMELINE_EVENT_LABEL[log.action] !== undefined)
+    .slice(0, TIMELINE_LIMIT)
+    .map((log) => ({
+      id: log.id,
+      at: log.at.getTime(),
+      label: TIMELINE_EVENT_LABEL[log.action] as MessageKey,
+      propertyName: log.propertyId === null ? null : (nameOf.get(log.propertyId) ?? null),
+    }));
+
+  return { ...dashboard, attention, timeline };
 }
 
+/** 気づきカードの行数。多いと「全部あとで」になる。続きは差異レポートへ。 */
+const ATTENTION_LIMIT = 5;
+
+/** 本日の動きの行数。 */
+const TIMELINE_LIMIT = 10;
+
+interface AttentionRow {
+  id: string;
+  propertyName: string;
+  roomNumber: string;
+  title: string;
+  confidence: number;
+  businessDate: string;
+}
+
+interface TimelineRow {
+  id: string;
+  at: number;
+  label: MessageKey;
+  propertyName: string | null;
+}
+
+type OrgDashboardData = OrgDashboardResponse & {
+  attention: AttentionRow[];
+  timeline: TimelineRow[];
+};
+
+/**
+ * 本日の動きに載せる操作と文言。
+ *
+ * **監査ログの語彙のうち「現場で起きたこと」だけ。** 設定変更・マスタ更新は
+ * 監査ログの画面（P7-20）で見るもので、朝の 1 枚に混ぜない。
+ * 実行者は出さない（この画面に個人名を出さない / プロトタイプの確定事項）。
+ */
+const TIMELINE_EVENT_LABEL: Partial<Record<string, MessageKey>> = {
+  "task.completed": "dashboard.org.event.taskCompleted",
+  "task.blocked": "dashboard.org.event.taskBlocked",
+  "task.reworkAssigned": "dashboard.org.event.reworkAssigned",
+  "rework.resolved": "dashboard.org.event.reworkResolved",
+  "inspection.passed": "dashboard.org.event.inspectionPassed",
+  "inspection.failed": "dashboard.org.event.inspectionFailed",
+  "room.statusOverridden": "dashboard.org.event.roomOverridden",
+  "finding.statusChanged": "dashboard.org.event.findingUpdated",
+};
+
 export default function OrgDashboard() {
-  const data = useLoaderData<OrgDashboardResponse>();
+  const data = useLoaderData<OrgDashboardData>();
   const { summary } = data;
 
   return (
@@ -132,6 +234,44 @@ export default function OrgDashboard() {
         <p className="pk-muted">{t("dashboard.org.costUnavailable")}</p>
       ) : null}
 
+      {/* ── 気づきカード（owner 02 / 確認をお願いしたい記録）─────────
+          文言は断定しない。差異の title は engine が「記録された事実」の
+          形で作る（§1.1 / ui-writing.md §2）。個人名を出さない。 */}
+      <h2 className="pk-section__title">{t("dashboard.org.attention")}</h2>
+      <p className="pk-muted">{t("dashboard.org.attention.order")}</p>
+      {data.attention.length === 0 ? (
+        <p className="pk-muted">{t("dashboard.org.attention.empty")}</p>
+      ) : (
+        <table className="pk-grid">
+          <thead>
+            <tr>
+              <th>{t("dashboard.org.attention.property")}</th>
+              <th>{t("dashboard.org.attention.room")}</th>
+              <th>{t("dashboard.org.attention.content")}</th>
+              <th>{t("dashboard.org.attention.confidence")}</th>
+              <th>{t("dashboard.org.attention.date")}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {data.attention.map((row) => (
+              <tr key={row.id}>
+                <td>{row.propertyName}</td>
+                <th scope="row">{row.roomNumber}</th>
+                <td>{row.title}</td>
+                <td>{String(row.confidence)}</td>
+                <td>{row.businessDate}</td>
+                <td>
+                  <a className="pk-button" href={`/app/audit/findings/${row.id}`}>
+                    {t("dashboard.org.attention.open")}
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
       <h2 className="pk-section__title">{t("dashboard.org.byProperty")}</h2>
       {data.properties.length === 0 ? (
         <p className="pk-muted">{t("dashboard.org.noProperties")}</p>
@@ -180,6 +320,26 @@ export default function OrgDashboard() {
           </li>
         ))}
       </ul>
+
+      {/* ── 本日の動き（owner 02 のタイムライン）──────────────────
+          監査ログから現場の操作だけを拾う（`TIMELINE_EVENT_LABEL`）。
+          実行者は出さない。詳細は監査ログの画面（P7-20）へ。 */}
+      <h2 className="pk-section__title">{t("dashboard.org.timeline")}</h2>
+      {data.timeline.length === 0 ? (
+        <p className="pk-muted">{t("dashboard.org.timeline.empty")}</p>
+      ) : (
+        <ul className="pk-timeline">
+          {data.timeline.map((row) => (
+            <li className="pk-timeline__item" key={row.id}>
+              <span className="pk-timeline__time">{formatClock(row.at)}</span>
+              <span>{t(row.label)}</span>
+              <span className="pk-timeline__property">
+                {row.propertyName ?? t("auditLogs.orgWide")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

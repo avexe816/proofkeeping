@@ -1121,6 +1121,37 @@ a.pk-nav:hover {
 }
 
 /* ──────────────────────────────────────────────────────────
+   本日の動き（owner 02 のタイムライン / 組織ダッシュボード）
+   ────────────────────────────────────────────────────────── */
+
+.pk-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pk-timeline__item {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.pk-timeline__time {
+  min-width: 44px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-timeline__property {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ──────────────────────────────────────────────────────────
    月次レポート（owner 09 / DECISIONS #196）
 
    **PDF を作らず、ブラウザの印刷機能で出す**（案内カードと同じ判断 /
