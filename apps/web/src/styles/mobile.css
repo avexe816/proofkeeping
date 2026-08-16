@@ -1020,6 +1020,28 @@
   border-color: var(--brand);
 }
 
+/* ミャンマー語・ネパール語は行高を 1.2 倍確保する（PK-IMPL-CONTRACT §7.1）。
+   結合文字が上下に伸びるため、既定の行高だと重なって読めない。 */
+.pk-m--tall {
+  line-height: 1.8;
+}
+
+/* ログイン画面の言語切替（pk-01 の最上部）。項目はリンクなので
+   ボタンと同じ見た目に寄せる。タップ領域 48px を保つ（ui-writing.md §3）。 */
+.pk-m-lang--bar {
+  padding: 8px;
+  margin-bottom: 14px;
+}
+
+a.pk-m-lang__item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
 /* 未翻訳の項目（§12.2）。**目立たせない。** 事実として添えるだけ。 */
 .pk-m-check__badge--lang {
   color: var(--muted);

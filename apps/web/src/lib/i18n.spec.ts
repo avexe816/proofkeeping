@@ -37,14 +37,16 @@ describe("resolveLocale", () => {
   });
 
   it("未対応・空の候補は飛ばす", () => {
-    // DB に 7 言語のうち未実装のものが入っていても画面は空にならない。
-    expect(resolveLocale("zh-CN", "en")).toBe("en");
+    // DB に対応外の言語コードが入っていても画面は空にならない。
+    // （zh-CN などの 5 言語は 2026-08-16 に対応済み。ここでは対応表に
+    //   無いコードを使う）
+    expect(resolveLocale("fr", "en")).toBe("en");
     expect(resolveLocale(null, undefined, "en")).toBe("en");
   });
 
   it("候補がすべて外れたら ja", () => {
     expect(resolveLocale(null, undefined)).toBe("ja");
-    expect(resolveLocale("vi")).toBe("ja");
+    expect(resolveLocale("ko")).toBe("ja");
   });
 
   it("候補が無ければ ja", () => {
@@ -56,7 +58,13 @@ describe("isLocale", () => {
   it("対応言語だけを通す", () => {
     expect(isLocale("ja")).toBe(true);
     expect(isLocale("en")).toBe(true);
-    expect(isLocale("zh-CN")).toBe(false);
+    // 契約 §7.1 の 7 言語（DECISIONS #198）。
+    expect(isLocale("zh-CN")).toBe(true);
+    expect(isLocale("vi")).toBe(true);
+    expect(isLocale("id")).toBe(true);
+    expect(isLocale("my")).toBe(true);
+    expect(isLocale("ne")).toBe(true);
+    expect(isLocale("fr")).toBe(false);
     expect(isLocale(undefined)).toBe(false);
     expect(isLocale(1)).toBe(false);
   });
