@@ -19,7 +19,8 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { parse } from "smol-toml";
@@ -29,7 +30,10 @@ import { parse } from "smol-toml";
 // 本ファイルは node が直接起動する唯一の入口なので、実際のファイル名で書く。
 // （tsconfig.json の `allowImportingTsExtensions` が対になっている）
 import {
+  buildRecordSql,
+  computeChecksum,
   runMigrations,
+  SCHEMA_VERSION_DDL,
   type AppliedMigration,
   type MigrationSource,
   type ShardTarget,
@@ -55,13 +59,75 @@ interface Journal {
   entries: JournalEntry[];
 }
 
-function parseArgs(argv: string[]): { env: Environment; checkOnly: boolean } {
+function parseArgs(argv: string[]): {
+  env: Environment;
+  checkOnly: boolean;
+  markApplied: boolean;
+} {
   const envIndex = argv.indexOf("--env");
   const raw = envIndex === -1 ? "local" : argv[envIndex + 1];
   if (raw === undefined || !ENVIRONMENTS.includes(raw as Environment)) {
     throw new Error(`unknown --env: ${String(raw)}. expected one of ${ENVIRONMENTS.join(" / ")}`);
   }
-  return { env: raw as Environment, checkOnly: argv.includes("--check") };
+  return {
+    env: raw as Environment,
+    checkOnly: argv.includes("--check"),
+    markApplied: argv.includes("--mark-applied"),
+  };
+}
+
+/**
+ * **SQL を流さずに「適用済み」とだけ記録する。**
+ *
+ * ── いつ使うのか ────────────────────────────────────────
+ * 表は揃っているのに `schema_version` が空、という状態がありうる。
+ * 別の手段（drizzle-kit push など）でスキーマを作った DB や、
+ * 記録を書く前に落ちた適用の後がそれにあたる。この状態で
+ * `pnpm db:migrate` を流すと 1 本目から `table ... already exists` で落ちる。
+ * **実際に staging がこれになっていた。**
+ *
+ * ── 危ないこと ──────────────────────────────────────────
+ * **中身を確かめずに「当たっている」と宣言する操作。** 表の形が
+ * migration と食い違っていても、記録だけが進んで気づけなくなる。
+ * `--mark-applied` を明示したときにしか動かないのはそのため。
+ * **既に記録がある tag には触れない**（上書きしない）。
+ */
+async function markAllApplied(
+  environment: Environment,
+  shards: ShardTarget[],
+  migrations: MigrationSource[],
+): Promise<void> {
+  const now = Date.now();
+
+  for (const shard of shards) {
+    runWrangler(environment, shard.databaseName, [fileArg(SCHEMA_VERSION_DDL)]);
+
+    const applied = new Set(
+      parseRows(
+        runWrangler(environment, shard.databaseName, [
+          "--json",
+          commandArg("SELECT tag, checksum FROM schema_version ORDER BY tag"),
+        ]),
+      ).map((row) => row.tag),
+    );
+
+    const missing = migrations.filter((migration) => !applied.has(migration.tag));
+    if (missing.length === 0) {
+      console.log(`shard ${String(shard.index)}: すべて記録済み`);
+      continue;
+    }
+
+    const sql = (
+      await Promise.all(
+        missing.map(async (migration) =>
+          buildRecordSql(migration.tag, await computeChecksum(migration.sql), now),
+        ),
+      )
+    ).join(";\n");
+
+    runWrangler(environment, shard.databaseName, [fileArg(sql)]);
+    console.log(`shard ${String(shard.index)}: ${String(missing.length)} 件を記録しました`);
+  }
 }
 
 /**
@@ -144,12 +210,58 @@ function commandArg(sql: string): string {
   return `--command=${sql}`;
 }
 
+/** 適用する SQL を置く一時ディレクトリ。プロセス 1 回につき 1 つ。 */
+const SQL_DIR = mkdtempSync(join(tmpdir(), "pk-migrate-"));
+let sqlFileSeq = 0;
+
+/**
+ * 適用する SQL は**ファイルで渡す**（`--file=<path>`）。
+ *
+ * ── なぜ `--command` ではないのか ───────────────────────
+ * `--command` は 1 引数に SQL 全体を載せる。初回マイグレーション（0000）は
+ * 表 15 個ぶんで数十 KB あり、**`--remote` はこれを受け取れない。**
+ * local（miniflare）は通るので、**ローカルで確かめても分からない。**
+ * 実際、staging の D1 で最初の 1 本目が落ちた。
+ *
+ * `--file` は wrangler が文へ分割して送る。**大きさに依らない。**
+ * 先頭が `--` の SQL も、そもそも引数に載らないので問題にならない。
+ *
+ * 問い合わせ（`--json` の SELECT）は短いので `--command` のままでよい。
+ */
+function fileArg(sql: string): string {
+  sqlFileSeq += 1;
+  const path = join(SQL_DIR, `migration-${String(sqlFileSeq).padStart(4, "0")}.sql`);
+  writeFileSync(path, sql, "utf8");
+  return `--file=${path}`;
+}
+
+/**
+ * wrangler を実行する。**stderr を捨てない。**
+ *
+ * 以前は `stdio` の 3 つ目が `"inherit"` で、失敗したときに例外へ載るのは
+ * 「実行したコマンド（＝ SQL 全文）」だけだった。**wrangler が何と言って
+ * 落ちたのかが、数十 KB の SQL に埋もれて読めない。** 捕まえて、最後の
+ * 数行だけを出す。
+ */
 function runWrangler(environment: Environment, databaseName: string, extra: string[]): string {
-  return execFileSync(
-    "pnpm",
-    ["exec", "wrangler", ...wranglerArgs(environment, databaseName), ...extra],
-    { cwd: join(ROOT, "apps", "web"), encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
-  );
+  try {
+    return execFileSync(
+      "pnpm",
+      ["exec", "wrangler", ...wranglerArgs(environment, databaseName), ...extra],
+      { cwd: join(ROOT, "apps", "web"), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+  } catch (error) {
+    const stderr = (error as { stderr?: string }).stderr ?? "";
+    const stdout = (error as { stdout?: string }).stdout ?? "";
+    const tail = [stdout, stderr]
+      .join("\n")
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .slice(-20)
+      .join("\n");
+    console.error(`wrangler が失敗しました（${databaseName}）:\n${tail}`);
+    throw new Error(`WRANGLER_FAILED:${databaseName}`);
+  }
 }
 
 /**
@@ -165,19 +277,27 @@ function parseRows(stdout: string): AppliedMigration[] {
 }
 
 async function main(): Promise<void> {
-  const { env: environment, checkOnly } = parseArgs(process.argv.slice(2));
+  const { env: environment, checkOnly, markApplied } = parseArgs(process.argv.slice(2));
   const shards = readShardTargets(environment);
   const migrations = readMigrations();
 
   console.log(
     `env=${environment} shards=${String(shards.length)} migrations=${String(migrations.length)}` +
-      (checkOnly ? " (check only)" : ""),
+      (checkOnly ? " (check only)" : "") +
+      (markApplied ? " (mark applied only)" : ""),
   );
+
+  if (markApplied) {
+    console.warn("SQL は流しません。既存のスキーマを「適用済み」として記録します。");
+    await markAllApplied(environment, shards, migrations);
+    console.log("done.");
+    return;
+  }
 
   const result = await runMigrations(
     {
       execute: (target, sql) => {
-        runWrangler(environment, target.databaseName, [commandArg(sql)]);
+        runWrangler(environment, target.databaseName, [fileArg(sql)]);
         return Promise.resolve();
       },
       query: (target, sql) =>

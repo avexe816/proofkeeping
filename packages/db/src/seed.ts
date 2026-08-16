@@ -37,6 +37,7 @@ import { reserveOrgShortId } from "./orgDirectory.js";
 import { getTenantDb, type ShardContext } from "./router.js";
 import { legacyPolicyValues } from "./repositories/inspectionPolicy.js";
 import { checklistItem, checklistTemplate } from "./schema/checklist.js";
+import { MODULE_CODES, moduleEntitlement } from "./schema/billing.js";
 import { propertyInspectionPolicy } from "./schema/inspection.js";
 import { organization, organizationTaxProfile } from "./schema/organization.js";
 import { building, floor, property, room, roomType } from "./schema/property.js";
@@ -183,6 +184,33 @@ export async function seed(
       ...stamps,
     })
     .onConflictDoNothing();
+
+  // ── モジュールの有効化（PK-SPEC-P7 §3.1）─────────────
+  //
+  // **これが無いと画面が使えない。** サイドバーは `module_entitlement` を
+  // 引いて、無効なモジュールの項目を「ご契約に含まれていません」の
+  // グレー表示にする（`ui/navigation.ts`）。行が 1 つも無い組織では
+  // **全項目がグレーになり、ログインしても何も開けない。**
+  // 実際に staging がそうなっていた。
+  //
+  // シードは「動かして確かめるための組織」なので、**全モジュールを
+  // 有効にする。** 未契約の見え方を確かめたいときは、この行を
+  // 消すのではなく管理画面から無効化すること。
+  //
+  // `propertyId` は null（組織全体に効かせる）。`source` は既定の `PLAN`。
+  for (const moduleCode of MODULE_CODES) {
+    await db
+      .insert(moduleEntitlement)
+      .values({
+        id: id("ent"),
+        organizationId,
+        propertyId: null,
+        moduleCode,
+        isEnabled: true,
+        ...stamps,
+      })
+      .onConflictDoNothing();
+  }
 
   // ── 施設・建物・階・客室タイプ・客室 ────────────────
   let roomCount = 0;

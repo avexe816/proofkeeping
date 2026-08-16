@@ -44,12 +44,20 @@ export function Sidebar(props: {
 
 function NavEntry({ entry }: { entry: VisibleNavItem }) {
   const label = t(entry.item.key);
+  // **`aria-hidden`。** 意味はラベルが持っており、読み上げに絵文字の
+  // 名前（「グラフ」等）が混ざると項目名が二重になる。
+  const icon = (
+    <span aria-hidden="true" className="pk-nav__icon">
+      {entry.item.icon}
+    </span>
+  );
 
   // 未契約。**リンクにしない。** 案内は `title` にも出して、
   // グレーの理由が分かるようにする。
   if (entry.locked) {
     return (
       <span className="pk-nav pk-nav--locked" title={t("nav.locked.notice")}>
+        {icon}
         {label}
         <span className="pk-nav__note">{t("nav.locked")}</span>
       </span>
@@ -61,6 +69,7 @@ function NavEntry({ entry }: { entry: VisibleNavItem }) {
   if (entry.item.status === "PLANNED" || entry.href === null) {
     return (
       <span className="pk-nav pk-nav--planned">
+        {icon}
         {label}
         <span className="pk-nav__note">{t("nav.planned")}</span>
       </span>
@@ -72,6 +81,7 @@ function NavEntry({ entry }: { entry: VisibleNavItem }) {
       className={({ isActive }) => (isActive ? "pk-nav pk-nav--active" : "pk-nav")}
       to={entry.href}
     >
+      {icon}
       {label}
     </NavLink>
   );

@@ -25,15 +25,19 @@ on:
   workflow_dispatch:
     inputs:
       phase:
-        description: "check = 読むだけ（課金なし） / resources = 資源を作り ID の PR を出す / secrets-and-seed = 秘密の登録とシード投入（デプロイ後）"
+        description: "check = 読むだけ / resources = 資源を作り ID の PR を出す / reset-db = staging の D1 を空にする（復旧用） / secrets-and-seed = migration・秘密・シード"
         required: true
         type: choice
         options:
           - check
+          - db-status
+          - smoke
+          - mark-applied
           - resources
+          - reset-db
           - secrets-and-seed
       confirm:
-        description: "CREATE と入力すると実行する（phase=check では不要）"
+        description: "CREATE と入力すると実行する（phase=check では不要 / reset-db は RESET-STAGING-DB）"
         required: false
         type: string
 
@@ -57,8 +61,24 @@ jobs:
       # 作る phase だけを CREATE で守る。
       - name: 実行確認
         run: |
-          if [ "${{ inputs.phase }}" = "check" ]; then
-            echo "phase=check: 読み取りのみ。資源は作りません。"
+          if [ "${{ inputs.phase }}" = "check" ] || [ "${{ inputs.phase }}" = "db-status" ] || [ "${{ inputs.phase }}" = "smoke" ]; then
+            echo "${{ inputs.phase }}: 読み取りのみ。何も変更しません。"
+            exit 0
+          fi
+          if [ "${{ inputs.phase }}" = "mark-applied" ]; then
+            if [ "${{ inputs.confirm }}" != "MARK-APPLIED" ]; then
+              echo "phase=mark-applied には confirm に MARK-APPLIED が要ります。"
+              exit 1
+            fi
+            exit 0
+          fi
+          if [ "${{ inputs.phase }}" = "reset-db" ]; then
+            # **表を落とす操作だけは合言葉を変える。** CREATE の惰性で
+            # 押せてしまわないようにする。
+            if [ "${{ inputs.confirm }}" != "RESET-STAGING-DB" ]; then
+              echo "phase=reset-db には confirm に RESET-STAGING-DB が要ります。"
+              exit 1
+            fi
             exit 0
           fi
           if [ "${{ inputs.confirm }}" != "CREATE" ]; then
@@ -279,7 +299,192 @@ jobs:
             --title "chore: staging の D1 / KV を実 ID へ差し替える" \
             --body-file /tmp/pr-body.md
 
-      # ── ③ 秘密の登録とシード投入（デプロイ後に実行する）──
+      # ── ⓪-3 通しの確認（ログイン → 画面 → API）─────────────
+      #
+      # **画面が出ることと、入れることは別。** /login が 200 でも、
+      # SESSION_SECRET が無ければログインは 503 で落ちる。実際に
+      # セッションを取り、認証が要る API と画面まで到達して確かめる。
+      - name: 通しで確認する（ログイン・画面・API）
+        if: inputs.phase == 'smoke'
+        working-directory: apps/web
+        run: |
+          base=$(awk '/^\[env.staging.vars\]/,/^\[\[/' wrangler.toml | grep APP_BASE_URL | sed 's/.*= *//' | tr -d '"')
+          jar=/tmp/pk-cookie.txt; rm -f "$jar"
+          ok=0; ng=0
+          say() { if [ "$1" = "0" ]; then ok=$((ok+1)); echo "OK   $2"; else ng=$((ng+1)); echo "NG   $2"; fi; }
+
+          code=$(curl -s -o /tmp/r -w "%{http_code}" --max-time 20 "$base/api/health")
+          grep -q '"state":"ok"' /tmp/r && say 0 "/api/health = ok" || say 1 "/api/health ($code): $(head -c 200 /tmp/r)"
+
+          # **未認証は 401 であること。** 誰でも読める状態になっていないか。
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$base/api/v1/properties/summary")
+          [ "$code" = "401" ] && say 0 "未認証の API = 401" || say 1 "未認証の API が $code"
+
+          code=$(curl -s -o /tmp/r -w "%{http_code}" --max-time 30 -c "$jar" -X POST "$base/api/v1/auth/login" \
+                 -H "content-type: application/json" \
+                 -d "{\"orgShortId\":\"seed01\",\"staffNumber\":\"0001\",\"password\":\"testpass-01\"}")
+          [ "$code" = "200" ] && say 0 "管理ログイン（seed01 / 0001）" || say 1 "管理ログインが $code: $(head -c 200 /tmp/r)"
+
+          code=$(curl -s -o /tmp/r -w "%{http_code}" --max-time 20 -b "$jar" "$base/api/v1/properties/summary")
+          [ "$code" = "200" ] && say 0 "施設一覧 API（$(jq -r '.data | length' /tmp/r 2>/dev/null) 件）" || say 1 "施設一覧 API が $code"
+
+          for path in /app/dashboard /m/today; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 -b "$jar" -L "$base$path")
+            [ "$code" = "200" ] && say 0 "画面 $path" || say 1 "画面 $path が $code"
+          done
+
+          {
+            echo "## 通し確認: 成功 $ok / 失敗 $ng"
+            echo ""
+            echo "- URL: $base/login"
+            echo "- 組織 ID: seed01 / スタッフ番号: 0001 / パスワード: testpass-01"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$ng" = "0" ]
+
+      # ── ⓪-2 D1 の中身と、動いている Worker の様子を読む ─────
+      #
+      # **消す前に読む。** reset-db が「org_directory に 1 行ある」で止まった。
+      # 表は 23 本ぶん揃っており、**スキーマは入っていて記録だけが無い**
+      # 可能性がある。どちらなのかで打つ手が変わる。
+      - name: D1 の状態を読む（何も変更しない）
+        if: inputs.phase == 'db-status'
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          q() {  # $1=db $2=sql
+            pnpm exec wrangler d1 execute "$1" --remote --env staging --json --command="$2" \
+              2>/dev/null | sed -n '/\[/,$p' | jq -c '.[].results'
+          }
+
+          for db in proofkeeping-shard-00-staging proofkeeping-shard-01-staging; do
+            echo "== $db =="
+            echo "表の数: $(q "$db" "SELECT count(*) AS n FROM sqlite_master WHERE type='"'"'table'"'"' AND name NOT LIKE '"'"'sqlite_%'"'"';")"
+            echo "適用記録(schema_version): $(q "$db" "SELECT * FROM schema_version ORDER BY 1;")"
+            echo "組織数: $(q "$db" "SELECT count(*) AS n FROM organization;")"
+            echo "利用者数: $(q "$db" "SELECT count(*) AS n FROM user;")"
+            echo "施設数: $(q "$db" "SELECT count(*) AS n FROM property;")"
+          done
+
+          echo "== 動いている Worker =="
+          base=$(awk '/^\[env.staging.vars\]/,/^\[\[/' wrangler.toml | grep APP_BASE_URL | sed 's/.*= *//' | tr -d '"')
+          echo "APP_BASE_URL=$base"
+          echo "--- /api/health ---"
+          curl -s --max-time 20 "$base/api/health" | head -c 600; echo
+          echo "--- /login (HTTP コード) ---"
+          curl -s -o /dev/null -w "%{http_code}\n" --max-time 20 "$base/login"
+
+      # ── ②-5 staging の D1 を空にする（復旧用）───────────────
+      #
+      # **中途半端に適用された状態から戻すためだけの手順。**
+      # `wrangler d1 execute --file` は文を 1 つずつ送り、途中で落ちても
+      # そこまでは残る。適用記録（`schema_version`）は最後にしか書かれないので、
+      # **失敗した migration は「半分ある・記録は無い」状態になる。**
+      # 再実行すると `table ... already exists` で必ず落ちる。
+      #
+      #   ✘ [ERROR] table `audit_log` already exists at offset 13: SQLITE_ERROR
+      #
+      # **表を落として作り直すのが唯一の戻し方。** migration に「戻す」操作は
+      # 用意していない（runbook §5）。
+      #
+      # ── 安全のための決め事 ──────────────────────────────
+      #   * `confirm` に **RESET-STAGING-DB** と打ったときだけ走る（CREATE では走らない）
+      #   * 対象は `[env.staging]` の D1 だけ。名前が `-staging` で終わることを確かめる
+      #   * **業務データが入っている DB では使わない。** 行数を数えて 0 でなければ止める
+      - name: staging の D1 を空にする
+        if: inputs.phase == 'reset-db'
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          for db in proofkeeping-shard-00-staging proofkeeping-shard-01-staging; do
+            case "$db" in
+              *-staging) ;;
+              *) echo "staging 以外の名前です: $db"; exit 1 ;;
+            esac
+
+            echo "== $db =="
+            tables=$(pnpm exec wrangler d1 execute "$db" --remote --env staging --json \
+              --command="SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%';" \
+              | sed -n '/\[/,$p' | jq -r '.[].results[].name')
+
+            if [ -z "$tables" ]; then echo "表はありません。"; continue; fi
+            echo "落とす表:"; echo "$tables"
+
+            # **業務データが 1 行でもあれば止める。** 失敗した migration の
+            # 後始末にしか使わない手順なので、中身があるのは想定外。
+            for t in $tables; do
+              n=$(pnpm exec wrangler d1 execute "$db" --remote --env staging --json \
+                    --command="SELECT count(*) AS n FROM \`$t\`;" \
+                    | sed -n '/\[/,$p' | jq -r '.[].results[].n')
+              if [ "${n:-0}" != "0" ]; then
+                echo "$t に $n 行あります。中止します（人が確認すること）。"
+                exit 1
+              fi
+            done
+
+            : > /tmp/drop.sql
+            for t in $tables; do echo "DROP TABLE IF EXISTS \`$t\`;" >> /tmp/drop.sql; done
+            pnpm exec wrangler d1 execute "$db" --remote --env staging --file=/tmp/drop.sql
+            echo "$db: 空にしました。"
+          done
+
+      # ── ②-6 適用済みとして記録する（流さない）──────────────
+      #
+      # **表は揃っているのに `schema_version` が空**、という状態からの復帰。
+      # staging が実際にこれだった（表 23 本ぶん・組織 1・利用者 16 に対し、
+      # 適用記録は空）。この状態で migration を流すと 1 本目から
+      # `table ... already exists` で落ちる。
+      #
+      # **中身は確かめない。「当たっている」と宣言するだけの操作**なので、
+      # 合言葉を分けてある。
+      - name: 適用済みとして記録する（SQL は流さない）
+        if: inputs.phase == 'mark-applied'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          set -euo pipefail
+          pnpm db:migrate --env staging --mark-applied
+          echo "--- 記録後の状態 ---"
+          pnpm db:migrate --env staging --check
+
+      # ── ③-1 migration（シードより先）──────────────────────
+      #
+      # **空の D1 にシードは入らない。** 表が無いので必ず失敗する。
+      # `pnpm db:migrate --env staging` は `--remote` で実在の D1 を触る。
+      #
+      # **ここが CI（ci.yml）と違う点。** ci.yml は main への push で
+      # migration を流さない（後方互換でない変更が気づく前に当たるのを避ける /
+      # runbook §3.5 ④）。**これは人が明示的に押したときだけ走る**ので流してよい。
+      #
+      # 触る先が staging であることは、**流す前に名前で確かめる。**
+      # `--env` を間違えたときに production の 16 シャードへ当たらないようにする。
+      - name: staging へ migration を流す
+        if: inputs.phase == 'secrets-and-seed'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          # **wrangler.toml の [env.staging] が staging の D1 だけを指すこと。**
+          names=$(awk '/^\[env.staging\]/,/^\[env.production\]/' apps/web/wrangler.toml \
+                  | grep 'database_name' | sed 's/.*= *//' | tr -d '"')
+          echo "対象の D1:"; echo "$names"
+          if echo "$names" | grep -v -- '-staging$' | grep -q .; then
+            echo "staging 以外の D1 が混ざっています。中止します。"
+            exit 1
+          fi
+
+          pnpm db:migrate --env staging --check || true   # 何が未適用かを先に出す
+          pnpm db:migrate --env staging
+
+      # ── ③-2 秘密の登録とシード投入（デプロイ後に実行する）──
       #
       # **値を出力しない。** 生成した SESSION_SECRET はログにも PR にも出さない。
       # シードの鍵も同様で、**このジョブの中だけで使って捨てる。**
