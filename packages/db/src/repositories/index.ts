@@ -307,6 +307,7 @@ export {
   findObservationByTaskId,
   findObservationConfig,
   listLinenRecords,
+  sumLinenByItemInRange,
   sumLinenByProperty,
   listLinenRecordsInRange,
   listObservationConfigs,

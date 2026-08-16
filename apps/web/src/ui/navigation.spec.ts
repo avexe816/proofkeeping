@@ -81,6 +81,8 @@ describe("登録簿の不変条件", () => {
       "nav.inspection",
       // W-22 データ品質ダッシュボード（P3-12）。「資材と分析」の 1 つめ。
       "nav.dataQuality",
+      // 月次レポート（owner 09 / docs/PROTOTYPE_GAP.md 第2批 09）。
+      "nav.report",
       // §7.2 清掃会社プラン（P5-15）。「資材と分析」の最後。
       "nav.vendorPlan",
       // `/app/settings/*` の 4 画面。客室マスタ（P0-22）と事業者税務（P0-16）は

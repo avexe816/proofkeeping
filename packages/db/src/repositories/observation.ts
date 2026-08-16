@@ -443,6 +443,46 @@ export async function sumLinenByProperty(
   );
 }
 
+/**
+ * 品目ごとのリネン枚数の合計（施設 1 件・期間）。
+ *
+ * 月次レポート（owner 09 / docs/PROTOTYPE_GAP.md 第2批 09）の §5 が読む。
+ * `sumLinenByProperty()` の期間版で、分解軸が施設ではなく品目。
+ * **テナント内・施設 1 件の集計であって、テナント横断ではない**
+ * （`sumLinenByProperty()` の注記と同じ）。`idx_linen_date`
+ * （org, property, businessDate）がそのまま効く。
+ *
+ * 並びは `itemCode` の辞書順。**表示の並び（品目マスタの定義順）は
+ * 呼び出し側が決める**（この層に表示の都合を持ち込まない）。
+ */
+export async function sumLinenByItemInRange(
+  env: Env,
+  ctx: TenantContext,
+  filter: LinenRangeFilter,
+): Promise<readonly { itemCode: ItemCode; collectedQty: number; suppliedQty: number }[]> {
+  assertIdBelongsToTenant(filter.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select({
+      itemCode: linenRecord.itemCode,
+      collectedQty: sql<number>`sum(${linenRecord.collectedQty})`,
+      suppliedQty: sql<number>`sum(${linenRecord.suppliedQty})`,
+    })
+    .from(linenRecord)
+    .where(
+      withTenantScope(
+        linenRecord,
+        ctx,
+        linenRecord.propertyId,
+        eq(linenRecord.propertyId, filter.propertyId),
+        gte(linenRecord.businessDate, filter.from),
+        lte(linenRecord.businessDate, filter.to),
+      ),
+    )
+    .groupBy(linenRecord.itemCode)
+    .orderBy(linenRecord.itemCode);
+}
+
 /** `listLinenRecordsInRange()` の絞り込み。 */
 export interface LinenRangeFilter {
   propertyId: string;
