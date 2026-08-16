@@ -189,6 +189,7 @@ export {
 export {
   INSPECTION_QUEUE_TONES,
   INSPECTION_URGENT_CHECKIN_MINUTES,
+  compareInspectionQueue,
   sortInspectionQueue,
   summarizeInspectionQueue,
   waitStateOf,

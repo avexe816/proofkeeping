@@ -50,9 +50,11 @@ import { assertPermission, propertyTarget } from "../../../lib/auth/permission.j
 import { businessDateOf } from "../../../lib/businessDate.js";
 import { completeInspectionUseCase } from "../../../lib/inspection/complete.js";
 import { listInspectionItems, toInspection } from "../../../lib/inspection/detail.js";
+import { buildInspectionQueue } from "../../../lib/inspection/queue.js";
 import { buildStrandedList } from "../../../lib/inspection/stranded.js";
 import { buildWaitingList } from "../../../lib/inspection/waiting.js";
 import { uploadInspectionPhoto } from "../../../lib/photo/inspectionUpload.js";
+import { resolveListScope } from "../../../lib/property/listScope.js";
 import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { getNow, getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
 
@@ -109,6 +111,39 @@ inspections.get("/stranded", async (c) => {
   assertPermission(ctx, "inspection.read", propertyTarget([propertyId]));
 
   return c.json(await buildStrandedList(c.env, ctx, propertyId));
+});
+
+/**
+ * 検査キュー（施設横断 / P7-18）。
+ *
+ * ```
+ * GET /api/v1/inspections/queue?businessDate=&propertyId=
+ * ```
+ *
+ * `waiting` と同じ理由で **`/:inspectionId` より前に登録する。**
+ *
+ * ── `waiting` を置き換えない ────────────────────────────
+ * あちらは施設 1 件必須で、モバイル（M-08）が使っている。
+ * こちらは PC の運用画面が使う施設横断版で、**`propertyId` は任意。**
+ * 省略時にどこまで見えるかは `resolveListScope()` が決める
+ * （`CLEANER` は `inspection.read` が `DENY` なので 404）。
+ */
+inspections.get("/queue", async (c) => {
+  const ctx = getTenant(c);
+  const businessDate = c.req.query("businessDate") ?? businessDateOf(getNow(c));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) return c.json(invalidRequest(), 400);
+
+  // **これが唯一の門。** 権限が無ければ `NotFoundError` → 404。
+  const scope = resolveListScope(ctx, "inspection.read", c.req.query("propertyId") ?? null);
+
+  return c.json(
+    await buildInspectionQueue(c.env, ctx, {
+      scope,
+      businessDate,
+      viewerMembershipId: getSession(c).membershipId,
+      now: getNow(c),
+    }),
+  );
 });
 
 /** 検査 1 件（M-09 が読む）。**項目を必ず添える。** */

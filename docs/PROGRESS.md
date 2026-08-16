@@ -1938,9 +1938,17 @@ task: P0-07 リポジトリ層の雛形
 **`ui-prototypes/ops/` の 12 画面のうち、P8 に当たらないものだけを起票した。**
 GA 判定前に P8 の task を作らない（CLAUDE.md §9）方針は変えていない。
 
-- [ ] P7-18 検査キュー（`nav.inspection` を PLANNED → READY）
+- [x] P7-18 検査キュー（`nav.inspection` を PLANNED → READY）
 - [ ] P7-19 進捗モニタ（受託施設の当日進捗 / rollup を引く）
 - [ ] P7-20 監査ログの閲覧（**読み取り専用** / 12 を分割した閲覧側）
+
+**P7-18 が P7-20 へ渡すもの**: 施設横断の scope 判定
+`resolveListScope()`（`apps/web/src/lib/property/listScope.ts` / DECISIONS #194）。
+P7-20 の「自分の受託施設スコープ内のみ」はこの関数をそのまま呼ぶ。
+**渡す `PermissionAction` は P7-20 が決める**（監査ログ閲覧用の操作は
+`PERMISSION_ACTIONS` にまだ無く、その画面を作る task が足す）。
+P7-18 側で監査ログ用の操作を先に決め打ちしていない。
+担当者名を出さない判断は DECISIONS #193。
 
 **P8 バックログへ送ったもの**（GA 判定後に task 化する）
 

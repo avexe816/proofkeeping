@@ -299,6 +299,46 @@ export const inspectionWaitingResponseSchema = z.object({
 export type InspectionWaitingResponse = z.infer<typeof inspectionWaitingResponseSchema>;
 
 // ────────────────────────────────────────────────────────────
+// 検査キュー（施設横断 / P7-18）
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 検査キューの 1 件。
+ *
+ * `inspectionWaitingItemSchema`（M-08 / 施設 1 件）に**施設名を足しただけ**。
+ * 別のスキーマにしてあるのは、施設をまたぐ画面だけが `propertyName` を
+ * 要るためで、モバイルの一覧に施設名を出す意図ではない。
+ *
+ * **担当者（清掃した人）を持たせない。** INV-09「検査結果を入力するまで
+ * 担当者名を表示しない（清掃会社の画面でも同様）」。`docs/tasks/P7-18.md`
+ * の「やること」は担当者の表示を挙げているが、実装契約が優先する
+ * （CLAUDE.md §7 / DECISIONS #193）。**自分が清掃したタスクを除く判定は
+ * サーバー側で済ませてある**ので、画面が担当者を知る必要は無い。
+ */
+export const inspectionQueueItemSchema = inspectionWaitingItemSchema.extend({
+  propertyId: z.string(),
+  propertyName: z.string(),
+});
+
+export type InspectionQueueItem = z.infer<typeof inspectionQueueItemSchema>;
+
+/** `GET /api/v1/inspections/queue?businessDate=&propertyId=`。 */
+export const inspectionQueueResponseSchema = z.object({
+  businessDate: businessDateSchema,
+  /** 絞り込んだ施設。**全施設なら `null`。** */
+  propertyId: z.string().nullable(),
+  summary: z.object({
+    total: z.number().int().min(0),
+    urgent: z.number().int().min(0),
+    overSla: z.number().int().min(0),
+    recheck: z.number().int().min(0),
+  }),
+  data: z.array(inspectionQueueItemSchema),
+});
+
+export type InspectionQueueResponse = z.infer<typeof inspectionQueueResponseSchema>;
+
+// ────────────────────────────────────────────────────────────
 // 検査写真（§4.3 / §6.5）
 // ────────────────────────────────────────────────────────────
 

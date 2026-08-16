@@ -173,6 +173,10 @@ export default [
     route("app/archive", "routes/app/archive.tsx"),
     route("app/audit/findings", "routes/app/findings.tsx"),
     route("app/audit/findings/:findingId", "routes/app/findingDetail.tsx"),
+    // P7-18。検査キュー（施設横断）。**`:propertyId` を URL に持たない。**
+    // 「次に検査するもの」を施設をまたいで選ぶ画面で、施設は `?propertyId=`
+    // で絞る（差異レポートと同じ形）。`CLEANER` は loader が 404 を投げる。
+    route("app/inspections/queue", "routes/app/inspectionQueue.tsx"),
   ]),
   // シェルの外に置く。POST のたびにシェルの loader を動かす必要が無い
   // （切替後のリダイレクトで、どのみち loader は動き直す）。

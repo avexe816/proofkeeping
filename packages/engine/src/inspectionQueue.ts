@@ -105,10 +105,45 @@ export function waitStateOf(
 }
 
 /**
+ * §11.2 の並び順そのもの。`Array#sort` の比較関数。
+ *
+ * **`slaMinutes` を引数に取らない。** 受け取るのは `waitStateOf()` を
+ * 通したあとの値で、SLA の判定（`isOverSla`）は既に済んでいる。
+ * これが効くのは**施設をまたぐ一覧**（P7-18 の検査キュー）で、
+ * 施設ごとに `inspectionSlaMinutes` が違っても、各件を自分の施設の
+ * SLA で評価してから 1 本に並べられる。SLA を引数に持つ
+ * `sortInspectionQueue()` では、施設が混じった配列を正しく並べられない。
+ */
+export function compareInspectionQueue(a: QueuedInspection, b: QueuedInspection): number {
+  const bucket = bucketOf(a) - bucketOf(b);
+  if (bucket !== 0) return bucket;
+
+  // 緊急の束はチェックインが近い順。**待ち時間より締切を優先する。**
+  if (a.tone === "URGENT" && b.tone === "URGENT") {
+    const left = a.minutesToCheckIn ?? Number.MAX_SAFE_INTEGER;
+    const right = b.minutesToCheckIn ?? Number.MAX_SAFE_INTEGER;
+    if (left !== right) return left - right;
+  }
+
+  // 完了時刻の古い順。**未記録は最後**（並びを不定にしない）。
+  const left = a.completedAtMs ?? Number.MAX_SAFE_INTEGER;
+  const right = b.completedAtMs ?? Number.MAX_SAFE_INTEGER;
+  if (left !== right) return left - right;
+
+  // 最後は客室番号。**同着を安定させるため**（並びが毎回変わると
+  // 30 秒ごとの自動更新で行が飛ぶ）。
+  return a.roomNumber.localeCompare(b.roomNumber, "en");
+}
+
+/**
  * 検査待ちを §11.2 の順に並べる。
  *
  * **入力を書き換えない。** 新しい配列を返す。
  * 同じ束の中は「完了時刻の古い順」で、完了時刻が無い件は最後。
+ *
+ * **施設 1 件ぶんの一覧に使う**（`slaMinutes` が全件に掛かるため）。
+ * 施設をまたぐ一覧は `waitStateOf()` を施設ごとの SLA で掛けてから
+ * `compareInspectionQueue()` で並べること。
  */
 export function sortInspectionQueue(
   entries: readonly WaitingInspection[],
@@ -117,26 +152,7 @@ export function sortInspectionQueue(
 ): QueuedInspection[] {
   return entries
     .map((entry) => waitStateOf(entry, nowMs, slaMinutes))
-    .sort((a, b) => {
-      const bucket = bucketOf(a) - bucketOf(b);
-      if (bucket !== 0) return bucket;
-
-      // 緊急の束はチェックインが近い順。**待ち時間より締切を優先する。**
-      if (a.tone === "URGENT" && b.tone === "URGENT") {
-        const left = a.minutesToCheckIn ?? Number.MAX_SAFE_INTEGER;
-        const right = b.minutesToCheckIn ?? Number.MAX_SAFE_INTEGER;
-        if (left !== right) return left - right;
-      }
-
-      // 完了時刻の古い順。**未記録は最後**（並びを不定にしない）。
-      const left = a.completedAtMs ?? Number.MAX_SAFE_INTEGER;
-      const right = b.completedAtMs ?? Number.MAX_SAFE_INTEGER;
-      if (left !== right) return left - right;
-
-      // 最後は客室番号。**同着を安定させるため**（並びが毎回変わると
-      // 30 秒ごとの自動更新で行が飛ぶ）。
-      return a.roomNumber.localeCompare(b.roomNumber, "en");
-    });
+    .sort(compareInspectionQueue);
 }
 
 /** 件数の内訳（見出しに出す）。 */
