@@ -25,6 +25,22 @@
  * 経過時間を赤で出さない（ui-writing.md §3）。強さは `tone` の 3 段だけで、
  * `URGENT` が締切（客の到着）、`OVER_SLA` が目安超過。
  *
+ * ── 「お急ぎ」の件数を出さない（OPEN_QUESTIONS #045）──────
+ * §11.2 の第 1 段（チェックイン 30 分前）は**判定できる材料がまだ無い。**
+ * チェックイン予定時刻の列が存在せず、`lib/inspection/queue.ts` は
+ * `checkInAtMs: null` を渡している。したがって `summary.urgent` は
+ * **実データに関わらず常に 0** になる。
+ *
+ * これを見出しに出すと「お急ぎ 0 件」＝「急ぐ客室は無い」と読まれる。
+ * **判定していないことと、判定した結果 0 件であることは違う。**
+ * 前者を後者の顔で見せないため、この画面は件数を出さない。
+ *
+ * **engine の `URGENT` 判定と API の `summary.urgent` は残してある**
+ * （将来用 / `packages/engine` の `waitStateOf()`）。列が入って
+ * `checkInAtMs` が埋まったら、**この画面の集計に「お急ぎ」を戻すこと。**
+ * 戻す場所は下の `pk-board__counts`（`inspectionQueue.summary.urgent` の
+ * 文言キーは消さずに残してある）。
+ *
  * ── プロトタイプのうち作っていないもの ──────────────────
  * 抜き取り率・抜き取りの選び方・本日の再清掃カードは P7-18 の
  * 「やること」に無い。**task に書かれていないことを実装しない**
@@ -116,7 +132,14 @@ function startFailureKey(code: string): MessageKey {
   }
 }
 
-/** 強さの文言。**3 つしか無い**（engine の `INSPECTION_QUEUE_TONES`）。 */
+/**
+ * 強さの文言。**3 つしか無い**（engine の `INSPECTION_QUEUE_TONES`）。
+ *
+ * **`URGENT` は現状の行には現れない**（OPEN_QUESTIONS #045 /
+ * `checkInAtMs` が常に `null`）。表から消していないのは、
+ * `INSPECTION_QUEUE_TONES` の網羅を型で保つためと、#045 の解消時に
+ * ここへ手を入れずに済ませるため。
+ */
 const TONE_LABEL: Record<InspectionQueueItem["tone"], MessageKey> = {
   URGENT: "inspectionQueue.tone.urgent",
   OVER_SLA: "inspectionQueue.tone.overSla",
@@ -200,9 +223,13 @@ export default function InspectionQueue() {
         </button>
       </Form>
 
+      {/*
+        **「お急ぎ」は出さない**（冒頭の注記 / OPEN_QUESTIONS #045）。
+        判定材料が無く常に 0 になるため、0 件を「急ぐ客室が無い」と
+        読ませてしまう。#045 が解消したらここへ 1 行戻す。
+      */}
       <ul className="pk-board__counts">
         <li>{`${t("inspectionQueue.summary.total")} ${String(data.summary.total)}`}</li>
-        <li>{`${t("inspectionQueue.summary.urgent")} ${String(data.summary.urgent)}`}</li>
         <li>{`${t("inspectionQueue.summary.overSla")} ${String(data.summary.overSla)}`}</li>
         <li>{`${t("inspectionQueue.summary.recheck")} ${String(data.summary.recheck)}`}</li>
       </ul>

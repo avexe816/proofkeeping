@@ -96,8 +96,15 @@ describe("resolveListScope: 操作ごとに答えが変わる", () => {
     expect(resolveListScope(ctxFor("AUDITOR"), "task.read", null).propertyIds).toBeNull();
   });
 
-  // P7-20 が引き継ぐ形。**同じ関数で監査ログのスコープを解く。**
-  it("VENDOR_ADMIN は task.read なら受託施設の集合", () => {
+  // 施設スコープロールが施設横断の一覧を引ける形。**操作は例として
+  // `task.read` を使っているだけで、この操作に意味を持たせていない。**
+  //
+  // P7-20（監査ログの閲覧）はこの**仕組み**を再利用するが、
+  // **どの `PermissionAction` を渡すかは P7-20 が決める。**
+  // 監査ログ用の操作をここで `task.read` に固定しないこと
+  // （`PERMISSION_ACTIONS` に行を足すのは、その画面を作る task の仕事 /
+  // `lib/auth/permission.ts` 冒頭）。
+  it("VENDOR_ADMIN は施設スコープの操作なら受託施設の集合", () => {
     const scope = resolveListScope(ctxFor("VENDOR_ADMIN", [ASSIGNED]), "task.read", null);
     expect(scope.propertyIds).toEqual([ASSIGNED]);
     expect(scope.canSelectAll).toBe(false);

@@ -619,12 +619,28 @@ Claude Code はここに追記して作業を止める。人間が回答した�
   だけで、`property` に `checkInTime` は無い。
 - 影響: M-08（P2-05）の並びの第 1 段、W-03 の緊急表示、§11.2 のワイヤーが
   出している「チェックインまで 18 分」。
+  **検査キュー（P7-18 / `/app/inspections/queue`）も同じ。**
 - 暫定対応: **規則は `packages/engine/src/inspectionQueue.ts` に実装し、
   テストしてある**（`checkInAtMs` を受け取る）。呼び出し側
-  （`lib/inspection/waiting.ts`）が `null` を渡しているので、いまは
-  第 1 段が常に空になる。**列ができたら 1 行差せば効く。**
+  （`lib/inspection/waiting.ts` と `lib/inspection/queue.ts`）が `null` を
+  渡しているので、いまは第 1 段が常に空になる。**列ができたら
+  この 2 か所に 1 行ずつ差せば効く。**
   `hasCheckin` を「緊急」に読み替えていない。チェックアウト主体の施設では
   大半の部屋にチェックインが立ち、**全件が緊急になって印が死ぬ。**
+
+- **画面の集計から「お急ぎ」を外した**（2026-08-16 / P7-18 レビュー指摘）:
+  `summary.urgent` は判定材料が無いため**実データに関わらず常に 0** になる。
+  これを見出しに出すと「お急ぎ 0 件」＝「急ぐ客室は無い」と読まれ、
+  **判定していないことが、判定した結果 0 件であるかのように見える。**
+  そこで `routes/app/inspectionQueue.tsx` の集計から 1 行外した。
+  - **engine の `URGENT` 判定と API の `summary.urgent` は残してある**
+    （将来用）。外したのは画面の表示だけ。
+  - 文言キー `inspectionQueue.summary.urgent` も消していない。
+  - **#045 が解消したら、この画面の集計に「お急ぎ」を戻すこと。**
+    戻す場所は `pk-board__counts` の `<ul>`（同ファイルにコメントあり）。
+  - **M-08（`routes/m/inspections.tsx`）は同じ問題を抱えたままにしてある。**
+    P2-05 の画面で P7-18 の担当範囲外のため、こちらでは変更していない。
+    #045 を閉じるときに、あちらの「お急ぎ」表示も併せて確認すること。
 - 決める人: 列をどちらに置くか（`dailyRoomPlan.checkInAt` か
   `property.checkInTime` か両方か）。CSV 取込（P1-04）の列も増える。
 

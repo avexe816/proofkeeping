@@ -4512,6 +4512,11 @@
 - 影響:
   - **P7-20（監査ログの閲覧）が同じ関数を使う。** task の「自分の受託施設
     スコープ内のみ（P7-18 と同じ scope 判定を再利用する）」がこれ。
+    **再利用するのは仕組みだけで、渡す `PermissionAction` は P7-20 が
+    決める。** 監査ログ閲覧用の操作は `PERMISSION_ACTIONS` にまだ無い。
+    P7-18 側で `task.read` などに決め打ちしていない
+    （権限マトリクスへの行の追加は、その画面を作る task の仕事 /
+    `lib/auth/permission.ts` 冒頭）。
   - `tests/security/accessMatrix.spec.ts` の画面走査に 4 つ目の形として
     `resolveListScope(` を足した。**委任先が実際に `assertPermission()` を
     呼ぶことを別のテストで固定してある**（マーカーだけ増えるのを防ぐ）。
