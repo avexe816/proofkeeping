@@ -1,0 +1,251 @@
+# staging の初期構築（手動実行 / 1 回だけ）
+#
+# runbook: docs/runbook/deploy.md §3.5
+#
+# ── なぜワークフローにするのか ──────────────────────────
+# §3.5 は「人間の端末で実行する」手順として書いてある。**Actions の runner なら
+# Cloudflare へ到達でき、資格情報も GitHub Secrets から取れる。** 人が打つのは
+# 「Run workflow」だけになる。
+#
+# ── 安全のための決め事 ──────────────────────────────────
+#   * `workflow_dispatch` のみ。**push では絶対に走らない。**
+#   * `confirm` に CREATE と打たないと何もしない。**課金資源を作るため。**
+#   * 触るのは名前に `-staging` が付く資源だけ。**production の名前は出さない。**
+#   * ID（D1 / KV）は秘密ではない。**そのまま wrangler.toml に載る値。**
+#     秘密（SESSION_SECRET など）はログにも出力にも出さない。
+#
+# ── Queues は有料プランが要る ───────────────────────────
+# 無料プランでは `wrangler queues create` が通らない。7 本は
+# `[env.staging.queues.consumers]` に宣言済みなので、**キューが無いと
+# `wrangler deploy` 自体が失敗する。** phase=resources が落ちたら、まず
+# プランを確かめること。
+name: staging-bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "resources = 資源を作り ID の PR を出す / secrets-and-seed = 秘密の登録とシード投入（デプロイ後）"
+        required: true
+        type: choice
+        options:
+          - resources
+          - secrets-and-seed
+      confirm:
+        description: "CREATE と入力すると実行する（課金資源を作成します）"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  # **この 2 つ以外の環境名をこのファイルに書かないこと。**
+  WORKER_NAME: pk-staging
+  CF_ENV: staging
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 実行確認
+        run: |
+          if [ "${{ inputs.confirm }}" != "CREATE" ]; then
+            echo "confirm に CREATE と入力されていません。何もせずに終了します。"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      - name: 資格情報の確認
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "CLOUDFLARE_API_TOKEN が未登録です。"
+            echo "Settings → Secrets and variables → Actions で登録してください。"
+            exit 1
+          fi
+          pnpm exec wrangler whoami
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # ── ① 資源を作る ────────────────────────────────────
+      #
+      # **作成はすべて「あれば作らない」。** 途中で失敗しても、直して
+      # もう一度押せばよい形にしてある（1 回しか押せない手順にしない）。
+      - name: 資源を作る（D1 / KV / R2 / Queues）
+        if: inputs.phase == 'resources'
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+
+          # D1（2 本）。既にあれば作らず、uuid を引く。
+          for n in 00 01; do
+            db="proofkeeping-shard-${n}-staging"
+            if pnpm exec wrangler d1 list --json | jq -e --arg db "$db" '.[] | select(.name==$db)' >/dev/null; then
+              echo "D1 $db: 既にあります"
+            else
+              echo "D1 $db: 作成します"
+              pnpm exec wrangler d1 create "$db"
+            fi
+          done
+
+          # KV（5 本）。`--env staging` で作ると title に環境名が入る。
+          for b in SESSION RATELIMIT CONFIG CREDENTIALS SHARD_MAP; do
+            if pnpm exec wrangler kv namespace list | jq -e --arg b "$b" \
+                 '.[] | select(.title | test("staging.*" + $b + "$"))' >/dev/null; then
+              echo "KV $b: 既にあります"
+            else
+              echo "KV $b: 作成します"
+              pnpm exec wrangler kv namespace create "$b" --env "$CF_ENV"
+            fi
+          done
+
+          # R2（4 本）。作成済みのときはエラーになるので握りつぶす。
+          for b in photos documents evidence archive; do
+            pnpm exec wrangler r2 bucket create "pk-${b}-staging" || echo "R2 pk-${b}-staging: 既にあります"
+          done
+
+          # Queues（7 本）。**ここが落ちたら有料プランを確認すること。**
+          for q in pdf-generation evidence-export reconciliation rollup-update \
+                   baseline-learning notification archive-restore; do
+            pnpm exec wrangler queues create "pk-${q}-staging" || echo "Queue pk-${q}-staging: 既にあります"
+          done
+
+      # ── ② ID を wrangler.toml へ差し替える ──────────────
+      #
+      # **推測した UUID を書かない**（wrangler.toml の注記）。API が返した値だけを入れる。
+      - name: wrangler.toml の TODO を実 ID へ差し替える
+        if: inputs.phase == 'resources'
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+
+          d1_json=$(pnpm exec wrangler d1 list --json)
+          kv_json=$(pnpm exec wrangler kv namespace list)
+
+          replace() {  # $1=プレースホルダ $2=実 ID
+            if [ -z "$2" ] || [ "$2" = "null" ]; then
+              echo "ID を引けませんでした: $1"
+              exit 1
+            fi
+            perl -pi -e "s/\Q$1\E/$2/g" wrangler.toml
+            echo "$1 → 差し替え済み"
+          }
+
+          for n in 00 01; do
+            uuid=$(echo "$d1_json" | jq -r --arg db "proofkeeping-shard-${n}-staging" \
+                    '.[] | select(.name==$db) | .uuid')
+            replace "TODO-P0-02-未作成-STAGING-SHARD-${n}" "$uuid"
+          done
+
+          for b in SESSION RATELIMIT CONFIG CREDENTIALS SHARD_MAP; do
+            id=$(echo "$kv_json" | jq -r --arg b "$b" \
+                  '[.[] | select(.title | test("staging.*" + $b + "$"))][0].id')
+            replace "TODO-P0-02-未作成-STAGING-${b}" "$id"
+          done
+
+          if grep -q "TODO-P0-02-未作成-STAGING" wrangler.toml; then
+            echo "差し替え漏れがあります:"
+            grep -n "TODO-P0-02-未作成-STAGING" wrangler.toml
+            exit 1
+          fi
+
+      - name: ID の差し替えを PR にする
+        if: inputs.phase == 'resources'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "差分はありません（既に差し替え済み）。"
+            exit 0
+          fi
+          branch="chore/staging-resource-ids-${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add apps/web/wrangler.toml
+          git commit -m "chore: staging の D1 / KV を実 ID へ差し替える"
+          git push -u origin "$branch"
+          # **heredoc を使わない。** YAML のブロックスカラーの中では
+          # 終端記号を字下げできず、ワークフロー全体が構文エラーになる。
+          {
+            echo "staging-bootstrap（phase=resources）が作成した資源の ID を反映する。"
+            echo ""
+            echo "- D1 2 本 / KV 5 本 の ID を API の応答から差し替え"
+            echo "- **推測値は入っていない。** \`wrangler d1 list\` と \`wrangler kv namespace list\` の出力のみ"
+            echo ""
+            echo "このPRをマージすると、main への push で staging へ自動デプロイされる。"
+          } > /tmp/pr-body.md
+          gh pr create --base main --head "$branch" \
+            --title "chore: staging の D1 / KV を実 ID へ差し替える" \
+            --body-file /tmp/pr-body.md
+
+      # ── ③ 秘密の登録とシード投入（デプロイ後に実行する）──
+      #
+      # **値を出力しない。** 生成した SESSION_SECRET はログにも PR にも出さない。
+      # シードの鍵も同様で、**このジョブの中だけで使って捨てる。**
+      - name: 秘密を登録してシードを投入する
+        if: inputs.phase == 'secrets-and-seed'
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+
+          session_secret=$(openssl rand -hex 32)
+          seed_token=$(openssl rand -hex 32)
+
+          # `wrangler secret put` は標準入力から読む。**引数に置かない**（ps に出る）。
+          printf '%s' "$session_secret" | pnpm exec wrangler secret put SESSION_SECRET --env "$CF_ENV"
+          printf '%s' "$seed_token"     | pnpm exec wrangler secret put STAGING_SEED_TOKEN --env "$CF_ENV"
+
+          echo "登録済みの secret（名前だけ）:"
+          pnpm exec wrangler secret list --env "$CF_ENV"
+
+          # **秘密を入れた直後は再デプロイが要る**（実行中の版は古い env を持つ）。
+          CLOUDFLARE_ENV="$CF_ENV" pnpm build
+          name=$(jq -r .name build/server/wrangler.json)
+          if [ "$name" != "$WORKER_NAME" ]; then
+            echo "焼き込まれた環境が staging ではありません（name=$name）。中止します。"
+            exit 1
+          fi
+          pnpm exec wrangler deploy
+
+          base=$(jq -r '.vars.APP_BASE_URL' build/server/wrangler.json)
+          echo "APP_BASE_URL=$base"
+
+          # シード投入（P0-18 / DECISIONS #189）。**鍵はここでしか使わない。**
+          code=$(curl -s -o /tmp/seed.json -w "%{http_code}" -X POST "$base/api/v1/dev/seed" \
+            -H "content-type: application/json" \
+            -H "x-pk-seed-token: $seed_token" \
+            -d '{}')
+          echo "seed: HTTP $code"
+          jq -r '.message // .' /tmp/seed.json || cat /tmp/seed.json
+          if [ "$code" != "200" ]; then
+            echo "シード投入に失敗しました。APP_BASE_URL が実 URL と一致しているか確認すること。"
+            exit 1
+          fi
+
+          {
+            echo "## staging の初期化が完了しました"
+            echo ""
+            echo "- URL: $base/login"
+            echo "- 組織 ID: seed01 / スタッフ番号: 0001 / パスワード: testpass-01"
+            echo ""
+            echo "**テストデータのみ。** 公開 URL なので、常用するなら管理画面でパスワードを変えること。"
+          } >> "$GITHUB_STEP_SUMMARY"
