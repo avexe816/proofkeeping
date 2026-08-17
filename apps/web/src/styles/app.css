@@ -611,10 +611,72 @@ a.pk-nav:hover {
   position: relative;
 }
 
+/* 凡例（プロトタイプ owner 03）。盤面の先頭で色 → 意味の対応を見せる。 */
 .pk-board__legend {
-  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 10px;
+  margin: 0 0 12px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--ink2);
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-board__legendItem {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.pk-board__swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+.pk-board__swatch--READY {
+  background: var(--okbg);
+  border: 1px solid var(--ok);
+}
+
+.pk-board__swatch--IN_PROGRESS {
+  background: #f6efdf;
+  border: 1px solid var(--accent);
+}
+
+.pk-board__swatch--DIRTY {
+  background: var(--surf3);
+  border: 1px solid var(--line);
+}
+
+.pk-board__swatch--BLOCKED {
+  background: var(--infobg);
+  border: 1px solid var(--info);
+}
+
+.pk-board__swatch--REWORK {
+  background: var(--dangerbg);
+  border: 1px solid var(--danger);
+}
+
+/* 「稼働の差異あり」のドット。凡例とタイルで同じ見た目。 */
+.pk-board__swatch--finding {
+  width: 7px;
+  height: 7px;
+  background: var(--danger);
+  border-radius: 50%;
+}
+
+.pk-room__dot {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 7px;
+  height: 7px;
+  background: var(--danger);
+  border-radius: 50%;
 }
 
 /*
@@ -668,6 +730,38 @@ a.pk-nav:hover {
 .pk-room--BLOCKED {
   background: var(--infobg);
   border-color: var(--info);
+}
+
+/* 再清掃（差戻し）。**急かしの赤ではなく区分の色**（プロトタイプ owner 03）。 */
+.pk-room--REWORK {
+  background: var(--dangerbg);
+  border-color: var(--danger);
+}
+
+/* タイルは `position: absolute` のドットの基準になる。 */
+.pk-room {
+  position: relative;
+}
+
+/* 客室ボードの KPI 5 枚（プロトタイプ owner 03）。左縁の色で区分を示す。 */
+.pk-stats--board .pk-stats__item {
+  border-left: 3px solid var(--line);
+}
+
+.pk-stats--board .pk-stats__item--READY {
+  border-left-color: var(--ok);
+}
+
+.pk-stats--board .pk-stats__item--IN_PROGRESS {
+  border-left-color: var(--accent);
+}
+
+.pk-stats--board .pk-stats__item--BLOCKED {
+  border-left-color: var(--info);
+}
+
+.pk-stats--board .pk-stats__item--REWORK {
+  border-left-color: var(--danger);
 }
 
 .pk-room__detail {
@@ -807,8 +901,18 @@ a.pk-nav:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  align-items: center;
+  /* ラベル付きの `.pk-field`（ラベル＋入力の縦積み）とボタンが並ぶ行。
+     center だとボタンがラベルの高さぶん浮いて入力欄とズレる。
+     **入力欄の行（下端）に揃える。** pk-filter を使う全画面に効く。 */
+  align-items: flex-end;
   margin: 10px 0;
+}
+
+/* フィルタ行のボタンは入力欄・セレクタと同じ高さに揃える。 */
+.pk-filter .pk-button {
+  min-height: 32px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .pk-input {

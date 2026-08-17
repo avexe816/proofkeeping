@@ -2,33 +2,42 @@
  * 客室ボードの盤面（PK-SPEC-P1 §9.5）。**W-03 と M-10 が共有する。**
  *
  * task: docs/tasks/P1-15.md
- * 参照: 仕様 §9.5 の凡例「✓清掃済 ⟳作業中 ─未清掃 ⊘入室不可」
+ * 参照: ui-prototypes/owner/pkown-v3-A-login-daily.html（03 客室ボード）
  *
- * ── 色は 4 つだけ ───────────────────────────────────────
- *   清掃済   緑（--ok）
+ * ── 区分は 5 つ（プロトタイプの凡例）─────────────────────
+ *   完了     緑（--ok）
  *   作業中   金（--accent）
- *   未清掃   グレー
- *   入室不可 **青**（--info）
- * **入室不可を赤にしない**（PK-IMPL-CONTRACT §11.2「保留（入室不可）を
+ *   未着手   グレー
+ *   保留     **青**（--info）
+ *   再清掃   赤（--danger）
+ * **保留（入室不可）を赤にしない**（PK-IMPL-CONTRACT §11.2「保留（入室不可）を
  * 赤で表示 → 青。清掃の遅れではない」）。この行を変えないこと。
+ * 再清掃の赤は「急かし」ではなく区分の色（経過時間の赤とは別 / INV-05）。
+ *
+ * ── 差異のドットは渡された画面だけ ──────────────────────
+ * `findingRoomIds` は差異を読める画面（W-03）だけが渡す。M-10 は渡さない —
+ * `CLEANER` は差異へ到達できない（security.md §1）ので、ドットの有無からも
+ * 差異の存在を読ませない。**このプロパティを渡す側は `finding.read` を
+ * 確かめてから渡すこと。**
  *
  * ── タップで出すのは 3 つ ───────────────────────────────
  * §9.5「担当者・経過時間・写真枚数」。**操作履歴を出さない**（INV-07）。
  * 誰がいつ何を押したかではなく、いまどうなっているかだけを出す。
  */
 
-import type { BoardCell, BoardSection, RoomBoardGroup } from "@pk/engine";
-import { roomBoardGroupOf } from "@pk/engine";
+import type { BoardCell, BoardDisplayGroup, BoardSection } from "@pk/engine";
+import { BOARD_DISPLAY_GROUPS, boardDisplayGroupOf } from "@pk/engine";
 import { useState } from "react";
 
 import type { Translator, MessageKey } from "../lib/i18n.js";
 
-/** 区分ごとの記号（§9.5 の凡例）。**文言ではないので i18n を通さない。** */
-export const BOARD_MARKS: Record<RoomBoardGroup, string> = {
+/** 区分ごとの記号（プロトタイプの KPI 行）。**文言ではないので i18n を通さない。** */
+export const BOARD_MARKS: Record<BoardDisplayGroup, string> = {
   READY: "✓",
-  IN_PROGRESS: "⟳",
-  DIRTY: "─",
-  BLOCKED: "⊘",
+  IN_PROGRESS: "▶",
+  DIRTY: "○",
+  BLOCKED: "⏸",
+  REWORK: "↻",
 };
 
 export interface RoomBoardProps {
@@ -36,6 +45,11 @@ export interface RoomBoardProps {
   /** 担当者の表示名。**伏せるロールでは `null`**（INV-06）。 */
   staff: readonly { membershipId: string; staffNumber: string; displayName: string | null }[];
   t: Translator;
+  /**
+   * 稼働の差異（未確認）のある客室。**差異を読めない画面では渡さない**
+   * （冒頭の注記）。渡されたときだけタイルのドットと凡例の項目が出る。
+   */
+  findingRoomIds?: ReadonlySet<string> | undefined;
   /** 選んだ客室の追加操作（手動上書きのフォーム等）。無ければ表示のみ。 */
   renderDetailExtra?: ((cell: BoardCell) => React.ReactNode) | undefined;
 }
@@ -44,6 +58,7 @@ export function RoomBoard({
   sections,
   staff,
   t,
+  findingRoomIds,
   renderDetailExtra,
 }: RoomBoardProps): React.ReactElement {
   const [openRoomId, setOpenRoomId] = useState<string | null>(null);
@@ -51,6 +66,22 @@ export function RoomBoard({
 
   return (
     <div className="pk-board">
+      {/* 凡例はプロトタイプどおり盤面の先頭（色 → 意味の対応を先に見せる）。 */}
+      <p className="pk-board__legend">
+        {BOARD_DISPLAY_GROUPS.map((group) => (
+          <span key={group} className="pk-board__legendItem">
+            <i className={`pk-board__swatch pk-board__swatch--${group}`} aria-hidden="true" />
+            {t(`board.status.${group}` as MessageKey)}
+          </span>
+        ))}
+        {findingRoomIds === undefined ? null : (
+          <span className="pk-board__legendItem">
+            <i className="pk-board__swatch pk-board__swatch--finding" aria-hidden="true" />
+            {t("board.legend.finding")}
+          </span>
+        )}
+      </p>
+
       {sections.map((section) => (
         <section key={section.floorName ?? (section.isNonSellable ? "_ns" : "_none")} className="pk-board__floor">
           <h2 className="pk-board__floorName">
@@ -60,7 +91,7 @@ export function RoomBoard({
           </h2>
           <div className="pk-board__grid">
             {section.rooms.map((cell) => {
-              const group = roomBoardGroupOf(cell.housekeepingStatus);
+              const group = boardDisplayGroupOf(cell);
               const isOpen = openRoomId === cell.roomId;
               return (
                 <div key={cell.roomId} className="pk-board__slot">
@@ -72,6 +103,9 @@ export function RoomBoard({
                       setOpenRoomId(isOpen ? null : cell.roomId);
                     }}
                   >
+                    {findingRoomIds?.has(cell.roomId) === true ? (
+                      <span className="pk-room__dot" title={t("board.legend.finding")} />
+                    ) : null}
                     <span className="pk-room__number">{cell.roomNumber}</span>
                     <span className="pk-room__mark" aria-hidden="true">
                       {BOARD_MARKS[group]}
@@ -100,11 +134,6 @@ export function RoomBoard({
           </div>
         </section>
       ))}
-
-      <p className="pk-board__legend">
-        {`✓ ${t("board.status.READY")} ⟳ ${t("board.status.IN_PROGRESS")} ` +
-          `─ ${t("board.status.DIRTY")} ⊘ ${t("board.status.BLOCKED")}`}
-      </p>
     </div>
   );
 }

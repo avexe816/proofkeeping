@@ -74,9 +74,14 @@ export {
 } from "./roomStatus.js";
 
 // 客室ボードの並び（P1-15 / 同 §9.5）。W-03 と M-10 が同じ盤面を使う。
+// 表示区分（5 区分）はプロトタイプ owner 03 の凡例・KPI 行。
 export {
+  BOARD_DISPLAY_GROUPS,
+  boardDisplayGroupOf,
   buildRoomBoard,
+  countBoardDisplayGroups,
   type BoardCell,
+  type BoardDisplayGroup,
   type BoardRoomInput,
   type BoardSection,
   type BoardTaskInput,
