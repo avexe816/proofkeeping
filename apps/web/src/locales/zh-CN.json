@@ -345,9 +345,17 @@
   "board.override.reasonRequired": "请输入更改原因。",
   "board.override.status": "客房状态",
   "board.override.submit": "更改状态",
-  "board.status.DIRTY": "未清洁",
+  "board.status.DIRTY": "未开始",
   "board.status.IN_PROGRESS": "进行中",
-  "board.status.READY": "已清洁",
+  "board.status.READY": "完成",
   "board.title": "客房看板",
-  "property.none": "没有可显示的设施，请联系管理员。"
+  "property.none": "没有可显示的设施，请联系管理员。",
+  "board.status.BLOCKED": "暂缓",
+  "board.status.REWORK": "重新清洁",
+  "board.legend.title": "客房状态",
+  "board.legend.hint": "点击客房即可查看记录详情",
+  "board.legend.finding": "有稼动差异记录",
+  "board.housekeeping.READY": "完成",
+  "board.housekeeping.DIRTY": "未开始",
+  "board.housekeeping.BLOCKED": "暂缓"
 }

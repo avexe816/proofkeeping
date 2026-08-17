@@ -6,7 +6,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { buildRoomBoard, type BoardRoomInput, type BoardTaskInput } from "./roomBoard.js";
+import {
+  boardDisplayGroupOf,
+  buildRoomBoard,
+  countBoardDisplayGroups,
+  type BoardRoomInput,
+  type BoardTaskInput,
+} from "./roomBoard.js";
 
 const NOW = Date.parse("2026-08-12T02:00:00.000Z");
 
@@ -170,5 +176,85 @@ describe("buildRoomBoard — 出さないもの（負例）", () => {
     const first = buildRoomBoard(rooms, tasks, NOW);
     expect(buildRoomBoard(rooms, tasks, NOW)).toEqual(first);
     expect(buildRoomBoard(rooms, tasks, NOW)).toEqual(first);
+  });
+});
+
+describe("表示区分（プロトタイプ owner 03 の 5 区分）", () => {
+  // 正例
+  it("差戻しタスクの立った未着手は「再清掃」", () => {
+    expect(
+      boardDisplayGroupOf({ housekeepingStatus: "DIRTY", isRework: true }),
+    ).toBe("REWORK");
+  });
+
+  it("差戻しの無い未着手はそのまま「未着手」", () => {
+    expect(
+      boardDisplayGroupOf({ housekeepingStatus: "DIRTY", isRework: false }),
+    ).toBe("DIRTY");
+  });
+
+  it("buildRoomBoard は REWORK タスクのセルに isRework を立てる", () => {
+    const sections = buildRoomBoard(
+      [room({ roomId: "r1" })],
+      [boardTask({ taskId: "t1", roomId: "r1", status: "REWORK" })],
+      0,
+    );
+    expect(sections[0]?.rooms[0]?.isRework).toBe(true);
+  });
+
+  it("countBoardDisplayGroups は 5 区分すべてを返す（0 も欠けない）", () => {
+    const sections = buildRoomBoard(
+      [
+        room({ roomId: "r1", roomNumber: "301", housekeepingStatus: "READY" }),
+        room({ roomId: "r2", roomNumber: "302", housekeepingStatus: "DIRTY" }),
+        room({ roomId: "r3", roomNumber: "303", housekeepingStatus: "DIRTY" }),
+      ],
+      [boardTask({ taskId: "t1", roomId: "r3", status: "REWORK" })],
+      0,
+    );
+    expect(countBoardDisplayGroups(sections)).toEqual({
+      READY: 1,
+      IN_PROGRESS: 0,
+      DIRTY: 1,
+      BLOCKED: 0,
+      REWORK: 1,
+    });
+  });
+
+  it("検査待ち（INSPECTING）は作業中に数える（§9.5 の寄せ方のまま）", () => {
+    expect(
+      boardDisplayGroupOf({ housekeepingStatus: "INSPECTING", isRework: false }),
+    ).toBe("IN_PROGRESS");
+  });
+
+  // 負例
+  it("再清掃を実施中（IN_PROGRESS）の客室は「作業中」で、再清掃に数えない", () => {
+    expect(
+      boardDisplayGroupOf({ housekeepingStatus: "IN_PROGRESS", isRework: true }),
+    ).toBe("IN_PROGRESS");
+  });
+
+  it("清掃専用の場所は件数に入らない（§24.3）", () => {
+    const sections = buildRoomBoard(
+      [room({ roomId: "r1", roomNumber: "PANTRY", isSellable: false })],
+      [],
+      0,
+    );
+    expect(countBoardDisplayGroups(sections)).toEqual({
+      READY: 0,
+      IN_PROGRESS: 0,
+      DIRTY: 0,
+      BLOCKED: 0,
+      REWORK: 0,
+    });
+  });
+
+  it("完了済みタスクしか無い客室は isRework にならない", () => {
+    const sections = buildRoomBoard(
+      [room({ roomId: "r1" })],
+      [boardTask({ taskId: "t1", roomId: "r1", status: "COMPLETED" })],
+      0,
+    );
+    expect(sections[0]?.rooms[0]?.isRework).toBe(false);
   });
 });

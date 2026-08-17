@@ -19,7 +19,8 @@
  */
 
 import { HOUSEKEEPING_STATUSES, type HousekeepingStatus } from "@pk/db";
-import type { BoardSection, RoomBoardGroup } from "@pk/engine";
+import type { BoardDisplayGroup, BoardSection } from "@pk/engine";
+import { countBoardDisplayGroups } from "@pk/engine";
 import {
   Form,
   useActionData,
@@ -46,7 +47,7 @@ export interface MobileBoardData {
   /** 表示できる施設が無ければ `null`（担当が外れた等）。 */
   propertyName: string | null;
   businessDate: string;
-  counts: Record<RoomBoardGroup, number>;
+  counts: Record<BoardDisplayGroup, number>;
   sections: readonly BoardSection[];
   staff: readonly BoardStaff[];
   canOverride: boolean;
@@ -68,7 +69,7 @@ export async function loader({
       locale,
       propertyName: null,
       businessDate,
-      counts: { READY: 0, IN_PROGRESS: 0, DIRTY: 0, BLOCKED: 0 },
+      counts: { READY: 0, IN_PROGRESS: 0, DIRTY: 0, BLOCKED: 0, REWORK: 0 },
       sections: [],
       staff: [],
       canOverride: false,
@@ -80,7 +81,7 @@ export async function loader({
     locale,
     propertyName: board.propertyName,
     businessDate: board.businessDate,
-    counts: board.counts,
+    counts: countBoardDisplayGroups(board.sections),
     sections: board.sections,
     staff: board.staff,
     canOverride: board.canOverride,
@@ -151,10 +152,12 @@ export default function MobileBoardRoute(): React.ReactElement {
         <p className="pk-m-empty">{t("property.none")}</p>
       ) : (
         <main className="pk-m-body">
+          {/* 表示区分の件数。再清掃は未着手から分けて出す（PC 盤面と同じ数え方）。 */}
           <p className="pk-board__counts">
             {`${t("board.status.READY")} ${String(data.counts.READY)} · ` +
               `${t("board.status.IN_PROGRESS")} ${String(data.counts.IN_PROGRESS)} · ` +
-              `${t("board.status.DIRTY")} ${String(data.counts.DIRTY)}`}
+              `${t("board.status.DIRTY")} ${String(data.counts.DIRTY)} · ` +
+              `${t("board.status.REWORK")} ${String(data.counts.REWORK)}`}
           </p>
 
           {result?.reasonRequired === true ? (

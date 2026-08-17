@@ -1,8 +1,15 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { HOUSEKEEPING_STATUSES, NotFoundError, type HousekeepingStatus } from "@pk/db";
-import type { BoardSection, RoomBoardGroup } from "@pk/engine";
+import {
+  HOUSEKEEPING_STATUSES,
+  NotFoundError,
+  listFindings,
+  type HousekeepingStatus,
+} from "@pk/db";
+import type { BoardDisplayGroup, BoardSection } from "@pk/engine";
+import { BOARD_DISPLAY_GROUPS, countBoardDisplayGroups } from "@pk/engine";
 import { Form, useActionData, useLoaderData } from "react-router";
 
+import { can, propertyTarget } from "../../lib/auth/permission.js";
 import { businessDateOf } from "../../lib/businessDate.js";
 import { t, type MessageKey } from "../../lib/i18n.js";
 import { switchProperty } from "../../lib/property/selection.js";
@@ -10,7 +17,7 @@ import { loadRoomBoard, type BoardStaff } from "../../lib/room/board.js";
 import { overrideRoomStatus } from "../../lib/room/status.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
-import { RoomBoard } from "../../ui/RoomBoard.js";
+import { BOARD_MARKS, RoomBoard } from "../../ui/RoomBoard.js";
 
 /**
  * W-03 客室ボード（PK-SPEC-P1 §9.5 / §10.1）。
@@ -34,10 +41,16 @@ interface BoardData {
   propertyId: string;
   propertyName: string;
   businessDate: string;
-  counts: Record<RoomBoardGroup, number>;
+  /** 表示区分の件数（プロトタイプ owner 03 の KPI 5 枚）。 */
+  counts: Record<BoardDisplayGroup, number>;
   sections: readonly BoardSection[];
   staff: readonly BoardStaff[];
   canOverride: boolean;
+  /**
+   * 稼働の差異（未確認）のある客室 ID。**`finding.read` を持たない相手には
+   * `null`**（ドットも凡例の項目も出ない / security.md §1）。
+   */
+  findingRoomIds: readonly string[] | null;
 }
 
 export async function loader({ request, params, context }: LoaderFunctionArgs): Promise<BoardData> {
@@ -53,14 +66,33 @@ export async function loader({ request, params, context }: LoaderFunctionArgs): 
 
   const businessDate = new URL(request.url).searchParams.get("date") ?? businessDateOf(now);
   const board = await loadRoomBoard(env, tenant, propertyId, businessDate, now);
+
+  // プロトタイプの「● 稼働の差異あり」。**未確認（OPEN / REVIEWING）だけ。**
+  // 確認が済んだ差異にドットを残すと、対応済みの客室が要対応に見え続ける。
+  // 差異を読めないロールには件数も存在も渡さない（凡例ごと出ない）。
+  const findingRoomIds = can(tenant, "finding.read", propertyTarget([propertyId]))
+    ? [
+        ...new Set(
+          (
+            await listFindings(env, tenant, {
+              propertyId,
+              businessDate,
+              status: ["OPEN", "REVIEWING"],
+            })
+          ).map((finding) => finding.roomId),
+        ),
+      ]
+    : null;
+
   return {
     propertyId: board.propertyId,
     propertyName: board.propertyName,
     businessDate: board.businessDate,
-    counts: board.counts,
+    counts: countBoardDisplayGroups(board.sections),
     sections: board.sections,
     staff: board.staff,
     canOverride: board.canOverride,
+    findingRoomIds,
   };
 }
 
@@ -109,12 +141,15 @@ export default function PropertyBoard(): React.ReactElement {
         <p className="pk-muted">{`${data.propertyName} · ${data.businessDate}`}</p>
       </div>
 
-      <p className="pk-board__counts">
-        {`${t("board.status.READY")} ${String(data.counts.READY)} · ` +
-          `${t("board.status.IN_PROGRESS")} ${String(data.counts.IN_PROGRESS)} · ` +
-          `${t("board.status.DIRTY")} ${String(data.counts.DIRTY)} · ` +
-          `${t("board.status.BLOCKED")} ${String(data.counts.BLOCKED)}`}
-      </p>
+      {/* 表示区分の件数カード（プロトタイプ owner 03 の KPI 5 枚）。 */}
+      <dl className="pk-stats pk-stats--board">
+        {BOARD_DISPLAY_GROUPS.map((group) => (
+          <div key={group} className={`pk-stats__item pk-stats__item--${group}`}>
+            <dt>{`${BOARD_MARKS[group]} ${t(`board.status.${group}` as MessageKey)}`}</dt>
+            <dd>{String(data.counts[group])}</dd>
+          </div>
+        ))}
+      </dl>
 
       {result?.reasonRequired === true ? (
         <p className="pk-notice pk-notice--warn">{t("board.override.reasonRequired")}</p>
@@ -123,10 +158,15 @@ export default function PropertyBoard(): React.ReactElement {
         <p className="pk-notice">{t("board.override.done")}</p>
       ) : null}
 
+      {/* プロトタイプの「客室の状態」カードの見出しとヒント。 */}
+      <h2 className="pk-section__title">{t("board.legend.title")}</h2>
+      <p className="pk-muted">{t("board.legend.hint")}</p>
+
       <RoomBoard
         sections={data.sections}
         staff={data.staff}
         t={t}
+        findingRoomIds={data.findingRoomIds === null ? undefined : new Set(data.findingRoomIds)}
         renderDetailExtra={
           data.canOverride
             ? (cell) => (

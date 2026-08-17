@@ -61,6 +61,23 @@ export interface ShellData {
   enabledModules: readonly ModuleCode[];
 }
 
+/**
+ * URL から表示スコープを読む。**URL を正とする**（PK-SPEC-P0 §23.5）。
+ *
+ * この loader と子画面の loader は**並行に走る。** 子の `switchProperty()` が
+ * セッションを書き換えるのはこの loader が読んだ後なので、セッションだけを
+ * 見るとナビとセレクタが 1 画面ぶん古い選択で組まれる（全社サマリーから
+ * 客室ボードを開いた瞬間、施設系の項目がサイドバーから消える）。
+ * 施設が URL に載っている画面はその施設、`/app/org/*` は全社。
+ * それ以外（施設横断の一覧など）だけセッションへ落ちる。
+ */
+function selectionFromPath(pathname: string): string | undefined {
+  const match = /^\/app\/p\/([^/]+)(?:\/|$)/.exec(pathname);
+  if (match?.[1] !== undefined) return decodeURIComponent(match[1]);
+  if (pathname === "/app/org" || pathname.startsWith("/app/org/")) return ALL_PROPERTIES;
+  return undefined;
+}
+
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<ShellData> {
   const env = getEnv(context);
   const now = new Date();
@@ -69,13 +86,22 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   const properties = await listSelectableProperties(env, tenant);
   // **セッションの値を認可の根拠にしない。** ロールと一覧から解き直す
   // （DECISIONS #020）。降格後に `"ALL"` が残っていれば既定施設へ落ちる。
+  // URL が施設を示す画面では URL が勝つ（`selectionFromPath()` の注記）。
   const { scope, property: selected } = resolveSelectedScope(
-    session.selectedPropertyId,
+    selectionFromPath(new URL(request.url).pathname) ?? session.selectedPropertyId,
     tenant,
     properties,
   );
   const isOrgScope = scope === ALL_PROPERTIES;
   const selectedPropertyId = selected?.id ?? null;
+
+  // ── ナビの施設リンクは全社表示でも消さない ──────────────
+  // プロトタイプのサイドバーは常に全項目を並べる。全社サマリー表示中に
+  // 客室ボードなどの項目が消えると「クリックしたら項目がなくなる」ように
+  // 見える。到達先が要る項目には**既定施設**（セレクタの解決と同じ規則）を
+  // 当てる。施設が 1 つも無いときだけ従来どおり項目を出さない。
+  const navPropertyId =
+    selectedPropertyId ?? resolveSelectedScope(undefined, tenant, properties).property?.id ?? null;
 
   // ミニバッジ（§23.3）。60 秒キャッシュが効くので毎画面で引いてよい。
   const summaries = await getPropertySummaries(env, tenant, businessDateOf(now));
@@ -98,7 +124,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     isOrgScope,
     canViewOrgWide: hasOrgWideView(tenant),
     summaries,
-    navigation: buildNavigation(tenant, { selectedPropertyId, enabledModules }),
+    navigation: buildNavigation(tenant, { selectedPropertyId: navPropertyId, enabledModules }),
     enabledModules,
   };
 }

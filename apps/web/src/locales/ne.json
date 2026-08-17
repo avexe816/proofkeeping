@@ -345,9 +345,17 @@
   "board.override.reasonRequired": "बदल्नुको कारण लेख्नुहोस्।",
   "board.override.status": "कोठाको अवस्था",
   "board.override.submit": "अवस्था बदल्नुहोस्",
-  "board.status.DIRTY": "सफा नगरिएको",
+  "board.status.DIRTY": "सुरु भएको छैन",
   "board.status.IN_PROGRESS": "काम हुँदै",
-  "board.status.READY": "सफा भइसकेको",
+  "board.status.READY": "सम्पन्न",
   "board.title": "कोठा बोर्ड",
-  "property.none": "देखाउन मिल्ने भवन छैन। प्रशासकलाई सम्पर्क गर्नुहोस्।"
+  "property.none": "देखाउन मिल्ने भवन छैन। प्रशासकलाई सम्पर्क गर्नुहोस्।",
+  "board.status.BLOCKED": "होल्डमा",
+  "board.status.REWORK": "फेरि सफाइ",
+  "board.legend.title": "कोठाको स्थिति",
+  "board.legend.hint": "रेकर्ड विवरण हेर्न कोठामा ट्याप गर्नुहोस्",
+  "board.legend.finding": "रेकर्ड फरक छ",
+  "board.housekeeping.READY": "सम्पन्न",
+  "board.housekeeping.DIRTY": "सुरु भएको छैन",
+  "board.housekeeping.BLOCKED": "होल्डमा"
 }
