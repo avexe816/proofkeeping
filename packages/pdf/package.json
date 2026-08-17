@@ -9,7 +9,7 @@
   "dependencies": {
     "@pk/billing": "workspace:*",
     "@pk/engine": "workspace:*",
-    "@react-pdf/renderer": "^4.6.0",
+    "@react-pdf/renderer": "^4.6.1",
     "react": "^19.2.7"
   },
   "devDependencies": {
