@@ -700,6 +700,31 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => propertyRepo.createProperty(env, ctx, { code: "HTLA", name: "テスト施設" }),
   },
   {
+    // W-11 施設設定（OPEN_QUESTIONS #103 の残り半分）。施設マスタの更新。
+    name: "property.updateProperty",
+    kind: "tenant",
+    run: (env, ctx) =>
+      propertyRepo.updateProperty(env, ctx, {
+        propertyId: OWN_ID.property,
+        name: "テスト施設",
+        postalCode: null,
+        address: null,
+        timezone: "Asia/Tokyo",
+        dayCutoffTime: "05:00",
+        isActive: true,
+      }),
+    crossTenant: (env, ctx) =>
+      propertyRepo.updateProperty(env, ctx, {
+        propertyId: OTHER_ID.property,
+        name: "テスト施設",
+        postalCode: null,
+        address: null,
+        timezone: "Asia/Tokyo",
+        dayCutoffTime: "05:00",
+        isActive: true,
+      }),
+  },
+  {
     name: "property.listRoomTypes",
     kind: "tenant",
     run: (env, ctx) => propertyRepo.listRoomTypes(env, ctx, OWN_ID.property),

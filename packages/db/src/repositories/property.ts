@@ -276,6 +276,56 @@ export interface CreatePropertyInput {
  * 監査ログ（`recordAudit`）はこの層では呼ばない。P0-11 が基盤を作り、
  * 呼ぶのは API ハンドラ側（トランザクションの単位が違うため）。
  */
+/**
+ * 施設マスタの更新（W-11 施設設定 / OPEN_QUESTIONS #103 の残り半分）。
+ *
+ * `code` は変えられない（`uq_property_org_code`。CSV 取込・連携の突合キーで、
+ * 変えると過去の取込が別施設扱いになる）。検査要求（`inspectionRequired`）も
+ * ここでは受けない — 検査方式とセットの設定で、`upsertInspectionPolicy()` が
+ * 窓口（`createProperty()` の注記と同じ理由）。
+ *
+ * **物理削除の口は作らない**（PK-SPEC-P0 §26）。無効化は `isActive = false`。
+ * 呼び出し側は必ず `recordAudit()`（`property.updated` / `property.deactivated`）。
+ */
+export interface UpdatePropertyInput {
+  propertyId: string;
+  name: string;
+  postalCode: string | null;
+  address: string | null;
+  timezone: string;
+  /** 日締め時刻 `HH:MM`（architecture.md §7）。 */
+  dayCutoffTime: string;
+  isActive: boolean;
+}
+
+export async function updateProperty(
+  env: Env,
+  ctx: TenantContext,
+  input: UpdatePropertyInput,
+): Promise<void> {
+  assertIdBelongsToTenant(input.propertyId, ctx);
+  const db = await getTenantDb(env, ctx);
+  await db
+    .update(property)
+    .set({
+      name: input.name,
+      postalCode: input.postalCode,
+      address: input.address,
+      timezone: input.timezone,
+      dayCutoffTime: input.dayCutoffTime,
+      isActive: input.isActive,
+      updatedAt: ctx.now,
+    })
+    .where(
+      withTenantScope(
+        property,
+        ctx,
+        property.id,
+        eq(property.id, input.propertyId),
+      ),
+    );
+}
+
 export async function createProperty(env: Env, ctx: TenantContext, input: CreatePropertyInput) {
   const db = await getTenantDb(env, ctx);
   const inspectionRequired = input.inspectionRequired ?? false;

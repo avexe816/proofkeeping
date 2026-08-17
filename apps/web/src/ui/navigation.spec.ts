@@ -75,7 +75,9 @@ describe("登録簿の不変条件", () => {
       "nav.plan",
       // W-06 差異レポート一覧（P4-06）。「日次運用」の最後。
       "nav.findings",
-      // W-06 証跡一覧（P2-09）。「記録の確認」の 1 つめ。
+      // W-07 差異の詳細への入口（2026-08-17）。「記録の確認」の 1 つめ。
+      "nav.findingDetail",
+      // W-06 証跡一覧（P2-09）。
       "nav.cleaningRecords",
       // 検査キュー（P7-18）。「記録の確認」の証跡一覧の直後。
       "nav.inspection",
@@ -83,6 +85,8 @@ describe("登録簿の不変条件", () => {
       "nav.dataQuality",
       // 月次レポート（owner 09 / docs/PROTOTYPE_GAP.md 第2批 09）。
       "nav.report",
+      // 契約と請求（owner 10 / 人間の指示 2026-08-17）。
+      "nav.billing",
       // §7.2 清掃会社プラン（P5-15）。「資材と分析」の最後。
       "nav.vendorPlan",
       // `/app/settings/*` の 4 画面。客室マスタ（P0-22）と事業者税務（P0-16）は
@@ -103,6 +107,8 @@ describe("登録簿の不変条件", () => {
       "nav.counterparties",
       // 監査ログの閲覧（P7-20）。取引先の直後。
       "nav.auditLogs",
+      // 施設設定（owner 11 / OPEN_QUESTIONS #103 の残り半分）。
+      "nav.propertySettings",
     ]);
   });
 

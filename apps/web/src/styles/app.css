@@ -661,6 +661,28 @@ a.pk-nav:hover {
   border: 1px solid var(--danger);
 }
 
+/* 施設設定（W-11）。施設 1 件 = 1 カード。 */
+.pk-propcard {
+  padding: 4px 14px 10px;
+  margin: 12px 0;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.pk-propcard--new {
+  border-style: dashed;
+}
+
+/* KPI カードの文字値（日付・状態など。金額の 27px では収まらない）。 */
+.pk-stats__item dd.pk-stats__small {
+  font-size: 16px;
+}
+
+.pk-field--check {
+  align-items: flex-start;
+}
+
 /* 「稼働の差異あり」のドット。凡例とタイルで同じ見た目。 */
 .pk-board__swatch--finding {
   width: 7px;

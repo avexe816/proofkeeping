@@ -168,11 +168,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/app/audit/findings",
   },
   // ── 記録の確認 ────────────────────────────────────────
-  // W-07 差異詳細（P4-07）。**`PLANNED` のまま残す。**
-  // 到達先が `/app/audit/findings/:findingId` で、ID の無いサイドバーからは
-  // 指せない。プロトタイプ（05）は 1 件を開いた状態を項目にしているが、
-  // 「どの差異か」を決められない項目を `READY` にすると、押しても何も
-  // 起きない導線になる。詳細へは一覧の行から入る。
+  // W-07 差異詳細（P4-07 / 人間の指示 2026-08-17 で入口を実装）。
+  // ID の無いサイドバーからは 1 件を指せないので、**「次に確認する 1 件」へ
+  // 直行する入口**（`/app/audit/findings/next`）に繋ぐ。未確認が無ければ
+  // 空状態が出る。個別の詳細へは従来どおり一覧の行からも入れる。
   {
     key: "nav.findingDetail",
     icon: "🔍",
@@ -180,7 +179,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     moduleCode: "AUDIT",
     action: "finding.read",
     scope: "PROPERTY",
-    status: "PLANNED",
+    status: "READY",
+    href: "/app/audit/findings/next",
   },
   // W-06 証跡一覧（P2-09 / PK-SPEC-P2 §12.1）。**`task.read`。**
   // 中身はタスクの記録なので、それを読める相手が辿れる先にする
@@ -226,15 +226,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/data-quality`,
   },
-  {
-    key: "nav.linen",
-    icon: "🧺",
-    section: "analysis",
-    moduleCode: "HOUSEKEEPING_CORE",
-    action: "property.read",
-    scope: "PROPERTY",
-    status: "PLANNED",
-  },
+  // リネン消費の独立項目は**置かない**（人間の指示 2026-08-17）。
+  // 集計は進捗モニタの列として実装済み（第3批-09 / DECISIONS #195 の運用）。
+  // 「準備中」のまま押せない項目を残さない。
   // 月次レポート（owner 09 / docs/PROTOTYPE_GAP.md 第2批 09）。
   // **`action` を `property.read` から `finding.read` へ差し替えた**
   // （冒頭「`action` の暫定的な当て方」の差し替え）。§3 に差異の内訳が
@@ -249,14 +243,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/report`,
   },
+  // 契約と請求（owner 10 / 人間の指示 2026-08-17: 銀行振込前提で実装）。
+  // **`scope` を `ORGANIZATION` へ差し替えた。** 請求書は組織の資源で、
+  // API（/api/v1/invoices）も `ORGANIZATION_TARGET` で判定している。
   {
     key: "nav.billing",
     icon: "💴",
     section: "analysis",
     moduleCode: "BILLING",
     action: "billing.read",
-    scope: "PROPERTY",
-    status: "PLANNED",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/billing",
   },
   // §7.2 清掃会社プラン（P5-15）。**`moduleCode` は `VENDOR_PLAN`。**
   // 受託の収支を見る画面で、請求書を作れること（`BILLING`）とは別に売る
@@ -401,6 +399,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/audit/logs",
   },
+  // 施設設定（owner 11 / OPEN_QUESTIONS #103 の残り半分）。施設マスタの
+  // 作成・編集。**施設横断の画面**なので `{propertyId}` を持たない
+  // （作成は施設が決まる前の操作）。
   {
     key: "nav.propertySettings",
     icon: "⚙️",
@@ -408,7 +409,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     moduleCode: "PLATFORM",
     action: "property.write",
     scope: "PROPERTY",
-    status: "PLANNED",
+    status: "READY",
+    href: "/app/settings/properties",
   },
   {
     key: "nav.permission",
