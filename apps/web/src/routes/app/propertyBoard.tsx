@@ -6,7 +6,7 @@ import {
   type HousekeepingStatus,
 } from "@pk/db";
 import type { BoardDisplayGroup, BoardSection } from "@pk/engine";
-import { BOARD_DISPLAY_GROUPS, countBoardDisplayGroups } from "@pk/engine";
+import { BOARD_DISPLAY_GROUPS, boardDisplayGroupOf, countBoardDisplayGroups } from "@pk/engine";
 import { Form, useActionData, useLoaderData } from "react-router";
 
 import { can, propertyTarget } from "../../lib/auth/permission.js";
@@ -41,16 +41,29 @@ interface BoardData {
   propertyId: string;
   propertyName: string;
   businessDate: string;
-  /** 表示区分の件数（プロトタイプ owner 03 の KPI 5 枚）。 */
+  /** 表示区分の件数（プロトタイプ owner 03 の KPI 5 枚）。**絞り込みの外。** */
   counts: Record<BoardDisplayGroup, number>;
   sections: readonly BoardSection[];
   staff: readonly BoardStaff[];
   canOverride: boolean;
   /**
    * 稼働の差異（未確認）のある客室 ID。**`finding.read` を持たない相手には
-   * `null`**（ドットも凡例の項目も出ない / security.md §1）。
+   * `null`**（ドットも凡例も「差異あり」の絞り込みも出ない / security.md §1）。
    */
   findingRoomIds: readonly string[] | null;
+  /** フロアの絞り込み候補（絞り込む前の全フロア名）。 */
+  floorOptions: readonly string[];
+  /** 選択中のフロア。`null` = 全フロア。 */
+  selectedFloor: string | null;
+  /** 選択中の状態の絞り込み。`null` = すべての状態。 */
+  selectedState: BoardStateFilter | null;
+}
+
+/** 状態の絞り込み（プロトタイプ owner 03 のセレクタは 2 択）。 */
+type BoardStateFilter = "FINDING" | "REWORK";
+
+function stateFilterOf(value: string | null): BoardStateFilter | null {
+  return value === "FINDING" || value === "REWORK" ? value : null;
 }
 
 export async function loader({ request, params, context }: LoaderFunctionArgs): Promise<BoardData> {
@@ -64,7 +77,8 @@ export async function loader({ request, params, context }: LoaderFunctionArgs): 
   // 到達できない施設なら `NotFoundError`（middleware が 404 に写す / INV-31）。
   await switchProperty(env, tenant, cookieValue, propertyId, now, session.membershipId);
 
-  const businessDate = new URL(request.url).searchParams.get("date") ?? businessDateOf(now);
+  const url = new URL(request.url);
+  const businessDate = url.searchParams.get("date") ?? businessDateOf(now);
   const board = await loadRoomBoard(env, tenant, propertyId, businessDate, now);
 
   // プロトタイプの「● 稼働の差異あり」。**未確認（OPEN / REVIEWING）だけ。**
@@ -84,15 +98,49 @@ export async function loader({ request, params, context }: LoaderFunctionArgs): 
       ]
     : null;
 
+  // ── 絞り込み（プロトタイプ owner 03 の 2 セレクタ）────────
+  // KPI の件数は**絞り込みの外**で数える（絞ると 5 枚の意味が変わる）。
+  const selectedFloor = url.searchParams.get("floor");
+  const requestedState = stateFilterOf(url.searchParams.get("state"));
+  // 差異を読めない相手に「差異あり」の絞り込みを効かせない（候補にも出さない）。
+  const selectedState = requestedState === "FINDING" && findingRoomIds === null
+    ? null
+    : requestedState;
+
+  const findingSet = new Set(findingRoomIds ?? []);
+  let sections: readonly BoardSection[] = board.sections;
+  if (selectedFloor !== null && selectedFloor !== "") {
+    sections = sections.filter(
+      (section) => !section.isNonSellable && section.floorName === selectedFloor,
+    );
+  }
+  if (selectedState !== null) {
+    sections = sections
+      .map((section) => ({
+        ...section,
+        rooms: section.rooms.filter((cell) =>
+          selectedState === "REWORK"
+            ? boardDisplayGroupOf(cell) === "REWORK"
+            : findingSet.has(cell.roomId),
+        ),
+      }))
+      .filter((section) => section.rooms.length > 0);
+  }
+
   return {
     propertyId: board.propertyId,
     propertyName: board.propertyName,
     businessDate: board.businessDate,
     counts: countBoardDisplayGroups(board.sections),
-    sections: board.sections,
+    sections,
     staff: board.staff,
     canOverride: board.canOverride,
     findingRoomIds,
+    floorOptions: board.sections
+      .filter((section) => !section.isNonSellable && section.floorName !== null)
+      .map((section) => section.floorName as string),
+    selectedFloor: selectedFloor === null || selectedFloor === "" ? null : selectedFloor,
+    selectedState,
   };
 }
 
@@ -140,6 +188,36 @@ export default function PropertyBoard(): React.ReactElement {
         <h1 className="pk-pagehead__title">{t("nav.board")}</h1>
         <p className="pk-muted">{`${data.propertyName} · ${data.businessDate}`}</p>
       </div>
+
+      {/* 絞り込み（プロトタイプ owner 03: フロア・状態・更新）。GET なので
+          送信 = 再読込 = 「更新」を兼ねる。 */}
+      <Form method="get" className="pk-filter">
+        <label className="pk-field">
+          <span className="pk-field__label">{t("board.filter.floor")}</span>
+          <select className="pk-select" name="floor" defaultValue={data.selectedFloor ?? ""}>
+            <option value="">{t("board.filter.allFloors")}</option>
+            {data.floorOptions.map((floor) => (
+              <option key={floor} value={floor}>
+                {floor}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="pk-field">
+          <span className="pk-field__label">{t("board.filter.state")}</span>
+          <select className="pk-select" name="state" defaultValue={data.selectedState ?? ""}>
+            <option value="">{t("board.filter.allStates")}</option>
+            {/* 差異を読めない相手には選択肢ごと出さない（security.md §1）。 */}
+            {data.findingRoomIds === null ? null : (
+              <option value="FINDING">{t("board.filter.finding")}</option>
+            )}
+            <option value="REWORK">{t("board.status.REWORK")}</option>
+          </select>
+        </label>
+        <button className="pk-button" type="submit">
+          {t("board.filter.apply")}
+        </button>
+      </Form>
 
       {/* 表示区分の件数カード（プロトタイプ owner 03 の KPI 5 枚）。 */}
       <dl className="pk-stats pk-stats--board">

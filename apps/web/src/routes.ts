@@ -152,6 +152,11 @@ export default [
     // P7-02。現場スタッフの登録と、現場掲示用の案内（§2.3 Step 5 / §2.4 v1.1）。
     // **初期 PIN は `action` の戻り値としてだけ現れる**（DECISIONS #184）。
     route("app/settings/staff", "routes/app/staff.tsx"),
+    // W-11 施設設定（施設マスタの作成・編集 / OPEN_QUESTIONS #103 の残り半分）。
+    route("app/settings/properties", "routes/app/propertySettings.tsx"),
+    // W-12 契約と請求（銀行振込前提 / 人間の指示 2026-08-17）。門は billing.read。
+    route("app/billing", "routes/app/billing.tsx"),
+    route("app/billing/:invoiceId", "routes/app/billingDetail.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
     route("app/settings/room-types", "routes/app/roomTypes.tsx"),
     route("app/settings/checklists", "routes/app/checklists.tsx"),
@@ -176,6 +181,9 @@ export default [
     route("app/audit/findings", "routes/app/findings.tsx"),
     // P7-20 監査ログの閲覧（読み取り専用）。門は finding.read。
     route("app/audit/logs", "routes/app/auditLogs.tsx"),
+    // W-07 の入口。**`:findingId` より先に登録する**（静的セグメント優先だが、
+    // 並びでも意図を示す）。次に確認する 1 件へ直行し、無ければ空状態。
+    route("app/audit/findings/next", "routes/app/findingNext.tsx"),
     route("app/audit/findings/:findingId", "routes/app/findingDetail.tsx"),
     // P7-18。検査キュー（施設横断）。**`:propertyId` を URL に持たない。**
     // 「次に検査するもの」を施設をまたいで選ぶ画面で、施設は `?propertyId=`
