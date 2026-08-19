@@ -1309,6 +1309,8 @@
   "propSettings.field.name": "施設名",
   "propSettings.field.postalCode": "郵便番号",
   "propSettings.field.address": "住所",
+  "propSettings.field.phone": "電話番号",
+  "propSettings.field.contactName": "連絡担当者",
   "propSettings.field.timezone": "タイムゾーン",
   "propSettings.field.dayCutoffTime": "日締め時刻",
   "propSettings.field.isActive": "有効",

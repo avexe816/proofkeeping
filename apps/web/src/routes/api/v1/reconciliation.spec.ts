@@ -64,6 +64,8 @@ function propertyRow(): unknown[] {
     "テスト施設", // name
     null, // postal_code
     null, // address
+    null, // phone
+    null, // contact_name
     "Asia/Tokyo",
     "05:00", // day_cutoff_time
     0, // inspection_required
