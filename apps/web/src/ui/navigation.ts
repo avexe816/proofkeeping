@@ -243,6 +243,20 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/report`,
   },
+  // 請求確認（P5-19 / PK-SPEC-P5 §6）。**発注元（CLIENT_VIEWER）にも出す**
+  // 唯一の請求系項目。門は `billing.read`（発注元はリポジトリ層が自分の
+  // 取引先の期間に絞る）。運営側の「契約と請求」（billing.readInternal）とは
+  // 別 — あちらは発注元に出ない。
+  {
+    key: "nav.billingPeriods",
+    icon: "🤝",
+    section: "analysis",
+    moduleCode: "BILLING",
+    action: "billing.read",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/billing-periods",
+  },
   // 契約と請求（owner 10 / 人間の指示 2026-08-17: 銀行振込前提で実装）。
   // **`scope` を `ORGANIZATION` へ差し替えた。** 請求書は組織の資源で、
   // API（/api/v1/invoices）も `ORGANIZATION_TARGET` で判定している。

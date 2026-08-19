@@ -22,19 +22,13 @@
  * `externalActorEmail` に残す。
  */
 
-import {
-  evaluateBillingPeriodTransition,
-  type InvoiceDraft,
-} from "@pk/billing";
+import type { InvoiceDraft } from "@pk/billing";
 import {
   NotFoundError,
-  appendBillingPeriodReview,
   findBillingPeriodById,
   findCounterpartyById,
   lookupOrganizationId,
-  recordAudit,
   systemActorId,
-  updateBillingPeriodStatus,
   type BillingPeriodStatus,
   type Env,
   type TenantContext,
@@ -49,6 +43,7 @@ import {
 
 import { clientIp, consumeRateLimit } from "../../lib/auth/rateLimit.js";
 import { buildPeriodDraft } from "../../lib/billing/draft.js";
+import { agreeBillingPeriod, rejectBillingPeriod } from "../../lib/billing/review.js";
 import { verifyReviewLink } from "../../lib/billing/reviewLink.js";
 import { t } from "../../lib/i18n.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
@@ -186,59 +181,31 @@ export async function action({
   const counterparty = await findCounterpartyById(env, ctx, period.counterpartyId);
   if (counterparty === undefined) throw new NotFoundError();
 
-  const transition = evaluateBillingPeriodTransition(
-    period.status,
-    intent === "agree" ? "AGREE" : "REJECT",
-  );
-  if (!transition.allowed) return { failure: "CONFLICT" };
-
-  const { draft } = await loadReview(env, ctx, billingPeriodId);
-
-  const changed = await updateBillingPeriodStatus(
-    env,
-    ctx,
-    period.id,
-    intent === "agree"
-      ? { status: transition.next, agreedAt: ctx.now, agreedByCounterparty: true }
-      : { status: transition.next, agreedAt: null, agreedByCounterparty: false },
-    period.status,
-  );
-  if (changed === 0) return { failure: "CONFLICT" };
-
-  const actorId = systemActorId(ctx.orgShortId);
-  await appendBillingPeriodReview(env, ctx, {
-    billingPeriodId: period.id,
-    action: intent === "agree" ? "AGREE" : "REJECT",
-    comment: comment === "" ? null : comment,
-    lineComments: [],
-    linesSnapshot: draft.lines.map((line) => ({
-      lineNo: line.lineNo,
-      lineKey: line.lineKey,
-      itemCode: line.itemCode,
-      description: line.description,
-      quantity: line.quantity,
-      unitPrice: line.unitPrice,
-      amount: line.amount,
-      taxRate: line.taxRate,
-    })),
-    snapshotTotalAmount: draft.totalAmount,
-    statusBefore: period.status,
-    statusAfter: transition.next,
-    // メールリンクからの操作は常に取引先の意思。
-    byCounterparty: true,
-    actorId,
+  // 本体は共有実装（`lib/billing/review.ts` / P5-19）。メールリンクからの
+  // 操作は常に取引先の意思（`byCounterparty: true`）で、ログイン主体が
+  // 無いので `actorId` は `systemActorId()`、宛先を `externalActorEmail` に残す。
+  const actor = {
+    actorId: systemActorId(ctx.orgShortId),
     externalActorEmail: counterparty.billingEmail,
-  });
-
-  await recordAudit(env, ctx, {
-    actorId,
-    action: "billingPeriod.statusChanged",
-    targetType: "billingPeriod",
-    targetId: period.id,
-    before: { status: period.status },
-    after: { status: transition.next, byCounterparty: true, viaReviewLink: true },
+    viaReviewLink: true,
     ...(clientIp(request) === "unknown" ? {} : { ip: clientIp(request) }),
-  });
+  };
+  const outcome =
+    intent === "agree"
+      ? await agreeBillingPeriod(env, ctx, {
+          billingPeriodId,
+          comment: comment === "" ? null : comment,
+          byCounterparty: true,
+          ...actor,
+        })
+      : await rejectBillingPeriod(env, ctx, {
+          billingPeriodId,
+          comment,
+          lineComments: [],
+          ...actor,
+        });
+  if (outcome.kind === "NOT_FOUND") throw new NotFoundError();
+  if (outcome.kind !== "OK") return { failure: "CONFLICT" };
 
   return { done: intent === "agree" ? "AGREE" : "REJECT" };
 }

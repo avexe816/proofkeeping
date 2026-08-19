@@ -164,6 +164,8 @@ export default [
     // W-12 契約と請求（銀行振込前提 / 人間の指示 2026-08-17）。門は billing.read。
     route("app/billing", "routes/app/billing.tsx"),
     route("app/billing/:invoiceId", "routes/app/billingDetail.tsx"),
+    // P5-19 請求確認（月次締めの双方合意）。発注元（CLIENT_VIEWER）も開く。
+    route("app/billing-periods", "routes/app/billingPeriods.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
     route("app/settings/room-types", "routes/app/roomTypes.tsx"),
     route("app/settings/checklists", "routes/app/checklists.tsx"),

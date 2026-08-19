@@ -348,10 +348,11 @@ export default function OrgDashboard() {
  * 要対応の 4 行（§7.1 の下段）。
  *
  * ── リンク先がある行と無い行がある ──────────────────────
- * 差異レポートには一覧画面（W-06 / P4-06）がある。**忘れ物・設備不具合・
- * 請求期間の PC 画面はまだ無い**（API だけがある）。作られたらここへ
- * `href` を足す。件数は今のうちから出しておく — 見えないと、
- * 保管期限も締めも「誰も見ていない」まま過ぎる。
+ * 差異レポート（W-06 / P4-06）と請求期間（P5-19）には画面がある。
+ * **忘れ物・設備不具合の PC 画面はまだ無い**（API だけがある /
+ * OPEN_QUESTIONS #082 の残り）。作られたらここへ `href` を足す。
+ * 件数は今のうちから出しておく — 見えないと、保管期限も締めも
+ * 「誰も見ていない」まま過ぎる。
  */
 function actionRows(data: OrgDashboardResponse) {
   return [
@@ -369,7 +370,8 @@ function actionRows(data: OrgDashboardResponse) {
     {
       label: "dashboard.org.action.billingPeriods",
       count: data.actions.unclosedBillingPeriods,
-      href: null,
+      // P5-19 が請求確認の画面を作った（OPEN_QUESTIONS #082 の請求期間分）。
+      href: "/app/billing-periods",
     },
   ] as const;
 }

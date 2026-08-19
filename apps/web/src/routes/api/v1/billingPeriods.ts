@@ -39,7 +39,6 @@ import {
   closedPeriodAsOf,
   evaluateBillingPeriodTransition,
   type BillingPeriodStatusValue,
-  type InvoiceDraft,
 } from "@pk/billing";
 import {
   BILLING_PERIOD_STATUSES,
@@ -53,7 +52,6 @@ import {
   type BillingPeriodSummary,
 } from "@pk/contracts";
 import {
-  appendBillingPeriodReview,
   ensureBillingPeriod,
   findBillingPeriodById,
   findCounterpartyById,
@@ -62,14 +60,15 @@ import {
   listTasksByIds,
   recordAudit,
   updateBillingPeriodStatus,
-  type BillingPeriodReviewLineComment,
-  type BillingPeriodReviewLineSnapshot,
-  type Env,
-  type TenantContext,
 } from "@pk/db";
 import { Hono } from "hono";
 
-import { buildPeriodDraft } from "../../../lib/billing/draft.js";
+import {
+  agreeBillingPeriod,
+  loadPeriodWithDraft,
+  rejectBillingPeriod,
+  requestBillingPeriodReview,
+} from "../../../lib/billing/review.js";
 import { toTaskSummaries } from "../../../lib/task/summary.js";
 import { ORGANIZATION_TARGET, assertPermission } from "../../../lib/auth/permission.js";
 import { getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
@@ -184,45 +183,9 @@ billingPeriods.post("/", async (c) => {
 // 双方合意フロー（§6 / P5-12）
 // ────────────────────────────────────────────────────────────
 
-/**
- * 締めと、そのとき見える明細を揃えて返す。
- *
- * **発行（`lib/billing/issue.ts`）と同じ `buildPeriodDraft()` を通る。**
- * 合意の画面が別の計算をすると、見て合意した数字と請求書が食い違う
- * （§0.2 の出荷判定）。
- */
-async function loadPeriodWithDraft(env: Env, ctx: TenantContext, billingPeriodId: string) {
-  const period = await findBillingPeriodById(env, ctx, billingPeriodId);
-  if (period === undefined) return undefined;
-
-  const counterparty = await findCounterpartyById(env, ctx, period.counterpartyId);
-  // 取引先が引けない締めは**明細を組めない**（端数処理の方式が決まらない）。
-  // 越境と同じ 404 に寄せる（403 を作らない / DECISIONS #022）。
-  if (counterparty === undefined) return undefined;
-
-  const draft = await buildPeriodDraft(env, ctx, {
-    counterpartyId: period.counterpartyId,
-    periodFrom: period.periodFrom,
-    periodTo: period.periodTo,
-    taxRoundingMode: counterparty.taxRoundingMode,
-  });
-
-  return { period, draft, counterparty };
-}
-
-/** 履歴に残す明細の写し（§6.2 の修正履歴）。**金額は整数のまま。** */
-function snapshotOf(draft: InvoiceDraft): BillingPeriodReviewLineSnapshot[] {
-  return draft.lines.map((line) => ({
-    lineNo: line.lineNo,
-    lineKey: line.lineKey,
-    itemCode: line.itemCode,
-    description: line.description,
-    quantity: line.quantity,
-    unitPrice: line.unitPrice,
-    amount: line.amount,
-    taxRate: line.taxRate,
-  }));
-}
+// `loadPeriodWithDraft()` / `snapshotOf()` と合意・差戻し・確認依頼の本体は
+// `lib/billing/review.ts` に移した（P5-19）。**同じ操作の入口が 3 つある**
+// （この API・請求確認の画面・メールリンク）ため、実装を 1 か所に寄せた。
 
 /**
  * `GET /:billingPeriodId/lines` — 合意の画面が見る明細（§6.2）。
@@ -390,57 +353,17 @@ billingPeriods.post("/:billingPeriodId/request-review", async (c) => {
   const parsed = billingPeriodRequestReviewRequestSchema.safeParse(await readJson(c));
   if (!parsed.success) return c.json(invalidRequest(), 400);
 
-  const loaded = await loadPeriodWithDraft(c.env, ctx, c.req.param("billingPeriodId"));
-  if (loaded === undefined) return c.json(notFound(), 404);
-  const { period, draft, counterparty } = loaded;
-
-  if (period.status !== "REVIEWING") {
-    return c.json({ error: "INVALID_TRANSITION" as const }, 409);
-  }
-
-  const appended = await appendBillingPeriodReview(c.env, ctx, {
-    billingPeriodId: period.id,
-    action: "REQUEST_REVIEW",
+  const billingPeriodId = c.req.param("billingPeriodId");
+  const outcome = await requestBillingPeriodReview(c.env, ctx, {
+    billingPeriodId,
     comment: parsed.data.comment ?? null,
-    lineComments: [],
-    linesSnapshot: snapshotOf(draft),
-    snapshotTotalAmount: draft.totalAmount,
-    statusBefore: period.status,
-    statusAfter: period.status,
-    byCounterparty: false,
     actorId: getSession(c).membershipId,
-  });
-
-  // 送信は Queue コンシューマ（`consumers/notification.ts`）。リンクの署名も
-  // そちらで行う（送信時刻を起点に 30 日）。送付ログは docType =
-  // REVIEW_REQUEST でコンシューマが残す。**投入の失敗で依頼自体を
-  // 落とさない**（`notify()` と同じ判断 — 履歴は既に残っており、
-  // 再依頼すれば送り直せる）。
-  try {
-    await c.env.QUEUE_NOTIFICATION.send({
-      kind: "REVIEW_REQUEST_DELIVERY",
-      organizationId: ctx.organizationId,
-      orgShortId: ctx.orgShortId,
-      billingPeriodId: period.id,
-      toEmail: counterparty.billingEmail,
-      ccEmails: [...counterparty.ccEmails],
-      sentById: getSession(c).membershipId,
-      requestedAtMs: ctx.now.getTime(),
-    });
-  } catch {
-    console.error("review-request-enqueue-failed");
-  }
-
-  await recordAudit(c.env, ctx, {
-    actorId: getSession(c).membershipId,
-    action: "billingPeriod.reviewRequested",
-    targetType: "billingPeriod",
-    targetId: period.id,
-    after: { seq: appended.seq },
     ...ipOf(c.req.header("CF-Connecting-IP")),
   });
+  if (outcome.kind === "NOT_FOUND") return c.json(notFound(), 404);
+  if (outcome.kind === "CONFLICT") return c.json({ error: "INVALID_TRANSITION" as const }, 409);
 
-  return c.json({ billingPeriodId: period.id, status: period.status, seq: appended.seq }, 201);
+  return c.json({ billingPeriodId, status: outcome.status, seq: outcome.seq }, 201);
 });
 
 /**
@@ -467,52 +390,18 @@ billingPeriods.post("/:billingPeriodId/agree", async (c) => {
   // 発注元が押した合意は、リクエストの値によらず取引先の意思。
   const byCounterparty = ctx.role === "CLIENT_VIEWER" ? true : parsed.data.byCounterparty;
 
-  const loaded = await loadPeriodWithDraft(c.env, ctx, c.req.param("billingPeriodId"));
-  if (loaded === undefined) return c.json(notFound(), 404);
-  const { period, draft } = loaded;
-
-  const transition = evaluateBillingPeriodTransition(period.status, "AGREE");
-  if (!transition.allowed) return c.json({ error: "INVALID_TRANSITION" as const }, 409);
-
-  const changed = await updateBillingPeriodStatus(
-    c.env,
-    ctx,
-    period.id,
-    {
-      status: transition.next,
-      agreedAt: ctx.now,
-      agreedByCounterparty: byCounterparty,
-    },
-    period.status,
-  );
-  // 0 なら別のリクエストが先に進めている。**履歴を書く前に落とす。**
-  // 状態が動いていないのに「合意した」と残ると、履歴のほうが嘘になる。
-  if (changed === 0) return c.json({ error: "INVALID_TRANSITION" as const }, 409);
-
-  await appendBillingPeriodReview(c.env, ctx, {
-    billingPeriodId: period.id,
-    action: "AGREE",
+  const billingPeriodId = c.req.param("billingPeriodId");
+  const outcome = await agreeBillingPeriod(c.env, ctx, {
+    billingPeriodId,
     comment: parsed.data.comment ?? null,
-    lineComments: [],
-    linesSnapshot: snapshotOf(draft),
-    snapshotTotalAmount: draft.totalAmount,
-    statusBefore: period.status,
-    statusAfter: transition.next,
     byCounterparty,
     actorId: getSession(c).membershipId,
-  });
-
-  await recordAudit(c.env, ctx, {
-    actorId: getSession(c).membershipId,
-    action: "billingPeriod.statusChanged",
-    targetType: "billingPeriod",
-    targetId: period.id,
-    before: { status: period.status },
-    after: { status: transition.next, agreedByCounterparty: byCounterparty },
     ...ipOf(c.req.header("CF-Connecting-IP")),
   });
+  if (outcome.kind === "NOT_FOUND") return c.json(notFound(), 404);
+  if (outcome.kind === "CONFLICT") return c.json({ error: "INVALID_TRANSITION" as const }, 409);
 
-  return c.json({ billingPeriodId: period.id, status: transition.next });
+  return c.json({ billingPeriodId, status: outcome.status });
 });
 
 /**
@@ -536,60 +425,19 @@ billingPeriods.post("/:billingPeriodId/reject", async (c) => {
   const parsed = billingPeriodRejectRequestSchema.safeParse(await readJson(c));
   if (!parsed.success) return c.json(invalidRequest(), 400);
 
-  const loaded = await loadPeriodWithDraft(c.env, ctx, c.req.param("billingPeriodId"));
-  if (loaded === undefined) return c.json(notFound(), 404);
-  const { period, draft } = loaded;
-
-  const byLineKey = new Map(draft.lines.map((line) => [line.lineKey, line]));
-  const lineComments: BillingPeriodReviewLineComment[] = [];
-  for (const entry of parsed.data.lineComments) {
-    const line = byLineKey.get(entry.lineKey);
-    if (line === undefined) return c.json(invalidRequest(), 400);
-    lineComments.push({
-      lineKey: entry.lineKey,
-      lineNo: line.lineNo,
-      description: line.description,
-      comment: entry.comment,
-    });
-  }
-
-  const transition = evaluateBillingPeriodTransition(period.status, "REJECT");
-  if (!transition.allowed) return c.json({ error: "INVALID_TRANSITION" as const }, 409);
-
-  const changed = await updateBillingPeriodStatus(
-    c.env,
-    ctx,
-    period.id,
-    { status: transition.next, agreedAt: null, agreedByCounterparty: false },
-    period.status,
-  );
-  if (changed === 0) return c.json({ error: "INVALID_TRANSITION" as const }, 409);
-
-  const appended = await appendBillingPeriodReview(c.env, ctx, {
-    billingPeriodId: period.id,
-    action: "REJECT",
+  const billingPeriodId = c.req.param("billingPeriodId");
+  const outcome = await rejectBillingPeriod(c.env, ctx, {
+    billingPeriodId,
     comment: parsed.data.comment,
-    lineComments,
-    linesSnapshot: snapshotOf(draft),
-    snapshotTotalAmount: draft.totalAmount,
-    statusBefore: period.status,
-    statusAfter: transition.next,
-    // 差戻しはホテル側の意思（§6.2 の見本の「行2 へのコメント（ホテル側）」）。
-    byCounterparty: true,
+    lineComments: parsed.data.lineComments,
     actorId: getSession(c).membershipId,
-  });
-
-  await recordAudit(c.env, ctx, {
-    actorId: getSession(c).membershipId,
-    action: "billingPeriod.statusChanged",
-    targetType: "billingPeriod",
-    targetId: period.id,
-    before: { status: period.status },
-    after: { status: transition.next, rejected: true },
     ...ipOf(c.req.header("CF-Connecting-IP")),
   });
+  if (outcome.kind === "NOT_FOUND") return c.json(notFound(), 404);
+  if (outcome.kind === "INVALID_LINE") return c.json(invalidRequest(), 400);
+  if (outcome.kind === "CONFLICT") return c.json({ error: "INVALID_TRANSITION" as const }, 409);
 
-  return c.json({ billingPeriodId: period.id, status: transition.next, seq: appended.seq });
+  return c.json({ billingPeriodId, status: outcome.status, seq: outcome.seq });
 });
 
 /**

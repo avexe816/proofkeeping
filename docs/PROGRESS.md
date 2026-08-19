@@ -1796,8 +1796,12 @@ task: P0-07 リポジトリ層の雛形
       OQ #078 決着。docType REVIEW_REQUEST・HMAC 30 日・`/r/billing/:id`
       （DECISIONS #207）
 - [x] P5-18 スタッフ支払集計（追加起票 2026-08-19 / PK-SPEC-PAY v1.0）
-      4 表＋エンジン＋API＋画面 2 枚＋PAY 採番＋CSV。**支払明細書 PDF のみ
-      追送（OPEN_QUESTIONS #106）**。控除は範囲外のまま（DECISIONS #208）
+      4 表＋エンジン＋API＋画面 2 枚＋PAY 採番＋CSV。控除は範囲外のまま
+      （DECISIONS #208）。支払明細書 PDF も同日の追送で実装（OQ #106 解決）
+- [x] P5-19 請求確認画面（追加起票 2026-08-19）
+      `/app/billing-periods`。合意・差戻し・確認依頼の本体を
+      `lib/billing/review.ts` へ共有化（API・メールリンクと同実装）。
+      OQ #082 の請求期間分を決着（忘れ物・設備不具合の画面は残）
 
 ## Phase 6 — 外部連携と拡張（M10–M11）
 
