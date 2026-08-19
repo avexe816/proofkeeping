@@ -1654,3 +1654,367 @@ a.pk-nav:hover {
     break-inside: avoid;
   }
 }
+
+/* ──────────────────────────────────────────────────────────
+   未定義だったクラスの補完（人間の指示 2026-08-19 / DECISIONS #212）
+
+   複数の画面（取引先と料金・チェックリスト定義・事業者税務・客室マスタ・
+   セットアップ・スタッフ登録・W-05 ほか）が `pk-form` / `pk-page__title`
+   などを使っていたが、**このファイルに定義が無く、素の UA スタイルで
+   描画されていた。** 画面側の markup は変えず、ここで一括して整える。
+   ────────────────────────────────────────────────────────── */
+
+/* ── コンテンツ内のページ見出し ───────────────────────── */
+
+.pk-page__title {
+  margin: 0 0 2px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.pk-page__lede {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* コンテンツ内の小見出し（pk-form の外にある h2 / h3）。
+   `:where()` で特異度を消し、`.pk-section__title` など**クラス付きの
+   見出しは既存の定義が勝つ**ようにする。 */
+:where(.pk-page) h2 {
+  margin: 22px 0 6px;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+:where(.pk-page) h3 {
+  margin: 16px 0 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+/* ── フォームカード ───────────────────────────────────────
+   `label` → 入力欄 → `.pk-hint` が平坦に並ぶ形（取引先・税務・
+   チェックリスト等）を、markup を変えずに縦のリズムへ整える。 */
+
+.pk-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 620px;
+  padding: 16px 18px 18px;
+  margin: 14px 0;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  box-shadow: var(--sh);
+}
+
+.pk-form h2,
+.pk-form h3 {
+  margin: 0 0 4px;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.pk-form label {
+  margin-top: 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+
+/* 入力欄。現場端末も開くため 16px 未満にしない（ui-writing.md §3）。 */
+.pk-form input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.pk-form select,
+.pk-form textarea {
+  align-self: stretch;
+  padding: 9px 11px;
+  margin-top: 4px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.pk-form textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.pk-form input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 6px;
+}
+
+.pk-form input[type="file"] {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.pk-form button[type="submit"],
+.pk-form .pk-button {
+  margin-top: 16px;
+}
+
+/* クラスを持たない submit（staff.tsx / setup.tsx）にも `.pk-button` と
+   同じ見た目を与える。markup 側の付け忘れで UA 既定の灰色ボタンが
+   出ないようにする。 */
+.pk-form button[type="submit"],
+.pk-setup__actions button,
+.pk-setup__closed button {
+  padding: 9px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink2);
+  cursor: pointer;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+/* フォーム内の補足文（2 つの綴りが混在しているため両方を受ける）。 */
+.pk-form__note,
+.pk-hint {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* 施設の割当などのチェック群（staff.tsx）。 */
+.pk-form__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-self: stretch;
+  padding: 10px 12px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.pk-form__group legend {
+  padding: 0 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+
+/* チェック 1 行。**太字ラベルの見た目を上書きする**（項目名は値の側）。 */
+.pk-form label.pk-form__check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.pk-form .pk-form__check input[type="checkbox"] {
+  margin-top: 0;
+}
+
+/* ── お知らせ（情報）─────────────────────────────────── */
+
+.pk-notice--info {
+  color: var(--info);
+  background: var(--infobg);
+  border-color: var(--info);
+}
+
+/* ── 事業者・税務設定の角印 ───────────────────────────── */
+
+.pk-seal {
+  display: block;
+  padding: 6px;
+  margin-top: 6px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* ── アーカイブの注記（§9 MUST の 2 文）──────────────── */
+
+.pk-archive__notice {
+  padding: 10px 12px;
+  margin: 8px 0;
+  font-size: 13px;
+  color: var(--info);
+  background: var(--infobg);
+  border: 1px solid var(--info);
+  border-radius: 8px;
+}
+
+/* ── セットアップウィザード（P7-01）──────────────────── */
+
+.pk-setup__progress {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-setup__steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 10px 0 14px;
+  list-style: none;
+}
+
+.pk-setup__steps li {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 11px;
+  font-size: 12px;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.pk-setup__steps li.is-current {
+  font-weight: 700;
+  background: var(--okbg);
+  border-color: var(--ok);
+}
+
+.pk-setup__steps li span {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.pk-setup__closed {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  margin: 10px 0;
+  font-size: 13px;
+  background: var(--okbg);
+  border: 1px solid var(--ok);
+  border-radius: 8px;
+}
+
+.pk-setup__panel {
+  max-width: 720px;
+  padding: 16px 18px;
+  margin: 12px 0;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  box-shadow: var(--sh);
+}
+
+.pk-setup__panel h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.pk-setup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* ── 施設サマリー（ダッシュボード）────────────────────── */
+
+.pk-summary {
+  width: 100%;
+  margin: 12px 0;
+  font-size: 12.5px;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 11px;
+  box-shadow: var(--sh);
+}
+
+.pk-summary th,
+.pk-summary td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line2);
+}
+
+.pk-summary thead th {
+  font-size: 11px;
+  color: var(--ink2);
+  white-space: nowrap;
+  background: var(--surf3);
+}
+
+.pk-summary tbody tr:last-child th,
+.pk-summary tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.pk-summary--empty {
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+/* ── 客室マスタの一覧（rooms.tsx）─────────────────────── */
+
+.pk-room-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 10px 0;
+  list-style: none;
+}
+
+.pk-room-list li {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+/* 清掃専用の場所。売れる客室と見分けが付く程度に沈める。 */
+.pk-room-list--nonSellable li {
+  font-weight: 400;
+  color: var(--ink2);
+  background: var(--surf3);
+}
+
+/* ── topbar の施設検索（PropertySwitcher）─────────────── */
+
+.pk-property__search {
+  width: 150px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+/* ── 客室ボードの入れ物（RoomBoard.tsx）───────────────── */
+
+.pk-board {
+  margin-top: 12px;
+}
+
+.pk-room__number {
+  font-variant-numeric: tabular-nums;
+}
