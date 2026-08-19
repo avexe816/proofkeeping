@@ -143,9 +143,9 @@ lostItems.post("/", async (c) => {
     description: parsed.data.description,
     foundLocation: parsed.data.foundLocation,
     foundById: getSession(c).membershipId,
-    // 施設ごとの保持日数はまだ列を持たない。**既定に任せる**（engine が当てる）。
-    // 施設設定を足す task がここへ値を渡す（OPEN_QUESTIONS #052）。
-    propertyRetentionDays: null,
+    // 施設ごとの保持日数（§7.3 の「施設設定」/ OPEN_QUESTIONS #052 解決）。
+    // 未設定（null）なら engine の既定（90 日 / 食品は当日）が効く。
+    propertyRetentionDays: property?.lostItemRetentionDays ?? null,
     ...(c.req.header("CF-Connecting-IP") === undefined
       ? {}
       : { ip: c.req.header("CF-Connecting-IP") }),

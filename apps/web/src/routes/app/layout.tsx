@@ -59,6 +59,8 @@ export interface ShellData {
   summaries: readonly PropertySummary[];
   navigation: readonly VisibleNavSection[];
   enabledModules: readonly ModuleCode[];
+  /** サイドバーをレールに畳んでいるか（A01 §4.4 / P7-21）。 */
+  sidebarCollapsed: boolean;
 }
 
 /**
@@ -126,6 +128,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     summaries,
     navigation: buildNavigation(tenant, { selectedPropertyId: navPropertyId, enabledModules }),
     enabledModules,
+    sidebarCollapsed: session.sidebarCollapsed === true,
   };
 }
 
@@ -133,7 +136,9 @@ export default function AppShell() {
   const data = useLoaderData<ShellData>();
 
   return (
-    <div className="pk-shell">
+    // 修飾子が `--sidebarWidth` / `--brandWidth` を同時に切り替える。
+    // ブランド幅とサイドバー幅は両状態で一致させる（A01 §1.1 / 基準 #13）。
+    <div className={data.sidebarCollapsed ? "pk-shell pk-shell--nav-collapsed" : "pk-shell"}>
       <Topbar
         displayName={data.user.displayName}
         role={data.role}
@@ -145,7 +150,12 @@ export default function AppShell() {
         summaries={data.summaries}
       />
       <div className="pk-shell__body">
-        <Sidebar navigation={data.navigation} isOrgWide={data.isOrgWide} role={data.role} />
+        <Sidebar
+          navigation={data.navigation}
+          isOrgWide={data.isOrgWide}
+          role={data.role}
+          collapsed={data.sidebarCollapsed}
+        />
         <main className="pk-main">
           <Outlet />
         </main>

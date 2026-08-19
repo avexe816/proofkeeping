@@ -310,8 +310,8 @@ export default function OrgDashboard() {
           <li className="pk-actions__item" key={row.label}>
             <span className="pk-actions__label">{t(row.label)}</span>
             <span className="pk-actions__count">{row.count}</span>
-            {/* **画面が無いものにリンクを出さない。** 押して 404 になる
-                導線を置くくらいなら、件数だけを出して気づかせる。 */}
+            {/* `href` の無い行は施設単位の画面（W-09 / W-10）。全社ビューでは
+                施設が決まらないため件数だけを出す（`actionRows()` の注記）。 */}
             {row.href === null ? null : (
               <a className="pk-button" href={row.href}>
                 {t("dashboard.org.action.open")}
@@ -348,10 +348,11 @@ export default function OrgDashboard() {
  * 要対応の 4 行（§7.1 の下段）。
  *
  * ── リンク先がある行と無い行がある ──────────────────────
- * 差異レポートには一覧画面（W-06 / P4-06）がある。**忘れ物・設備不具合・
- * 請求期間の PC 画面はまだ無い**（API だけがある）。作られたらここへ
- * `href` を足す。件数は今のうちから出しておく — 見えないと、
- * 保管期限も締めも「誰も見ていない」まま過ぎる。
+ * 差異レポート（W-06 / P4-06）と請求期間（P5-19）は組織横断の画面へ
+ * リンクする。**忘れ物（W-09）・設備不具合（W-10）は施設単位の画面**
+ * （P7-22 / PK-SPEC-P2 §12.1 のパスが `/app/p/[id]/…`）で、全社ビューの
+ * この画面からは施設が決まらないため件数だけを出す。到達はサイドバー
+ * （施設を選んだ状態）から。
  */
 function actionRows(data: OrgDashboardResponse) {
   return [
@@ -369,7 +370,8 @@ function actionRows(data: OrgDashboardResponse) {
     {
       label: "dashboard.org.action.billingPeriods",
       count: data.actions.unclosedBillingPeriods,
-      href: null,
+      // P5-19 が請求確認の画面を作った（OPEN_QUESTIONS #082 の請求期間分）。
+      href: "/app/billing-periods",
     },
   ] as const;
 }

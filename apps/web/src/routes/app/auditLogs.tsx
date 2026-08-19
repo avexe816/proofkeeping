@@ -68,7 +68,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   // **これが唯一の門**（検査キュー・進捗モニタと同じ形）。
   const properties = await listSelectableProperties(env, tenant);
   const { property } = resolveSelectedScope(session.selectedPropertyId, tenant, properties);
-  const scope = resolveListScope(tenant, "finding.read", property?.id ?? null);
+  const scope = resolveListScope(tenant, "auditLog.read", property?.id ?? null);
 
   const to = url.searchParams.get("to") ?? dayOf(now);
   const from =

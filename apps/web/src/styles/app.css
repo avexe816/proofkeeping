@@ -44,10 +44,18 @@
 
   --sh: 0 1px 3px rgb(20 30 25 / 6%);
 
-  /* A01 §1.1 の寸法。**この 2 つは同じ値であること**（縦ラインを通す）。 */
+  /* A01 §1.1 の寸法。**sidebarWidth と brandWidth は同じ値であること**（縦ラインを通す）。 */
   --topbarHeight: 58px;
   --sidebarWidth: 214px;
   --brandWidth: 214px;
+  --sidebarWidthCollapsed: 56px;
+}
+
+/* レール表示（A01 §4.4 / P7-21）。**2 つの幅を同時に切り替える**ことで
+   受け入れ基準 #13（ブランド幅 = サイドバー幅）を両状態で満たす。 */
+.pk-shell--nav-collapsed {
+  --sidebarWidth: var(--sidebarWidthCollapsed);
+  --brandWidth: var(--sidebarWidthCollapsed);
 }
 
 * {
@@ -66,10 +74,16 @@ body {
 
 /* ── shell ────────────────────────────────────────────── */
 
+/* topbar を固定する（人間の指示 2026-08-19）。シェルを viewport の高さに
+   固定し、スクロールはコンテンツ（.pk-main）とサイドバーのナビ
+   （.pk-sidebar__nav）が**それぞれ独自に**持つ。長いメニュー・長い表でも
+   topbar と施設セレクタが常に見えている。印刷時は解除（末尾の印刷ブロック。
+   printLayout.spec.ts が最初の印刷ブロックを走査するため、この注記に
+   その綴りを書かないこと）。 */
 .pk-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .pk-shell__body {
@@ -103,6 +117,24 @@ body {
 .pk-topbar__brandAccent {
   color: var(--accent2);
   font-style: normal;
+}
+
+/* レール時はモノグラム（PK）へ切り替える（A01 §4.4）。 */
+.pk-topbar__brandMark {
+  display: none;
+}
+
+.pk-shell--nav-collapsed .pk-topbar__brandFull {
+  display: none;
+}
+
+.pk-shell--nav-collapsed .pk-topbar__brandMark {
+  display: inline;
+}
+
+.pk-shell--nav-collapsed .pk-topbar__brand {
+  padding-left: 0;
+  text-align: center;
 }
 
 /* サイドバーの項目アイコン（A01 §4.1「アイコン + ラベル + 件数バッジ」）。
@@ -206,12 +238,31 @@ body {
   overflow-y: auto;
 }
 
+/* セクション見出し。P7-21 でクリック開閉になった（button 化）。 */
 .pk-sidebar__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
   padding: 12px 15px 5px;
+  font: inherit;
   font-size: 9px;
   font-weight: 700;
   color: #7da391;
+  text-align: left;
   letter-spacing: 0.06em;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+.pk-sidebar__heading::after {
+  font-size: 8px;
+  content: "▾";
+}
+
+.pk-sidebar__heading[aria-expanded="false"]::after {
+  content: "▸";
 }
 
 .pk-sidebar__foot {
@@ -255,6 +306,89 @@ a.pk-nav:hover {
   font-size: 9.5px;
 }
 
+/* レール切替（A01 §4.4）。フッターに置く。 */
+.pk-sidebar__toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 6px 0 0;
+  font: inherit;
+  font-size: 10.5px;
+  color: #8fb3a2;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+.pk-sidebar__toggle:hover {
+  color: #fff;
+}
+
+.pk-sidebar__toggleIcon {
+  width: 18px;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ── sidebar: レール表示（A01 §4.4） ──────────────────────
+   ラベル・件数・見出し・閲覧範囲の注記を隠し、アイコンだけを縦に並べる。
+   ラベル全文は各項目の `title` が補う（Sidebar.tsx）。 */
+.pk-shell--nav-collapsed .pk-nav__label,
+.pk-shell--nav-collapsed .pk-nav__note,
+.pk-shell--nav-collapsed .pk-sidebar__heading,
+.pk-shell--nav-collapsed .pk-sidebar__scope {
+  display: none;
+}
+
+.pk-shell--nav-collapsed .pk-nav {
+  justify-content: center;
+  padding: 9px 0;
+}
+
+.pk-shell--nav-collapsed .pk-sidebar__foot {
+  padding: 12px 8px;
+}
+
+.pk-shell--nav-collapsed .pk-sidebar__toggle {
+  justify-content: center;
+  padding: 0;
+}
+
+/* ── 確認依頼のメールリンク画面（P5-17 / /r/billing/*） ──
+   シェル（topbar / sidebar）を持たない 1 枚もの。 */
+
+.pk-review {
+  max-width: 720px;
+  padding: 24px 22px 40px;
+  margin: 0 auto;
+}
+
+.pk-review__head {
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-review__brand {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--brand);
+}
+
+.pk-review__title {
+  margin-top: 6px;
+  font-size: 18px;
+}
+
+.pk-review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin: 16px 0;
+}
+
 /* ── main ─────────────────────────────────────────────── */
 
 .pk-main {
@@ -262,6 +396,8 @@ a.pk-nav:hover {
   flex: 1;
   flex-direction: column;
   min-width: 0;
+  /* topbar 固定の相方。ページ全体ではなくコンテンツ側がスクロールする。 */
+  overflow-y: auto;
 }
 
 .pk-pagehead {
@@ -478,6 +614,14 @@ a.pk-nav:hover {
 .pk-badge--warn {
   color: var(--warn);
   background: var(--warnbg);
+}
+
+/* 忘れ物の期限バッジ（W-09 / PK-SPEC-P2 §7.3「発見直後から赤」）。
+   ui-writing.md §3 が禁じる「経過時間超過の赤」は清掃者を急かす表示のこと。
+   保管期限の警告はここが唯一の例外（engine の LOST_ITEM_WARNING_LEVELS）。 */
+.pk-badge--urgent {
+  color: var(--danger);
+  background: var(--dangerbg);
 }
 
 /* ── W-04 人員配分 ───────────────────────────────────── */
@@ -1213,6 +1357,16 @@ a.pk-nav:hover {
   @page {
     size: A4;
     margin: 12mm;
+  }
+
+  /* topbar 固定（.pk-shell の height: 100vh）を解除する。固定したまま
+     印刷すると、スクロール領域の 1 画面ぶんしか紙に出ない。 */
+  .pk-shell {
+    height: auto;
+  }
+
+  .pk-main {
+    overflow: visible;
   }
 
   /* 画面の枠（topbar / sidebar）と操作系は印刷しない。

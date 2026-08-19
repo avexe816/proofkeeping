@@ -63,6 +63,7 @@ import roomAccessLogs from "./routes/api/v1/roomAccessLogs.js";
 import ruleConfigs from "./routes/api/v1/ruleConfigs.js";
 import roomPlans from "./routes/api/v1/roomPlans.js";
 import billingPeriodsRoute from "./routes/api/v1/billingPeriods.js";
+import payoutsRoute from "./routes/api/v1/payouts.js";
 import deliveriesRoute from "./routes/api/v1/deliveries.js";
 import invoicesRoute from "./routes/api/v1/invoices.js";
 import integrationWebhooksRoute from "./routes/api/v1/integrationWebhooks.js";
@@ -259,6 +260,8 @@ api.route("/counterparties", counterparties);
 api.route("/pricing-rules", pricingRules);
 // 月次締め（P5-05 / 同 §2.8・§6.1）。合意と差戻しは P5-12。
 api.route("/billing-periods", billingPeriodsRoute);
+// P5-18。支払集計。門は payout.read / payout.write（OWNER / ORG_ADMIN のみ）。
+api.route("/payouts", payoutsRoute);
 // 請求書（P5-07 / 同 §4.1・§9）。**発行と送付は 1 本の口**（1 クリック）。
 api.route("/invoices", invoicesRoute);
 // 領収書（P5-08 / 同 §4.2・§8.2）。**印紙貼付欄を持たない**（billing.md §3）。

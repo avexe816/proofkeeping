@@ -20,6 +20,7 @@
   "role.CLEANER": "Cleaning staff",
   "role.VENDOR_ADMIN": "Vendor administrator",
   "role.AUDITOR": "Auditor",
+  "role.CLIENT_VIEWER": "Client",
   "property.current": "Current property",
   "property.switch": "Switch property",
   "property.roomCount": "rooms",

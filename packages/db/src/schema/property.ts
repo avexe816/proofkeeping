@@ -101,6 +101,15 @@ export const property = sqliteTable(
     inspectionRequired: integer("inspection_required", { mode: "boolean" })
       .notNull()
       .default(false),
+    /**
+     * 忘れ物の保持日数（PK-SPEC-P2 §7.3 の「施設設定」/ OPEN_QUESTIONS #052）。
+     *
+     * **`null` = 既定に従う**（衣類・かばん・その他 90 日 / 食品 当日 —
+     * `@pk/engine` の `retentionDaysFor()`）。貴重品・電子機器・書類・薬の
+     * 7 日はこの設定より優先される固定値。食品はこの設定と当日の短い側。
+     * **期限は警告のみで、自動廃棄には使わない**（§7.3 MUST）。
+     */
+    lostItemRetentionDays: integer("lost_item_retention_days"),
     ...sortOrderColumn,
     ...activeFlag,
     ...timestamps,

@@ -67,7 +67,7 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("71 テーブルを定義している", () => {
+  it("75 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       // P6-01。公開 API のキー（PK-SPEC-P6 §6.1）。**平文のキーを保存しない。**
       "apiKey",
@@ -151,6 +151,11 @@ describe("P0-06 スキーマ", () => {
       "outboundWebhook",
       // P0-08。直近 3 世代の再利用禁止のためだけの表。
       "passwordHistory",
+      // P5-18。支払単価（docs/PK-SPEC-PAY.md §1.2）。**請求単価と混ぜない。**
+      "payRule",
+      // P5-18。支払明細と支払期間（同 §1.3・§1.4）。CONFIRMED は動かない。
+      "payoutLine",
+      "payoutPeriod",
       // P4-01。物理の痕跡（PK-SPEC-P4 §2.2）。**外部機器からの受信のみ。**
       "physicalSignal",
       // P5-01。料金設定（同 §2.2）。**値上げは行の追加**（既存行を書き換えない）。
@@ -175,6 +180,8 @@ describe("P0-06 スキーマ", () => {
       "roomType",
       // P4-01。ルールの施設別設定（PK-SPEC-P4 §2.7）。
       "ruleConfig",
+      // P5-18。スタッフの支払属性（同 §1.1）。**個人情報の列は無い。**
+      "staffPayProfile",
       // P1-01 / P1-02。標準時間マスタ（客室タイプ × 清掃種別）。
       "standardTime",
       "subscription",
@@ -241,7 +248,7 @@ describe("P0-06 スキーマ", () => {
     expect(byName.get("external_room_id")?.notNull).toBe(false);
   });
 
-  it("role が security.md §1 の 7 ロールである", () => {
+  it("role が security.md §1 の 7 ロール＋発注元（P5-16）である", () => {
     expect(ROLES).toEqual([
       "OWNER",
       "ORG_ADMIN",
@@ -250,6 +257,8 @@ describe("P0-06 スキーマ", () => {
       "CLEANER",
       "VENDOR_ADMIN",
       "AUDITOR",
+      // 発注元閲覧（契約 §2.10.1 の写像表 / OPEN_QUESTIONS #011 の決着）。
+      "CLIENT_VIEWER",
     ]);
   });
 

@@ -150,6 +150,24 @@ export const AUDIT_ACTIONS = {
    * 双方合意フロー（P5-12）が専用の表に持つ**（§6.2 MUST）。
    */
   "billingPeriod.statusChanged": { requiresReason: false },
+  /**
+   * 確認依頼の送信（P5-17 / §6.1「ホテル側に通知」）。
+   *
+   * 状態は変わらない（DECISIONS #128）が、**組織の外へメールが出る操作**
+   * なので記録する（security.md §6 の「帳票の発行・訂正・送付」と同じ筋）。
+   * 宛先そのものは送付ログ（`documentDelivery` / REVIEW_REQUEST）に残る。
+   */
+  "billingPeriod.reviewRequested": { requiresReason: false },
+  /**
+   * 支払期間の確定（P5-18 / PAY §3.1）。採番と金額の固定を伴うため記録する
+   * （security.md §6 の「帳票の発行」と同じ筋）。
+   */
+  "payout.confirmed": { requiresReason: false },
+  // 支払単価と雇用区分（P5-18 / PAY §1）。単価は支払の根拠なので記録する
+  // （`pricingRule.created` / `closed` と同じ筋）。
+  "payRule.created": { requiresReason: false },
+  "payRule.closed": { requiresReason: false },
+  "staffPayProfile.updated": { requiresReason: false },
   // 帳票の発行・訂正・送付
   "document.issued": { requiresReason: false },
   /**

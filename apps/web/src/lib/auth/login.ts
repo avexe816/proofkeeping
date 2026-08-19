@@ -57,6 +57,7 @@ const PASSWORD_LOGIN_ROLES: ReadonlySet<Role> = new Set<Role>([
   "PROPERTY_MANAGER",
   "VENDOR_ADMIN",
   "AUDITOR",
+  "CLIENT_VIEWER",
 ]);
 
 /** アカウントロックの方針（security.md §2）。**設定項目にしない。** */

@@ -93,6 +93,14 @@ export interface TenantContext extends ShardContext {
    */
   allowedPropertyIds: readonly string[];
   /**
+   * 発注元ロール（CLIENT_VIEWER）が属する取引先（`membership.counterpartyId` / P5-16）。
+   *
+   * この値が載っているとき、請求系リポジトリは counterparty で強制的に絞る
+   * （`organizationId` の強制注入と同じ向き）。他ロールでは `null`。
+   * **リクエストから採らない。** membership から組み立てる（tenant middleware）。
+   */
+  counterpartyId?: string | null;
+  /**
    * 現在時刻。`createdAt` / `updatedAt` はこれを使う。
    *
    * リポジトリ層で `Date.now()` / `new Date()` を直接呼ばないこと

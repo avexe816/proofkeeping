@@ -61,6 +61,7 @@ function propertyRow(): unknown[] {
     "Asia/Tokyo",
     "05:00",
     0,
+    null, // lost_item_retention_days（OPEN_QUESTIONS #052）
     0,
     1,
     NOW.getTime(),

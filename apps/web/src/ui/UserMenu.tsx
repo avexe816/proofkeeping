@@ -27,6 +27,7 @@ const ROLE_LABEL: Record<Role, MessageKey> = {
   CLEANER: "role.CLEANER",
   VENDOR_ADMIN: "role.VENDOR_ADMIN",
   AUDITOR: "role.AUDITOR",
+  CLIENT_VIEWER: "role.CLIENT_VIEWER",
 };
 
 export function UserMenu(props: { displayName: string; role: Role; isOrgWide: boolean }) {

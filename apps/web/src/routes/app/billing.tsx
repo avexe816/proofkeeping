@@ -51,7 +51,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   const { tenant } = await requireAppContext(env, request, now);
 
   // API（/api/v1/invoices）と同じ門。`INSPECTOR` / `CLEANER` は 404。
-  assertPermission(tenant, "billing.read", ORGANIZATION_TARGET);
+  assertPermission(tenant, "billing.readInternal", ORGANIZATION_TARGET);
 
   const invoices = await listInvoices(env, tenant, { limit: 100 });
 

@@ -24,7 +24,7 @@
  */
 
 /** 採番する書類の種別。`packages/db` の `DOCUMENT_TYPES` と同じ並び。 */
-export const DOCUMENT_TYPES = ["INVOICE", "RECEIPT", "REPORT"] as const;
+export const DOCUMENT_TYPES = ["INVOICE", "RECEIPT", "REPORT", "PAYOUT"] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
@@ -33,6 +33,8 @@ export const DOCUMENT_NUMBER_PREFIXES: Record<DocumentType, string> = {
   INVOICE: "INV",
   RECEIPT: "RCP",
   REPORT: "RPT",
+  // 支払明細書（P5-18 / PK-SPEC-PAY §3.2）。
+  PAYOUT: "PAY",
 };
 
 /** 連番の桁数。**下限であって上限ではない**（下の注記）。 */

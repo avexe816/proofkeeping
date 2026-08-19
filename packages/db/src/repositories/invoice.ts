@@ -54,7 +54,7 @@ import {
   type ReceiptStatus,
 } from "../schema/invoice.js";
 
-import { NO_PROPERTY_SCOPE, withTenantScope } from "./base.js";
+import { NO_PROPERTY_SCOPE, scopeToCounterparty, withTenantScope } from "./base.js";
 
 // ────────────────────────────────────────────────────────────
 // 取引先（§2.1）
@@ -91,6 +91,8 @@ export async function listCounterparties(
         counterparty,
         ctx,
         NO_PROPERTY_SCOPE,
+        // 発注元ロールは自分の取引先だけ（P5-16 / base.ts の注記）。
+        scopeToCounterparty(ctx, counterparty.id),
         filter.isActive === undefined ? undefined : eq(counterparty.isActive, filter.isActive),
       ),
     )
@@ -104,7 +106,15 @@ export async function findCounterpartyById(env: Env, ctx: TenantContext, counter
   const rows = await db
     .select()
     .from(counterparty)
-    .where(withTenantScope(counterparty, ctx, NO_PROPERTY_SCOPE, eq(counterparty.id, counterpartyId)))
+    .where(
+      withTenantScope(
+        counterparty,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        scopeToCounterparty(ctx, counterparty.id),
+        eq(counterparty.id, counterpartyId),
+      ),
+    )
     .limit(1);
   return rows[0];
 }
@@ -272,6 +282,7 @@ export async function listPricingRules(
         pricingRule,
         ctx,
         NO_PROPERTY_SCOPE,
+        scopeToCounterparty(ctx, pricingRule.counterpartyId),
         filter.counterpartyId === undefined
           ? undefined
           : eq(pricingRule.counterpartyId, filter.counterpartyId),
@@ -299,7 +310,15 @@ export async function findPricingRuleById(env: Env, ctx: TenantContext, pricingR
   const rows = await db
     .select()
     .from(pricingRule)
-    .where(withTenantScope(pricingRule, ctx, NO_PROPERTY_SCOPE, eq(pricingRule.id, pricingRuleId)))
+    .where(
+      withTenantScope(
+        pricingRule,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        scopeToCounterparty(ctx, pricingRule.counterpartyId),
+        eq(pricingRule.id, pricingRuleId),
+      ),
+    )
     .limit(1);
   return rows[0];
 }
@@ -439,6 +458,7 @@ export async function listInvoices(env: Env, ctx: TenantContext, filter: Invoice
         invoice,
         ctx,
         NO_PROPERTY_SCOPE,
+        scopeToCounterparty(ctx, invoice.counterpartyId),
         filter.counterpartyId === undefined
           ? undefined
           : eq(invoice.counterpartyId, filter.counterpartyId),
@@ -472,7 +492,15 @@ export async function findInvoiceById(env: Env, ctx: TenantContext, invoiceId: s
   const rows = await db
     .select()
     .from(invoice)
-    .where(withTenantScope(invoice, ctx, NO_PROPERTY_SCOPE, eq(invoice.id, invoiceId)))
+    .where(
+      withTenantScope(
+        invoice,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        scopeToCounterparty(ctx, invoice.counterpartyId),
+        eq(invoice.id, invoiceId),
+      ),
+    )
     .limit(1);
   return rows[0];
 }
@@ -530,6 +558,7 @@ export async function listReceipts(env: Env, ctx: TenantContext, filter: Receipt
         receipt,
         ctx,
         NO_PROPERTY_SCOPE,
+        scopeToCounterparty(ctx, receipt.counterpartyId),
         filter.counterpartyId === undefined
           ? undefined
           : eq(receipt.counterpartyId, filter.counterpartyId),
@@ -557,7 +586,15 @@ export async function findReceiptById(env: Env, ctx: TenantContext, receiptId: s
   const rows = await db
     .select()
     .from(receipt)
-    .where(withTenantScope(receipt, ctx, NO_PROPERTY_SCOPE, eq(receipt.id, receiptId)))
+    .where(
+      withTenantScope(
+        receipt,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        scopeToCounterparty(ctx, receipt.counterpartyId),
+        eq(receipt.id, receiptId),
+      ),
+    )
     .limit(1);
   return rows[0];
 }
@@ -636,6 +673,7 @@ export async function listBillingPeriods(
         billingPeriod,
         ctx,
         NO_PROPERTY_SCOPE,
+        scopeToCounterparty(ctx, billingPeriod.counterpartyId),
         filter.counterpartyId === undefined
           ? undefined
           : eq(billingPeriod.counterpartyId, filter.counterpartyId),
@@ -659,7 +697,15 @@ export async function findBillingPeriodById(env: Env, ctx: TenantContext, period
   const rows = await db
     .select()
     .from(billingPeriod)
-    .where(withTenantScope(billingPeriod, ctx, NO_PROPERTY_SCOPE, eq(billingPeriod.id, periodId)))
+    .where(
+      withTenantScope(
+        billingPeriod,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        scopeToCounterparty(ctx, billingPeriod.counterpartyId),
+        eq(billingPeriod.id, periodId),
+      ),
+    )
     .limit(1);
   return rows[0];
 }
@@ -799,6 +845,8 @@ export interface AppendBillingPeriodReviewInput {
   statusAfter: BillingPeriodStatus;
   byCounterparty: boolean;
   actorId: string;
+  /** メールリンク承認（P5-17）の宛先。ログイン主体の操作では省略。 */
+  externalActorEmail?: string | null | undefined;
 }
 
 /**
@@ -853,6 +901,7 @@ export async function appendBillingPeriodReview(
         statusAfter: input.statusAfter,
         byCounterparty: input.byCounterparty,
         actorId: input.actorId,
+        externalActorEmail: input.externalActorEmail ?? null,
         createdAt: ctx.now,
         updatedAt: ctx.now,
       });

@@ -44,7 +44,7 @@ import { NotFoundError, isOrgWideRole, type Role, type TenantContext } from "@pk
  * この印から機械的に検査するために持たせている（permission.spec.ts）。
  *
  * ── 追加するときの手順 ──────────────────────────────────
- * ① ここへ 1 行足す ② `PERMISSION_MATRIX` に 7 ロール分のセルを書く
+ * ① ここへ 1 行足す ② `PERMISSION_MATRIX` に 8 ロール分のセルを書く
  * （書かなければ**コンパイルエラー**になる）③ 根拠を仕様書か
  * security.md のどこに置いたかをコメントに残す。
  */
@@ -187,6 +187,45 @@ export const PERMISSION_ACTIONS = {
    * 広げない）。`AUDITOR` は書き込みを一切できない（security.md §1）。
    */
   "billing.write": { write: true },
+  /**
+   * 請求期間の合意・差戻し（P5-12 / P5-16 / PK-SPEC-P5 §6.1）。
+   *
+   * **`billing.write`（取引先・料金・発行）と分けてある。** 合意と差戻しは
+   * 双方（清掃会社とホテル）の意思表示で、発注元ロール `CLIENT_VIEWER` に
+   * これだけを開く。単価の設定や請求書の発行（`billing.write`）は開かない
+   * （契約 §4「請求の確定 ×」）。CLIENT_VIEWER の到達範囲は
+   * `TenantContext.counterpartyId` によるリポジトリ層の強制絞り込みが守る。
+   */
+  "billing.review": { write: true },
+  /**
+   * 組織内部の請求運営画面の閲覧（P5-16 で `billing.read` から分離）。
+   *
+   * 対象: 契約と請求（自社の利用契約）・清掃会社プラン（施設別収支・
+   * 時間単価）・取引先マスタ設定・送付ログ。**発注元（CLIENT_VIEWER）に
+   * 開かない** — 収支・他取引先の宛先・自社契約は取引先に見せる情報では
+   * ない。取引先向けのデータ（請求期間・明細・請求書・領収書）は
+   * `billing.read` のままで、リポジトリ層の counterparty 強制絞りが守る。
+   */
+  "billing.readInternal": { write: false },
+  /**
+   * 監査ログの閲覧（P7-20 / P5-16 で `finding.read` から分離）。
+   *
+   * 契約 §4「清掃員の操作履歴 ×」— 発注元（CLIENT_VIEWER）には開かない。
+   * 差異レポート（`finding.read`）は発注元も読めるが、操作履歴は
+   * 従業員データ（security.md §5）で、発注先の内部記録にあたる。
+   */
+  "auditLog.read": { write: false },
+  /**
+   * スタッフ支払集計（P5-18 / docs/PK-SPEC-PAY.md §4）。
+   *
+   * **OWNER / ORG_ADMIN のみ。** 単価と支払額は PROPERTY_MANAGER にも
+   * 見せない（PK-SPEC-P8 §1.3 の「単価は ORG_ADMIN 以上のみ」を踏襲）。
+   * CLIENT_VIEWER（発注元）にも開かない — 支払は受注側の原価そのもの。
+   * AUDITOR も DENY（監査の関心は請求側 = billing.read で足りる。
+   * 広げるなら PAY §4 を改訂してから）。
+   */
+  "payout.read": { write: false },
+  "payout.write": { write: true },
   /**
    * 清掃タスクの閲覧（P1-05 / PK-SPEC-P1 §5.3・§9）。
    *
@@ -526,7 +565,11 @@ export function propertyTarget(propertyIds: readonly string[]): PermissionTarget
 // ────────────────────────────────────────────────────────────
 
 /**
- * 7 ロール × 全アクションの権限マトリクス。
+ * 8 ロール × 全アクションの権限マトリクス。
+ *
+ * `CLIENT_VIEWER`（発注元 / P5-16）の正は PK-IMPL-CONTRACT §4 の OWNER / VIEWER 列
+ * （§2.10.1 の写像表）。read 系の一部を担当施設で許し、write は `billing.review`
+ * （合意・差戻し）だけ。清掃員氏名は `STAFF_NAME_HIDDEN_ROLES` が伏せる。
  *
  * ── 既定値を持たない ────────────────────────────────────
  * 型が `Record<PermissionAction, Record<Role, PermissionScope>>` なので、
@@ -552,6 +595,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ORG",
     VENDOR_ADMIN: "ORG",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "ORG",
   },
   // 設定画面。`CLEANER` は到達できない（P0-10 完了条件）。
   "organization.write": {
@@ -562,6 +606,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // 登録番号・端数処理は請求の前提。閲覧は組織全体ロールと監査のみ。
   "taxProfile.read": {
@@ -572,6 +617,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   "taxProfile.write": {
     OWNER: "ORG",
@@ -581,6 +627,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // OPEN_QUESTIONS #016 の回答。**読み取りは施設スコープロールも組織全体。**
   // 同僚の表示名・スタッフ番号が見えることを許す判断（DECISIONS #023）。
@@ -592,6 +639,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ORG",
     VENDOR_ADMIN: "ORG",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   // **書き込みは自施設のみ。** `PROPERTY_MANAGER` は担当施設に割り当てられた
   // ユーザーだけを触れる。`VENDOR_ADMIN` が自社スタッフを招待できるかは
@@ -604,6 +652,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // `scopeToProperties()` と同じ境界。施設スコープロールは担当施設のみ。
   "property.read": {
@@ -614,6 +663,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "ASSIGNED",
   },
   "property.write": {
     OWNER: "ORG",
@@ -623,6 +673,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // security.md §1: `CLEANER` も `INSPECTOR` も到達できない。404 を返す。
   "finding.read": {
@@ -633,6 +684,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "ASSIGNED",
   },
   // PK-SPEC-P4 §6.4: 手動再実行は OWNER / ORG_ADMIN だけ。
   "reconciliation.run": {
@@ -643,6 +695,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // PK-SPEC-P4 §6.4: 状態の変更は OWNER / ORG_ADMIN だけ（表のとおり）。
   "finding.write": {
@@ -653,6 +706,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // P4-10。**登録は抑制を作る操作**（§4.1）。現場ロールと受託側には与えない
   // （`PERMISSION_ACTIONS` の注記 / DECISIONS #115）。
@@ -664,6 +718,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   "roomAccess.write": {
     OWNER: "ORG",
@@ -673,6 +728,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // PK-SPEC-P4 §6.4: ルール設定は OWNER / ORG_ADMIN だけ。
   // **施設責任者にも開かない**（閾値は判定の内側の値）。
@@ -684,6 +740,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   "ruleConfig.write": {
     OWNER: "ORG",
@@ -693,6 +750,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // PK-SPEC-P6 §7.1 / §7.2: 連携設定とマッピングは OWNER / ORG_ADMIN だけ
   // （DECISIONS #143）。**マッピングの誤りは客室の取り違えになる。**
@@ -704,6 +762,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   "archive.read": {
     OWNER: "ORG",
@@ -713,6 +772,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   "archive.restore": {
     OWNER: "ORG",
@@ -723,6 +783,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     VENDOR_ADMIN: "DENY",
     // **`AUDITOR` は書き込み操作を一切できない**（security.md §1）。
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   "integration.write": {
     OWNER: "ORG",
@@ -732,6 +793,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // PK-SPEC-P6 §6.1: API キーは OWNER / ORG_ADMIN だけ。
   // **鍵は組織のデータへ外から届く経路そのもの。**
@@ -743,6 +805,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   "apiKey.write": {
     OWNER: "ORG",
@@ -752,6 +815,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // security.md §1: `CLEANER` は保管場所・返却先を見られない。
   "lostItem.readStorage": {
@@ -762,6 +826,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   // security.md §1: `INSPECTOR` は請求情報を見られない。
   // `VENDOR_ADMIN`（清掃会社）が受託分の請求を見られるかは明記が無く DENY。
@@ -774,6 +839,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "ORG",
   },
   // 取引先・料金設定の書き込み（P5-02 / P5-03）。**組織の 2 ロールだけ。**
   // 取引先も料金設定も `propertyId` を持たない組織のマスタで、
@@ -788,6 +854,63 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
+  },
+  // 合意・差戻し（§6.1 の双方合意）。`CLIENT_VIEWER` の実到達は
+  // `ctx.counterpartyId` によるリポジトリ層の強制絞りが自 counterparty に限る。
+  "billing.review": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+    CLIENT_VIEWER: "ORG",
+  },
+  // 組織内部の請求運営（契約と請求・清掃会社プラン・取引先設定・送付ログ）。
+  // AUDITOR は読める（内部統制の確認）。発注元には開かない（P5-16）。
+  "billing.readInternal": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
+  },
+  // 監査ログ（P7-20）。従来の `finding.read` と同じ配りで、発注元だけ閉じる。
+  "auditLog.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "ASSIGNED",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "ASSIGNED",
+    AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
+  },
+  // 支払集計（P5-18 / PAY §4）。**組織の 2 ロールだけ。**
+  "payout.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
+  },
+  "payout.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // ── P1: 清掃タスク ──────────────────────────────────
   // `INSPECTOR` は検査担当。P2 で検査画面が入るまで自分の対象を見る必要がある
@@ -800,6 +923,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "ASSIGNED",
   },
   // §5.3 の「担当者本人、P_MANAGER 以上」。`INSPECTOR` は清掃を行わない
   // （検査の書き込みは P2 が別のアクションで足す）。
@@ -811,6 +935,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // §5.3: assign / cancel は「P_MANAGER 以上、VENDOR_ADMIN」。
   "task.manage": {
@@ -821,6 +946,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // W-16 / W-17 は §10.1 で `ORG_ADMIN` の画面。**施設責任者に広げない。**
   // 「管理職だから」で広げないこと（PK-IMPL-CONTRACT §11.5）。
@@ -832,6 +958,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   "checklistTemplate.write": {
     OWNER: "ORG",
@@ -841,6 +968,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   "standardTime.read": {
     OWNER: "ORG",
@@ -850,6 +978,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   "standardTime.write": {
     OWNER: "ORG",
@@ -859,6 +988,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // W-05 は §10.1 で `P_MANAGER 以上`。`VENDOR_ADMIN` は稼働予定の入力者では
   // ないため明記が無く DENY（広げるのは根拠を持つ task）。
@@ -870,6 +1000,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "ASSIGNED",
   },
   "roomPlan.write": {
     OWNER: "ORG",
@@ -879,6 +1010,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // PK-SPEC-P4 §8.1 の取込。`roomPlan.*` と同じ配り方（上の注記）。
   // `VENDOR_ADMIN`（清掃会社）は稼働記録の持ち主ではないため DENY。
@@ -890,6 +1022,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   "occupancy.write": {
     OWNER: "ORG",
@@ -899,6 +1032,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // §11.2 は「施設責任者は客室ステータスを手動で変更できる」。
   // `VENDOR_ADMIN`（清掃会社）に明記が無いため DENY（広げるのは根拠を持つ task）。
@@ -910,6 +1044,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // M-11。**全ロールが自分の記録を見られる**（security.md §5 MUST）。
   // `AUDITOR` も読み取りなので許す。対象は常に自分で、他人は選べない。
@@ -921,6 +1056,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ORG",
     VENDOR_ADMIN: "ORG",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   // ── P2: 検査 ────────────────────────────────────────
   // §5.1 の自動割当は `INSPECTOR` と `PROPERTY_MANAGER` を対象にする。
@@ -935,6 +1071,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "ASSIGNED",
   },
   "inspection.write": {
     OWNER: "ORG",
@@ -944,6 +1081,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // ── P2-07: 差戻しと再清掃 ──────────────────────────────
   // **`CLEANER` を許す唯一の検査系アクション**（§4.6）。`INSPECTOR` も許すのは
@@ -958,6 +1096,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   // `task.write` と同じ並び。**`INSPECTOR` は DENY**（§1.1 の分離）。
   "rework.write": {
@@ -968,6 +1107,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // §4.7「PROPERTY_MANAGER 以上」。**`VENDOR_ADMIN` に広げない。**
   "rework.waive": {
@@ -978,6 +1118,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // ── P2-16: 残存タスクの緊急上書き（§13.3）────────────────
   // `rework.waive` と同じ並び。「検査を経ずに客室を READY にする」判断は
@@ -990,6 +1131,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // 証跡 ZIP の持ち出し（§6.5）。**現場ロールは DENY。**
   // `INSPECTOR` / `CLEANER` は自分の作業の記録を M-09 / M-11 で見られるが、
@@ -1004,6 +1146,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // ── P2-11 忘れ物（§7.4）──────────────────────────────
   // 「`CLEANER`: 登録と自分が登録した内容の閲覧」。**自分の分だけ**という
@@ -1016,6 +1159,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   // 登録は現場が行う（§7.1「発見 → その場で写真・カテゴリ・場所を登録」）。
   "lostItem.write": {
@@ -1026,6 +1170,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // 状態の更新。**`CLEANER` は DENY**（§7.4 は登録と閲覧まで）。
   // `INSPECTOR` は「保管済への更新」だけで、遷移先の絞りは使用側。
@@ -1037,6 +1182,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // ── P2-12 設備不具合（§8）────────────────────────────
   "issue.read": {
@@ -1047,6 +1193,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   // §8.1「清掃中または検査中に不具合を発見した場合」。現場が報告する。
   "issue.write": {
@@ -1057,6 +1204,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // 対応の判断は運営側。**現場は報告するだけ。**
   "issue.manage": {
@@ -1067,6 +1215,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // ── P2-14 日報（§9.1・§9.3・§9.6）────────────────────
   // 提出する側（`VENDOR_ADMIN`）と受け取る側（施設・運営）が読む。
@@ -1079,6 +1228,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "ASSIGNED",
   },
   // §9.3「PROPERTY_MANAGER 以上が手動再生成可能」。
   // `VENDOR_ADMIN` は DENY（版を増やせるのは施設側の判断）。
@@ -1090,6 +1240,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // ── P3-03〜P3-07 / P3-11 観察記録（PK-SPEC-P3 §2・§4・§6.1）──
   // 現場が入力し、現場が自分の入れた値を見る。**判定はここに無い**（§0.2）。
@@ -1101,6 +1252,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   "observation.write": {
     OWNER: "ORG",
@@ -1110,6 +1262,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ASSIGNED",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // §2.2 MUST「事後修正は PROPERTY_MANAGER 以上のみ」。
   "observation.amend": {
@@ -1120,6 +1273,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   "observationConfig.read": {
     OWNER: "ORG",
@@ -1129,6 +1283,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   // §6.1 の担当ロールは `ORG_ADMIN`。施設責任者は読むだけ。
   "observationConfig.write": {
@@ -1139,6 +1294,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   // ── P3-09〜P3-12 ベースラインと入力品質（同 §5・§6.2・§6.3）──
   // **現場ロールは到達しない。** 閾値は照合の内側の値（`PERMISSION_ACTIONS`
@@ -1151,6 +1307,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
   // §5.5「ORG_ADMIN はベースラインの p90 を手動で上書きできる」。
   "baseline.override": {
@@ -1161,6 +1318,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
   "dataQuality.read": {
     OWNER: "ORG",
@@ -1170,6 +1328,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "DENY",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
   },
 };
 

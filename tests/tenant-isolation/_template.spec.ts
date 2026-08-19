@@ -133,6 +133,12 @@ const TENANT_TABLES = [
   "archive_manifest",
   "archive_restore",
   "archive_restore_row",
+  // P5-18。スタッフ支払集計（docs/PK-SPEC-PAY.md §1）。**他組織の行が
+  // 混ざれば、他社スタッフの支払額（雇用管理の個人情報）が自社に載る。**
+  "staff_pay_profile",
+  "pay_rule",
+  "payout_period",
+  "payout_line",
 ] as const;
 
 /**

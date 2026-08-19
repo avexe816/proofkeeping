@@ -42,6 +42,13 @@ export const RATE_LIMITS = {
   publicOccupancy: { limit: 60, windowSeconds: 60 },
   /** 公開 API の物理信号投入: 300 req/分/キー（§6.5）。同上。 */
   publicSignals: { limit: 300, windowSeconds: 60 },
+  /**
+   * 確認依頼のメールリンク画面: 30 req/分/IP（P5-17）。
+   *
+   * security.md §8 の表には無いが、**認証を要しない画面**なので
+   * webhook と同じく IP で絞る。閲覧＋承認操作の両方に掛ける。
+   */
+  reviewLink: { limit: 30, windowSeconds: 60 },
 } as const;
 
 export type RateLimitBucket = keyof typeof RATE_LIMITS;

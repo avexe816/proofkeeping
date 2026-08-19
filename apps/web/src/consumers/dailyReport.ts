@@ -63,8 +63,10 @@ import { DAILY_REPORT_FONT_KEY, loadDailyReportFont } from "../lib/report/font.j
 import { generateAuditReport, isAuditReportMessage } from "./auditReport.js";
 import {
   generateInvoicePdf,
+  generatePayoutStatementPdf,
   generateReceiptPdf,
   isInvoicePdfMessage,
+  isPayoutPdfMessage,
   isReceiptPdfMessage,
 } from "./invoicePdf.js";
 
@@ -294,6 +296,13 @@ export async function handleDailyReportBatch(env: Env, batch: MessageBatch): Pro
     // 領収書 PDF（P5-08 / 同 §8.2）。
     if (isReceiptPdfMessage(message.body)) {
       const outcome = await generateReceiptPdf(env, message.body);
+      if (outcome.kind === "FAILED") message.retry();
+      else message.ack();
+      continue;
+    }
+    // 支払明細書 PDF（P5-18 追送 / PK-SPEC-PAY §3.2）。
+    if (isPayoutPdfMessage(message.body)) {
+      const outcome = await generatePayoutStatementPdf(env, message.body);
       if (outcome.kind === "FAILED") message.retry();
       else message.ack();
       continue;

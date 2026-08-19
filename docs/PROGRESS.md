@@ -1,6 +1,6 @@
 # 実装進捗
 
-最終更新: 2026-08-15（P7-15 / P7-16 / P7-01 / P7-03 / P7-02 完了）
+最終更新: 2026-08-19（追加起票 P5-16〜18 / P7-21 実装。オーナー指示のバッチ）
 
 ## 現在のセッション
 
@@ -1788,6 +1788,19 @@ task: P0-07 リポジトリ層の雛形
       締めの金額は集計し直さず、合意の履歴に残る写しを読む（#136）。
       時間単価の 85% は**組織平均との比**で、施設どうしを比べない（#137）。
       到達は `VENDOR_PLAN` の契約で絞る（OPEN_QUESTIONS #083）
+- [x] P5-16 発注元閲覧ロール `CLIENT_VIEWER`（追加起票 2026-08-19 / オーナー指示）
+      契約 §2.10.1 の写像表で OQ #011 を決着。counterparty 強制絞り
+      `scopeToCounterparty()`。billing.readInternal / auditLog.read を分離
+      （DECISIONS #205 / #206）
+- [x] P5-17 確認依頼のメールリンク承認（追加起票 2026-08-19）
+      OQ #078 決着。docType REVIEW_REQUEST・HMAC 30 日・`/r/billing/:id`
+      （DECISIONS #207）
+- [x] P5-18 スタッフ支払集計（追加起票 2026-08-19 / PK-SPEC-PAY v1.0）
+      4 表＋エンジン＋API＋画面 2 枚＋PAY 採番＋CSV。控除は範囲外のまま
+      （DECISIONS #208）。支払明細書 PDF も同日の追送で実装（OQ #106 解決）
+- [x] P5-19 請求確認画面（追加起票 2026-08-19）
+      `/app/billing-periods`。合意・差戻し・確認依頼の本体を
+      `lib/billing/review.ts` へ共有化（API・メールリンクと同実装）
 
 ## Phase 6 — 外部連携と拡張（M10–M11）
 
@@ -1941,6 +1954,12 @@ GA 判定前に P8 の task を作らない（CLAUDE.md §9）方針は変えて
 - [x] P7-18 検査キュー（`nav.inspection` を PLANNED → READY）
 - [x] P7-19 進捗モニタ（受託施設の当日進捗 / rollup を引く）
 - [x] P7-20 監査ログの閲覧（**読み取り専用** / 12 を分割した閲覧側）
+- [x] P7-21 サイドバーの折りたたみ（追加起票 2026-08-19 / オーナー指示）
+      A01 第2版（レール 56px・§4.4）。topbar 固定と独立スクロールも同日の
+      追加指示で実装（DECISIONS #210）
+- [x] P7-22 忘れ物・不具合の PC 画面 W-09 / W-10（追加起票 2026-08-19）
+      OQ #082 を決着（P5-19 の請求確認と合わせて 3 画面）。自動廃棄なし・
+      客室は戻さない・CLEANER の絞りは lib 再利用
 
 **P7-18 が P7-20 へ渡すもの**: 施設横断の scope 判定
 `resolveListScope()`（`apps/web/src/lib/property/listScope.ts` / DECISIONS #194）。

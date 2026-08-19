@@ -92,7 +92,7 @@ function toSummary(row: {
  */
 deliveries.get("/failed", async (c) => {
   const ctx = getTenant(c);
-  assertPermission(ctx, "billing.read", ORGANIZATION_TARGET);
+  assertPermission(ctx, "billing.readInternal", ORGANIZATION_TARGET);
 
   const rows = await listFailedDeliveries(c.env, ctx, {});
   return c.json({ data: rows.map(toSummary) });
@@ -101,7 +101,7 @@ deliveries.get("/failed", async (c) => {
 /** 文書 1 通ぶんの送付履歴（§9）。**古い順**（送った順に読む）。 */
 deliveries.get("/", async (c) => {
   const ctx = getTenant(c);
-  assertPermission(ctx, "billing.read", ORGANIZATION_TARGET);
+  assertPermission(ctx, "billing.readInternal", ORGANIZATION_TARGET);
 
   const docType = c.req.query("docType");
   const documentId = c.req.query("documentId");

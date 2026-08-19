@@ -37,8 +37,8 @@
  * 維持する**（billing.md §2）。削除の経路をこのファイルへ足さないこと。
  */
 
-import { updateInvoicePdf, updateReceiptPdf, type Env, type TenantContext } from "@pk/db";
-import { renderInvoicePdf, renderReceiptPdf } from "@pk/pdf";
+import { updateInvoicePdf, updatePayoutPdf, updateReceiptPdf, type Env, type TenantContext } from "@pk/db";
+import { renderInvoicePdf, renderPayoutStatementPdf, renderReceiptPdf } from "@pk/pdf";
 
 import { sha256Hex } from "../lib/evidence/hash.js";
 
@@ -50,6 +50,7 @@ import {
   loadInvoiceSeal,
   receiptPdfKey,
 } from "../lib/report/invoice.js";
+import { collectPayoutStatementPayload, payoutPdfKey } from "../lib/report/payout.js";
 
 /** キューへ載せるメッセージ。**組織の解決に要る値を全部持たせる。** */
 export interface InvoicePdfMessage {
@@ -226,6 +227,92 @@ export async function generateReceiptPdf(
   } catch (error) {
     const reason = error instanceof Error ? error.name : "UNKNOWN";
     console.error(`receipt-pdf-failed reason=${reason}`);
+    return { kind: "FAILED", reason };
+  }
+}
+
+
+// ────────────────────────────────────────────────────────────
+// 支払明細書（P5-18 追送 / docs/PK-SPEC-PAY.md §3.2）
+// ────────────────────────────────────────────────────────────
+
+/** キューへ載せるメッセージ。**請求書・領収書と同じ `pk-pdf-generation`。** */
+export interface PayoutPdfMessage {
+  kind: "PAYOUT_PDF";
+  organizationId: string;
+  orgShortId: string;
+  payoutPeriodId: string;
+  sealImageKey: string | null;
+  requestedAtMs: number;
+}
+
+/** メッセージの形を確かめる。 */
+export function isPayoutPdfMessage(value: unknown): value is PayoutPdfMessage {
+  if (typeof value !== "object" || value === null) return false;
+  const message = value as Record<string, unknown>;
+  return (
+    message["kind"] === "PAYOUT_PDF" &&
+    typeof message["organizationId"] === "string" &&
+    typeof message["orgShortId"] === "string" &&
+    typeof message["payoutPeriodId"] === "string" &&
+    (message["sealImageKey"] === null || typeof message["sealImageKey"] === "string") &&
+    typeof message["requestedAtMs"] === "number"
+  );
+}
+
+/**
+ * 支払明細書 PDF を 1 通作る（PAY §3.2）。
+ *
+ * **冪等。** R2 のキーは `(組織, 文書番号)` で決まり（版が無い —
+ * `payoutPdfKey()` の注記）、payload は確定時に固定された値から
+ * 毎回組み直す。3 回処理しても同じキーへ同じ内容が載る。
+ *
+ * **触ってよいのは `pdfStorageKey` / `pdfSha256` だけ**（`updatePayoutPdf()`）。
+ * 金額と明細に触れる経路をコンシューマに持たせない（billing.md §2）。
+ */
+export async function generatePayoutStatementPdf(
+  env: Env,
+  message: PayoutPdfMessage,
+): Promise<InvoicePdfOutcome> {
+  const ctx: TenantContext = {
+    organizationId: message.organizationId,
+    orgShortId: message.orgShortId,
+    role: "ORG_ADMIN",
+    allowedPropertyIds: [],
+    now: new Date(message.requestedAtMs),
+  };
+
+  try {
+    // CONFIRMED 以外・採番前は `null`（再送しても直らない → ack）。
+    const payload = await collectPayoutStatementPayload(env, ctx, message.payoutPeriodId);
+    if (payload === null) return { kind: "SKIPPED", reason: "PAYOUT_NOT_CONFIRMED" };
+
+    const font = await loadDailyReportFont(env);
+    if (font === null) return { kind: "FAILED", reason: "FONT_NOT_FOUND" };
+
+    // 角印は無くても支払明細書は成立する（請求書と同じ扱い）。
+    const seal = await loadInvoiceSeal(env, message.sealImageKey);
+
+    const bytes = await renderPayoutStatementPdf(payload, font, seal);
+    const key = payoutPdfKey({
+      organizationId: message.organizationId,
+      documentNo: payload.documentNo,
+    });
+
+    await env.DOCUMENTS.put(key, bytes, {
+      httpMetadata: { contentType: "application/pdf" },
+    });
+
+    // **R2 へ置いたあとに書く**（`generateInvoicePdf()` と同じ理由）。
+    await updatePayoutPdf(env, ctx, message.payoutPeriodId, {
+      pdfStorageKey: key,
+      pdfSha256: await sha256Hex(bytes),
+    });
+
+    return { kind: "OK", key, bytes: bytes.byteLength };
+  } catch (error) {
+    const reason = error instanceof Error ? error.name : "UNKNOWN";
+    console.error(`payout-pdf-failed reason=${reason}`);
     return { kind: "FAILED", reason };
   }
 }

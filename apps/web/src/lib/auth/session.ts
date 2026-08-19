@@ -73,6 +73,15 @@ export interface SessionRecord {
    */
   selectedPropertyId?: string;
   /**
+   * サイドバーをレール（56px）に畳んでいるか（PK-SPEC-UI-A01 §4.4 / P7-21）。
+   * **認可情報ではない。** 表示の好みだけを持つ。
+   *
+   * `localStorage` ではなくここに置くのは、SSR の初回描画から確定した幅で
+   * 描くため（A01 §4.4「ちらつき禁止」）。畳んでいるときだけ `true` を
+   * 保存し、展開はフィールドごと消す（既存レコードとの後方互換）。
+   */
+  sidebarCollapsed?: boolean;
+  /**
    * 現場画面で選んだ施設（PK-SPEC-P1 §19.4 / P1-22）。**認可情報ではない。**
    *
    * `selectedPropertyId`（管理画面の表示スコープ）と分けてある。両者は
@@ -190,6 +199,8 @@ function parseSessionRecord(raw: string): SessionRecord | null {
   const selected = candidate["selectedPropertyId"];
   const selectedPropertyId = typeof selected === "string" && selected !== "" ? selected : undefined;
   const mobilePick = parseMobilePick(candidate["mobilePick"]);
+  // `true` 以外（壊れた値・`false`）は「展開」として捨てる。
+  const sidebarCollapsed = candidate["sidebarCollapsed"] === true ? true : undefined;
 
   return {
     v: 1,
@@ -202,6 +213,7 @@ function parseSessionRecord(raw: string): SessionRecord | null {
     expiresAt: candidate["expiresAt"] as number,
     ...(selectedPropertyId === undefined ? {} : { selectedPropertyId }),
     ...(mobilePick === undefined ? {} : { mobilePick }),
+    ...(sidebarCollapsed === undefined ? {} : { sidebarCollapsed }),
   };
 }
 
@@ -321,6 +333,34 @@ export async function setMobilePick(
   const updated: SessionRecord = { ...current };
   if (pick === null) delete updated.mobilePick;
   else updated.mobilePick = pick;
+
+  await putSession(env, sessionId, updated, now);
+  return updated;
+}
+
+/**
+ * サイドバーの折りたたみを記録する（PK-SPEC-UI-A01 §4.4 / P7-21）。
+ *
+ * **`setSelectedPropertyId()` と同じ制約に従う。** 期限を延長しない。
+ * 無効なセッションには書かない。理由はそちらの注記を参照。
+ *
+ * @param collapsed `false` はフィールドごと消す（既定 = 展開）。
+ */
+export async function setSidebarCollapsed(
+  env: Env,
+  cookieValue: string,
+  collapsed: boolean,
+  now: Date,
+): Promise<SessionRecord | null> {
+  const sessionId = await verifySignedSessionId(cookieValue, env.SESSION_SECRET);
+  if (sessionId === null) return null;
+
+  const current = await readSession(env, cookieValue, now);
+  if (current === null) return null;
+
+  const updated: SessionRecord = { ...current };
+  if (collapsed) updated.sidebarCollapsed = true;
+  else delete updated.sidebarCollapsed;
 
   await putSession(env, sessionId, updated, now);
   return updated;

@@ -34,3 +34,8 @@ export { INVOICE_LABELS } from "./labels.js";
 export { buildReceiptDocument } from "./receipt.js";
 export { renderReceiptPdf } from "./render.js";
 export { RECEIPT_LABELS } from "./labels.js";
+
+// 支払明細書（P5-18 追送 / PK-SPEC-PAY §3.2）。**控除の欄を持たない。**
+export { buildPayoutStatementDocument } from "./payoutStatement.js";
+export { renderPayoutStatementPdf } from "./render.js";
+export { PAYOUT_LABELS } from "./labels.js";

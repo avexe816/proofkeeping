@@ -44,7 +44,16 @@ export interface TenantDeps {
     env: Env,
     ctx: ShardContext,
     userId: string,
-  ) => Promise<{ id: string; role: TenantContext["role"]; isActive: boolean } | undefined>;
+  ) => Promise<
+    | {
+        id: string;
+        role: TenantContext["role"];
+        isActive: boolean;
+        /** 発注元ロールの取引先（P5-16）。他ロールは null。 */
+        counterpartyId?: string | null;
+      }
+    | undefined
+  >;
   listAssignedPropertyIds: (env: Env, ctx: ShardContext, membershipId: string) => Promise<string[]>;
 }
 
@@ -104,6 +113,10 @@ export function tenantMiddleware(deps: TenantDeps = DEFAULT_DEPS): MiddlewareHan
       orgShortId: shardCtx.orgShortId,
       role: membership.role,
       allowedPropertyIds,
+      // 発注元ロールだけが取引先スコープを持つ（P5-16）。他ロールで
+      // `counterpartyId` が残っていても載せない（絞りの根拠は role が持つ）。
+      counterpartyId:
+        membership.role === "CLIENT_VIEWER" ? (membership.counterpartyId ?? null) : null,
       now,
     };
     c.set("tenant", tenant);

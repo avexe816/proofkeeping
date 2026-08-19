@@ -251,6 +251,45 @@ export const INVOICE_LABELS = {
 } as const;
 
 /**
+ * 支払明細書 PDF の固定文言（docs/PK-SPEC-PAY.md §3.2 / P5-18 追送）。
+ *
+ * **「給与計算」の語を使わない**（PAY §0.2。ここにあるのは支払集計）。
+ * 控除（社会保険・源泉徴収）の欄をここへ足さないこと。
+ */
+export const PAYOUT_LABELS = {
+  title: "支払明細書",
+  issueDate: "発行日",
+  honorific: "様",
+  staffNumber: "スタッフ番号",
+  /** 受領者（スタッフ）側の登録番号（仕入明細書方式 / PAY §3.2）。 */
+  payeeRegistrationNo: "登録番号",
+  /** 支払者（組織）側の登録番号。 */
+  registrationNo: "登録番号",
+  tel: "TEL",
+  period: "対象期間",
+  lead: "下記のとおりお支払内容をご案内いたします。",
+  total: "合計",
+  none: "該当なし",
+  /** 単位（PAY §1.4 の quantity の解釈）。調整行は「式」。 */
+  unitPerTask: "件",
+  unitHourly: "分",
+  unitLump: "式",
+  /**
+   * 仕入明細書方式の注記（PAY §3.2）。**CONTRACTOR のときだけ固定表示。**
+   * 相手方の確認を求める一文を含む（仕入明細書は相手方の確認を受けて
+   * 初めて保存書類になる）。payload から差し替えられない。
+   */
+  contractorNotice:
+    "本明細書は支払者が作成した仕入明細書方式の書類です。内容に相違がある場合はお申し出ください。",
+  /** 税区分の注記欄（PAY §2）。**区分計算をしていない事実を述べるだけ。** */
+  contractorTaxNote: "本明細書では消費税等の区分計算を行っていません。",
+  /** 電子発行の注記（領収書と同じ扱い）。 */
+  electronicNotice: "本明細書は電子的に発行されました。",
+  /** 明細の列。 */
+  lineColumns: ["No", "内容", "数量", "単位", "単価", "金額"] as const,
+} as const;
+
+/**
  * 領収書 PDF の固定文言（PK-SPEC-P5 §8.2 / P5-08）。
  *
  * **印紙に関する語をここへ足さないこと**（billing.md §3）。

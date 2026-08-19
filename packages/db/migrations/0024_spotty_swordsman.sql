@@ -1,0 +1,1 @@
+ALTER TABLE `membership` ADD `counterparty_id` text;

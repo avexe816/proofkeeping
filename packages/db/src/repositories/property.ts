@@ -300,9 +300,18 @@ export interface UpdatePropertyInput {
   phone: string | null;
   /** 連絡担当者（事業者側の窓口）。 */
   contactName: string | null;
-  timezone: string;
+  /**
+   * 省略 = 変更しない。画面は入力欄を持たない（国内専用・常に Asia/Tokyo /
+   * 人間の指示 2026-08-19。propertySettings.tsx の注記）。
+   */
+  timezone?: string | undefined;
   /** 日締め時刻 `HH:MM`（architecture.md §7）。 */
   dayCutoffTime: string;
+  /**
+   * 忘れ物の保持日数（PK-SPEC-P2 §7.3 / OPEN_QUESTIONS #052）。
+   * `null` = 既定に従う（`@pk/engine` の `retentionDaysFor()`）。
+   */
+  lostItemRetentionDays: number | null;
   isActive: boolean;
 }
 
@@ -321,8 +330,9 @@ export async function updateProperty(
       address: input.address,
       phone: input.phone,
       contactName: input.contactName,
-      timezone: input.timezone,
+      ...(input.timezone === undefined ? {} : { timezone: input.timezone }),
       dayCutoffTime: input.dayCutoffTime,
+      lostItemRetentionDays: input.lostItemRetentionDays,
       isActive: input.isActive,
       updatedAt: ctx.now,
     })

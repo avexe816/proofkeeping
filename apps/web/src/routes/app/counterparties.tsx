@@ -215,7 +215,7 @@ export async function loader({
   const now = new Date();
   const { tenant } = await requireAppContext(env, request, now);
   // **`INSPECTOR` / `CLEANER` はここで 404**（security.md §1）。
-  assertPermission(tenant, "billing.read", ORGANIZATION_TARGET);
+  assertPermission(tenant, "billing.readInternal", ORGANIZATION_TARGET);
 
   const rows = (await listCounterparties(env, tenant)).map(toSummary);
 

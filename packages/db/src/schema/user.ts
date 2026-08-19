@@ -29,9 +29,12 @@ import { activeFlag, primaryId, tenantColumn, timestamps } from "./columns.js";
  * ロール（.claude/rules/security.md §1）。
  *
  * PK-IMPL-CONTRACT §2.10 は別の 6 語（SITE_LEAD / OPS_MANAGER / VIEWER /
- * PLATFORM_ADMIN）を挙げているが、その語彙は契約書 §2.10 / §4 以外に現れず、
- * security.md と PK-SPEC-P0 §23.1・P1〜P6 の全仕様書がこの 7 語で書かれている。
- * 食い違いは OPEN_QUESTIONS に起票済み。
+ * PLATFORM_ADMIN）を挙げている。対応は契約書 §2.10.1 の写像表で固定した
+ * （OPEN_QUESTIONS #011 / P5-16）。
+ *
+ * `CLIENT_VIEWER` は**発注元（施設オーナー＝ホテル側）の閲覧ロール**。
+ * 契約書 §4 の `OWNER` / `VIEWER` 列に対応する。担当施設のみ・清掃員氏名
+ * 非表示・write は請求の承認/差戻し（`billing.review`）だけ。
  */
 export const ROLES = [
   "OWNER",
@@ -41,6 +44,7 @@ export const ROLES = [
   "CLEANER",
   "VENDOR_ADMIN",
   "AUDITOR",
+  "CLIENT_VIEWER",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
@@ -158,6 +162,15 @@ export const membership = sqliteTable(
     ...tenantColumn,
     userId: text("user_id").notNull(),
     role: text("role", { enum: ROLES }).notNull(),
+    /**
+     * 発注元ロール（CLIENT_VIEWER）が属する取引先（P5-16）。
+     *
+     * **CLIENT_VIEWER のみ設定する。** 請求系リポジトリはこの値が
+     * `TenantContext` に載っているとき counterparty で強制的に絞る
+     * （`organizationId` の強制注入と同じ第 1 層の向き）。
+     * 他ロールは null のまま。
+     */
+    counterpartyId: text("counterparty_id"),
     /** 招待した membership の ID。監査で辿れるようにする（security.md §6）。 */
     invitedBy: text("invited_by"),
     invitedAt: integer("invited_at", { mode: "timestamp_ms" }),

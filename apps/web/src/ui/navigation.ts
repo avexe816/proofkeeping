@@ -196,6 +196,30 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/evidence`,
   },
+  // W-09 忘れ物管理（P7-22 / PK-SPEC-P2 §12.1）。**`lostItem.read`。**
+  // `CLEANER` にも出る（自分が登録した分だけが見える / §7.4 — 絞りは lib）。
+  // 保管場所・返却先の出し分けは `lostItem.readStorage`（画面側で判定）。
+  {
+    key: "nav.lostItems",
+    icon: "🧳",
+    section: "records",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "lostItem.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/lost-found`,
+  },
+  // W-10 不具合管理（P7-22 / 同 §12.1）。**`issue.read`。**
+  {
+    key: "nav.issues",
+    icon: "🔧",
+    section: "records",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "issue.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/issues`,
+  },
   // 検査キュー（P7-18 / ui-prototypes/ops/pkops-A-daily-quality.html 04）。
   // **`action` を `property.read` から `inspection.read` へ差し替えた。**
   // 冒頭「`action` の暫定的な当て方」が言う「画面を作る task が差し替える」
@@ -243,6 +267,20 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/report`,
   },
+  // 請求確認（P5-19 / PK-SPEC-P5 §6）。**発注元（CLIENT_VIEWER）にも出す**
+  // 唯一の請求系項目。門は `billing.read`（発注元はリポジトリ層が自分の
+  // 取引先の期間に絞る）。運営側の「契約と請求」（billing.readInternal）とは
+  // 別 — あちらは発注元に出ない。
+  {
+    key: "nav.billingPeriods",
+    icon: "🤝",
+    section: "analysis",
+    moduleCode: "BILLING",
+    action: "billing.read",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/billing-periods",
+  },
   // 契約と請求（owner 10 / 人間の指示 2026-08-17: 銀行振込前提で実装）。
   // **`scope` を `ORGANIZATION` へ差し替えた。** 請求書は組織の資源で、
   // API（/api/v1/invoices）も `ORGANIZATION_TARGET` で判定している。
@@ -251,7 +289,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "💴",
     section: "analysis",
     moduleCode: "BILLING",
-    action: "billing.read",
+    action: "billing.readInternal",
     scope: "ORGANIZATION",
     status: "READY",
     href: "/app/billing",
@@ -266,10 +304,22 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "🏢",
     section: "analysis",
     moduleCode: "VENDOR_PLAN",
-    action: "billing.read",
+    action: "billing.readInternal",
     scope: "ORGANIZATION",
     status: "READY",
     href: "/app/org/vendor-plan",
+  },
+  // 支払集計（P5-18 / docs/PK-SPEC-PAY.md §3）。清掃会社プランの直後。
+  // 門は payout.read（OWNER / ORG_ADMIN のみ / PAY §4）。
+  {
+    key: "nav.payouts",
+    icon: "💴",
+    section: "analysis",
+    moduleCode: "BILLING",
+    action: "payout.read",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/org/payouts",
   },
   // ── 設定 ──────────────────────────────────────────────
   // ここまで `/app/settings/*` の 3 画面（客室マスタ・事業者税務・そして
@@ -382,19 +432,30 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "🤝",
     section: "settings",
     moduleCode: "BILLING",
-    action: "billing.read",
+    action: "billing.readInternal",
     scope: "ORGANIZATION",
     status: "READY",
     href: "/app/settings/counterparties",
   },
-  // P7-20 監査ログの閲覧。**読み取り専用。** 門は finding.read
-  // （監査領域の既存の境界と同じ。新しい権限区分を作らない）。
+  // 支払単価の設定（P5-18 / PAY §1.2）。取引先（請求単価）の直後。
+  {
+    key: "nav.payRules",
+    icon: "🧮",
+    section: "settings",
+    moduleCode: "BILLING",
+    action: "payout.write",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/settings/pay-rules",
+  },
+  // P7-20 監査ログの閲覧。**読み取り専用。** 門は auditLog.read
+  // （P5-16 で finding.read から分離。発注元に操作履歴を開かない）。
   {
     key: "nav.auditLogs",
     icon: "🧭",
     section: "settings",
     moduleCode: "AUDIT",
-    action: "finding.read",
+    action: "auditLog.read",
     scope: "PROPERTY",
     status: "READY",
     href: "/app/audit/logs",

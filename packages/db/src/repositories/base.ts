@@ -109,6 +109,26 @@ export function scopeToProperties(ctx: TenantContext, propertyColumn: AnySQLiteC
 }
 
 /**
+ * 発注元ロール（CLIENT_VIEWER / P5-16）を自分の取引先に絞る条件を返す。
+ *
+ * `scopeToProperties()` と同じ設計: 常に `SQL` を返す全域関数で、
+ * 「絞り込みが静かに消える」失敗モードを作らない。
+ *
+ * - CLIENT_VIEWER 以外 → 絞らない（この層の責務は取引先スコープだけ。
+ *   組織・施設の絞りは `withTenantScope()` が別に掛ける）。
+ * - CLIENT_VIEWER で取引先が未設定 → **1 件も見えない。** 設定漏れの
+ *   アカウントが全取引先の請求を読める形で壊れないようにする。
+ *
+ * @param counterpartyColumn 絞り込む列（`billingPeriod.counterpartyId` 等）。
+ */
+export function scopeToCounterparty(ctx: TenantContext, counterpartyColumn: AnySQLiteColumn): SQL {
+  if (ctx.role !== "CLIENT_VIEWER") return ALWAYS_TRUE;
+  const counterpartyId = ctx.counterpartyId ?? null;
+  if (counterpartyId === null) return ALWAYS_FALSE;
+  return eq(counterpartyColumn, counterpartyId);
+}
+
+/**
  * すべてのクエリの `where` を組み立てる。**リポジトリはこれ以外を使わない。**
  *
  * `organizationId` の一致（第 1 層）と施設スコープの絞り込みを必ず載せ、

@@ -79,16 +79,23 @@ describe("登録簿の不変条件", () => {
       "nav.findingDetail",
       // W-06 証跡一覧（P2-09）。
       "nav.cleaningRecords",
-      // 検査キュー（P7-18）。「記録の確認」の証跡一覧の直後。
+      // W-09 忘れ物管理 / W-10 不具合管理（P7-22 / OQ #082 の残り半分）。
+      "nav.lostItems",
+      "nav.issues",
+      // 検査キュー（P7-18）。「記録の確認」の不具合管理の直後。
       "nav.inspection",
       // W-22 データ品質ダッシュボード（P3-12）。「資材と分析」の 1 つめ。
       "nav.dataQuality",
       // 月次レポート（owner 09 / docs/PROTOTYPE_GAP.md 第2批 09）。
       "nav.report",
+      // 請求確認（P5-19）。発注元にも出す唯一の請求系項目。
+      "nav.billingPeriods",
       // 契約と請求（owner 10 / 人間の指示 2026-08-17）。
       "nav.billing",
-      // §7.2 清掃会社プラン（P5-15）。「資材と分析」の最後。
+      // §7.2 清掃会社プラン（P5-15）。
       "nav.vendorPlan",
+      // 支払集計（P5-18）。「資材と分析」の最後。
+      "nav.payouts",
       // `/app/settings/*` の 4 画面。客室マスタ（P0-22）と事業者税務（P0-16）は
       // ルートが実在するのに**サイドバーに出ていなかった。**
       "nav.rooms",
@@ -105,6 +112,8 @@ describe("登録簿の不変条件", () => {
       "nav.taxProfile",
       // 取引先と料金（P5-02 / P5-03）。事業者・税務設定の直後。
       "nav.counterparties",
+      // 支払単価（P5-18）。取引先の直後。
+      "nav.payRules",
       // 監査ログの閲覧（P7-20）。取引先の直後。
       "nav.auditLogs",
       // 施設設定（owner 11 / OPEN_QUESTIONS #103 の残り半分）。
@@ -240,6 +249,34 @@ describe("権限による非表示（security.md §1 の絶対境界）", () => 
 
   it("OWNER には全項目が出る", () => {
     expect(keysFor("OWNER")).toHaveLength(NAV_ITEMS.length);
+  });
+
+  it("CLIENT_VIEWER（発注元）は閲覧の 9 項目だけ（契約 §4 / P5-16 / P5-19）", () => {
+    // 担当施設の記録・検査・差異・レポートの閲覧と、請求確認（承認・差戻し）。
+    // 設定・請求運営・監査ログ（操作履歴 ×）・清掃会社プラン（収支）は出ない。
+    expect(keysFor("CLIENT_VIEWER").sort()).toEqual(
+      [
+        "nav.dashboard",
+        "nav.board",
+        "nav.progress",
+        "nav.findings",
+        "nav.findingDetail",
+        "nav.cleaningRecords",
+        "nav.inspection",
+        "nav.report",
+        // P5-19。billing.read は発注元に配られている（自分の取引先に絞られる）。
+        "nav.billingPeriods",
+      ].sort(),
+    );
+  });
+
+  it("CLIENT_VIEWER に監査ログ・契約と請求・清掃会社プランを出さない", () => {
+    const keys = keysFor("CLIENT_VIEWER");
+    expect(keys).not.toContain("nav.auditLogs");
+    expect(keys).not.toContain("nav.billing");
+    expect(keys).not.toContain("nav.vendorPlan");
+    expect(keys).not.toContain("nav.counterparties");
+    expect(keys).not.toContain("nav.permission");
   });
 });
 

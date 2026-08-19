@@ -271,3 +271,20 @@ export {
   type PaymentMethod,
   type ReceiptStatus,
 } from "./invoice.js";
+
+// スタッフ支払集計（P5-18 / docs/PK-SPEC-PAY.md）。
+// **控除の列は無い**（支給総額の基礎まで）。個人情報の列も無い（PAY §1.1 MUST）。
+export {
+  EMPLOYMENT_TYPES,
+  PAY_UNIT_TYPES,
+  PAYOUT_LINE_TYPES,
+  PAYOUT_PERIOD_STATUSES,
+  payoutLine,
+  payoutPeriod,
+  payRule,
+  staffPayProfile,
+  type EmploymentType,
+  type PayoutLineType,
+  type PayoutPeriodStatus,
+  type PayUnitType,
+} from "./payout.js";

@@ -20,6 +20,7 @@ import {
 import { ROLES, type Role } from "../schema/user.js";
 
 import { isOrgWideRole } from "./base.js";
+import { listBillingPeriods } from "./invoice.js";
 import { listProperties } from "./property.js";
 import { listRooms } from "./room.js";
 
@@ -107,6 +108,57 @@ describe("ロール網羅", () => {
       const query = await runListRooms(role, ["prop_a"]);
       expect(query.sql).toMatch(PROPERTY_IN);
     }
+  });
+});
+
+describe("scopeToCounterparty: 発注元ロールの取引先絞り（P5-16）", () => {
+  const COUNTERPARTY_EQ = /"billing_period"\."counterparty_id" = \?/;
+
+  it("CLIENT_VIEWER は自分の取引先で絞られる", async () => {
+    const fake = createFakeD1();
+    await listBillingPeriods(
+      createFakeEnv(fake),
+      tenantContext({ role: "CLIENT_VIEWER", counterpartyId: "cp_a" }),
+    );
+    const query = fake.queries[0];
+    expect(query?.sql).toMatch(ORG_CONDITION);
+    expect(query?.sql).toMatch(COUNTERPARTY_EQ);
+    expect(query?.params).toEqual([TEST_ORG.organizationId, "cp_a", 200]);
+  });
+
+  it("取引先が未設定の CLIENT_VIEWER は 0 件になる（全件ではない）", async () => {
+    // 設定漏れのアカウントが全取引先の請求を読める形で壊れないこと。
+    const fake = createFakeD1();
+    await listBillingPeriods(
+      createFakeEnv(fake),
+      tenantContext({ role: "CLIENT_VIEWER", counterpartyId: null }),
+    );
+    expect(fake.queries[0]?.sql).toContain("1 = 0");
+  });
+
+  it("他ロールは取引先で絞られない", async () => {
+    // 絞りの根拠は role が持つ。誤って counterpartyId が残っていても効かせない。
+    const fake = createFakeD1();
+    await listBillingPeriods(
+      createFakeEnv(fake),
+      tenantContext({ role: "ORG_ADMIN", counterpartyId: "cp_a" }),
+    );
+    const query = fake.queries[0];
+    expect(query?.sql).not.toMatch(COUNTERPARTY_EQ);
+    expect(query?.params).toEqual([TEST_ORG.organizationId, 200]);
+  });
+
+  it("フィルタの counterpartyId は取引先スコープの代わりにならない", async () => {
+    // CLIENT_VIEWER が他取引先の ID をフィルタで渡しても、強制絞りは外れない。
+    const fake = createFakeD1();
+    await listBillingPeriods(
+      createFakeEnv(fake),
+      tenantContext({ role: "CLIENT_VIEWER", counterpartyId: "cp_a" }),
+      { counterpartyId: "cp_other" },
+    );
+    const query = fake.queries[0];
+    expect(query?.sql).toMatch(COUNTERPARTY_EQ);
+    expect(query?.params).toEqual([TEST_ORG.organizationId, "cp_a", "cp_other", 200]);
   });
 });
 

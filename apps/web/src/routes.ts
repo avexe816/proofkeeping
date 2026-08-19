@@ -123,6 +123,8 @@ export default [
   route("login", "routes/login.tsx"),
   route("logout", "routes/logout.ts"),
   route("m/login", "routes/m/login.tsx"),
+  // P5-17。確認依頼のメールリンク（認証不要・署名で守る）。layout の外。
+  route("r/billing/:billingPeriodId", "routes/review/billingReview.tsx"),
   layout("routes/m/layout.tsx", [
     route("m/today", "routes/m/today.tsx"),
     route("m/select-property", "routes/m/selectProperty.tsx"),
@@ -144,8 +146,14 @@ export default [
     route("app/p/:propertyId/plan", "routes/app/propertyPlan.tsx"),
     route("app/p/:propertyId/evidence", "routes/app/evidenceList.tsx"),
     route("app/p/:propertyId/evidence/:taskId", "routes/app/evidenceDetail.tsx"),
+    // P7-22。W-09 忘れ物管理 / W-10 不具合管理（PK-SPEC-P2 §12.1 のパス）。
+    route("app/p/:propertyId/lost-found", "routes/app/lostItems.tsx"),
+    route("app/p/:propertyId/issues", "routes/app/issues.tsx"),
     route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
     route("app/org/vendor-plan", "routes/app/vendorPlan.tsx"),
+    // P5-18。支払集計と単価設定。門は payout.read / payout.write（OWNER / ORG_ADMIN）。
+    route("app/org/payouts", "routes/app/payouts.tsx"),
+    route("app/settings/pay-rules", "routes/app/payRules.tsx"),
     // P7-01。セットアップウィザード（PK-SPEC-P7 §2.3）。
     // **6 ステップすべてがスキップできる**（§2.3 MUST）。
     route("app/setup", "routes/app/setup.tsx"),
@@ -159,6 +167,8 @@ export default [
     // W-12 契約と請求（銀行振込前提 / 人間の指示 2026-08-17）。門は billing.read。
     route("app/billing", "routes/app/billing.tsx"),
     route("app/billing/:invoiceId", "routes/app/billingDetail.tsx"),
+    // P5-19 請求確認（月次締めの双方合意）。発注元（CLIENT_VIEWER）も開く。
+    route("app/billing-periods", "routes/app/billingPeriods.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
     route("app/settings/room-types", "routes/app/roomTypes.tsx"),
     route("app/settings/checklists", "routes/app/checklists.tsx"),
@@ -197,4 +207,6 @@ export default [
   // シェルの外に置く。POST のたびにシェルの loader を動かす必要が無い
   // （切替後のリダイレクトで、どのみち loader は動き直す）。
   route("app/switch-property", "routes/app/switchProperty.ts"),
+  // P7-21。サイドバーの折りたたみ（A01 §4.4）。switch-property と同じ形。
+  route("app/toggle-sidebar", "routes/app/toggleSidebar.ts"),
 ] satisfies RouteConfig;

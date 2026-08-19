@@ -14,13 +14,19 @@ import { describe, expect, it } from "vitest";
 
 import { isAuditReportMessage } from "./auditReport.js";
 import { isDailyReportMessage } from "./dailyReport.js";
-import { isInvoicePdfMessage, type InvoicePdfMessage } from "./invoicePdf.js";
+import {
+  isInvoicePdfMessage,
+  isPayoutPdfMessage,
+  type InvoicePdfMessage,
+  type PayoutPdfMessage,
+} from "./invoicePdf.js";
 import {
   invoicePdfFileName,
   invoicePdfKey,
   readCounterpartySnapshot,
   readIssuerSnapshot,
 } from "../lib/report/invoice.js";
+import { payoutPdfKey } from "../lib/report/payout.js";
 
 const MESSAGE: InvoicePdfMessage = {
   kind: "INVOICE_PDF",
@@ -90,6 +96,53 @@ describe("invoicePdfKey", () => {
 
   it("ファイル名は文書番号そのもの（取引先が見る名前）", () => {
     expect(invoicePdfFileName("INV-2026-0042")).toBe("INV-2026-0042.pdf");
+  });
+});
+
+const PAYOUT_MESSAGE: PayoutPdfMessage = {
+  kind: "PAYOUT_PDF",
+  organizationId: "org_test_alpha",
+  orgShortId: "a1b2c3",
+  payoutPeriodId: "a1b2c3__pout_01JBXQ3ZK8N4P2VYR6",
+  sealImageKey: null,
+  requestedAtMs: Date.UTC(2026, 9, 1, 0, 0, 0),
+};
+
+describe("isPayoutPdfMessage（P5-18 追送）", () => {
+  it("正しい形を通す", () => {
+    expect(isPayoutPdfMessage(PAYOUT_MESSAGE)).toBe(true);
+  });
+
+  it("`payoutPeriodId` が無ければ偽", () => {
+    const rest: Record<string, unknown> = { ...PAYOUT_MESSAGE };
+    delete rest["payoutPeriodId"];
+    expect(isPayoutPdfMessage(rest)).toBe(false);
+  });
+
+  it("**他の種類と取り違えない**（1 本のキューに載る）", () => {
+    expect(isInvoicePdfMessage(PAYOUT_MESSAGE)).toBe(false);
+    expect(isDailyReportMessage(PAYOUT_MESSAGE)).toBe(false);
+    expect(isPayoutPdfMessage(MESSAGE)).toBe(false);
+  });
+});
+
+describe("payoutPdfKey", () => {
+  const base = { organizationId: "org_test_alpha", documentNo: "PAY-2026-0007" };
+
+  it("組織・文書番号で決まる（同じ入力なら同じキー / 冪等）", () => {
+    expect(payoutPdfKey(base)).toBe(payoutPdfKey({ ...base }));
+    expect(payoutPdfKey(base)).toBe("payouts/org_test_alpha/PAY-2026-0007.pdf");
+  });
+
+  it("組織・番号が違えば別のキー", () => {
+    expect(payoutPdfKey({ ...base, organizationId: "org_test_beta" })).not.toBe(
+      payoutPdfKey(base),
+    );
+    expect(payoutPdfKey({ ...base, documentNo: "PAY-2026-0008" })).not.toBe(payoutPdfKey(base));
+  });
+
+  it("請求書・領収書の接頭辞と混ざらない", () => {
+    expect(payoutPdfKey(base).startsWith("payouts/")).toBe(true);
   });
 });
 

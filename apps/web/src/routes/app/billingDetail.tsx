@@ -118,7 +118,7 @@ export async function loader({
   const now = new Date();
   const { tenant } = await requireAppContext(env, request, now);
 
-  assertPermission(tenant, "billing.read", ORGANIZATION_TARGET);
+  assertPermission(tenant, "billing.readInternal", ORGANIZATION_TARGET);
 
   const invoiceId = params["invoiceId"];
   if (invoiceId === undefined) throw new NotFoundError();

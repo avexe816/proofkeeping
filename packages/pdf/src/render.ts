@@ -22,12 +22,13 @@
  * 揃える）。境界でここだけが変換を持つ。
  */
 
-import type { InvoicePayload, ReceiptPayload } from "@pk/billing";
+import type { InvoicePayload, PayoutStatementPayload, ReceiptPayload } from "@pk/billing";
 import type { AuditReportPayload, DailyReportPayload } from "@pk/engine";
 import { Font, renderToBuffer } from "@react-pdf/renderer";
 
 import { buildAuditReportDocument, type AuditReportFont } from "./auditReport.js";
 import { buildInvoiceDocument, type InvoiceFont, type InvoiceSeal } from "./invoice.js";
+import { buildPayoutStatementDocument } from "./payoutStatement.js";
 import { buildReceiptDocument } from "./receipt.js";
 import { buildDailyReportDocument, type DailyReportFont } from "./dailyReport.js";
 
@@ -117,5 +118,24 @@ export async function renderReceiptPdf(
 ): Promise<Uint8Array> {
   registerFont(font);
   const buffer = await renderToBuffer(buildReceiptDocument(payload, font, seal));
+  return new Uint8Array(buffer);
+}
+
+/**
+ * 支払明細書 PDF を作る（docs/PK-SPEC-PAY.md §3.2 / P5-18 追送）。
+ *
+ * **Queue コンシューマ内でのみ呼ぶ**（冒頭の注記）。
+ *
+ * **控除の欄を持たない**（PAY §0.2 MUST）。仕入明細書方式・税区分の
+ * 注記はテンプレートが定数から読む。**ここでも payload からも
+ * 差し替えられない。**
+ */
+export async function renderPayoutStatementPdf(
+  payload: PayoutStatementPayload,
+  font: InvoiceFont,
+  seal: InvoiceSeal = null,
+): Promise<Uint8Array> {
+  registerFont(font);
+  const buffer = await renderToBuffer(buildPayoutStatementDocument(payload, font, seal));
   return new Uint8Array(buffer);
 }

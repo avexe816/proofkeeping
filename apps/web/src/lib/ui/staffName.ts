@@ -13,20 +13,17 @@
  * 「登録されていない」に見え、現場が名前を入れ直そうとする。
  *
  * ── 語彙の対応 ──────────────────────────────────────────
- * 契約 §4 の権限マトリクスは `SITE_LEAD` / `OPS_MANAGER` / `VIEWER` という
- * 別語彙で書かれており、7 ロールへの写像は未決（OPEN_QUESTIONS #011）。
- * ここでは **`OWNER` と `AUDITOR` を伏せる側**に倒した。§4 の表で
- * 氏名が `×` なのは `OWNER` / `VIEWER` / `PLATFORM_ADMIN` の 3 つで、
- * このうち 7 ロールに実在するのは「組織全体を読むだけの立場」。
- * 配分・検査・現場運用を担う `ORG_ADMIN` / `PROPERTY_MANAGER` /
- * `VENDOR_ADMIN` は §4 で `○` または「担当施設」にあたる。
- * 判断の経緯は docs/DECISIONS.md #036。
+ * 契約 §4 の権限マトリクスの語彙は §2.10.1 の写像表で固定した
+ * （OPEN_QUESTIONS #011 の決着 / P5-16）。§4 で氏名が `×` なのは
+ * `OWNER`（施設オーナー）/ `VIEWER` / `PLATFORM_ADMIN` の 3 つで、
+ * 発注元の 2 語は実装の `CLIENT_VIEWER` に写る。実装の `OWNER` /
+ * `AUDITOR`（組織全体を読むだけの立場）を伏せる判断は DECISIONS #036。
  */
 
 import type { Role } from "@pk/db";
 
 /** 氏名を伏せるロール。**増やすときは契約 §4 の根拠を書くこと。** */
-export const STAFF_NAME_HIDDEN_ROLES: readonly Role[] = ["OWNER", "AUDITOR"];
+export const STAFF_NAME_HIDDEN_ROLES: readonly Role[] = ["OWNER", "AUDITOR", "CLIENT_VIEWER"];
 
 /** そのロールの画面に清掃スタッフの氏名を出してよいか。 */
 export function canViewStaffName(role: Role): boolean {

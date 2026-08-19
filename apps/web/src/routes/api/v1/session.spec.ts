@@ -69,6 +69,8 @@ function propertyRow(id: string, isActive = 1): unknown[] {
     "05:00",
     // inspection_required（P1-01 が足した列。既定 false / PK-SPEC-P1 §5.2）
     0,
+    // lost_item_retention_days（OPEN_QUESTIONS #052。null = 既定に従う）
+    null,
     1,
     isActive,
     0,
