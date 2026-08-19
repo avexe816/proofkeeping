@@ -63,6 +63,8 @@ function propertyRow(id: string, isActive = 1): unknown[] {
     "property",
     null,
     null,
+    null, // phone
+    null, // contact_name
     "Asia/Tokyo",
     "05:00",
     // inspection_required（P1-01 が足した列。既定 false / PK-SPEC-P1 §5.2）

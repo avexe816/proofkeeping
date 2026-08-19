@@ -75,6 +75,14 @@ export const property = sqliteTable(
     name: text("name").notNull(),
     postalCode: text("postal_code"),
     address: text("address"),
+    /**
+     * 施設の代表電話と連絡担当者（人間の指示 2026-08-17 / W-11）。
+     *
+     * **宿泊者の連絡先ではない**（security.md §3 は宿泊者の情報を禁じる。
+     * これは事業者側の窓口で、`counterparty.contactName` と同じ性質）。
+     */
+    phone: text("phone"),
+    contactName: text("contact_name"),
     timezone: text("timezone").notNull().default("Asia/Tokyo"),
     /**
      * 日締め時刻 `HH:MM`。既定 05:00 Asia/Tokyo（architecture.md §7）。
