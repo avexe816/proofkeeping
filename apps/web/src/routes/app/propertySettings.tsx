@@ -52,6 +52,8 @@ interface PropertyRow {
   name: string;
   postalCode: string | null;
   address: string | null;
+  phone: string | null;
+  contactName: string | null;
   timezone: string;
   dayCutoffTime: string;
   isActive: boolean;
@@ -90,6 +92,8 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
         name: row.name,
         postalCode: row.postalCode,
         address: row.address,
+        phone: row.phone,
+        contactName: row.contactName,
         timezone: row.timezone,
         dayCutoffTime: row.dayCutoffTime,
         isActive: row.isActive,
@@ -154,6 +158,8 @@ export async function action({
   const name = textOf(form.get("name"), 64);
   const postalCode = optionalTextOf(form.get("postalCode"), 8);
   const address = optionalTextOf(form.get("address"), 128);
+  const phone = optionalTextOf(form.get("phone"), 20);
+  const contactName = optionalTextOf(form.get("contactName"), 64);
   const timezone = textOf(form.get("timezone"), 64) ?? "Asia/Tokyo";
   const dayCutoffTime = textOf(form.get("dayCutoffTime"), 5) ?? "05:00";
 
@@ -176,6 +182,8 @@ export async function action({
       name,
       postalCode: postalCode ?? undefined,
       address: address ?? undefined,
+      phone: phone ?? undefined,
+      contactName: contactName ?? undefined,
       timezone,
       dayCutoffTime,
     });
@@ -207,6 +215,8 @@ export async function action({
       name,
       postalCode,
       address,
+      phone,
+      contactName,
       timezone,
       dayCutoffTime,
       isActive,
@@ -280,6 +290,14 @@ export default function PropertySettings() {
               <input className="pk-input" name="address" defaultValue={property.address ?? ""} maxLength={128} />
             </label>
             <label className="pk-field">
+              <span className="pk-field__label">{t("propSettings.field.phone")}</span>
+              <input className="pk-input" name="phone" defaultValue={property.phone ?? ""} maxLength={20} inputMode="tel" />
+            </label>
+            <label className="pk-field">
+              <span className="pk-field__label">{t("propSettings.field.contactName")}</span>
+              <input className="pk-input" name="contactName" defaultValue={property.contactName ?? ""} maxLength={64} />
+            </label>
+            <label className="pk-field">
               <span className="pk-field__label">{t("propSettings.field.timezone")}</span>
               <input className="pk-input" name="timezone" defaultValue={property.timezone} required maxLength={64} />
             </label>
@@ -332,6 +350,14 @@ export default function PropertySettings() {
             <label className="pk-field">
               <span className="pk-field__label">{t("propSettings.field.address")}</span>
               <input className="pk-input" name="address" maxLength={128} />
+            </label>
+            <label className="pk-field">
+              <span className="pk-field__label">{t("propSettings.field.phone")}</span>
+              <input className="pk-input" name="phone" maxLength={20} inputMode="tel" />
+            </label>
+            <label className="pk-field">
+              <span className="pk-field__label">{t("propSettings.field.contactName")}</span>
+              <input className="pk-input" name="contactName" maxLength={64} />
             </label>
             <label className="pk-field">
               <span className="pk-field__label">{t("propSettings.field.timezone")}</span>
