@@ -60,6 +60,8 @@ interface PropertyRow {
   phone: string | null;
   contactName: string | null;
   dayCutoffTime: string;
+  /** 忘れ物の保持日数（§7.3 / OQ #052）。`null` = 既定（90 日 / 食品は当日）。 */
+  lostItemRetentionDays: number | null;
   isActive: boolean;
 }
 
@@ -99,6 +101,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
         phone: row.phone,
         contactName: row.contactName,
         dayCutoffTime: row.dayCutoffTime,
+        lostItemRetentionDays: row.lostItemRetentionDays,
         isActive: row.isActive,
       }))
       .sort((a, b) => a.code.localeCompare(b.code)),
@@ -106,7 +109,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   };
 }
 
-type ActionFailure = "INVALID" | "CODE_TAKEN" | "BAD_CUTOFF";
+type ActionFailure = "INVALID" | "CODE_TAKEN" | "BAD_CUTOFF" | "BAD_RETENTION";
 
 interface PropertySettingsActionResult {
   created?: boolean;
@@ -199,6 +202,20 @@ export async function action({
 
     const isActive = form.get("isActive") === "on";
 
+    // 忘れ物の保持日数（§7.3 / OQ #052）。空欄 = 既定に従う（null）。
+    // 1〜365 日。0 を許さない（当日破棄の運用は食品の固定規則が担う —
+    // engine の `retentionDaysFor()`）。
+    const retentionRaw = optionalTextOf(form.get("lostItemRetentionDays"), 3);
+    const lostItemRetentionDays = retentionRaw === null ? null : Number(retentionRaw);
+    if (
+      lostItemRetentionDays !== null &&
+      (!Number.isInteger(lostItemRetentionDays) ||
+        lostItemRetentionDays < 1 ||
+        lostItemRetentionDays > 365)
+    ) {
+      return { failure: "BAD_RETENTION" };
+    }
+
     // `timezone` を渡さない = 変更しない（既存行の値を保つ / 冒頭の注記）。
     await updateProperty(env, tenant, {
       propertyId,
@@ -208,6 +225,7 @@ export async function action({
       phone,
       contactName,
       dayCutoffTime,
+      lostItemRetentionDays,
       isActive,
     });
     // 無効化は別の監査語彙（security.md §6「施設・客室マスタの無効化」）。
@@ -220,9 +238,10 @@ export async function action({
       before: {
         name: before.name,
         dayCutoffTime: before.dayCutoffTime,
+        lostItemRetentionDays: before.lostItemRetentionDays,
         isActive: before.isActive,
       },
-      after: { name, dayCutoffTime, isActive },
+      after: { name, dayCutoffTime, lostItemRetentionDays, isActive },
     });
     return { updated: true };
   }
@@ -234,6 +253,7 @@ const FAILURE_MESSAGE: Record<ActionFailure, Parameters<typeof t>[0]> = {
   INVALID: "propSettings.error.invalid",
   CODE_TAKEN: "propSettings.error.codeTaken",
   BAD_CUTOFF: "propSettings.error.badCutoff",
+  BAD_RETENTION: "propSettings.error.badRetention",
 };
 
 export default function PropertySettings() {
@@ -294,6 +314,16 @@ export default function PropertySettings() {
                 pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
               />
             </label>
+            <label className="pk-field">
+              <span className="pk-field__label">{t("propSettings.field.lostItemRetentionDays")}</span>
+              <input
+                className="pk-input"
+                name="lostItemRetentionDays"
+                defaultValue={property.lostItemRetentionDays ?? ""}
+                inputMode="numeric"
+                pattern="[0-9]{1,3}"
+              />
+            </label>
             <label className="pk-field pk-field--check">
               <span className="pk-field__label">{t("propSettings.field.isActive")}</span>
               <input type="checkbox" name="isActive" defaultChecked={property.isActive} />
@@ -304,6 +334,8 @@ export default function PropertySettings() {
           </div>
           {/* 日締めは全集計の区切り（architecture.md §7）。軽く変える項目ではない。 */}
           <p className="pk-muted">{t("propSettings.cutoffNote")}</p>
+          {/* §7.3。貴重品等の 7 日・食品の当日はこの設定より優先される固定規則。 */}
+          <p className="pk-muted">{t("propSettings.retentionNote")}</p>
         </Form>
       ))}
 

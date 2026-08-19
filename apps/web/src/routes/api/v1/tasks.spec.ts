@@ -527,6 +527,7 @@ function propertyRow(inspectionRequired: boolean): unknown[] {
     "Asia/Tokyo",
     "05:00",
     inspectionRequired ? 1 : 0,
+    null, // lost_item_retention_days（OPEN_QUESTIONS #052）
     0, // sort_order
     1, // is_active
     0,

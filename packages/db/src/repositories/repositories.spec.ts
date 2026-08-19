@@ -713,6 +713,7 @@ const INVOCATIONS: Invocation[] = [
         contactName: null,
         timezone: "Asia/Tokyo",
         dayCutoffTime: "05:00",
+        lostItemRetentionDays: null,
         isActive: true,
       }),
     crossTenant: (env, ctx) =>
@@ -725,6 +726,7 @@ const INVOCATIONS: Invocation[] = [
         contactName: null,
         timezone: "Asia/Tokyo",
         dayCutoffTime: "05:00",
+        lostItemRetentionDays: null,
         isActive: true,
       }),
   },

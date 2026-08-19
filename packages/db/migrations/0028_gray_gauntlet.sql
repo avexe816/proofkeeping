@@ -1,0 +1,1 @@
+ALTER TABLE `property` ADD `lost_item_retention_days` integer;
