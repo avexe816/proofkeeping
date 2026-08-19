@@ -148,6 +148,9 @@ export default [
     route("app/p/:propertyId/evidence/:taskId", "routes/app/evidenceDetail.tsx"),
     route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
     route("app/org/vendor-plan", "routes/app/vendorPlan.tsx"),
+    // P5-18。支払集計と単価設定。門は payout.read / payout.write（OWNER / ORG_ADMIN）。
+    route("app/org/payouts", "routes/app/payouts.tsx"),
+    route("app/settings/pay-rules", "routes/app/payRules.tsx"),
     // P7-01。セットアップウィザード（PK-SPEC-P7 §2.3）。
     // **6 ステップすべてがスキップできる**（§2.3 MUST）。
     route("app/setup", "routes/app/setup.tsx"),

@@ -760,3 +760,32 @@ export {
   type SetupStep,
   type SetupStepState,
 } from "./setup.js";
+
+// スタッフ支払集計（P5-18 / docs/PK-SPEC-PAY.md）。
+// **控除の項目は無い**（支給総額の基礎まで / PAY §0.2 MUST）。
+export {
+  EMPLOYMENT_TYPE_VALUES,
+  PAY_UNIT_TYPE_VALUES,
+  PAYOUT_PERIOD_STATUS_VALUES,
+  employmentTypeSchema,
+  payoutAdjustmentRequestSchema,
+  payoutAggregateRequestSchema,
+  payoutLineSchema,
+  payoutLinesResponseSchema,
+  payoutListResponseSchema,
+  payoutMonthSchema,
+  payoutPeriodStatusSchema,
+  payoutPeriodSummarySchema,
+  payRuleCreateRequestSchema,
+  payUnitTypeSchema,
+  staffPayProfileUpsertRequestSchema,
+  type EmploymentTypeValue,
+  type PayoutAdjustmentRequest,
+  type PayoutAggregateRequest,
+  type PayoutLine,
+  type PayoutLinesResponse,
+  type PayoutListResponse,
+  type PayoutPeriodSummary,
+  type PayRuleCreateRequest,
+  type StaffPayProfileUpsertRequest,
+} from "./payout.js";

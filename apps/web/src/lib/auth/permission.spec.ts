@@ -90,6 +90,9 @@ const EXPECTED: Record<PermissionAction, string> = {
   "billing.readInternal": "OO----O-",
   // P7-20 / P5-16。監査ログ。契約 §4「清掃員の操作履歴 ×」。
   "auditLog.read": "OOA--AO-",
+  // P5-18。支払集計（PAY §4）。単価は ORG_ADMIN 以上のみ（P8 §1.3 踏襲）。
+  "payout.read": "OO------",
+  "payout.write": "OO------",
   // P1。清掃タスク（PK-SPEC-P1 §5.3）と設定画面（同 §10.1）。
   "task.read": "OOAAAAOA",
   "task.write": "OOA-AA--",

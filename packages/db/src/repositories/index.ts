@@ -475,6 +475,32 @@ export {
   type UpsertCounterpartyInput,
 } from "./invoice.js";
 
+// スタッフ支払集計（P5-18 / docs/PK-SPEC-PAY.md）。
+// **CONFIRMED の期間・明細を消す関数を作らない**（訂正は赤伝方式）。
+export {
+  ADJUSTMENT_LINE_NO_BASE,
+  addAdjustmentLine,
+  closePayRule,
+  ensurePayoutPeriod,
+  findPayoutPeriodById,
+  insertPayRule,
+  listPayoutLines,
+  listPayoutPeriods,
+  listPayRules,
+  listStaffPayProfiles,
+  listTimeLogsByTaskIds,
+  replacePayoutTaskLines,
+  updatePayoutPeriodStatus,
+  upsertStaffPayProfile,
+  type AddAdjustmentLineInput,
+  type InsertPayRuleInput,
+  type PayoutPeriodFilter,
+  type PayRuleFilter,
+  type ReplaceTaskLineInput,
+  type UpdatePayoutPeriodStatusInput,
+  type UpsertStaffPayProfileInput,
+} from "./payout.js";
+
 // 外部連携（P6-01 / P6-04 / P6-07 / PK-SPEC-P6 §2・§3.4）。
 // **資格情報そのものを返す関数が無い。** 返すのは KV の参照キーまでで、
 // 復号は `apps/web/src/lib/integration/credentials.ts` の責務（security.md §7）。

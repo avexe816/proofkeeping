@@ -271,6 +271,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/org/vendor-plan",
   },
+  // 支払集計（P5-18 / docs/PK-SPEC-PAY.md §3）。清掃会社プランの直後。
+  // 門は payout.read（OWNER / ORG_ADMIN のみ / PAY §4）。
+  {
+    key: "nav.payouts",
+    icon: "💴",
+    section: "analysis",
+    moduleCode: "BILLING",
+    action: "payout.read",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/org/payouts",
+  },
   // ── 設定 ──────────────────────────────────────────────
   // ここまで `/app/settings/*` の 3 画面（客室マスタ・事業者税務・そして
   // 今回の 2 つ）は**サイドバーに現れなかった。** ルートは実在するのに
@@ -387,8 +399,19 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/settings/counterparties",
   },
-  // P7-20 監査ログの閲覧。**読み取り専用。** 門は finding.read
-  // （監査領域の既存の境界と同じ。新しい権限区分を作らない）。
+  // 支払単価の設定（P5-18 / PAY §1.2）。取引先（請求単価）の直後。
+  {
+    key: "nav.payRules",
+    icon: "🧮",
+    section: "settings",
+    moduleCode: "BILLING",
+    action: "payout.write",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/settings/pay-rules",
+  },
+  // P7-20 監査ログの閲覧。**読み取り専用。** 門は auditLog.read
+  // （P5-16 で finding.read から分離。発注元に操作履歴を開かない）。
   {
     key: "nav.auditLogs",
     icon: "🧭",

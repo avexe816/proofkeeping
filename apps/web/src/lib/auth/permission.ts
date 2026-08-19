@@ -216,6 +216,17 @@ export const PERMISSION_ACTIONS = {
    */
   "auditLog.read": { write: false },
   /**
+   * スタッフ支払集計（P5-18 / docs/PK-SPEC-PAY.md §4）。
+   *
+   * **OWNER / ORG_ADMIN のみ。** 単価と支払額は PROPERTY_MANAGER にも
+   * 見せない（PK-SPEC-P8 §1.3 の「単価は ORG_ADMIN 以上のみ」を踏襲）。
+   * CLIENT_VIEWER（発注元）にも開かない — 支払は受注側の原価そのもの。
+   * AUDITOR も DENY（監査の関心は請求側 = billing.read で足りる。
+   * 広げるなら PAY §4 を改訂してから）。
+   */
+  "payout.read": { write: false },
+  "payout.write": { write: true },
+  /**
    * 清掃タスクの閲覧（P1-05 / PK-SPEC-P1 §5.3・§9）。
    *
    * `CLEANER` は自分の担当を見る必要があるので担当施設で許す。
@@ -878,6 +889,27 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "DENY",
     VENDOR_ADMIN: "ASSIGNED",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
+  },
+  // 支払集計（P5-18 / PAY §4）。**組織の 2 ロールだけ。**
+  "payout.read": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
+  },
+  "payout.write": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
     CLIENT_VIEWER: "DENY",
   },
   // ── P1: 清掃タスク ──────────────────────────────────

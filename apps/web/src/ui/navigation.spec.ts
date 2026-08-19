@@ -87,8 +87,10 @@ describe("登録簿の不変条件", () => {
       "nav.report",
       // 契約と請求（owner 10 / 人間の指示 2026-08-17）。
       "nav.billing",
-      // §7.2 清掃会社プラン（P5-15）。「資材と分析」の最後。
+      // §7.2 清掃会社プラン（P5-15）。
       "nav.vendorPlan",
+      // 支払集計（P5-18）。「資材と分析」の最後。
+      "nav.payouts",
       // `/app/settings/*` の 4 画面。客室マスタ（P0-22）と事業者税務（P0-16）は
       // ルートが実在するのに**サイドバーに出ていなかった。**
       "nav.rooms",
@@ -105,6 +107,8 @@ describe("登録簿の不変条件", () => {
       "nav.taxProfile",
       // 取引先と料金（P5-02 / P5-03）。事業者・税務設定の直後。
       "nav.counterparties",
+      // 支払単価（P5-18）。取引先の直後。
+      "nav.payRules",
       // 監査ログの閲覧（P7-20）。取引先の直後。
       "nav.auditLogs",
       // 施設設定（owner 11 / OPEN_QUESTIONS #103 の残り半分）。
