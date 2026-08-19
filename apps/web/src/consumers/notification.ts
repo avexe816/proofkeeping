@@ -26,6 +26,7 @@
  * `bodyPreview` に残るのも同じ範囲。
  */
 
+import { signReviewLinkPath } from "../lib/billing/reviewLink.js";
 import { parseDeliveryEvent } from "../lib/billing/webhookEvent.js";
 
 import { isNotifyMessage, runNotify } from "./notify.js";
@@ -34,6 +35,7 @@ import {
   isOutboundWebhookMessage,
 } from "./outboundWebhook.js";
 import {
+  findBillingPeriodById,
   findInvoiceById,
   findReceiptById,
   lookupOrganizationId,
@@ -261,6 +263,13 @@ export async function handleNotificationBatch(env: Env, batch: MessageBatch): Pr
       else message.ack();
       continue;
     }
+    // 確認依頼（P5-17 / §6.1「ホテル側に通知」）。**同じ notification キュー。**
+    if (isReviewRequestDeliveryMessage(message.body)) {
+      const reviewOutcome = await deliverReviewRequest(env, message.body);
+      if (reviewOutcome.kind === "FAILED") message.retry();
+      else message.ack();
+      continue;
+    }
     if (!isInvoiceDeliveryMessage(message.body)) {
       // 形が違うものは**再送しても直らない。** ack して落とす。
       console.error("notification-invalid-message");
@@ -379,6 +388,148 @@ export async function deliverReceipt(
   if (!sent.ok) return { kind: "FAILED", reason: sent.reason };
 
   await markReceiptSent(env, ctx, message.receiptId, ctx.now);
+
+  return { kind: "OK", deliveryId };
+}
+
+
+// ────────────────────────────────────────────────────────────
+// 確認依頼の送付（P5-17 / PK-SPEC-P5 §6.1「ホテル側に通知」）
+// ────────────────────────────────────────────────────────────
+
+/** キューへ載せるメッセージ。**請求書と同じ `pk-notification`。** */
+export interface ReviewRequestDeliveryMessage {
+  kind: "REVIEW_REQUEST_DELIVERY";
+  organizationId: string;
+  orgShortId: string;
+  billingPeriodId: string;
+  toEmail: string;
+  ccEmails: string[];
+  sentById: string;
+  requestedAtMs: number;
+}
+
+/** メッセージの形を確かめる。 */
+export function isReviewRequestDeliveryMessage(
+  value: unknown,
+): value is ReviewRequestDeliveryMessage {
+  if (typeof value !== "object" || value === null) return false;
+  const message = value as Record<string, unknown>;
+  return (
+    message["kind"] === "REVIEW_REQUEST_DELIVERY" &&
+    typeof message["organizationId"] === "string" &&
+    typeof message["orgShortId"] === "string" &&
+    typeof message["billingPeriodId"] === "string" &&
+    typeof message["toEmail"] === "string" &&
+    Array.isArray(message["ccEmails"]) &&
+    typeof message["sentById"] === "string" &&
+    typeof message["requestedAtMs"] === "number"
+  );
+}
+
+/** 件名。**金額を件名に出さない**（請求書と同じ）。 */
+export function reviewRequestSubject(periodFrom: string, periodTo: string): string {
+  return `ご請求内容のご確認のお願い（${periodFrom} 〜 ${periodTo}）`;
+}
+
+/**
+ * 本文。**1 行要約とリンクだけ**（ui-writing.md §6）。
+ *
+ * 金額・明細・差異の詳細を書かない。リンク先の画面が明細を出す。
+ */
+export function reviewRequestBody(input: {
+  periodFrom: string;
+  periodTo: string;
+  linkUrl: string;
+}): string {
+  return [
+    "いつもお世話になっております。",
+    `${input.periodFrom} 〜 ${input.periodTo} 分の清掃実績の明細をご確認ください。`,
+    "以下のリンクから、明細の確認と承認・差戻しができます。",
+    input.linkUrl,
+    "リンクの有効期限は 30 日です。",
+  ].join("\n");
+}
+
+/**
+ * 確認依頼を 1 通送る（P5-17）。
+ *
+ * **送付ログは成功でも失敗でも残す**（§2.7 / OPEN_QUESTIONS #078 の
+ * 「送っていないのに送付ログが立つほうが害が大きい」— ここでは実際に
+ * 送るので、送った事実・失敗した事実をそのまま残す）。
+ */
+export async function deliverReviewRequest(
+  env: Env,
+  message: ReviewRequestDeliveryMessage,
+): Promise<InvoiceDeliveryOutcome> {
+  const ctx: TenantContext = {
+    organizationId: message.organizationId,
+    orgShortId: message.orgShortId,
+    role: "ORG_ADMIN",
+    allowedPropertyIds: [],
+    now: new Date(message.requestedAtMs),
+  };
+
+  const period = await findBillingPeriodById(env, ctx, message.billingPeriodId);
+  if (period === undefined) return { kind: "SKIPPED", reason: "PERIOD_NOT_FOUND" };
+  // 依頼を積んだあとに合意・発行まで進んでいたら送らない。
+  // 古い明細への確認依頼は「どの数字の話か」を壊す。
+  if (period.status !== "REVIEWING") return { kind: "SKIPPED", reason: "NOT_REVIEWING" };
+
+  // リンクは送信時に署名する（`SESSION_SECRET` / 30 日）。
+  const linkPath = await signReviewLinkPath(env.SESSION_SECRET, period.id, ctx.now);
+  const linkUrl = `${env.APP_BASE_URL}${linkPath}`;
+
+  const subject = reviewRequestSubject(period.periodFrom, period.periodTo);
+  const body = reviewRequestBody({
+    periodFrom: period.periodFrom,
+    periodTo: period.periodTo,
+    // **bodyPreview にリンクを残さない**よう、写しは冒頭 120 文字（下記）。
+    linkUrl,
+  });
+
+  const { deliveryId } = await recordDocumentDelivery(env, ctx, {
+    docType: "REVIEW_REQUEST",
+    documentId: message.billingPeriodId,
+    channel: "EMAIL",
+    toEmail: message.toEmail,
+    ccEmails: message.ccEmails,
+    subject,
+    bodyPreview: body.slice(0, 120),
+    status: "QUEUED",
+    providerMessageId: null,
+    errorMessage: null,
+    sentById: message.sentById,
+    sentAt: null,
+  });
+
+  // Resend が未接続の環境（local / preview）では送らずに事実だけ残す
+  // （`notify.ts` と同じ判断 / DECISIONS #188）。再送しても直らないので SKIP。
+  if (typeof env.RESEND_API_KEY !== "string" || env.RESEND_API_KEY.trim() === "") {
+    await updateDocumentDeliveryStatus(env, ctx, deliveryId, {
+      status: "FAILED",
+      errorMessage: "RESEND_DISABLED",
+    });
+    return { kind: "SKIPPED", reason: "RESEND_DISABLED" };
+  }
+
+  const sent = await sendViaResend(env, {
+    to: message.toEmail,
+    cc: message.ccEmails,
+    subject,
+    body,
+    deliveryId,
+  });
+
+  await updateDocumentDeliveryStatus(env, ctx, deliveryId, {
+    status: sent.ok ? "SENT" : "FAILED",
+    ...(sent.ok ? {} : { errorMessage: sent.reason }),
+  });
+  if (sent.ok && sent.messageId !== null) {
+    await setDeliveryProviderMessageId(env, ctx, deliveryId, sent.messageId);
+  }
+
+  if (!sent.ok) return { kind: "FAILED", reason: sent.reason };
 
   return { kind: "OK", deliveryId };
 }

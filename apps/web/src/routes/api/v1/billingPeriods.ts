@@ -207,7 +207,7 @@ async function loadPeriodWithDraft(env: Env, ctx: TenantContext, billingPeriodId
     taxRoundingMode: counterparty.taxRoundingMode,
   });
 
-  return { period, draft };
+  return { period, draft, counterparty };
 }
 
 /** 履歴に残す明細の写し（§6.2 の修正履歴）。**金額は整数のまま。** */
@@ -377,6 +377,11 @@ billingPeriods.get("/:billingPeriodId/reviews", async (c) => {
  *
  * `REVIEWING` のときだけ。集計前（`OPEN`）に確認は頼めないし、
  * 合意済み・発行済みに頼み直すのは差戻し（`reject`）である。
+ *
+ * **P5-17 で取引先へ実際に届くようになった**（OPEN_QUESTIONS #078 の決着）。
+ * 履歴を残したあと、`counterparty.billingEmail` あてに署名付きリンク
+ * （30 日有効 / `lib/billing/reviewLink.ts`）を Queue 経由で送る。
+ * 再依頼は新しいリンクを発行する（履歴も 1 行増える — 追記のみの設計どおり）。
  */
 billingPeriods.post("/:billingPeriodId/request-review", async (c) => {
   const ctx = getTenant(c);
@@ -387,7 +392,7 @@ billingPeriods.post("/:billingPeriodId/request-review", async (c) => {
 
   const loaded = await loadPeriodWithDraft(c.env, ctx, c.req.param("billingPeriodId"));
   if (loaded === undefined) return c.json(notFound(), 404);
-  const { period, draft } = loaded;
+  const { period, draft, counterparty } = loaded;
 
   if (period.status !== "REVIEWING") {
     return c.json({ error: "INVALID_TRANSITION" as const }, 409);
@@ -404,6 +409,35 @@ billingPeriods.post("/:billingPeriodId/request-review", async (c) => {
     statusAfter: period.status,
     byCounterparty: false,
     actorId: getSession(c).membershipId,
+  });
+
+  // 送信は Queue コンシューマ（`consumers/notification.ts`）。リンクの署名も
+  // そちらで行う（送信時刻を起点に 30 日）。送付ログは docType =
+  // REVIEW_REQUEST でコンシューマが残す。**投入の失敗で依頼自体を
+  // 落とさない**（`notify()` と同じ判断 — 履歴は既に残っており、
+  // 再依頼すれば送り直せる）。
+  try {
+    await c.env.QUEUE_NOTIFICATION.send({
+      kind: "REVIEW_REQUEST_DELIVERY",
+      organizationId: ctx.organizationId,
+      orgShortId: ctx.orgShortId,
+      billingPeriodId: period.id,
+      toEmail: counterparty.billingEmail,
+      ccEmails: [...counterparty.ccEmails],
+      sentById: getSession(c).membershipId,
+      requestedAtMs: ctx.now.getTime(),
+    });
+  } catch {
+    console.error("review-request-enqueue-failed");
+  }
+
+  await recordAudit(c.env, ctx, {
+    actorId: getSession(c).membershipId,
+    action: "billingPeriod.reviewRequested",
+    targetType: "billingPeriod",
+    targetId: period.id,
+    after: { seq: appended.seq },
+    ...ipOf(c.req.header("CF-Connecting-IP")),
   });
 
   return c.json({ billingPeriodId: period.id, status: period.status, seq: appended.seq }, 201);

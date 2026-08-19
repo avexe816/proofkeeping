@@ -845,6 +845,8 @@ export interface AppendBillingPeriodReviewInput {
   statusAfter: BillingPeriodStatus;
   byCounterparty: boolean;
   actorId: string;
+  /** メールリンク承認（P5-17）の宛先。ログイン主体の操作では省略。 */
+  externalActorEmail?: string | null | undefined;
 }
 
 /**
@@ -899,6 +901,7 @@ export async function appendBillingPeriodReview(
         statusAfter: input.statusAfter,
         byCounterparty: input.byCounterparty,
         actorId: input.actorId,
+        externalActorEmail: input.externalActorEmail ?? null,
         createdAt: ctx.now,
         updatedAt: ctx.now,
       });

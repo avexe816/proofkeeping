@@ -123,6 +123,8 @@ export default [
   route("login", "routes/login.tsx"),
   route("logout", "routes/logout.ts"),
   route("m/login", "routes/m/login.tsx"),
+  // P5-17。確認依頼のメールリンク（認証不要・署名で守る）。layout の外。
+  route("r/billing/:billingPeriodId", "routes/review/billingReview.tsx"),
   layout("routes/m/layout.tsx", [
     route("m/today", "routes/m/today.tsx"),
     route("m/select-property", "routes/m/selectProperty.tsx"),

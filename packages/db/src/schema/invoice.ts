@@ -112,6 +112,12 @@ export const DELIVERY_DOC_TYPES = [
   "RECEIPT",
   "DAILY_REPORT",
   "AUDIT_REPORT",
+  /**
+   * 請求明細の確認依頼（P5-17 / OPEN_QUESTIONS #078 の決着）。
+   * `documentId` は `billingPeriod.id`。帳票ではないが「取引先に何を
+   * いつ送ったか」の記録は同じ表に載せる（§2.7「送付の記録は 1 か所」）。
+   */
+  "REVIEW_REQUEST",
 ] as const;
 
 export type DeliveryDocType = (typeof DELIVERY_DOC_TYPES)[number];
@@ -590,8 +596,19 @@ export const billingPeriodReview = sqliteTable(
      * 同じ意味で、あちらは最新の 1 件、こちらは全件。
      */
     byCounterparty: integer("by_counterparty", { mode: "boolean" }).notNull().default(false),
-    /** 操作した `membership.id`。 */
+    /**
+     * 操作した `membership.id`。**メールリンク承認（P5-17）ではシステム主体**
+     * （`systemActorId()`）が入り、実際の操作者は `externalActorEmail` に残る。
+     */
     actorId: text("actor_id").notNull(),
+    /**
+     * 組織の外の操作者（P5-17 のメールリンク承認）。
+     *
+     * リンクの宛先（`counterparty.billingEmail`）を記録する。ログイン主体が
+     * 操作した行では null。**リンクは誰が開いたかまでは特定しない**ので、
+     * これは「どの宛先に発行したリンクか」の記録である。
+     */
+    externalActorEmail: text("external_actor_email"),
     ...timestamps,
   },
   (t) => [

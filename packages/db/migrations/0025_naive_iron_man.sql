@@ -1,0 +1,1 @@
+ALTER TABLE `billing_period_review` ADD `external_actor_email` text;

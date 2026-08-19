@@ -349,6 +349,40 @@ a.pk-nav:hover {
   padding: 0;
 }
 
+/* ── 確認依頼のメールリンク画面（P5-17 / /r/billing/*） ──
+   シェル（topbar / sidebar）を持たない 1 枚もの。 */
+
+.pk-review {
+  max-width: 720px;
+  padding: 24px 22px 40px;
+  margin: 0 auto;
+}
+
+.pk-review__head {
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-review__brand {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--brand);
+}
+
+.pk-review__title {
+  margin-top: 6px;
+  font-size: 18px;
+}
+
+.pk-review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin: 16px 0;
+}
+
 /* ── main ─────────────────────────────────────────────── */
 
 .pk-main {
