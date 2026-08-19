@@ -161,7 +161,19 @@ export default function FindingDetail() {
     <section className="pk-page">
       <div className="pk-pagehead">
         <h1 className="pk-pagehead__title">{finding.title}</h1>
+        <a className="pk-button" href="/app/audit/findings">
+          {t("finding.backToList")}
+        </a>
       </div>
+
+      {/* 確認の順序を固定する STEP 表示（プロトタイプ 05 の確定事項）。 */}
+      <ol className="pk-steps">
+        <li className="pk-steps__item pk-steps__item--done">{t("finding.step1")}</li>
+        <li className="pk-steps__item pk-steps__item--on">{t("finding.step2")}</li>
+        <li className="pk-steps__item">{t("finding.step3")}</li>
+        <li className="pk-steps__item">{t("finding.step4")}</li>
+      </ol>
+
       <p className="pk-muted">
         {`${finding.propertyName} ${finding.roomNumber} / ${finding.businessDate} / ${finding.ruleCode}`}
       </p>
@@ -262,6 +274,54 @@ export default function FindingDetail() {
 
       {/* §1.1 / PK-SPEC-P3 §1.1。**この文は消さないこと。** */}
       <p className="pk-notice">{t("finding.observedOnly")}</p>
+
+      {/* ── 確信度の根拠（プロトタイプ「確信度の内訳」）────────
+          engine は根拠を文として持つ（`matchedSignals`）。寄与度の数値は
+          出力に無いため出さない（DECISIONS #202）。全件を隠さず並べる。 */}
+      {finding.matchedSignals.length === 0 ? null : (
+        <>
+          <h2 className="pk-pagehead__title">{t("finding.signals.title")}</h2>
+          <ol className="pk-signals">
+            {finding.matchedSignals.map((signal) => (
+              <li key={signal} className="pk-signals__item">
+                {signal}
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+
+      {/* ── 次に確認していただきたいこと（3 列のうち 2 列は宿泊者以外の
+          原因。まず自社側を確認する、という配置 / プロトタイプの注記）。 */}
+      <h2 className="pk-pagehead__title">{t("finding.next.title")}</h2>
+      <div className="pk-nextchecks">
+        <div>
+          <h3 className="pk-nextchecks__head">{t("finding.next.front")}</h3>
+          <ul className="pk-nextchecks__list">
+            <li>{t("finding.next.front1")}</li>
+            <li>{t("finding.next.front2")}</li>
+            <li>{t("finding.next.front3")}</li>
+          </ul>
+        </div>
+        <div>
+          <h3 className="pk-nextchecks__head">{t("finding.next.ops")}</h3>
+          <ul className="pk-nextchecks__list">
+            <li>{t("finding.next.ops1")}</li>
+            <li>{t("finding.next.ops2")}</li>
+            <li>{t("finding.next.ops3")}</li>
+          </ul>
+        </div>
+        <div>
+          <h3 className="pk-nextchecks__head">{t("finding.next.record")}</h3>
+          <ul className="pk-nextchecks__list">
+            <li>{t("finding.next.record1")}</li>
+            <li>{t("finding.next.record2")}</li>
+            <li>{t("finding.next.record3")}</li>
+          </ul>
+        </div>
+      </div>
+      {/* 宿泊者への連絡より先に確認を促す（プロトタイプの MUST 相当）。 */}
+      <p className="pk-notice pk-notice--warn">{t("finding.next.beforeContact")}</p>
 
       {/* ── 参考情報（§6.2 中段）───────────────────────────── */}
       <h2 className="pk-pagehead__title">{t("finding.reference")}</h2>
