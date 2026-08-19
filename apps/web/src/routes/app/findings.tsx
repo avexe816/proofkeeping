@@ -59,16 +59,8 @@ import { previousMonthOf } from "../../lib/report/monthly.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
 
-/** 施設セレクタの「全施設」。**組織全体を読める相手にだけ出す。** */
-const ALL_PROPERTIES = "";
-
 /** 推移に出す月数（プロトタイプは 6 か月）。 */
 const TREND_MONTHS = 6;
-
-interface PropertyOption {
-  id: string;
-  name: string;
-}
 
 /** ルール別の 1 行（プロトタイプ「ルール別の発生件数」）。 */
 interface RuleRow {
@@ -91,12 +83,10 @@ interface TrendPoint {
 interface FindingsData {
   month: string;
   propertyId: string | null;
-  properties: PropertyOption[];
   status: FindingStatus | null;
   rows: FindingSummary[];
   counts: FindingCounts;
   suppressedCount: number;
-  canSelectAll: boolean;
   severityCounts: Record<FindingSeverity, number>;
   /** 対象月に照合した客室数。施設未選択・実行なしは `null`。 */
   roomsEvaluated: number | null;
@@ -119,13 +109,11 @@ export async function loader({
   const properties = await listSelectableProperties(env, tenant);
   const canSelectAll = can(tenant, "finding.read", ORGANIZATION_TARGET);
 
-  // 施設の決め方: URL → 表示中の施設 → （全施設を読めるなら）全施設。
-  const requestedProperty = url.searchParams.get("propertyId");
+  // 施設はヘッダーの施設セレクタが唯一の入口（人間の指示 2026-08-19 /
+  // DECISIONS #204）。画面内に同じドロップダウンを置かない。
+  // 「全施設」を読めないロールがヘッダーで全社を選んでいたら既定施設へ落とす。
   const { property } = resolveSelectedScope(session.selectedPropertyId, tenant, properties);
-  const propertyId =
-    requestedProperty === ALL_PROPERTIES && canSelectAll
-      ? null
-      : (requestedProperty ?? property?.id ?? (canSelectAll ? null : (properties[0]?.id ?? null)));
+  const propertyId = property?.id ?? (canSelectAll ? null : (properties[0]?.id ?? null));
 
   // **これが唯一の門。** 施設を選んでいなければ組織全体の権限を要る。
   assertPermission(
@@ -243,12 +231,10 @@ export async function loader({
   return {
     month,
     propertyId,
-    properties: properties.map((row) => ({ id: row.id, name: row.name })),
     status,
     rows,
     counts: list.counts,
     suppressedCount: list.suppressedCount,
-    canSelectAll,
     severityCounts,
     roomsEvaluated,
     ratePermille,
@@ -318,18 +304,6 @@ export default function Findings() {
       <p className="pk-notice">{t("finding.intro")}</p>
 
       <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("finding.filter.property")}</span>
-          <select className="pk-select" name="propertyId" defaultValue={data.propertyId ?? ""}>
-            {data.canSelectAll ? <option value="">{t("finding.filter.allProperties")}</option> : null}
-            {data.properties.map((property) => (
-              <option key={property.id} value={property.id}>
-                {property.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
         <label className="pk-field">
           <span className="pk-field__label">{t("finding.filter.status")}</span>
           <select className="pk-select" name="status" defaultValue={data.status ?? ""}>

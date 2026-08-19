@@ -28,7 +28,7 @@ import { listAuditLogsForViewer } from "@pk/db";
 import { t } from "../../lib/i18n.js";
 import { formatClock } from "../../lib/mobile/format.js";
 import { resolveListScope } from "../../lib/property/listScope.js";
-import { listSelectableProperties } from "../../lib/property/selection.js";
+import { listSelectableProperties, resolveSelectedScope } from "../../lib/property/selection.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
 
@@ -49,9 +49,6 @@ interface AuditLogRow {
 interface AuditLogsData {
   from: string;
   to: string;
-  selectedPropertyId: string | null;
-  canSelectAll: boolean;
-  options: { id: string; name: string }[];
   rows: AuditLogRow[];
 }
 
@@ -63,40 +60,32 @@ function dayOf(at: Date): string {
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<AuditLogsData> {
   const env = getEnv(context);
   const now = new Date();
-  const { tenant } = await requireAppContext(env, request, now);
+  const { session, tenant } = await requireAppContext(env, request, now);
 
   const url = new URL(request.url);
-  const requested = url.searchParams.get("propertyId");
 
+  // 施設はヘッダーの施設セレクタが唯一の入口（DECISIONS #204）。
   // **これが唯一の門**（検査キュー・進捗モニタと同じ形）。
-  const scope = resolveListScope(
-    tenant,
-    "finding.read",
-    requested === null || requested === "" ? null : requested,
-  );
+  const properties = await listSelectableProperties(env, tenant);
+  const { property } = resolveSelectedScope(session.selectedPropertyId, tenant, properties);
+  const scope = resolveListScope(tenant, "finding.read", property?.id ?? null);
 
   const to = url.searchParams.get("to") ?? dayOf(now);
   const from =
     url.searchParams.get("from") ??
     dayOf(new Date(now.getTime() - DEFAULT_RANGE_DAYS * 24 * 60 * 60 * 1000));
 
-  const [logs, properties] = await Promise.all([
-    listAuditLogsForViewer(env, tenant, {
-      propertyIds: scope.propertyIds,
-      from: new Date(`${from}T00:00:00Z`),
-      to: new Date(`${to}T23:59:59Z`),
-    }),
-    listSelectableProperties(env, tenant),
-  ]);
+  const logs = await listAuditLogsForViewer(env, tenant, {
+    propertyIds: scope.propertyIds,
+    from: new Date(`${from}T00:00:00Z`),
+    to: new Date(`${to}T23:59:59Z`),
+  });
 
   const nameOf = new Map(properties.map((property) => [property.id, property.name]));
 
   return {
     from,
     to,
-    selectedPropertyId: scope.selectedPropertyId,
-    canSelectAll: scope.canSelectAll,
-    options: properties.map((property) => ({ id: property.id, name: property.name })),
     rows: logs.map((log) => ({
       id: log.id,
       at: log.at.getTime(),
@@ -121,21 +110,6 @@ export default function AuditLogs() {
       <p className="pk-muted">{t("auditLogs.intro")}</p>
 
       <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("auditLogs.filter.property")}</span>
-          <select
-            className="pk-select"
-            name="propertyId"
-            defaultValue={data.selectedPropertyId ?? ""}
-          >
-            {data.canSelectAll ? <option value="">{t("auditLogs.filter.all")}</option> : null}
-            {data.options.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="pk-field">
           <span className="pk-field__label">{t("auditLogs.filter.from")}</span>
           <input className="pk-input" type="date" name="from" defaultValue={data.from} />

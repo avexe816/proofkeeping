@@ -56,24 +56,13 @@ import { t } from "../../lib/i18n.js";
 import { buildInspectionQueue } from "../../lib/inspection/queue.js";
 import { formatClock } from "../../lib/mobile/format.js";
 import { resolveListScope } from "../../lib/property/listScope.js";
-import { listSelectableProperties } from "../../lib/property/selection.js";
+import { listSelectableProperties, resolveSelectedScope } from "../../lib/property/selection.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
 import type { MessageKey } from "../../locales/index.js";
 
-/** 施設セレクタの「全施設」。 */
-const ALL_PROPERTIES = "";
-
-interface PropertyOption {
-  id: string;
-  name: string;
-}
-
 interface InspectionQueueData {
   businessDate: string;
-  propertyId: string | null;
-  properties: PropertyOption[];
-  canSelectAll: boolean;
   summary: { total: number; urgent: number; overSla: number; recheck: number };
   rows: InspectionQueueItem[];
 }
@@ -87,17 +76,14 @@ export async function loader({
   const { session, tenant } = await requireAppContext(env, request, now);
 
   const url = new URL(request.url);
-  const requested = url.searchParams.get("propertyId");
 
+  // 施設はヘッダーの施設セレクタが唯一の入口（DECISIONS #204）。
   // **これが唯一の門。** 権限が無ければ 404（`CLEANER` はここで落ちる）。
-  const scope = resolveListScope(
-    tenant,
-    "inspection.read",
-    requested === null || requested === ALL_PROPERTIES ? null : requested,
-  );
+  const selectable = await listSelectableProperties(env, tenant);
+  const { property } = resolveSelectedScope(session.selectedPropertyId, tenant, selectable);
+  const scope = resolveListScope(tenant, "inspection.read", property?.id ?? null);
 
   const businessDate = url.searchParams.get("businessDate") ?? businessDateOf(now);
-  const properties = await listSelectableProperties(env, tenant);
 
   const queue = await buildInspectionQueue(env, tenant, {
     scope,
@@ -108,9 +94,6 @@ export async function loader({
 
   return {
     businessDate: queue.businessDate,
-    propertyId: queue.propertyId,
-    properties: properties.map((property) => ({ id: property.id, name: property.name })),
-    canSelectAll: scope.canSelectAll,
     summary: queue.summary,
     rows: queue.data,
   };
@@ -194,20 +177,6 @@ export default function InspectionQueue() {
       <p className="pk-notice">{t("inspectionQueue.intro")}</p>
 
       <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("inspectionQueue.filter.property")}</span>
-          <select className="pk-select" name="propertyId" defaultValue={data.propertyId ?? ""}>
-            {data.canSelectAll ? (
-              <option value="">{t("inspectionQueue.filter.allProperties")}</option>
-            ) : null}
-            {data.properties.map((property) => (
-              <option key={property.id} value={property.id}>
-                {property.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
         <label className="pk-field">
           <span className="pk-field__label">{t("inspectionQueue.filter.businessDate")}</span>
           <input

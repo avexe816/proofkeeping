@@ -31,6 +31,7 @@ import { businessDateOf } from "../../lib/businessDate.js";
 import { t } from "../../lib/i18n.js";
 import { buildProgressView, type ProgressView } from "../../lib/ops/progress.js";
 import { resolveListScope } from "../../lib/property/listScope.js";
+import { listSelectableProperties, resolveSelectedScope } from "../../lib/property/selection.js";
 import { getPropertySummaries } from "../../lib/property/summary.js";
 import { sumLinenByProperty } from "@pk/db";
 import { getEnv } from "../../lib/ui/cloudflare.js";
@@ -39,15 +40,8 @@ import { requireAppContext } from "../../lib/ui/requireSession.js";
 /** 自動更新の間隔（ms）。ui-writing.md §3 の「30 秒ごと」。 */
 export const REFRESH_INTERVAL_MS = 30_000;
 
-/** 施設セレクタの「全施設」。 */
-const ALL_PROPERTIES = "";
-
 interface OpsProgressData extends ProgressView {
   businessDate: string;
-  selectedPropertyId: string | null;
-  canSelectAll: boolean;
-  /** セレクタの選択肢。行と別に持つ（1 施設に絞っても選択肢は全部出す）。 */
-  options: { id: string; name: string }[];
 }
 
 export async function loader({
@@ -56,17 +50,15 @@ export async function loader({
 }: LoaderFunctionArgs): Promise<OpsProgressData> {
   const env = getEnv(context);
   const now = new Date();
-  const { tenant } = await requireAppContext(env, request, now);
+  const { session, tenant } = await requireAppContext(env, request, now);
 
   const url = new URL(request.url);
-  const requested = url.searchParams.get("propertyId");
 
-  // **これが唯一の門**（inspectionQueue と同じ形）。担当外の施設 ID は 404。
-  const scope = resolveListScope(
-    tenant,
-    "property.read",
-    requested === null || requested === ALL_PROPERTIES ? null : requested,
-  );
+  // 施設はヘッダーの施設セレクタが唯一の入口（DECISIONS #204）。
+  // **これが唯一の門**（inspectionQueue と同じ形）。権限が無ければ 404。
+  const selectable = await listSelectableProperties(env, tenant);
+  const { property } = resolveSelectedScope(session.selectedPropertyId, tenant, selectable);
+  const scope = resolveListScope(tenant, "property.read", property?.id ?? null);
 
   const businessDate = url.searchParams.get("businessDate") ?? businessDateOf(now);
   // リネンは rollup に無いので別引き（`sumLinenByProperty()` の注記）。
@@ -77,9 +69,6 @@ export async function loader({
 
   return {
     businessDate,
-    selectedPropertyId: scope.selectedPropertyId,
-    canSelectAll: scope.canSelectAll,
-    options: summaries.map((summary) => ({ id: summary.propertyId, name: summary.name })),
     ...buildProgressView(summaries, scope, linen),
   };
 }
@@ -106,24 +95,6 @@ export default function OpsProgress() {
       </div>
 
       <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("opsProgress.filter.property")}</span>
-          <select
-            className="pk-select"
-            name="propertyId"
-            defaultValue={data.selectedPropertyId ?? ""}
-          >
-            {data.canSelectAll ? (
-              <option value="">{t("opsProgress.filter.allProperties")}</option>
-            ) : null}
-            {data.options.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
         <label className="pk-field">
           <span className="pk-field__label">{t("opsProgress.filter.businessDate")}</span>
           <input
