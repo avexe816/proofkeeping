@@ -17,7 +17,7 @@
     "@pk/engine": "workspace:*",
     "@pk/integrations": "workspace:*",
     "@pk/pdf": "workspace:*",
-    "hono": "^4.6.0",
+    "hono": "^4.13.2",
     "isbot": "^5.1.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

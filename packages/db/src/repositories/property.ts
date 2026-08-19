@@ -242,6 +242,10 @@ export interface CreatePropertyInput {
   name: string;
   postalCode?: string | undefined;
   address?: string | undefined;
+  /** 施設の代表電話（事業者側の窓口。宿泊者のものではない）。 */
+  phone?: string | undefined;
+  /** 連絡担当者。 */
+  contactName?: string | undefined;
   /** 未指定なら列の既定（Asia/Tokyo）。 */
   timezone?: string | undefined;
   /** 日締め時刻 `HH:MM`。未指定なら列の既定（05:00 / architecture.md §7）。 */
@@ -292,6 +296,10 @@ export interface UpdatePropertyInput {
   name: string;
   postalCode: string | null;
   address: string | null;
+  /** 施設の代表電話。**宿泊者の連絡先ではない**（schema の注記）。 */
+  phone: string | null;
+  /** 連絡担当者（事業者側の窓口）。 */
+  contactName: string | null;
   timezone: string;
   /** 日締め時刻 `HH:MM`（architecture.md §7）。 */
   dayCutoffTime: string;
@@ -311,6 +319,8 @@ export async function updateProperty(
       name: input.name,
       postalCode: input.postalCode,
       address: input.address,
+      phone: input.phone,
+      contactName: input.contactName,
       timezone: input.timezone,
       dayCutoffTime: input.dayCutoffTime,
       isActive: input.isActive,
@@ -336,6 +346,8 @@ export async function createProperty(env: Env, ctx: TenantContext, input: Create
     name: input.name,
     postalCode: input.postalCode ?? null,
     address: input.address ?? null,
+    phone: input.phone ?? null,
+    contactName: input.contactName ?? null,
     ...(input.timezone === undefined ? {} : { timezone: input.timezone }),
     ...(input.dayCutoffTime === undefined ? {} : { dayCutoffTime: input.dayCutoffTime }),
     ...(input.sortOrder === undefined ? {} : { sortOrder: input.sortOrder }),
