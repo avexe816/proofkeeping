@@ -56,6 +56,8 @@ function propertyRow(): unknown[] {
     "テスト施設",
     null,
     null,
+    null, // phone
+    null, // contact_name
     "Asia/Tokyo",
     "05:00",
     0,

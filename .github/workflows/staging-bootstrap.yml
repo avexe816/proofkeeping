@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       phase:
-        description: "check = 読むだけ / resources = 資源を作り ID の PR を出す / reset-db = staging の D1 を空にする（復旧用） / secrets-and-seed = migration・秘密・シード"
+        description: "check = 読むだけ / resources = 資源を作り ID の PR を出す / reset-db = staging の D1 を空にする（復旧用） / migrate = 未適用の migration だけを流す / secrets-and-seed = migration・秘密・シード"
         required: true
         type: choice
         options:
@@ -33,6 +33,7 @@ on:
           - db-status
           - smoke
           - mark-applied
+          - migrate
           - resources
           - reset-db
           - secrets-and-seed
@@ -464,8 +465,11 @@ jobs:
       #
       # 触る先が staging であることは、**流す前に名前で確かめる。**
       # `--env` を間違えたときに production の 16 シャードへ当たらないようにする。
+      # phase=migrate は**この 1 ステップだけ**を実行する（秘密・シードに
+      # 触れない）。列追加などの後方互換 migration を、コードのデプロイ後に
+      # 追いかけて当てるための最小の口（合言葉は CREATE）。
       - name: staging へ migration を流す
-        if: inputs.phase == 'secrets-and-seed'
+        if: inputs.phase == 'secrets-and-seed' || inputs.phase == 'migrate'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
