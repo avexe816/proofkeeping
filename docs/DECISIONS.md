@@ -4750,3 +4750,36 @@
 - 影響: CSV はデータエクスポートとして必ず監査ログに残る。
   一覧の見た目は確信度メーター（`.pk-meterbar`）と棒グラフ（`.pk-bars`）を
   共通部品として追加。
+
+## #203 メンバー管理（権限と監査の「権限」側）を初期パスワード発行方式で実装
+
+- 日付: 2026-08-19
+- task: なし（人間の指示「P7-02 と同じ『初期パスワード発行・1 回だけ表示』方式にて」）
+- 決定:
+  - **メール招待を作らない。** OPEN_QUESTIONS #101 のとおり招待リンクの
+    発行・有効期限・受諾・再送の規則が仕様に無く、security.md §2 は
+    メールをログイン識別子にしないと定める。人間が P7-02 方式を明示した
+    ことで #101 は**解消**（トークン設計そのものが不要になった）。
+  - 管理系ロール（OWNER / ORG_ADMIN / PROPERTY_MANAGER / VENDOR_ADMIN /
+    AUDITOR）の登録は `/app/settings/members`。サーバーが 12 文字の
+    初期パスワード（英大小数字・紛らわしい字なし）を生成し、
+    **`action` の戻り値として 1 回だけ表示**（#177 / #184 と同じ形）。
+    loader / GET に平文を通さない。
+  - 資格情報の再発行はロールの族で自動判別: 現場系 → PIN（P7-02 の
+    `generateInitialPin`）、管理系 → パスワード。どちらも
+    `pinMustChange` / `passwordUpdatedAt` とロック解除を同時に行う。
+  - **安全装置 3 つ**をサーバー側に置く: ①自分自身のロール変更・無効化
+    不可（SELF）②最後の有効な OWNER の降格・無効化不可（LAST_OWNER）
+    ③ロール変更は同じ族の中だけ（管理系⇄管理系・現場系⇄現場系 /
+    ROLE_FAMILY）。族を跨ぐ変更は資格情報の作り直しが要るため、
+    無効化 → 新規登録の 2 手に分ける。
+  - 権限の門は `assertPermission(ctx, "user.write", ...)`。
+    PROPERTY_MANAGER は割当施設スコープ、組織全体の登録は
+    OWNER / ORG_ADMIN のみ。
+  - 監査ログ: `user.invited` / `user.roleChanged` / `user.deactivated` /
+    `user.reactivated` / `user.pinReset` / `user.passwordReset`。
+    **before / after に平文・ハッシュを載せない**（security.md §6）。
+    `tests/security/initialPin.spec.ts` が `manage.ts` の recordAudit
+    呼び出しの中身を走査して固定する。
+- 影響: ナビ「権限と監査」が 準備中 → `/app/settings/members`。
+  監査ログ閲覧（P7-20）は従来どおり `/app/audit/logs`。

@@ -8,7 +8,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
+  INITIAL_PASSWORD_LENGTH,
   PBKDF2_PARAMS,
+  generateInitialPassword,
   hashPassword,
   isPasswordReused,
   needsRehash,
@@ -141,5 +143,34 @@ describe("再利用の判定", () => {
 
   it("履歴が空なら false", async () => {
     await expect(isPasswordReused(PASSWORD, [])).resolves.toBe(false);
+  });
+});
+
+describe("generateInitialPassword（W-12 / DECISIONS #203）", () => {
+  // 正例
+  it("12 文字で、英大・英小・数字を必ず含む", () => {
+    for (let index = 0; index < 20; index += 1) {
+      const password = generateInitialPassword();
+      expect(password).toHaveLength(INITIAL_PASSWORD_LENGTH);
+      expect(password).toMatch(/[A-Z]/);
+      expect(password).toMatch(/[a-z]/);
+      expect(password).toMatch(/[0-9]/);
+    }
+  });
+
+  it("security.md §2 の要件（10 文字以上）を満たす", () => {
+    expect(INITIAL_PASSWORD_LENGTH).toBeGreaterThanOrEqual(10);
+  });
+
+  // 負例
+  it("紛らわしい字（0 / O / 1 / l / I）を含まない", () => {
+    for (let index = 0; index < 20; index += 1) {
+      expect(generateInitialPassword()).not.toMatch(/[0O1lI]/);
+    }
+  });
+
+  it("毎回違う値になる", () => {
+    const seen = new Set(Array.from({ length: 10 }, () => generateInitialPassword()));
+    expect(seen.size).toBe(10);
   });
 });

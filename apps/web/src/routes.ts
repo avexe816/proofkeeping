@@ -154,6 +154,8 @@ export default [
     route("app/settings/staff", "routes/app/staff.tsx"),
     // W-11 施設設定（施設マスタの作成・編集 / OPEN_QUESTIONS #103 の残り半分）。
     route("app/settings/properties", "routes/app/propertySettings.tsx"),
+    // W-12 権限と監査（権限側）。メンバー管理。門は user.write（組織全体）。
+    route("app/settings/members", "routes/app/members.tsx"),
     // W-12 契約と請求（銀行振込前提 / 人間の指示 2026-08-17）。門は billing.read。
     route("app/billing", "routes/app/billing.tsx"),
     route("app/billing/:invoiceId", "routes/app/billingDetail.tsx"),

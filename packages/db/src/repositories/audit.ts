@@ -65,7 +65,12 @@ export const AUDIT_ACTIONS = {
   "user.invited": { requiresReason: false },
   "user.roleChanged": { requiresReason: false },
   "user.deactivated": { requiresReason: false },
+  // 再有効化（W-12 メンバー管理 / DECISIONS #203）。無効化と別語彙にする —
+  // 「消したはずの人が入れた」を追うとき、同じ語彙だと向きが読めない。
+  "user.reactivated": { requiresReason: false },
   "user.pinReset": { requiresReason: false },
+  // パスワードの再発行（管理系の資格情報。PIN リセットと同じ扱い）。
+  "user.passwordReset": { requiresReason: false },
   // タスクの完了・検査合格・差戻し（P1 以降で使う）
   "task.completed": { requiresReason: false },
   // 人員配分の変更（PK-SPEC-P1 §4.2「変更は AuditLog に記録する」）。

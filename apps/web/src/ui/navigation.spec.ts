@@ -109,6 +109,8 @@ describe("登録簿の不変条件", () => {
       "nav.auditLogs",
       // 施設設定（owner 11 / OPEN_QUESTIONS #103 の残り半分）。
       "nav.propertySettings",
+      // W-12 権限と監査の権限側（メンバー管理 / 2026-08-19）。
+      "nav.permission",
     ]);
   });
 

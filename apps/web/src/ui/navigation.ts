@@ -412,6 +412,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/settings/properties",
   },
+  // W-12 権限と監査の権限側（メンバー管理 / 人間の指示 2026-08-19）。
+  // 監査側の閲覧は nav.auditLogs（P7-20）。
   {
     key: "nav.permission",
     icon: "🔑",
@@ -419,7 +421,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     moduleCode: "PLATFORM",
     action: "user.write",
     scope: "ORGANIZATION",
-    status: "PLANNED",
+    status: "READY",
+    href: "/app/settings/members",
   },
 ];
 

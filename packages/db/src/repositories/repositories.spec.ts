@@ -1185,6 +1185,72 @@ const INVOCATIONS: Invocation[] = [
       }),
   },
   {
+    // W-12 メンバー管理（DECISIONS #203）。管理系の登録（パスワード版）。
+    name: "user.createAdminStaff",
+    kind: "tenant",
+    run: (env, ctx) =>
+      userRepo.createAdminStaff(env, ctx, {
+        displayName: "テスト 管理",
+        staffNumber: "S-9003",
+        role: "ORG_ADMIN",
+        email: null,
+        passwordHash: FAKE_HASH,
+        propertyIds: [],
+        invitedBy: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      userRepo.createAdminStaff(env, ctx, {
+        displayName: "テスト 管理",
+        staffNumber: "S-9004",
+        role: "PROPERTY_MANAGER",
+        email: null,
+        passwordHash: FAKE_HASH,
+        propertyIds: [OTHER_ID.property],
+        invitedBy: OWN_ID.membership,
+      }),
+  },
+  {
+    name: "user.listOrgMembers",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.listOrgMembers(env, ctx),
+  },
+  {
+    name: "user.updateMembershipRole",
+    kind: "tenant",
+    run: (env, ctx) =>
+      userRepo.updateMembershipRole(env, ctx, {
+        membershipId: OWN_ID.membership,
+        role: "ORG_ADMIN",
+      }),
+    crossTenant: (env, ctx) =>
+      userRepo.updateMembershipRole(env, ctx, {
+        membershipId: OTHER_ID.membership,
+        role: "ORG_ADMIN",
+      }),
+  },
+  {
+    name: "user.setUserActive",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.setUserActive(env, ctx, { userId: OWN_ID.user, isActive: false }),
+    crossTenant: (env, ctx) =>
+      userRepo.setUserActive(env, ctx, { userId: OTHER_ID.user, isActive: false }),
+  },
+  {
+    name: "user.resetUserPin",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.resetUserPin(env, ctx, { userId: OWN_ID.user, pinHash: FAKE_HASH }),
+    crossTenant: (env, ctx) =>
+      userRepo.resetUserPin(env, ctx, { userId: OTHER_ID.user, pinHash: FAKE_HASH }),
+  },
+  {
+    name: "user.resetUserPassword",
+    kind: "tenant",
+    run: (env, ctx) =>
+      userRepo.resetUserPassword(env, ctx, { userId: OWN_ID.user, passwordHash: FAKE_HASH }),
+    crossTenant: (env, ctx) =>
+      userRepo.resetUserPassword(env, ctx, { userId: OTHER_ID.user, passwordHash: FAKE_HASH }),
+  },
+  {
     name: "user.listPropertyStaff",
     kind: "tenant",
     run: (env, ctx) => userRepo.listPropertyStaff(env, ctx, OWN_ID.property),
