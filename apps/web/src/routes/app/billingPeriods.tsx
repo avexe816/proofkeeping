@@ -58,6 +58,8 @@ interface PeriodRow {
 
 interface LineRow {
   lineNo: number;
+  /** 行を指す鍵（再集計で動く `lineNo` を使わない / P5-12 と同じ理由）。 */
+  lineKey: string;
   description: string;
   quantity: number;
   unit: string;
@@ -135,6 +137,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
         status: loaded.period.status,
         lines: loaded.draft.lines.map((line) => ({
           lineNo: line.lineNo,
+          lineKey: line.lineKey,
           description: line.description,
           quantity: line.quantity,
           unit: line.unit,
@@ -205,6 +208,16 @@ export async function action({
     const byCounterparty =
       tenant.role === "CLIENT_VIEWER" ? true : form.get("byCounterparty") === "on";
 
+    // 行ごとのコメント（§6.2 の「行2 へのコメント」）。`lineComment:{lineKey}` の
+    // 入力から空でないものだけを拾う。存在しない lineKey は lib が弾く。
+    const lineComments: { lineKey: string; comment: string }[] = [];
+    for (const [key, value] of form.entries()) {
+      if (!key.startsWith("lineComment:") || typeof value !== "string") continue;
+      const lineComment = value.trim().slice(0, 500);
+      if (lineComment === "") continue;
+      lineComments.push({ lineKey: key.slice("lineComment:".length), comment: lineComment });
+    }
+
     const outcome =
       intent === "agree"
         ? await agreeBillingPeriod(env, tenant, {
@@ -216,7 +229,7 @@ export async function action({
         : await rejectBillingPeriod(env, tenant, {
             billingPeriodId,
             comment,
-            lineComments: [],
+            lineComments,
             actorId: session.membershipId,
           });
     if (outcome.kind !== "OK") {
@@ -413,6 +426,14 @@ export default function BillingPeriods() {
                 <span className="pk-field__label">{t("billingPeriods.reject.comment")}</span>
                 <input className="pk-input" name="comment" required maxLength={1000} />
               </label>
+              {/* 行ごとのコメント（§6.2）。空のまま送れば付かない。 */}
+              <p className="pk-muted">{t("billingPeriods.reject.lineComments")}</p>
+              {data.detail.lines.map((line) => (
+                <label className="pk-field" key={line.lineKey}>
+                  <span className="pk-field__label">{line.description}</span>
+                  <input className="pk-input" name={`lineComment:${line.lineKey}`} maxLength={500} />
+                </label>
+              ))}
               <button className="pk-button" type="submit">
                 {t("billingPeriods.action.reject")}
               </button>

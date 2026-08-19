@@ -1408,6 +1408,7 @@
   "billingPeriods.agree.comment": "コメント（任意）",
   "billingPeriods.agree.byCounterparty": "取引先の意思確認済み（代行入力）",
   "billingPeriods.reject.comment": "差戻しの理由（必須）",
+  "billingPeriods.reject.lineComments": "行ごとのコメント（任意）。指摘したい明細行にだけ入力してください。",
   "billingPeriods.review.title": "確認の履歴",
   "billingPeriods.review.empty": "履歴はまだありません。",
   "billingPeriods.review.agree": "承認",
