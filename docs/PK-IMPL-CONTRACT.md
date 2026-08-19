@@ -227,6 +227,25 @@
 | `role` | enum | `CLEANER` / `SITE_LEAD` / `OPS_MANAGER` / `OWNER` / `VIEWER` / `PLATFORM_ADMIN` |
 | `allowedPropertyIds` | array | アクセス可能な施設ID |
 
+#### 2.10.1 実装ロールとの対応（2026-08-19 追記 / OPEN_QUESTIONS #011 の決着）
+
+本書のビジネス語彙（6 語）と実装の `ROLES`（8 語）の対応を以下に固定する。
+**§4 の権限表を実装に写すときは、この表で読み替えること。**
+
+| 本書（§2.10 / §4） | 実装 `ROLES` | 注記 |
+|---|---|---|
+| `CLEANER` | `CLEANER` | 同一 |
+| `SITE_LEAD` | `PROPERTY_MANAGER` / `INSPECTOR` | 実装は現場責任と検査担当を分離している |
+| `OPS_MANAGER` | `ORG_ADMIN` / `OWNER` | 実装の `OWNER` は**組織代表**（security.md §1）であり、§4 の `OWNER` とは別概念 |
+| `OWNER`（施設オーナー＝発注元） | `CLIENT_VIEWER` | 発注元閲覧ロール。自施設のみ・氏名×・請求の承認/差戻しのみ可（P5-16） |
+| `VIEWER` | `CLIENT_VIEWER` | 承認権を使わなければ VIEWER 相当 |
+| `PLATFORM_ADMIN` | （対応なし） | プラットフォーム運営。組織内ロールではなく未実装 |
+| （対応なし） | `VENDOR_ADMIN` | 受託側（清掃会社）の管理者。§4 に列が無い |
+| （対応なし） | `AUDITOR` | 組織全体・読取専用の監査閲覧 |
+
+§4 の `OWNER` 行のうち「再清掃の依頼（依頼可）」「閲覧者の招待（自施設）」「単価・契約条件（閲覧のみ）」は
+`CLIENT_VIEWER` にまだ写していない（依頼経路と招待は別 task。単価は請求明細経由での閲覧に限る）。
+
 ---
 
 ## 3. 画面インベントリ
@@ -318,7 +337,7 @@
 
 ## 4. 権限マトリクス
 
-実装時はこの表をそのままテストケースにする。
+実装時はこの表をそのままテストケースにする。**列名は §2.10.1 の対応表で実装ロールへ読み替える**（特に `OWNER` 列は組織代表ではなく発注元 = `CLIENT_VIEWER`）。
 
 | 項目 | CLEANER | SITE_LEAD | OPS_MANAGER | OWNER | VIEWER | PLATFORM_ADMIN |
 |---|---|---|---|---|---|---|
