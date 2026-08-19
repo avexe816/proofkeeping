@@ -74,10 +74,16 @@ body {
 
 /* ── shell ────────────────────────────────────────────── */
 
+/* topbar を固定する（人間の指示 2026-08-19）。シェルを viewport の高さに
+   固定し、スクロールはコンテンツ（.pk-main）とサイドバーのナビ
+   （.pk-sidebar__nav）が**それぞれ独自に**持つ。長いメニュー・長い表でも
+   topbar と施設セレクタが常に見えている。印刷時は解除（末尾の印刷ブロック。
+   printLayout.spec.ts が最初の印刷ブロックを走査するため、この注記に
+   その綴りを書かないこと）。 */
 .pk-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .pk-shell__body {
@@ -390,6 +396,8 @@ a.pk-nav:hover {
   flex: 1;
   flex-direction: column;
   min-width: 0;
+  /* topbar 固定の相方。ページ全体ではなくコンテンツ側がスクロールする。 */
+  overflow-y: auto;
 }
 
 .pk-pagehead {
@@ -1341,6 +1349,16 @@ a.pk-nav:hover {
   @page {
     size: A4;
     margin: 12mm;
+  }
+
+  /* topbar 固定（.pk-shell の height: 100vh）を解除する。固定したまま
+     印刷すると、スクロール領域の 1 画面ぶんしか紙に出ない。 */
+  .pk-shell {
+    height: auto;
+  }
+
+  .pk-main {
+    overflow: visible;
   }
 
   /* 画面の枠（topbar / sidebar）と操作系は印刷しない。

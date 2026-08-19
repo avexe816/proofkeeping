@@ -22,8 +22,8 @@ export const ORG_TYPES = ["OPERATOR", "VENDOR", "OWNER"] as const;
 
 export type OrgType = (typeof ORG_TYPES)[number];
 
-/** 採番する書類の種別（.claude/rules/billing.md §5）。 */
-export const DOCUMENT_TYPES = ["INVOICE", "RECEIPT", "REPORT"] as const;
+/** 採番する書類の種別（.claude/rules/billing.md §5）。`PAYOUT` は支払明細書（P5-18）。 */
+export const DOCUMENT_TYPES = ["INVOICE", "RECEIPT", "REPORT", "PAYOUT"] as const;
 
 /**
  * 組織。

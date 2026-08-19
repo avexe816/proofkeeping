@@ -163,6 +163,11 @@ export const ENTITY_PREFIXES = [
   // P7-09。退避データの復元（PK-SPEC-P7 §9）。
   "arst", // archiveRestore
   "arow", // archiveRestoreRow
+  // P5-18 が決めたもの。支払集計（docs/PK-SPEC-PAY.md §1）。
+  "sppf", // staffPayProfile
+  "payr", // payRule
+  "pout", // payoutPeriod
+  "poln", // payoutLine
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

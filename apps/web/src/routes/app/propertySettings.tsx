@@ -24,6 +24,11 @@
  * ── 日締め時刻は運用の根幹 ──────────────────────────────
  * `dayCutoffTime` を変えると全ての日次集計の区切りが動く（architecture.md
  * §7）。フォームに注意書きを常設し、変更は必ず監査ログに残る。
+ *
+ * ── タイムゾーンは画面に出さない（人間の指示 2026-08-19）─
+ * 国内専用のため常に既定の `Asia/Tokyo`。**列は残す**（`businessDate` の
+ * 計算が読む / architecture.md §7。列の削除は破壊的変更）。海外施設を
+ * 扱う要件が出たら入力欄を戻す。既存行の値は更新時も**変更しない**。
  */
 
 import {
@@ -54,7 +59,6 @@ interface PropertyRow {
   address: string | null;
   phone: string | null;
   contactName: string | null;
-  timezone: string;
   dayCutoffTime: string;
   isActive: boolean;
 }
@@ -94,7 +98,6 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
         address: row.address,
         phone: row.phone,
         contactName: row.contactName,
-        timezone: row.timezone,
         dayCutoffTime: row.dayCutoffTime,
         isActive: row.isActive,
       }))
@@ -103,11 +106,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   };
 }
 
-type ActionFailure =
-  | "INVALID"
-  | "CODE_TAKEN"
-  | "BAD_CUTOFF"
-  | "BAD_TIMEZONE";
+type ActionFailure = "INVALID" | "CODE_TAKEN" | "BAD_CUTOFF";
 
 interface PropertySettingsActionResult {
   created?: boolean;
@@ -120,15 +119,6 @@ const CUTOFF_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** 施設コード。取込ファイルのキーになるので英数とハイフンだけに絞る。 */
 const CODE_PATTERN = /^[A-Za-z0-9-]{1,16}$/;
-
-function isValidTimezone(value: string): boolean {
-  try {
-    new Intl.DateTimeFormat("en-CA", { timeZone: value });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function textOf(value: FormDataEntryValue | null, maxLength: number): string | null {
   if (typeof value !== "string") return null;
@@ -160,12 +150,10 @@ export async function action({
   const address = optionalTextOf(form.get("address"), 128);
   const phone = optionalTextOf(form.get("phone"), 20);
   const contactName = optionalTextOf(form.get("contactName"), 64);
-  const timezone = textOf(form.get("timezone"), 64) ?? "Asia/Tokyo";
   const dayCutoffTime = textOf(form.get("dayCutoffTime"), 5) ?? "05:00";
 
   if (name === null) return { failure: "INVALID" };
   if (!CUTOFF_PATTERN.test(dayCutoffTime)) return { failure: "BAD_CUTOFF" };
-  if (!isValidTimezone(timezone)) return { failure: "BAD_TIMEZONE" };
 
   if (intent === "create") {
     // 作成は組織全体の権限（施設スコープの相手は自分の担当を増やせない）。
@@ -184,7 +172,8 @@ export async function action({
       address: address ?? undefined,
       phone: phone ?? undefined,
       contactName: contactName ?? undefined,
-      timezone,
+      // 国内専用の既定（冒頭の注記）。入力欄は無い。
+      timezone: "Asia/Tokyo",
       dayCutoffTime,
     });
     await recordAudit(env, tenant, {
@@ -193,7 +182,7 @@ export async function action({
       targetType: "property",
       targetId: row.id,
       propertyId: row.id,
-      after: { code, name, timezone, dayCutoffTime },
+      after: { code, name, dayCutoffTime },
     });
     return { created: true };
   }
@@ -210,6 +199,7 @@ export async function action({
 
     const isActive = form.get("isActive") === "on";
 
+    // `timezone` を渡さない = 変更しない（既存行の値を保つ / 冒頭の注記）。
     await updateProperty(env, tenant, {
       propertyId,
       name,
@@ -217,7 +207,6 @@ export async function action({
       address,
       phone,
       contactName,
-      timezone,
       dayCutoffTime,
       isActive,
     });
@@ -230,11 +219,10 @@ export async function action({
       propertyId,
       before: {
         name: before.name,
-        timezone: before.timezone,
         dayCutoffTime: before.dayCutoffTime,
         isActive: before.isActive,
       },
-      after: { name, timezone, dayCutoffTime, isActive },
+      after: { name, dayCutoffTime, isActive },
     });
     return { updated: true };
   }
@@ -246,7 +234,6 @@ const FAILURE_MESSAGE: Record<ActionFailure, Parameters<typeof t>[0]> = {
   INVALID: "propSettings.error.invalid",
   CODE_TAKEN: "propSettings.error.codeTaken",
   BAD_CUTOFF: "propSettings.error.badCutoff",
-  BAD_TIMEZONE: "propSettings.error.badTimezone",
 };
 
 export default function PropertySettings() {
@@ -296,10 +283,6 @@ export default function PropertySettings() {
             <label className="pk-field">
               <span className="pk-field__label">{t("propSettings.field.contactName")}</span>
               <input className="pk-input" name="contactName" defaultValue={property.contactName ?? ""} maxLength={64} />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.timezone")}</span>
-              <input className="pk-input" name="timezone" defaultValue={property.timezone} required maxLength={64} />
             </label>
             <label className="pk-field">
               <span className="pk-field__label">{t("propSettings.field.dayCutoffTime")}</span>
@@ -358,10 +341,6 @@ export default function PropertySettings() {
             <label className="pk-field">
               <span className="pk-field__label">{t("propSettings.field.contactName")}</span>
               <input className="pk-input" name="contactName" maxLength={64} />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.timezone")}</span>
-              <input className="pk-input" name="timezone" defaultValue="Asia/Tokyo" required maxLength={64} />
             </label>
             <label className="pk-field">
               <span className="pk-field__label">{t("propSettings.field.dayCutoffTime")}</span>

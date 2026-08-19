@@ -30,6 +30,22 @@ export {
   type TaxRoundingModeValue,
 } from "./vocabulary.js";
 
+// スタッフ支払集計（P5-18 / docs/PK-SPEC-PAY.md §2）。
+// **支給総額の基礎まで。** 控除の計算をここに足さない（PAY §0.2 MUST）。
+export {
+  PAY_UNIT_TYPE_VALUES,
+  PAYOUT_WARNING_CODES,
+  buildPayoutDraft,
+  resolvePayRule,
+  type PayableWork,
+  type PayoutDraft,
+  type PayoutDraftLine,
+  type PayoutWarningCode,
+  type PayRuleCandidate,
+  type PayRuleResolution,
+  type PayUnitTypeValue,
+} from "./payout.js";
+
 // 料金の解決（P5-03 / PK-SPEC-P5 §3.2）。5 段階の優先順位。
 export {
   isEffectiveOn,
