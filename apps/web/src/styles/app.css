@@ -44,10 +44,18 @@
 
   --sh: 0 1px 3px rgb(20 30 25 / 6%);
 
-  /* A01 §1.1 の寸法。**この 2 つは同じ値であること**（縦ラインを通す）。 */
+  /* A01 §1.1 の寸法。**sidebarWidth と brandWidth は同じ値であること**（縦ラインを通す）。 */
   --topbarHeight: 58px;
   --sidebarWidth: 214px;
   --brandWidth: 214px;
+  --sidebarWidthCollapsed: 56px;
+}
+
+/* レール表示（A01 §4.4 / P7-21）。**2 つの幅を同時に切り替える**ことで
+   受け入れ基準 #13（ブランド幅 = サイドバー幅）を両状態で満たす。 */
+.pk-shell--nav-collapsed {
+  --sidebarWidth: var(--sidebarWidthCollapsed);
+  --brandWidth: var(--sidebarWidthCollapsed);
 }
 
 * {
@@ -103,6 +111,24 @@ body {
 .pk-topbar__brandAccent {
   color: var(--accent2);
   font-style: normal;
+}
+
+/* レール時はモノグラム（PK）へ切り替える（A01 §4.4）。 */
+.pk-topbar__brandMark {
+  display: none;
+}
+
+.pk-shell--nav-collapsed .pk-topbar__brandFull {
+  display: none;
+}
+
+.pk-shell--nav-collapsed .pk-topbar__brandMark {
+  display: inline;
+}
+
+.pk-shell--nav-collapsed .pk-topbar__brand {
+  padding-left: 0;
+  text-align: center;
 }
 
 /* サイドバーの項目アイコン（A01 §4.1「アイコン + ラベル + 件数バッジ」）。
@@ -206,12 +232,31 @@ body {
   overflow-y: auto;
 }
 
+/* セクション見出し。P7-21 でクリック開閉になった（button 化）。 */
 .pk-sidebar__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
   padding: 12px 15px 5px;
+  font: inherit;
   font-size: 9px;
   font-weight: 700;
   color: #7da391;
+  text-align: left;
   letter-spacing: 0.06em;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+.pk-sidebar__heading::after {
+  font-size: 8px;
+  content: "▾";
+}
+
+.pk-sidebar__heading[aria-expanded="false"]::after {
+  content: "▸";
 }
 
 .pk-sidebar__foot {
@@ -253,6 +298,55 @@ a.pk-nav:hover {
 .pk-nav__note {
   margin-left: auto;
   font-size: 9.5px;
+}
+
+/* レール切替（A01 §4.4）。フッターに置く。 */
+.pk-sidebar__toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 6px 0 0;
+  font: inherit;
+  font-size: 10.5px;
+  color: #8fb3a2;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+.pk-sidebar__toggle:hover {
+  color: #fff;
+}
+
+.pk-sidebar__toggleIcon {
+  width: 18px;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ── sidebar: レール表示（A01 §4.4） ──────────────────────
+   ラベル・件数・見出し・閲覧範囲の注記を隠し、アイコンだけを縦に並べる。
+   ラベル全文は各項目の `title` が補う（Sidebar.tsx）。 */
+.pk-shell--nav-collapsed .pk-nav__label,
+.pk-shell--nav-collapsed .pk-nav__note,
+.pk-shell--nav-collapsed .pk-sidebar__heading,
+.pk-shell--nav-collapsed .pk-sidebar__scope {
+  display: none;
+}
+
+.pk-shell--nav-collapsed .pk-nav {
+  justify-content: center;
+  padding: 9px 0;
+}
+
+.pk-shell--nav-collapsed .pk-sidebar__foot {
+  padding: 12px 8px;
+}
+
+.pk-shell--nav-collapsed .pk-sidebar__toggle {
+  justify-content: center;
+  padding: 0;
 }
 
 /* ── main ─────────────────────────────────────────────── */

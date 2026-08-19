@@ -197,4 +197,6 @@ export default [
   // シェルの外に置く。POST のたびにシェルの loader を動かす必要が無い
   // （切替後のリダイレクトで、どのみち loader は動き直す）。
   route("app/switch-property", "routes/app/switchProperty.ts"),
+  // P7-21。サイドバーの折りたたみ（A01 §4.4）。switch-property と同じ形。
+  route("app/toggle-sidebar", "routes/app/toggleSidebar.ts"),
 ] satisfies RouteConfig;

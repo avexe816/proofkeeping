@@ -44,8 +44,16 @@ export function Topbar(props: {
           `app.brand` は 1 語のままにし、**表示の都合で分けるのは
           ここだけ**にする（辞書に markup を持ち込まない）。 */}
       <div className="pk-topbar__brand">
-        {t("app.brand.proof")}
-        <em className="pk-topbar__brandAccent">{t("app.brand.keeping")}</em>
+        {/* レール時（A01 §4.4）は 56px に収まるモノグラムへ切り替える。
+            どちらを出すかは CSS（`.pk-shell--nav-collapsed`）が決める。 */}
+        <span className="pk-topbar__brandFull">
+          {t("app.brand.proof")}
+          <em className="pk-topbar__brandAccent">{t("app.brand.keeping")}</em>
+        </span>
+        <span className="pk-topbar__brandMark">
+          {t("app.brand.mark.proof")}
+          <em className="pk-topbar__brandAccent">{t("app.brand.mark.keeping")}</em>
+        </span>
       </div>
       <PropertySwitcher
         properties={props.properties}
