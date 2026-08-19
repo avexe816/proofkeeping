@@ -34,6 +34,7 @@ import {
 import {
   addAdjustmentLine,
   findPayoutPeriodById,
+  findTaxProfile,
   listOrgMembers,
   listPayoutLines,
   listPayoutPeriods,
@@ -46,8 +47,10 @@ import { ORGANIZATION_TARGET, assertPermission } from "../../../lib/auth/permiss
 import {
   aggregateStaffPayout,
   confirmPayoutPeriod,
+  enqueuePayoutPdf,
   payoutMonthRange,
 } from "../../../lib/payout/aggregate.js";
+import { signObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { getSession, getTenant, type AppEnv } from "../../../middleware/index.js";
 
 const payouts = new Hono<AppEnv>();
@@ -202,6 +205,40 @@ payouts.get("/:payoutPeriodId/lines", async (c) => {
     })),
   };
   return c.json(body);
+});
+
+/**
+ * 支払明細書 PDF の取得（PAY §3.2）。**確定済みのみ。**
+ *
+ * 署名付き URL（15 分）を返す。R2 のキーそのものは返さない
+ * （`invoices.ts` の PDF 取得と同じ形）。
+ */
+payouts.get("/:payoutPeriodId/pdf", async (c) => {
+  const ctx = getTenant(c);
+  assertPermission(ctx, "payout.read", ORGANIZATION_TARGET);
+
+  const payoutPeriodId = c.req.param("payoutPeriodId");
+  const period = await findPayoutPeriodById(c.env, ctx, payoutPeriodId);
+  if (period === undefined) return c.json(notFound(), 404);
+  // 確定前に PDF は無い（PDF は確定の後工程）。
+  if (period.status !== "CONFIRMED") return c.json({ error: "PDF_NOT_READY" as const }, 409);
+
+  if (period.pdfStorageKey === null) {
+    // まだ生成中か、確定時の投入に失敗した。**投げ直して 409 を返す**
+    // （冪等: 同じ文書番号なら同じキーへ同じ内容が載る）。regenerate の
+    // 専用 API は作らない（発行済み帳票の更新の口を増やさない / PAY §3.2）。
+    const taxProfile = await findTaxProfile(c.env, ctx);
+    await enqueuePayoutPdf(c.env, ctx, {
+      payoutPeriodId,
+      sealImageKey: taxProfile?.sealImageKey ?? null,
+    });
+    return c.json({ error: "PDF_NOT_READY" as const }, 409);
+  }
+
+  return c.json({
+    url: await signObjectUrl(c.env.SESSION_SECRET, period.pdfStorageKey, ctx.now),
+    documentNo: period.documentNo,
+  });
 });
 
 /** 調整行（追加対応・立替金）。**理由必須**（PAY §1.4）。 */

@@ -36,6 +36,7 @@ import {
 } from "@pk/db";
 import { actualMinutesOf } from "@pk/engine";
 
+import type { PayoutPdfMessage } from "../../consumers/invoicePdf.js";
 import { issueDocumentNumber } from "../document/sequencer.js";
 
 /** 対象月（`YYYY-MM`）→ 期間（業務日基準の暦月）。 */
@@ -200,5 +201,43 @@ export async function confirmPayoutPeriod(
   // （billing.md §5 は欠番を許容する。再利用しない）。
   if (changed === 0) return { kind: "REJECTED", reason: "NOT_REVIEWING" };
 
+  // 支払明細書 PDF を Queue へ（PAY §3.2）。**失敗しても巻き戻さない**
+  // （`enqueueInvoicePdf()` と同じ。確定は成立している）。投入に失敗した
+  // ときは PDF 取得（`GET /payouts/:id/pdf`）が投げ直す。
+  await enqueuePayoutPdf(env, ctx, {
+    payoutPeriodId,
+    sealImageKey: taxProfile.sealImageKey,
+  });
+
   return { kind: "CONFIRMED", documentNo: issued.documentNumber, totalAmount };
+}
+
+/**
+ * 支払明細書 PDF の生成をキューへ投げる（PAY §3.2）。
+ *
+ * **投入の失敗を呼び出し側へ伝播させない**（`enqueueInvoicePdf()` の注記
+ * と同じ理由）。確定は既に成立していて、ここで例外を投げると確定その
+ * ものが失敗したように見える。
+ */
+export async function enqueuePayoutPdf(
+  env: Env,
+  ctx: TenantContext,
+  input: { payoutPeriodId: string; sealImageKey: string | null },
+): Promise<boolean> {
+  const message: PayoutPdfMessage = {
+    kind: "PAYOUT_PDF",
+    organizationId: ctx.organizationId,
+    orgShortId: ctx.orgShortId,
+    payoutPeriodId: input.payoutPeriodId,
+    sealImageKey: input.sealImageKey,
+    // **メッセージが時刻を持つ。** 再送で payload が変わらないようにする。
+    requestedAtMs: ctx.now.getTime(),
+  };
+  try {
+    await env.QUEUE_PDF_GENERATION.send(message);
+    return true;
+  } catch {
+    console.error("payout-pdf-enqueue-failed");
+    return false;
+  }
 }

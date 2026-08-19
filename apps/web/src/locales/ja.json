@@ -1527,6 +1527,8 @@
   "payouts.adjust.reason": "理由（必須）",
   "payouts.adjust.submit": "調整行を追加",
   "payouts.exportCsv": "CSV をダウンロード（給与ソフト連携用）",
+  "payouts.action.pdf": "支払明細書 PDF を開く",
+  "payouts.pdfPending": "支払明細書 PDF を作成しています。しばらくしてから再読み込みしてください。",
   "payRules.title": "支払単価",
   "payRules.lede": "スタッフへの支払に使う単価を設定します。請求単価（取引先と料金）とは別の表です。",
   "payRules.error.invalid": "入力内容を確認してください。スタッフ既定・施設×種別・全体既定のいずれかの形で登録します。",

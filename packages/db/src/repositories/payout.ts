@@ -340,6 +340,29 @@ export async function updatePayoutPeriodStatus(
   return result.meta.changes;
 }
 
+/**
+ * PDF の在り処とハッシュを書き戻す（PAY §3.2）。
+ *
+ * **触ってよいのはこの 2 列だけ**（`updateInvoicePdf()` と同じ）。
+ * 金額と明細に触れる経路をコンシューマに持たせない。
+ */
+export async function updatePayoutPdf(
+  env: Env,
+  ctx: TenantContext,
+  payoutPeriodId: string,
+  input: { pdfStorageKey: string; pdfSha256: string },
+): Promise<number> {
+  assertIdBelongsToTenant(payoutPeriodId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const result = await db
+    .update(payoutPeriod)
+    .set({ pdfStorageKey: input.pdfStorageKey, pdfSha256: input.pdfSha256, updatedAt: ctx.now })
+    .where(
+      and(eq(payoutPeriod.organizationId, ctx.organizationId), eq(payoutPeriod.id, payoutPeriodId)),
+    );
+  return result.meta.changes;
+}
+
 // ────────────────────────────────────────────────────────────
 // 明細行（PAY §1.4）
 // ────────────────────────────────────────────────────────────

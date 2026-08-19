@@ -16,20 +16,6 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 
 ## 未回答
 
-### #106 支払明細書 PDF（CONTRACTOR 向け）が未実装
-- 提起: 2026-08-19 / P5-18 実装中
-- 内容: PK-SPEC-PAY §3.2 は確定時の支払明細書 PDF（PAY 採番）を定めるが、
-  P5-18 は**採番と CSV（給与ソフト連携）まで**を実装し、PDF テンプレート
-  （`packages/pdf`）・pdf-generation キューの配線・R2 保存を追送にした。
-  同バッチ（CLIENT_VIEWER / メールリンク / 折りたたみ）の差分が既に大きく、
-  帳票の削除禁止・sha256 固定など請求書と同じ厳密さが要るため分けた。
-- 影響: CONTRACTOR（業務委託）への仕入明細書方式の交付。雇用スタッフの
-  運用（CSV）は成立している。
-- 暫定対応: 確定時に `PAY-{年度}-{連番}` は採番済み。画面と CSV に番号が出る。
-- 決める人: 次の実装セッション。`consumers/invoicePdf.ts` と
-  `packages/pdf/src/receipt.tsx` を雛形に、`payoutPeriod.pdfSha256` 列の
-  追加込みで 1 task ぶん。
-
 ### #002 最初に実接続する PMS
 - 提起: 未着手 / P6-06
 - 内容: 導入顧客が利用している PMS を調査してから決める。想定で作らない。
@@ -1607,3 +1593,21 @@ Claude Code はここに追記して作業を止める。人間が回答した�
   （画面を作らない）。**(a) を推す。** 30 日前の通知を受けた管理者が
   その場で延ばせないと、MUST の「必要なら」が成立しない。
   通知の `linkPath` は既に `/app/settings/organization` を指してある。
+
+### #106 支払明細書 PDF（CONTRACTOR 向け）が未実装
+- 提起: 2026-08-19 / P5-18 実装中
+- **解決（2026-08-19 / 同日の追送で実装）:** `packages/pdf` に
+  `payoutStatement.ts`（仕入明細書方式の注記・税区分の注記は定数の固定表示）、
+  `pdf-generation` キューに kind `PAYOUT_PDF`、確定時の投入
+  （`confirmPayoutPeriod()` → `enqueuePayoutPdf()`）、`payoutPeriod` に
+  `pdfStorageKey` / `pdfSha256`（migration 0027）、取得は
+  `GET /api/v1/payouts/:id/pdf`（署名付き URL・未生成なら投げ直して 409）。
+  R2 キーは `payouts/{orgId}/{documentNo}.pdf`（版なし — 訂正は赤伝で
+  別番号になるため / regenerate API は作らない）。
+- 内容: PK-SPEC-PAY §3.2 は確定時の支払明細書 PDF（PAY 採番）を定めるが、
+  P5-18 は**採番と CSV（給与ソフト連携）まで**を実装し、PDF テンプレート
+  （`packages/pdf`）・pdf-generation キューの配線・R2 保存を追送にした。
+  同バッチ（CLIENT_VIEWER / メールリンク / 折りたたみ）の差分が既に大きく、
+  帳票の削除禁止・sha256 固定など請求書と同じ厳密さが要るため分けた。
+- 影響: CONTRACTOR（業務委託）への仕入明細書方式の交付。雇用スタッフの
+  運用（CSV）は成立している。

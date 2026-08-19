@@ -122,6 +122,10 @@ export const payoutPeriod = sqliteTable(
      * 検索のための非正規化で、明細（`payoutLine`）が正。
      */
     totalAmount: integer("total_amount").notNull().default(0),
+    /** 支払明細書 PDF の R2 キー（PAY §3.2）。生成前は null。 */
+    pdfStorageKey: text("pdf_storage_key"),
+    /** PDF のハッシュ（真実性の確保 / billing.md §2 と同じ扱い）。 */
+    pdfSha256: text("pdf_sha256"),
     ...timestamps,
   },
   (t) => [

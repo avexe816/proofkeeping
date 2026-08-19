@@ -490,6 +490,7 @@ export {
   listStaffPayProfiles,
   listTimeLogsByTaskIds,
   replacePayoutTaskLines,
+  updatePayoutPdf,
   updatePayoutPeriodStatus,
   upsertStaffPayProfile,
   type AddAdjustmentLineInput,

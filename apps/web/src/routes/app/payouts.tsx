@@ -40,6 +40,7 @@ import {
   confirmPayoutPeriod,
   payoutMonthRange,
 } from "../../lib/payout/aggregate.js";
+import { signObjectUrl } from "../../lib/storage/signedUrl.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
 
@@ -68,7 +69,16 @@ interface PayoutsData {
   month: string;
   rows: PayoutRow[];
   /** `?period=` で選んだ 1 件の明細。未選択なら null。 */
-  detail: { payoutPeriodId: string; staffName: string; status: PayoutPeriodStatus; lines: PayoutLineRow[] } | null;
+  detail: {
+    payoutPeriodId: string;
+    staffName: string;
+    status: PayoutPeriodStatus;
+    lines: PayoutLineRow[];
+    /** 支払明細書 PDF の署名付き URL（15 分）。未生成・未確定なら null。 */
+    pdfUrl: string | null;
+    /** 確定済みだが PDF がまだ無い（生成中）。 */
+    pdfPending: boolean;
+  } | null;
 }
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -111,10 +121,17 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     const period = await findPayoutPeriodById(env, tenant, periodId);
     if (period !== undefined) {
       const lines = await listPayoutLines(env, tenant, period.id);
+      // 支払明細書 PDF（PAY §3.2）。確定済みで生成が済んでいれば署名付き URL。
+      const pdfUrl =
+        period.status === "CONFIRMED" && period.pdfStorageKey !== null
+          ? await signObjectUrl(env.SESSION_SECRET, period.pdfStorageKey, now)
+          : null;
       detail = {
         payoutPeriodId: period.id,
         staffName: memberOf.get(period.membershipId)?.displayName ?? "",
         status: period.status,
+        pdfUrl,
+        pdfPending: period.status === "CONFIRMED" && period.pdfStorageKey === null,
         lines: lines.map((line) => ({
           lineNo: line.lineNo,
           lineType: line.lineType,
@@ -315,6 +332,14 @@ export default function Payouts() {
       {data.detail === null ? null : (
         <>
           <h2 className="pk-section__title">{`${t("payouts.lines.title")} — ${data.detail.staffName}`}</h2>
+          {data.detail.pdfUrl !== null ? (
+            <p>
+              <a className="pk-button" href={data.detail.pdfUrl} target="_blank" rel="noreferrer">
+                {t("payouts.action.pdf")}
+              </a>
+            </p>
+          ) : null}
+          {data.detail.pdfPending ? <p className="pk-muted">{t("payouts.pdfPending")}</p> : null}
           <table className="pk-grid">
             <thead>
               <tr>

@@ -46,6 +46,14 @@ export {
   type PayUnitTypeValue,
 } from "./payout.js";
 
+// 支払明細書 PDF に載せる値（P5-18 追送 / PK-SPEC-PAY §3.2）。
+// **テンプレートは計算しない。控除の項目を持たない。**
+export {
+  type PayoutStatementLine,
+  type PayoutStatementPayee,
+  type PayoutStatementPayload,
+} from "./payoutPayload.js";
+
 // 料金の解決（P5-03 / PK-SPEC-P5 §3.2）。5 段階の優先順位。
 export {
   isEffectiveOn,
