@@ -616,6 +616,14 @@ a.pk-nav:hover {
   background: var(--warnbg);
 }
 
+/* 忘れ物の期限バッジ（W-09 / PK-SPEC-P2 §7.3「発見直後から赤」）。
+   ui-writing.md §3 が禁じる「経過時間超過の赤」は清掃者を急かす表示のこと。
+   保管期限の警告はここが唯一の例外（engine の LOST_ITEM_WARNING_LEVELS）。 */
+.pk-badge--urgent {
+  color: var(--danger);
+  background: var(--dangerbg);
+}
+
 /* ── W-04 人員配分 ───────────────────────────────────── */
 
 .pk-assign {

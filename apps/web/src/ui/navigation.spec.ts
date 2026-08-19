@@ -79,7 +79,10 @@ describe("登録簿の不変条件", () => {
       "nav.findingDetail",
       // W-06 証跡一覧（P2-09）。
       "nav.cleaningRecords",
-      // 検査キュー（P7-18）。「記録の確認」の証跡一覧の直後。
+      // W-09 忘れ物管理 / W-10 不具合管理（P7-22 / OQ #082 の残り半分）。
+      "nav.lostItems",
+      "nav.issues",
+      // 検査キュー（P7-18）。「記録の確認」の不具合管理の直後。
       "nav.inspection",
       // W-22 データ品質ダッシュボード（P3-12）。「資材と分析」の 1 つめ。
       "nav.dataQuality",

@@ -1800,8 +1800,7 @@ task: P0-07 リポジトリ層の雛形
       （DECISIONS #208）。支払明細書 PDF も同日の追送で実装（OQ #106 解決）
 - [x] P5-19 請求確認画面（追加起票 2026-08-19）
       `/app/billing-periods`。合意・差戻し・確認依頼の本体を
-      `lib/billing/review.ts` へ共有化（API・メールリンクと同実装）。
-      OQ #082 の請求期間分を決着（忘れ物・設備不具合の画面は残）
+      `lib/billing/review.ts` へ共有化（API・メールリンクと同実装）
 
 ## Phase 6 — 外部連携と拡張（M10–M11）
 
@@ -1958,6 +1957,9 @@ GA 判定前に P8 の task を作らない（CLAUDE.md §9）方針は変えて
 - [x] P7-21 サイドバーの折りたたみ（追加起票 2026-08-19 / オーナー指示）
       A01 第2版（レール 56px・§4.4）。topbar 固定と独立スクロールも同日の
       追加指示で実装（DECISIONS #210）
+- [x] P7-22 忘れ物・不具合の PC 画面 W-09 / W-10（追加起票 2026-08-19）
+      OQ #082 を決着（P5-19 の請求確認と合わせて 3 画面）。自動廃棄なし・
+      客室は戻さない・CLEANER の絞りは lib 再利用
 
 **P7-18 が P7-20 へ渡すもの**: 施設横断の scope 判定
 `resolveListScope()`（`apps/web/src/lib/property/listScope.ts` / DECISIONS #194）。

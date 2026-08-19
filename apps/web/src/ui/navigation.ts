@@ -196,6 +196,30 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/evidence`,
   },
+  // W-09 忘れ物管理（P7-22 / PK-SPEC-P2 §12.1）。**`lostItem.read`。**
+  // `CLEANER` にも出る（自分が登録した分だけが見える / §7.4 — 絞りは lib）。
+  // 保管場所・返却先の出し分けは `lostItem.readStorage`（画面側で判定）。
+  {
+    key: "nav.lostItems",
+    icon: "🧳",
+    section: "records",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "lostItem.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/lost-found`,
+  },
+  // W-10 不具合管理（P7-22 / 同 §12.1）。**`issue.read`。**
+  {
+    key: "nav.issues",
+    icon: "🔧",
+    section: "records",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "issue.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/issues`,
+  },
   // 検査キュー（P7-18 / ui-prototypes/ops/pkops-A-daily-quality.html 04）。
   // **`action` を `property.read` から `inspection.read` へ差し替えた。**
   // 冒頭「`action` の暫定的な当て方」が言う「画面を作る task が差し替える」

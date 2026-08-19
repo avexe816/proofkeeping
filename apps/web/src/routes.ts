@@ -146,6 +146,9 @@ export default [
     route("app/p/:propertyId/plan", "routes/app/propertyPlan.tsx"),
     route("app/p/:propertyId/evidence", "routes/app/evidenceList.tsx"),
     route("app/p/:propertyId/evidence/:taskId", "routes/app/evidenceDetail.tsx"),
+    // P7-22。W-09 忘れ物管理 / W-10 不具合管理（PK-SPEC-P2 §12.1 のパス）。
+    route("app/p/:propertyId/lost-found", "routes/app/lostItems.tsx"),
+    route("app/p/:propertyId/issues", "routes/app/issues.tsx"),
     route("app/org/dashboard", "routes/app/orgDashboard.tsx"),
     route("app/org/vendor-plan", "routes/app/vendorPlan.tsx"),
     // P5-18。支払集計と単価設定。門は payout.read / payout.write（OWNER / ORG_ADMIN）。
