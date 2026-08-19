@@ -15,10 +15,21 @@
  */
 
 /**
+ * 区切り文字。カンマ（CSV）とタブ（TSV）の 2 つだけを認める。
+ *
+ * タブを足したのは、**Excel で開いた CSV をコピーするとクリップボードが
+ * タブ区切りになる**ため。カンマしか読めないと、貼り付けた表全体が
+ * 1 セルに潰れてヘッダが見つからず、黙って 0 行になる。
+ * セミコロン等は要望が出るまで足さない（区切りの推測を広げるほど、
+ * 値の中の記号を区切りと誤読する余地が増える）。
+ */
+export type CsvDelimiter = "," | "\t";
+
+/**
  * 1 行を列へ割る。**引用符つきの値に対応する。**
  * 施設名や備考にカンマが入った CSV でも列がずれない。
  */
-export function splitCsvLine(line: string): string[] {
+export function splitCsvLine(line: string, delimiter: CsvDelimiter = ","): string[] {
   const cells: string[] = [];
   let cell = "";
   let quoted = false;
@@ -41,7 +52,7 @@ export function splitCsvLine(line: string): string[] {
       quoted = true;
       continue;
     }
-    if (char === ",") {
+    if (char === delimiter) {
       cells.push(cell);
       cell = "";
       continue;
@@ -93,28 +104,47 @@ export function parseCsvBooleanStrict(raw: string): boolean | null {
   return null;
 }
 
-/** ヘッダ行の位置と、列名 → 位置の対応。 */
+/** ヘッダ行の位置と、列名 → 位置の対応、そして区切り文字。 */
 export interface CsvHeader {
   /** 0 始まり。見つからなければ -1。 */
   index: number;
   columns: ReadonlyMap<string, number>;
+  /**
+   * ヘッダ行から判定した区切り文字。**データ行も必ずこれで割ること**
+   * （`splitCsvLine(line, header.delimiter)`）。行ごとに推測し直すと、
+   * 値にカンマを含む TSV の行だけ列がずれる。
+   */
+  delimiter: CsvDelimiter;
 }
+
+/** 区切りの候補。**カンマを先に試す**（仕様の例が CSV のため）。 */
+const DELIMITERS: readonly CsvDelimiter[] = [",", "\t"];
 
 /**
  * ヘッダ行を探す。
  *
  * `requiredColumn` を含む最初の非空行をヘッダとみなす。**先頭の非空行に
  * 無ければ探索を打ち切る**（データ行の途中に同名の値があっても拾わない）。
- * 列名は小文字化して前後の空白を落とす。
+ * 列名は小文字化して前後の空白を落とす。区切りはカンマ → タブの順に試し、
+ * `requiredColumn` が現れた方を採る。
  */
 export function findCsvHeader(lines: readonly string[], requiredColumn: string): CsvHeader {
   for (const [index, line] of lines.entries()) {
     if (line.trim() === "") continue;
-    const cells = splitCsvLine(stripBom(line)).map((cell) => cell.trim().toLowerCase());
-    if (!cells.includes(requiredColumn)) break;
-    return { index, columns: new Map(cells.map((cell, position) => [cell, position])) };
+    for (const delimiter of DELIMITERS) {
+      const cells = splitCsvLine(stripBom(line), delimiter).map((cell) =>
+        cell.trim().toLowerCase(),
+      );
+      if (!cells.includes(requiredColumn)) continue;
+      return {
+        index,
+        columns: new Map(cells.map((cell, position) => [cell, position])),
+        delimiter,
+      };
+    }
+    break;
   }
-  return { index: -1, columns: new Map() };
+  return { index: -1, columns: new Map(), delimiter: "," };
 }
 
 /** 業務日の形（architecture.md §7）。 */
