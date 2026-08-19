@@ -50,6 +50,8 @@ function walk(dir: string): string[] {
 const PIN_BEARING_FILES: Readonly<Record<string, string>> = {
   "lib/auth/pin.ts": "PIN の発行とハッシュ化そのもの。平文はここで作られる。",
   "lib/staff/register.ts": "発行 → ハッシュ → 保存 → 戻り値。**保存するのはハッシュだけ。**",
+  "lib/staff/manage.ts":
+    "再発行（W-12 / DECISIONS #203）。register.ts と同じ形で、保存するのはハッシュだけ。",
   "routes/app/staff.tsx": "登録画面。`action` の戻り値としてだけ現れる（DECISIONS #184）。",
 };
 
@@ -93,7 +95,11 @@ describe("初期 PIN の経路（PK-SPEC-P7 §2.4 v1.1）", () => {
    * `register.ts` の `recordAudit()` だけは例外で、そこは
    * 別の検査（下の「監査ログに PIN を載せない」）が中身を見る。
    */
-  it.each(PIN_CARRYING_FILES.filter((path) => path !== "lib/staff/register.ts"))(
+  it.each(
+    PIN_CARRYING_FILES.filter(
+      (path) => path !== "lib/staff/register.ts" && path !== "lib/staff/manage.ts",
+    ),
+  )(
     "%s が Queue・ログ・R2・監査ログへ渡さない",
     (relativePath) => {
       const source = code(join(WEB, relativePath));
@@ -108,6 +114,32 @@ describe("初期 PIN の経路（PK-SPEC-P7 §2.4 v1.1）", () => {
     for (const { pattern, label } of EXFILTRATION) {
       if (label === "監査ログ") continue;
       expect(pattern.test(source), label).toBe(false);
+    }
+  });
+
+  it("`manage.ts` は監査ログ以外の口を持たない", () => {
+    const source = code(join(WEB, "lib", "staff", "manage.ts"));
+    for (const { pattern, label } of EXFILTRATION) {
+      if (label === "監査ログ") continue;
+      expect(pattern.test(source), label).toBe(false);
+    }
+  });
+
+  /**
+   * W-12（DECISIONS #203）。`manage.ts` の監査ログに発行値・ハッシュを
+   * 載せない。`user.pinReset` / `user.passwordReset` という**操作名**は
+   * 単語境界で除外される（`pin` の直後が語で続くため）。
+   */
+  it("`manage.ts` の監査ログに PIN もパスワードもハッシュも載せない", () => {
+    const source = code(join(WEB, "lib", "staff", "manage.ts"));
+    // 呼び出しの閉じ（`});`）はブロックの深さでインデントが変わる。
+    // 分岐の中の呼び出し（4 スペース）も取り逃さないよう `\s*` で受ける。
+    const calls = [...source.matchAll(/recordAudit\s*\([\s\S]*?\n\s*\}\);/g)];
+    expect(calls.length).toBe(5);
+    for (const call of calls) {
+      expect(/\bpin\b/i.test(call[0]), "pin").toBe(false);
+      expect(/\bpassword\b/i.test(call[0]), "password").toBe(false);
+      expect(/hash/i.test(call[0]), "hash").toBe(false);
     }
   });
 

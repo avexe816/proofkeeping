@@ -106,3 +106,43 @@ export async function isPasswordReused(
   }
   return false;
 }
+
+/**
+ * 初期パスワードの発行（W-12 メンバー管理 / DECISIONS #203）。
+ *
+ * 12 文字・英大小と数字を必ず各 1 文字以上含む（security.md §2 の
+ * 「10 文字以上、英大小・数字」を満たす）。紛らわしい字
+ * （0/O・1/l/I）は使わない — 案内カードから手で打つ値のため。
+ * **戻り値は 1 回だけ表示して捨てる**（PIN と同じ扱い / DECISIONS #177）。
+ */
+const PASSWORD_UPPER = "ABCDEFGHJKMNPQRSTUVWXYZ";
+const PASSWORD_LOWER = "abcdefghjkmnpqrstuvwxyz";
+const PASSWORD_DIGIT = "23456789";
+const PASSWORD_ALL = PASSWORD_UPPER + PASSWORD_LOWER + PASSWORD_DIGIT;
+
+export const INITIAL_PASSWORD_LENGTH = 12;
+
+export function generateInitialPassword(randomBytes?: RandomBytes): string {
+  const next = randomBytes ?? ((size: number) => crypto.getRandomValues(new Uint8Array(size)));
+
+  // 剰余の偏りを避ける（`generateInitialPin()` と同じ考え方）。
+  // 256 を字数で割り切れる範囲だけを使う。
+  const pick = (alphabet: string): string => {
+    const limit = 256 - (256 % alphabet.length);
+    for (;;) {
+      const [byte] = next(1);
+      if (byte !== undefined && byte < limit) return alphabet[byte % alphabet.length] as string;
+    }
+  };
+
+  for (;;) {
+    let password = "";
+    for (let index = 0; index < INITIAL_PASSWORD_LENGTH; index += 1) {
+      password += pick(PASSWORD_ALL);
+    }
+    // ASCII だけの文字列なので正規表現で見る（spread の lint 回避も兼ねる）。
+    if (/[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)) {
+      return password;
+    }
+  }
+}

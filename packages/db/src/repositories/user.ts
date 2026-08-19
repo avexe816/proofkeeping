@@ -554,3 +554,260 @@ export async function createFieldStaff(
 
   return { created: true, userId, membershipId };
 }
+
+// ────────────────────────────────────────────────────────────
+// メンバー管理（W-12 権限と監査の権限側 / 人間の指示 2026-08-19）
+//
+// メール招待は作らない（DECISIONS #203。ログイン識別子にメールを
+// 使わない #018 と、招待トークンの寿命が未定義な OPEN_QUESTIONS #101 を
+// 同時に避ける）。初期パスワードはサーバーが発行し 1 回だけ返す
+// （P7-02 の PIN と同じ扱い / #177）。
+// ────────────────────────────────────────────────────────────
+
+/** パスワードでログインする管理系ロール（security.md §2 の「管理系」）。 */
+export const ADMIN_STAFF_ROLES = [
+  "OWNER",
+  "ORG_ADMIN",
+  "PROPERTY_MANAGER",
+  "VENDOR_ADMIN",
+  "AUDITOR",
+] as const;
+
+export type AdminStaffRole = (typeof ADMIN_STAFF_ROLES)[number];
+
+export interface CreateAdminStaffInput {
+  displayName: string;
+  /** 組織内で一意（`uq_user_org_staff_number`）。 */
+  staffNumber: string;
+  role: AdminStaffRole;
+  /** 通知の送信先。持たなくてよい（DECISIONS #018）。 */
+  email: string | null;
+  /** `pbkdf2$sha256$210000$...` 形式（security.md §2）。 */
+  passwordHash: string;
+  locale?: string | undefined;
+  /**
+   * 担当施設。**施設スコープのロール（PROPERTY_MANAGER / VENDOR_ADMIN）は
+   * 空で呼ばないこと**（担当が無いと何も見えないアカウントになる）。
+   * 組織全体のロールは空でよい。
+   */
+  propertyIds: readonly string[];
+  invitedBy: string;
+}
+
+/**
+ * 管理系ユーザーを 1 名登録する。`createFieldStaff()` のパスワード版。
+ *
+ * 3 表（user / membership / property_assignment）の関係・原子性の注記は
+ * `createFieldStaff()` と同じ。**PIN 列には触れない**（現場系へロールを
+ * 変えるときは資格情報の再発行が別に要る）。
+ */
+export async function createAdminStaff(
+  env: Env,
+  ctx: TenantContext,
+  input: CreateAdminStaffInput,
+): Promise<CreateFieldStaffResult> {
+  for (const propertyId of input.propertyIds) assertIdBelongsToTenant(propertyId, ctx);
+  assertIdBelongsToTenant(input.invitedBy, ctx);
+
+  const db = await getTenantDb(env, ctx);
+  const userId = generateId(ctx.orgShortId, "usr");
+  const membershipId = generateId(ctx.orgShortId, "mem");
+
+  const inserted = await db
+    .insert(user)
+    .values({
+      id: userId,
+      organizationId: ctx.organizationId,
+      email: input.email,
+      staffNumber: input.staffNumber,
+      passwordHash: input.passwordHash,
+      passwordUpdatedAt: ctx.now,
+      displayName: input.displayName,
+      ...(input.locale === undefined ? {} : { locale: input.locale }),
+      createdAt: ctx.now,
+      updatedAt: ctx.now,
+    })
+    .onConflictDoNothing();
+
+  if (inserted.meta.changes === 0) return { created: false, userId, membershipId };
+
+  await db.insert(membership).values({
+    id: membershipId,
+    organizationId: ctx.organizationId,
+    userId,
+    role: input.role,
+    invitedBy: input.invitedBy,
+    invitedAt: ctx.now,
+    createdAt: ctx.now,
+    updatedAt: ctx.now,
+  });
+
+  for (const propertyId of input.propertyIds) {
+    await db
+      .insert(propertyAssignment)
+      .values({
+        id: generateId(ctx.orgShortId, "asgn"),
+        organizationId: ctx.organizationId,
+        membershipId,
+        propertyId,
+        assignedBy: input.invitedBy,
+        assignedAt: ctx.now,
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+      })
+      .onConflictDoNothing();
+  }
+
+  return { created: true, userId, membershipId };
+}
+
+/** メンバー一覧の 1 行（W-12）。**ハッシュは載せない。** */
+export interface OrgMember {
+  userId: string;
+  membershipId: string;
+  staffNumber: string;
+  displayName: string;
+  role: Role;
+  isActive: boolean;
+  /** 資格情報の種別。再発行の出し分けに使う。 */
+  hasPassword: boolean;
+  hasPin: boolean;
+}
+
+/**
+ * 組織の全メンバー（user × membership）。
+ *
+ * **テナント内の JOIN**（同一組織・同一シャード）。architecture.md §3 が
+ * 禁じるのはテナント横断で、これは違う。無効化済みも返す —
+ * 再有効化の入口がこの一覧しか無い。
+ */
+export async function listOrgMembers(env: Env, ctx: TenantContext): Promise<OrgMember[]> {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({
+      userId: user.id,
+      membershipId: membership.id,
+      staffNumber: user.staffNumber,
+      displayName: user.displayName,
+      role: membership.role,
+      isActive: user.isActive,
+      passwordHash: user.passwordHash,
+      pinHash: user.pinHash,
+    })
+    .from(membership)
+    .innerJoin(user, eq(membership.userId, user.id))
+    .where(
+      withTenantScope(
+        membership,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(user.organizationId, ctx.organizationId),
+      ),
+    )
+    .orderBy(user.staffNumber);
+
+  return rows.map((row) => ({
+    userId: row.userId,
+    membershipId: row.membershipId,
+    // 旧データにスタッフ番号の無い行がありうる（列は null 許容）。表示用に空へ寄せる。
+    staffNumber: row.staffNumber ?? "",
+    displayName: row.displayName,
+    role: row.role,
+    isActive: row.isActive,
+    hasPassword: row.passwordHash !== null,
+    hasPin: row.pinHash !== null,
+  }));
+}
+
+/**
+ * ロールの変更。**呼び出し側が必ず `recordAudit()`（`user.roleChanged`）。**
+ *
+ * 自分自身の変更・最後の OWNER の降格を拒むのは呼び出し側
+ * （`lib/staff/manage.ts`）。ここは書き換えるだけ。
+ */
+export async function updateMembershipRole(
+  env: Env,
+  ctx: TenantContext,
+  input: { membershipId: string; role: Role },
+): Promise<number> {
+  assertIdBelongsToTenant(input.membershipId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const result = await db
+    .update(membership)
+    .set({ role: input.role, updatedAt: ctx.now })
+    .where(
+      withTenantScope(
+        membership,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        eq(membership.id, input.membershipId),
+      ),
+    );
+  return result.meta.changes;
+}
+
+/**
+ * アカウントの有効・無効。**物理削除の口は無い**（PK-SPEC-P0 §26）。
+ * 呼び出し側が必ず `recordAudit()`（`user.deactivated` / `user.reactivated`）。
+ */
+export async function setUserActive(
+  env: Env,
+  ctx: TenantContext,
+  input: { userId: string; isActive: boolean },
+): Promise<number> {
+  assertIdBelongsToTenant(input.userId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const result = await db
+    .update(user)
+    .set({ isActive: input.isActive, updatedAt: ctx.now })
+    .where(withTenantScope(user, ctx, NO_PROPERTY_SCOPE, eq(user.id, input.userId)));
+  return result.meta.changes;
+}
+
+/**
+ * PIN の再発行（security.md §2「PIN リセットは管理者のみ。必ず監査ログ」）。
+ * 初回変更を強制し直す。失敗回数のロックも解く（リセットの目的が
+ * 「入れなくなった人を入れるようにする」ため）。
+ */
+export async function resetUserPin(
+  env: Env,
+  ctx: TenantContext,
+  input: { userId: string; pinHash: string },
+): Promise<number> {
+  assertIdBelongsToTenant(input.userId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const result = await db
+    .update(user)
+    .set({
+      pinHash: input.pinHash,
+      pinMustChange: true,
+      failedLoginCount: 0,
+      lockedUntil: null,
+      updatedAt: ctx.now,
+    })
+    .where(withTenantScope(user, ctx, NO_PROPERTY_SCOPE, eq(user.id, input.userId)));
+  return result.meta.changes;
+}
+
+/**
+ * パスワードの再発行。PIN と同じ扱い（発行値は 1 回だけ返り、保存されない）。
+ */
+export async function resetUserPassword(
+  env: Env,
+  ctx: TenantContext,
+  input: { userId: string; passwordHash: string },
+): Promise<number> {
+  assertIdBelongsToTenant(input.userId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const result = await db
+    .update(user)
+    .set({
+      passwordHash: input.passwordHash,
+      passwordUpdatedAt: ctx.now,
+      failedLoginCount: 0,
+      lockedUntil: null,
+      updatedAt: ctx.now,
+    })
+    .where(withTenantScope(user, ctx, NO_PROPERTY_SCOPE, eq(user.id, input.userId)));
+  return result.meta.changes;
+}
