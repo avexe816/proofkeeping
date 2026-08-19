@@ -16,6 +16,20 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 
 ## 未回答
 
+### #106 支払明細書 PDF（CONTRACTOR 向け）が未実装
+- 提起: 2026-08-19 / P5-18 実装中
+- 内容: PK-SPEC-PAY §3.2 は確定時の支払明細書 PDF（PAY 採番）を定めるが、
+  P5-18 は**採番と CSV（給与ソフト連携）まで**を実装し、PDF テンプレート
+  （`packages/pdf`）・pdf-generation キューの配線・R2 保存を追送にした。
+  同バッチ（CLIENT_VIEWER / メールリンク / 折りたたみ）の差分が既に大きく、
+  帳票の削除禁止・sha256 固定など請求書と同じ厳密さが要るため分けた。
+- 影響: CONTRACTOR（業務委託）への仕入明細書方式の交付。雇用スタッフの
+  運用（CSV）は成立している。
+- 暫定対応: 確定時に `PAY-{年度}-{連番}` は採番済み。画面と CSV に番号が出る。
+- 決める人: 次の実装セッション。`consumers/invoicePdf.ts` と
+  `packages/pdf/src/receipt.tsx` を雛形に、`payoutPeriod.pdfSha256` 列の
+  追加込みで 1 task ぶん。
+
 ### #002 最初に実接続する PMS
 - 提起: 未着手 / P6-06
 - 内容: 導入顧客が利用している PMS を調査してから決める。想定で作らない。
@@ -75,6 +89,12 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 
 ### #011 `role` の語彙が実装契約書と他のすべての文書で食い違う
 - 提起: 2026-08-11 / P0-06 実装中
+- **解決（2026-08-19 / P5-16 / DECISIONS #205）:** 契約書 §2.10.1 に写像表を
+  追記して固定した。`SITE_LEAD` → `PROPERTY_MANAGER` / `INSPECTOR`、
+  `OPS_MANAGER` → `ORG_ADMIN` / `OWNER`（組織代表）、**§4 の `OWNER`（施設
+  オーナー＝発注元）と `VIEWER` → 新設の `CLIENT_VIEWER`**、`PLATFORM_ADMIN`
+  は対応なし（未実装）。DECISIONS #036 の見直し条項も履行し、
+  `STAFF_NAME_HIDDEN_ROLES` に CLIENT_VIEWER を加えた。
 - 内容: `docs/PK-IMPL-CONTRACT.md` §2.10 / §4 の権限マトリクスは
   `CLEANER` / `SITE_LEAD` / `OPS_MANAGER` / `OWNER` / `VIEWER` / `PLATFORM_ADMIN`
   の 6 語で書かれている。一方 `.claude/rules/security.md` §1 と
@@ -1036,6 +1056,10 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 - 決める人: P5-07（請求書の発行）が対象タスクを引くとき。施設側に
   `counterpartyId` を持たせるのが素直だが、1 施設を複数の取引先で
   分担する運用があるかが分からない（§13 の未決事項 3 に近い）。
+- **部分解決（2026-08-19 / P5-16）:** 発注元アカウントの請求閲覧は
+  `membership.counterpartyId` ＋ リポジトリ層の強制絞り
+  （`scopeToCounterparty()`）で成立させた。**property ↔ counterparty の
+  対応表そのものは引き続き未決**（料金設定からの導出のまま）。
 
 ### #072 §9 の `request-review` に対応する状態が §2.8 に無い
 - 提起: 2026-08-14 / P5-05 実装中
@@ -1131,6 +1155,11 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 
 ### #078 §6.1 の「（ホテル側に通知）」に対応する送信経路が無い
 - 提起: 2026-08-14 / P5-12 実装中
+- **解決（2026-08-19 / P5-17 / DECISIONS #207）:** `docType` に
+  `REVIEW_REQUEST` を追加し、`request-review` が `counterparty.billingEmail`
+  あてに署名付きリンク（30 日有効）を Queue 経由で送るようにした。
+  送付ログは `documentDelivery` に残る（送れない環境では FAILED として残す）。
+  リンク先 `/r/billing/:id` で明細の確認・承認・差戻しができる。
 - 内容: §6.1 は確認依頼の先を「（ホテル側に通知）」と書くが、**帳票以外の
   メールを送る経路が無い。** `documentDelivery`（§2.7）の `docType` は
   `INVOICE` / `RECEIPT` / `DAILY_REPORT` / `AUDIT_REPORT` の 4 つで、
@@ -1532,6 +1561,8 @@ Claude Code はここに追記して作業を止める。人間が回答した�
   管理者の追加は当面、既存の管理者が行う運用（経路は未実装）。
 - 決める人: 仕様の版上げか、招待を扱う task の起票。**推測で作らない**
   （トークンの寿命と再送の規則は、決め方で安全性が変わる）。
+- 補足（2026-08-19 / P5-17）: 確認依頼のメールリンクは**この判断の例外では
+  なく回答**。寿命 30 日をオーナー指示の下で明示決定した（DECISIONS #207）。
 
 ### #100 「はじめかたガイド」が前提にする申込み〜組織作成の経路が無い
 - 提起: 2026-08-15 / P7-15 実装中

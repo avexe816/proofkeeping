@@ -4809,3 +4809,106 @@
 - 影響: URL クエリ `?propertyId=` はこれらの画面で受けなくなった
   （ブックマークは施設抜きで動き、表示中施設に追従する）。
   未使用になった文言キー 8 件を ja / en から削除。
+
+## #205 発注元閲覧ロール `CLIENT_VIEWER` を新設する
+
+- 日付: 2026-08-19
+- task: P5-16（人間の指示「推奨アクション 1 を実現。ホテル側アカウントを両経路で」）
+- 決定:
+  - ホテル（発注元）側のユーザーは**清掃会社の組織内の 8 語目のロール**
+    `CLIENT_VIEWER` として発行する。別テナントの相互参照は作らない
+    （`user` は組織スコープでシャード分散しており、組織間参照は
+    architecture.md §3 の全シャード走査禁止に抵触する）。
+  - 権限の正は PK-IMPL-CONTRACT §4 の OWNER / VIEWER 列（§2.10.1 の写像表で
+    固定 / OPEN_QUESTIONS #011 の決着）。read 8 個（organization / property /
+    finding / task / roomPlan / inspection / dailyReport / billing）＋
+    合意・差戻し専用の `billing.review` のみ。氏名は
+    `STAFF_NAME_HIDDEN_ROLES`、ユーザー一覧（user.read）は DENY。
+  - 到達範囲は 2 段で絞る: 施設は `propertyAssignment`（ASSIGNED）、請求は
+    `membership.counterpartyId` → `scopeToCounterparty()` の**リポジトリ層
+    強制注入**（organizationId と同じ向き。未設定は 0 件に倒す）。
+  - `billing.review` は write × ORG × 非組織全体ロールという例外になる。
+    permission.spec の不変条件に**例外として明記**し、同等の強制絞りを
+    示せない限り例外を増やさないとテストに書いた。
+  - CLIENT_VIEWER への／からのロール変更は ROLE_FAMILY で拒む
+    （counterparty スコープが付いたまま／欠けたままの状態を作らない）。
+- 影響: members 画面から取引先必須で登録可能。migration 0024。
+
+## #206 組織内部の請求運営画面を `billing.readInternal` / 監査ログを `auditLog.read` に分離する
+
+- 日付: 2026-08-19
+- task: P5-16
+- 決定: CLIENT_VIEWER に `billing.read`（ORG）を与えると、契約と請求
+  （自社の利用契約）・清掃会社プラン（施設別収支・時間単価）・取引先設定・
+  送付ログ（他取引先の宛先）・監査ログ（契約 §4「清掃員の操作履歴 ×」）まで
+  開いてしまう。**取引先向けデータ（請求期間・明細・請求書・領収書）と
+  組織内部の請求運営を別アクションに分けた。** 既存ロールの実効権限は
+  変わらない（PROPERTY_MANAGER はもともと ORGANIZATION target で不可、
+  AUDITOR は両方 ORG のまま）。
+- 影響: billing.tsx / billingDetail.tsx / counterparties.tsx / deliveries.ts が
+  `billing.readInternal`、auditLogs.tsx が `auditLog.read`。
+
+## #207 確認依頼のメールリンクは HMAC・30 日・docType 追加で実装する
+
+- 日付: 2026-08-19
+- task: P5-17（OPEN_QUESTIONS #078 の決着）
+- 決定:
+  - リンクは `HMAC-SHA256(SESSION_SECRET, "{billingPeriodId}\n{exp}")`。
+    署名付き URL（P0-16）と同じ形・同じ鍵。HMAC 部品は
+    `lib/auth/hmacToken.ts` へ共通化した。
+  - **寿命は 30 日**（`counterparty.paymentTermDays` の既定に合わせる）。
+    OQ #101 の「トークンの寿命を推測で作らない」に対する明示決定。
+  - `DELIVERY_DOC_TYPES` に `REVIEW_REQUEST` を追加（#078 の 2 案のうち
+    「docType を増やす」を採用。送付の記録は 1 か所の原則を保つ）。
+  - 外部操作の主体は `systemActorId()` ＋ 新列
+    `billingPeriodReview.externalActorEmail`（リンクの宛先）。
+  - 公開画面 `/r/billing/:id` は layout 外・IP レート制限 30 req/分
+    （RATE_LIMITS に追記。認証を要しない画面のため）。
+- 影響: migration 0025。監査アクション `billingPeriod.reviewRequested`。
+
+## #208 支払集計を P8 から切り出して P5-18 として実装する
+
+- 日付: 2026-08-19
+- task: P5-18（人間の指示「YOHAKU を参考に給与計算も設計。実装まで行う」）
+- 決定:
+  - **「給与計算」は作らない。作るのは「支払集計」**（タスク実績 × 単価 ＋
+    調整行 → 支給総額の基礎）。控除（社会保険・源泉徴収・年末調整）は
+    範囲外を維持（PK-SPEC-P8 §1.2 を改訂、正は docs/PK-SPEC-PAY.md v1.0）。
+    CLAUDE.md §9 に P8 着手禁止の例外として明記した。
+  - 支払単価（`payRule`）は請求単価（`pricingRule`）のミラーで**別表**。
+    解決順序も billing.md §8 の 5 段階をミラー（スタッフ×施設×種別 →
+    スタッフ×種別 → スタッフ既定 → 施設×種別 → 全体既定）。
+  - HOURLY の実働分は `taskTimeLog`（`actualMinutesOf()`）が正。
+    端数処理は**行ごとに 1 回**（タスクごとに丸めない）。
+  - 権限は `payout.read` / `payout.write` = OWNER / ORG_ADMIN のみ
+    （P8 §1.3「単価は ORG_ADMIN 以上」を踏襲。発注元・監査閲覧にも
+    開かない — 支払は受注側の原価）。
+  - 調整行の lineNo は 1001〜の帯に分離（再集計で TASK 行を作り直しても
+    調整行の番号が動かない）。確定は楽観ロック＋ `PAY-{年度}-{連番}` 採番。
+  - **支払明細書 PDF は追送**（OPEN_QUESTIONS #106）。CSV と採番までで
+    雇用スタッフの運用は成立する。
+- 影響: 新 4 表（migration 0026）・エンジン `payout.ts`・画面 2 枚・
+  DOCUMENT_TYPES に PAYOUT。
+
+## #209 施設設定からタイムゾーン入力欄を外す（列は残す）
+
+- 日付: 2026-08-19
+- task: なし（人間の指示「施設設定のタイムゾーンはいらないと思う」）
+- 決定: 国内専用のため入力欄を撤去し、新規作成は常に `Asia/Tokyo`。
+  **列と業務日計算（architecture.md §7）は変更しない**（列の削除は
+  破壊的変更で 3 段階が要る）。更新時は既存値を変更しない
+  （`UpdatePropertyInput.timezone` を省略可能にした）。海外施設の要件が
+  出たら入力欄を戻す。
+- 影響: propertySettings.tsx。BAD_TIMEZONE の失敗種別を削除。
+
+## #210 topbar を固定し、コンテンツとサイドバーを独立スクロールにする
+
+- 日付: 2026-08-19
+- task: P7-21 の追加指示（人間の指示「TOP MENU 固定した方がいい。左の MENU
+  畳めるし、長すぎると scroll bar があった方がいい」）
+- 決定: `.pk-shell` を `height: 100vh` に固定し、`.pk-main` と
+  `.pk-sidebar__nav` がそれぞれ `overflow-y: auto` を持つ。**印刷時は解除**
+  （固定したまま印刷すると 1 画面ぶんしか紙に出ない）。
+  printLayout.spec.ts が最初の印刷ブロックを走査するため、CSS のコメントに
+  その綴りを書かない（検査が誤爆した実例あり）。
+- 影響: app.css のみ。モバイル（`/m/*`）は別シェルのため影響なし。
