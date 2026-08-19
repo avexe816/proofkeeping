@@ -70,7 +70,11 @@ function isFieldRole(role: Role): boolean {
 }
 
 /** 施設スコープの管理系ロール。**割当が無いと何も見えない。** */
-const ASSIGNED_ADMIN_ROLES: readonly AdminStaffRole[] = ["PROPERTY_MANAGER", "VENDOR_ADMIN"];
+const ASSIGNED_ADMIN_ROLES: readonly AdminStaffRole[] = [
+  "PROPERTY_MANAGER",
+  "VENDOR_ADMIN",
+  "CLIENT_VIEWER",
+];
 
 export interface RegisterAdminInput {
   displayName: string;
@@ -78,6 +82,8 @@ export interface RegisterAdminInput {
   role: AdminStaffRole;
   email: string | null;
   propertyIds: readonly string[];
+  /** 発注元ロール（CLIENT_VIEWER）の取引先（P5-16）。他ロールは渡さない。 */
+  counterpartyId?: string | null | undefined;
 }
 
 /**
@@ -106,6 +112,8 @@ export async function registerAdminStaff(
     email: input.email,
     passwordHash: await hashPassword(password),
     propertyIds: input.propertyIds,
+    // 発注元ロールだけが持つ（CLIENT_VIEWER 以外では呼び出し側が渡さない）。
+    counterpartyId: input.role === "CLIENT_VIEWER" ? (input.counterpartyId ?? null) : null,
     invitedBy: actorId,
   });
   if (!result.created) return { kind: "DUPLICATE" };
@@ -121,6 +129,7 @@ export async function registerAdminStaff(
       displayName: input.displayName,
       role: input.role,
       propertyIds: input.propertyIds,
+      ...(input.counterpartyId == null ? {} : { counterpartyId: input.counterpartyId }),
     },
   });
 
@@ -168,6 +177,14 @@ export async function changeMemberRole(
     (isAdminRole(member.role) && isAdminRole(input.role)) ||
     (isFieldRole(member.role) && isFieldRole(input.role));
   if (!sameFamily) return { kind: "ROLE_FAMILY" };
+
+  // **発注元（CLIENT_VIEWER）へのロール変更・からの変更は許さない**（P5-16）。
+  // 発注元は取引先（`membership.counterpartyId`）に紐づくアカウントで、
+  // 組織側ロールとの行き来を許すと、取引先スコープが付いたまま／欠けたままの
+  // 中途半端な状態が作れる。またぎたい場合は登録し直す（族またぎと同じ扱い）。
+  if (member.role === "CLIENT_VIEWER" || input.role === "CLIENT_VIEWER") {
+    return { kind: "ROLE_FAMILY" };
+  }
 
   if (isLastActiveOwner(members, member)) return { kind: "LAST_OWNER" };
 

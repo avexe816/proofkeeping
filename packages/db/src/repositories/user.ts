@@ -571,6 +571,7 @@ export const ADMIN_STAFF_ROLES = [
   "PROPERTY_MANAGER",
   "VENDOR_ADMIN",
   "AUDITOR",
+  "CLIENT_VIEWER",
 ] as const;
 
 export type AdminStaffRole = (typeof ADMIN_STAFF_ROLES)[number];
@@ -591,6 +592,12 @@ export interface CreateAdminStaffInput {
    * 組織全体のロールは空でよい。
    */
   propertyIds: readonly string[];
+  /**
+   * 発注元ロール（CLIENT_VIEWER）の属する取引先（P5-16）。
+   * **CLIENT_VIEWER は必ず指定し、他ロールでは渡さないこと。**
+   * 未設定の CLIENT_VIEWER は請求が 1 件も見えない（`scopeToCounterparty()`）。
+   */
+  counterpartyId?: string | null | undefined;
   invitedBy: string;
 }
 
@@ -608,6 +615,7 @@ export async function createAdminStaff(
 ): Promise<CreateFieldStaffResult> {
   for (const propertyId of input.propertyIds) assertIdBelongsToTenant(propertyId, ctx);
   assertIdBelongsToTenant(input.invitedBy, ctx);
+  if (input.counterpartyId != null) assertIdBelongsToTenant(input.counterpartyId, ctx);
 
   const db = await getTenantDb(env, ctx);
   const userId = generateId(ctx.orgShortId, "usr");
@@ -636,6 +644,7 @@ export async function createAdminStaff(
     organizationId: ctx.organizationId,
     userId,
     role: input.role,
+    counterpartyId: input.counterpartyId ?? null,
     invitedBy: input.invitedBy,
     invitedAt: ctx.now,
     createdAt: ctx.now,

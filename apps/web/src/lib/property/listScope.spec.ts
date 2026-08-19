@@ -30,8 +30,8 @@ function ctxFor(role: Role, allowedPropertyIds: readonly string[] = [ASSIGNED]):
 
 /** `inspection.read` が `ORG` のロール（`PERMISSION_MATRIX`）。 */
 const ORG_WIDE: readonly Role[] = ["OWNER", "ORG_ADMIN", "AUDITOR"];
-/** 同 `ASSIGNED`。 */
-const SCOPED: readonly Role[] = ["PROPERTY_MANAGER", "INSPECTOR"];
+/** 同 `ASSIGNED`。CLIENT_VIEWER は発注元の検査結果閲覧（契約 §4 / P5-16）。 */
+const SCOPED: readonly Role[] = ["PROPERTY_MANAGER", "INSPECTOR", "CLIENT_VIEWER"];
 /** 同 `DENY`。 */
 const DENIED: readonly Role[] = ["CLEANER", "VENDOR_ADMIN"];
 

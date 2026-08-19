@@ -1,8 +1,8 @@
 /**
  * 権限マトリクス（P0-10）。
  *
- * 完了条件「7 ロール × 全アクションのマトリクスが実装されている」を、
- * **全 77 セルの走査**と、security.md §1 の境界を機械的に見る**不変条件**の
+ * 完了条件「全ロール × 全アクションのマトリクスが実装されている」を、
+ * **全セルの走査**と、security.md §1 の境界を機械的に見る**不変条件**の
  * 二段で固定する。前者は「今どうなっているか」、後者は「今後どう壊れては
  * いけないか」を見ている。片方だけでは足りない。
  */
@@ -44,107 +44,114 @@ function ctxOf(role: Role, allowedPropertyIds: readonly string[] = []): TenantCo
  * 期待値の独立した転記。`O` = ORG / `A` = ASSIGNED / `-` = DENY。
  *
  * 列の順は `ROLES` と同じ:
- *   OWNER / ORG_ADMIN / PROPERTY_MANAGER / INSPECTOR / CLEANER / VENDOR_ADMIN / AUDITOR
+ *   OWNER / ORG_ADMIN / PROPERTY_MANAGER / INSPECTOR / CLEANER / VENDOR_ADMIN / AUDITOR / CLIENT_VIEWER
  *
  * **実装の表をそのまま複製せず、圧縮した別表記で書いてある。** 同じ構造を
  * 二度書くと、コピー間違いが両方に入って検査にならない。
  */
 const EXPECTED: Record<PermissionAction, string> = {
-  "organization.read": "OOOOOOO",
-  "organization.write": "OO-----",
-  "taxProfile.read": "OO----O",
-  "taxProfile.write": "OO-----",
-  "user.read": "OOOOOOO",
-  "user.write": "OOA----",
-  "property.read": "OOAAAAO",
-  "property.write": "OOA----",
-  "finding.read": "OOA--AO",
+  "organization.read": "OOOOOOOO",
+  "organization.write": "OO------",
+  "taxProfile.read": "OO----O-",
+  "taxProfile.write": "OO------",
+  "user.read": "OOOOOOO-",
+  "user.write": "OOA-----",
+  "property.read": "OOAAAAOA",
+  "property.write": "OOA-----",
+  "finding.read": "OOA--AOA",
   // P4-05。手動再実行（PK-SPEC-P4 §6.4）は OWNER / ORG_ADMIN だけ。
-  "reconciliation.run": "OO-----",
+  "reconciliation.run": "OO------",
   // P4-07。状態の変更（同 §6.4）も OWNER / ORG_ADMIN だけ。
   // **読めるが閉じられない**（`finding.read` は施設責任者に `A`）。
-  "finding.write": "OO-----",
+  "finding.write": "OO------",
   // P4-10。入室記録は登録すると差異が抑制される（同 §4.1）。
   // **現場ロールと受託側には与えない**（DECISIONS #115）。
-  "roomAccess.read": "OOA---O",
-  "roomAccess.write": "OOA----",
+  "roomAccess.read": "OOA---O-",
+  "roomAccess.write": "OOA-----",
   // P4-13。ルール設定（同 §6.4）は OWNER / ORG_ADMIN だけ。
   // **閲覧も施設責任者に開かない**（閾値は判定の内側の値）。
-  "ruleConfig.read": "OO----O",
-  "ruleConfig.write": "OO-----",
-  "integration.read": "OO----O",
+  "ruleConfig.read": "OO----O-",
+  "ruleConfig.write": "OO------",
+  "integration.read": "OO----O-",
   // P7-09。退避データの復元と閲覧（PK-SPEC-P7 §9）。
   // **`AUDITOR` は読めるが復元は要求できない**（security.md §1）。
-  "archive.read": "OO----O",
-  "archive.restore": "OO-----",
-  "integration.write": "OO-----",
-  "apiKey.read": "OO----O",
-  "apiKey.write": "OO-----",
-  "lostItem.readStorage": "OOAA-AO",
-  "billing.read": "OOA---O",
-  "billing.write": "OO-----",
+  "archive.read": "OO----O-",
+  "archive.restore": "OO------",
+  "integration.write": "OO------",
+  "apiKey.read": "OO----O-",
+  "apiKey.write": "OO------",
+  "lostItem.readStorage": "OOAA-AO-",
+  "billing.read": "OOA---OO",
+  "billing.write": "OO------",
+  // P5-16。合意・差戻し（§6.1）。発注元（CLIENT_VIEWER）に開く唯一の write。
+  // 実到達は `ctx.counterpartyId` のリポジトリ層強制絞りが自取引先に限る。
+  "billing.review": "OO-----O",
+  // P5-16。組織内部の請求運営画面。発注元には開かない。
+  "billing.readInternal": "OO----O-",
+  // P7-20 / P5-16。監査ログ。契約 §4「清掃員の操作履歴 ×」。
+  "auditLog.read": "OOA--AO-",
   // P1。清掃タスク（PK-SPEC-P1 §5.3）と設定画面（同 §10.1）。
-  "task.read": "OOAAAAO",
-  "task.write": "OOA-AA-",
-  "task.manage": "OOA--A-",
-  "checklistTemplate.read": "OO----O",
-  "checklistTemplate.write": "OO-----",
-  "standardTime.read": "OO----O",
-  "standardTime.write": "OO-----",
-  "roomPlan.read": "OOA---O",
-  "roomPlan.write": "OOA----",
-  "occupancy.read": "OOA---O",
-  "occupancy.write": "OOA----",
+  "task.read": "OOAAAAOA",
+  "task.write": "OOA-AA--",
+  "task.manage": "OOA--A--",
+  "checklistTemplate.read": "OO----O-",
+  "checklistTemplate.write": "OO------",
+  "standardTime.read": "OO----O-",
+  "standardTime.write": "OO------",
+  "roomPlan.read": "OOA---OA",
+  "roomPlan.write": "OOA-----",
+  "occupancy.read": "OOA---O-",
+  "occupancy.write": "OOA-----",
   // P1-16。客室ステータスの手動上書きは「施設責任者」（§11.2）。
-  "room.statusOverride": "OOA----",
+  "room.statusOverride": "OOA-----",
   // P1-17。**全ロールが自分の記録を見られる**（security.md §5 MUST）。
-  "task.readOwn": "OOOOOOO",
+  "task.readOwn": "OOOOOOO-",
   // P2-04。検査は `INSPECTOR` / `PROPERTY_MANAGER` 以上（PK-SPEC-P2 §5.1）。
   // **`CLEANER` は読み書きとも DENY。** 差戻しの内容を見せる M-12（P2-07）は
   // 「自分のタスクの差戻し項目だけ」という別の絞りを持つ。
-  "inspection.read": "OOAA--O",
-  "inspection.write": "OOAA---",
+  "inspection.read": "OOAA--OA",
+  "inspection.write": "OOAA----",
   // P2-07。差戻し（PK-SPEC-P2 §4.6・§4.7）。
   // **`CLEANER` を許す唯一の検査系アクションが `rework.read` / `rework.write`。**
   // 「自分の差戻しか」は `assertReworkVisible()` が別に絞る。
   // 免除は §4.7 の「PROPERTY_MANAGER 以上」で、`VENDOR_ADMIN` に広げない。
-  "rework.read": "OOAAAAO",
-  "rework.write": "OOA-AA-",
-  "rework.waive": "OOA----",
+  "rework.read": "OOAAAAO-",
+  "rework.write": "OOA-AA--",
+  "rework.waive": "OOA-----",
   // P2-16。残存タスクの緊急上書き（§13.3）は「施設責任者」。
   // **`INSPECTOR` は DENY。** 検査担当が「検査せずに閉じる」を選べると、
   // §13.1 で廃止した一括承認と同じことが 1 件ずつできてしまう。
-  "inspection.emergencyOverride": "OOA----",
+  "inspection.emergencyOverride": "OOA-----",
   // P2-10。証跡 ZIP の持ち出し（§6.5）。**閲覧は `task.read` のまま。**
   // `AUDITOR` の `-` は security.md §1「書き込み操作を一切できない」に
   // 沿った既定（OPEN_QUESTIONS #048）。
-  "evidence.export": "OOA----",
+  "evidence.export": "OOA-----",
   // P2-11 / P2-12。忘れ物（§7.4）と設備不具合（§8）。
   // **`CLEANER` は登録と閲覧まで。** 状態の更新は運営側。
-  "lostItem.read": "OOAAAAO",
-  "lostItem.write": "OOAAAA-",
-  "lostItem.manage": "OOAA---",
-  "issue.read": "OOAAAAO",
-  "issue.write": "OOAAAA-",
-  "issue.manage": "OOA----",
+  "lostItem.read": "OOAAAAO-",
+  "lostItem.write": "OOAAAA--",
+  "lostItem.manage": "OOAA----",
+  "issue.read": "OOAAAAO-",
+  "issue.write": "OOAAAA--",
+  "issue.manage": "OOA-----",
   // P2-14。日報（§9.1・§9.3）。**現場ロール（`INSPECTOR` / `CLEANER`）は DENY。**
   // 明細に全室ぶんの担当者名と所要時間が並ぶため（security.md §5）。
   // 提出する側（`VENDOR_ADMIN`）は読めるが、版を増やすのは施設側の判断。
-  "dailyReport.read": "OOA--AO",
-  "dailyReport.generate": "OOA----",
+  "dailyReport.read": "OOA--AOA",
+  "dailyReport.generate": "OOA-----",
   // P3。観察記録（PK-SPEC-P3 §2.2・§6.1）。現場が入力し、現場が読む。
-  "observation.read": "OOAAAAO",
-  "observation.write": "OOAAAA-",
+  "observation.read": "OOAAAAO-",
+  "observation.write": "OOAAAA--",
   // §2.2 MUST「事後修正は PROPERTY_MANAGER 以上のみ」。
-  "observation.amend": "OOA----",
-  "observationConfig.read": "OOA---O",
+  "observation.amend": "OOA-----",
+  "observationConfig.read": "OOA---O-",
   // §6.1 の担当ロールは ORG_ADMIN。施設責任者は読むだけ。
-  "observationConfig.write": "OO-----",
+  "observationConfig.write": "OO------",
   // P3-09〜P3-12。ベースラインと入力品質（同 §5.5・§6.1・§6.3）。
   // **現場ロール（INSPECTOR / CLEANER）は到達しない。**
-  "baseline.read": "OOA---O",
-  "baseline.override": "OO-----",
-  "dataQuality.read": "OOA---O",
+  "baseline.read": "OOA---O-",
+  "baseline.override": "OO------",
+  "dataQuality.read": "OOA---O-",
 };
 
 const SYMBOL_TO_SCOPE: Record<string, PermissionScope> = {
@@ -154,7 +161,7 @@ const SYMBOL_TO_SCOPE: Record<string, PermissionScope> = {
 };
 
 describe("マトリクスの全セル", () => {
-  it("7 ロール × 全アクションが期待どおり", () => {
+  it("全ロール × 全アクションが期待どおり", () => {
     // toEqual に 1 度で載せる。個別 it にすると、落ちたとき何セル壊れたかが読めない。
     const actual: Record<string, string> = {};
     for (const action of PERMISSION_ACTION_LIST) {
@@ -206,16 +213,37 @@ describe("不変条件", () => {
     // OPEN_QUESTIONS #016 の回答「読み取りは全施設、書き込みは自施設のみ」を
     // 機械可読にしたもの。施設スコープロールに組織全体の書き込みを与える
     // 変更は、以後どの task が行ってもここで落ちる。
+    //
+    // **唯一の例外は `billing.review` の CLIENT_VIEWER**（P5-16）。対象の
+    // `billingPeriod` は施設列を持たず ASSIGNED では表せない。実到達は
+    // `ctx.counterpartyId` によるリポジトリ層の強制絞り（`scopeToCounterparty()`）
+    // が自分の取引先に限る。**例外を増やすときは同等の強制絞りを示すこと。**
     const violations: string[] = [];
     for (const action of PERMISSION_ACTION_LIST) {
       if (!isWriteAction(action)) continue;
       for (const role of ROLES) {
+        if (action === "billing.review" && role === "CLIENT_VIEWER") continue;
         if (resolveScope(role, action) === "ORG" && !isOrgWideRole(role)) {
           violations.push(`${action}/${role}`);
         }
       }
     }
     expect(violations).toEqual([]);
+  });
+
+  it("CLIENT_VIEWER の write は billing.review だけ（契約 §4「請求の確定 ×」ほか）", () => {
+    const writable = PERMISSION_ACTION_LIST.filter(
+      (action) => isWriteAction(action) && resolveScope("CLIENT_VIEWER", action) !== "DENY",
+    );
+    expect(writable).toEqual(["billing.review"]);
+  });
+
+  it("CLIENT_VIEWER は氏名につながる一覧に到達できない（契約 §4「清掃員の氏名 ×」）", () => {
+    // ユーザー一覧はマスクを掛けずに氏名を返す（マスクは画面ごとの
+    // `canViewStaffName()` の責務）。発注元には一覧ごと閉じる。
+    expect(resolveScope("CLIENT_VIEWER", "user.read")).toBe("DENY");
+    // スタッフ別の入力率（dataQuality）も同じ理由で閉じる。
+    expect(resolveScope("CLIENT_VIEWER", "dataQuality.read")).toBe("DENY");
   });
 
   it("CLEANER と INSPECTOR は差異レポートに到達できない", () => {
@@ -290,7 +318,9 @@ describe("ORG の判定", () => {
 
   it("施設スコープロールでも読み取りは組織全体（OPEN_QUESTIONS #016）", () => {
     // user / membership は propertyId を持たない。担当施設ゼロでも読める。
+    // **CLIENT_VIEWER（発注元）は除く** — 氏名につながる一覧は閉じる（上の不変条件）。
     for (const role of ROLES) {
+      if (role === "CLIENT_VIEWER") continue;
       expect(can(ctxOf(role, []), "user.read", ORGANIZATION_TARGET)).toBe(true);
     }
   });

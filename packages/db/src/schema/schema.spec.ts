@@ -241,7 +241,7 @@ describe("P0-06 スキーマ", () => {
     expect(byName.get("external_room_id")?.notNull).toBe(false);
   });
 
-  it("role が security.md §1 の 7 ロールである", () => {
+  it("role が security.md §1 の 7 ロール＋発注元（P5-16）である", () => {
     expect(ROLES).toEqual([
       "OWNER",
       "ORG_ADMIN",
@@ -250,6 +250,8 @@ describe("P0-06 スキーマ", () => {
       "CLEANER",
       "VENDOR_ADMIN",
       "AUDITOR",
+      // 発注元閲覧（契約 §2.10.1 の写像表 / OPEN_QUESTIONS #011 の決着）。
+      "CLIENT_VIEWER",
     ]);
   });
 

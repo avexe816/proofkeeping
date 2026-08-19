@@ -169,6 +169,13 @@
       "when": 1787116527836,
       "tag": "0023_fantastic_mysterio",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1787138337166,
+      "tag": "0024_spotty_swordsman",
+      "breakpoints": true
     }
   ]
 }

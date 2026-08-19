@@ -241,6 +241,32 @@ describe("権限による非表示（security.md §1 の絶対境界）", () => 
   it("OWNER には全項目が出る", () => {
     expect(keysFor("OWNER")).toHaveLength(NAV_ITEMS.length);
   });
+
+  it("CLIENT_VIEWER（発注元）は閲覧の 8 項目だけ（契約 §4 / P5-16）", () => {
+    // 担当施設の記録・検査・差異・レポートの閲覧のみ。設定・請求運営・
+    // 監査ログ（操作履歴 ×）・清掃会社プラン（収支）は出ない。
+    expect(keysFor("CLIENT_VIEWER").sort()).toEqual(
+      [
+        "nav.dashboard",
+        "nav.board",
+        "nav.progress",
+        "nav.findings",
+        "nav.findingDetail",
+        "nav.cleaningRecords",
+        "nav.inspection",
+        "nav.report",
+      ].sort(),
+    );
+  });
+
+  it("CLIENT_VIEWER に監査ログ・契約と請求・清掃会社プランを出さない", () => {
+    const keys = keysFor("CLIENT_VIEWER");
+    expect(keys).not.toContain("nav.auditLogs");
+    expect(keys).not.toContain("nav.billing");
+    expect(keys).not.toContain("nav.vendorPlan");
+    expect(keys).not.toContain("nav.counterparties");
+    expect(keys).not.toContain("nav.permission");
+  });
 });
 
 describe("契約によるグレー表示", () => {

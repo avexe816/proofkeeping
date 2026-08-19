@@ -416,15 +416,22 @@ billingPeriods.post("/:billingPeriodId/request-review", async (c) => {
  * 動けば、次に組み立てた明細は違う数字になる。何に合意したのかが
  * 残らないと、§6.2 の MUST が成り立たない。
  *
- * `agreedByCounterparty` は取引先の意思として記録したか。ホテルの
- * 担当者は利用者ではないので、**代わりに入力した人が `actorId` に残る。**
+ * `agreedByCounterparty` は取引先の意思として記録したか。清掃会社が
+ * 代わりに入力した場合は**入力した人が `actorId` に残る。** 発注元ロール
+ * （CLIENT_VIEWER / P5-16）が自分で押した場合は常に取引先の意思
+ * （`byCounterparty: true` を強制する）。
+ *
+ * **門は `billing.review`**（合意・差戻し専用 / P5-16）。`billing.write`
+ * （単価・発行）とは分けてある — 発注元に発行を開かないため。
  */
 billingPeriods.post("/:billingPeriodId/agree", async (c) => {
   const ctx = getTenant(c);
-  assertPermission(ctx, "billing.write", ORGANIZATION_TARGET);
+  assertPermission(ctx, "billing.review", ORGANIZATION_TARGET);
 
   const parsed = billingPeriodAgreeRequestSchema.safeParse(await readJson(c));
   if (!parsed.success) return c.json(invalidRequest(), 400);
+  // 発注元が押した合意は、リクエストの値によらず取引先の意思。
+  const byCounterparty = ctx.role === "CLIENT_VIEWER" ? true : parsed.data.byCounterparty;
 
   const loaded = await loadPeriodWithDraft(c.env, ctx, c.req.param("billingPeriodId"));
   if (loaded === undefined) return c.json(notFound(), 404);
@@ -440,7 +447,7 @@ billingPeriods.post("/:billingPeriodId/agree", async (c) => {
     {
       status: transition.next,
       agreedAt: ctx.now,
-      agreedByCounterparty: parsed.data.byCounterparty,
+      agreedByCounterparty: byCounterparty,
     },
     period.status,
   );
@@ -457,7 +464,7 @@ billingPeriods.post("/:billingPeriodId/agree", async (c) => {
     snapshotTotalAmount: draft.totalAmount,
     statusBefore: period.status,
     statusAfter: transition.next,
-    byCounterparty: parsed.data.byCounterparty,
+    byCounterparty,
     actorId: getSession(c).membershipId,
   });
 
@@ -467,7 +474,7 @@ billingPeriods.post("/:billingPeriodId/agree", async (c) => {
     targetType: "billingPeriod",
     targetId: period.id,
     before: { status: period.status },
-    after: { status: transition.next, agreedByCounterparty: parsed.data.byCounterparty },
+    after: { status: transition.next, agreedByCounterparty: byCounterparty },
     ...ipOf(c.req.header("CF-Connecting-IP")),
   });
 
@@ -489,7 +496,8 @@ billingPeriods.post("/:billingPeriodId/agree", async (c) => {
  */
 billingPeriods.post("/:billingPeriodId/reject", async (c) => {
   const ctx = getTenant(c);
-  assertPermission(ctx, "billing.write", ORGANIZATION_TARGET);
+  // 合意と同じ門（P5-16 の注記）。差戻しは取引先側の意思表示でもある。
+  assertPermission(ctx, "billing.review", ORGANIZATION_TARGET);
 
   const parsed = billingPeriodRejectRequestSchema.safeParse(await readJson(c));
   if (!parsed.success) return c.json(invalidRequest(), 400);

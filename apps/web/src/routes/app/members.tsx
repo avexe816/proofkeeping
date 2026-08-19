@@ -18,7 +18,7 @@
  * 画面を離れたら二度と出ない。
  */
 
-import { NotFoundError, ROLES, listOrgMembers, type Role } from "@pk/db";
+import { NotFoundError, ROLES, listCounterparties, listOrgMembers, type Role } from "@pk/db";
 import {
   Form,
   useActionData,
@@ -47,10 +47,11 @@ const ADMIN_ROLE_OPTIONS = [
   "VENDOR_ADMIN",
   "AUDITOR",
   "OWNER",
+  "CLIENT_VIEWER",
 ] as const;
 
 /** 施設割当が必須のロール。 */
-const ASSIGNED_ROLES: readonly string[] = ["PROPERTY_MANAGER", "VENDOR_ADMIN"];
+const ASSIGNED_ROLES: readonly string[] = ["PROPERTY_MANAGER", "VENDOR_ADMIN", "CLIENT_VIEWER"];
 
 const ROLE_LABEL: Record<Role, MessageKey> = {
   OWNER: "role.OWNER",
@@ -60,6 +61,7 @@ const ROLE_LABEL: Record<Role, MessageKey> = {
   CLEANER: "role.CLEANER",
   VENDOR_ADMIN: "role.VENDOR_ADMIN",
   AUDITOR: "role.AUDITOR",
+  CLIENT_VIEWER: "role.CLIENT_VIEWER",
 };
 
 interface MemberRow {
@@ -74,6 +76,8 @@ interface MemberRow {
 interface MembersData {
   members: MemberRow[];
   properties: { id: string; name: string }[];
+  /** 発注元ロール（CLIENT_VIEWER）の登録先に選べる取引先（P5-16）。 */
+  counterparties: { id: string; name: string }[];
   /** 自分の membership。自分の行の操作を出さない（action 側でも拒む）。 */
   selfMembershipId: string;
 }
@@ -87,9 +91,10 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   // それ以外は 404（項目もサイドバーから消える / security.md §1）。
   assertPermission(tenant, "user.write", ORGANIZATION_TARGET);
 
-  const [members, properties] = await Promise.all([
+  const [members, properties, counterparties] = await Promise.all([
     listOrgMembers(env, tenant),
     listSelectableProperties(env, tenant),
+    listCounterparties(env, tenant, { isActive: true }),
   ]);
 
   return {
@@ -102,6 +107,10 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
       hasPin: member.hasPin,
     })),
     properties: properties.map((property) => ({ id: property.id, name: property.name })),
+    counterparties: counterparties.map((row) => ({
+      id: row.id,
+      name: row.displayName ?? row.legalName,
+    })),
     selfMembershipId: session.membershipId,
   };
 }
@@ -110,6 +119,7 @@ type MembersFailure =
   | "INVALID"
   | "DUPLICATE"
   | "NEED_PROPERTY"
+  | "NEED_COUNTERPARTY"
   | "SELF"
   | "LAST_OWNER"
   | "ROLE_FAMILY";
@@ -169,11 +179,23 @@ export async function action({
     if (ASSIGNED_ROLES.includes(role) && propertyIds.length === 0) {
       return { failure: "NEED_PROPERTY" };
     }
+    // 発注元ロールは取引先が無いと請求が 1 件も見えない。登録時に必須にする。
+    const counterpartyId = textOf(form.get("counterpartyId"), 64);
+    if (role === "CLIENT_VIEWER" && counterpartyId === null) {
+      return { failure: "NEED_COUNTERPARTY" };
+    }
 
     const outcome = await registerAdminStaff(
       env,
       tenant,
-      { displayName, staffNumber, role, email, propertyIds },
+      {
+        displayName,
+        staffNumber,
+        role,
+        email,
+        propertyIds,
+        counterpartyId: role === "CLIENT_VIEWER" ? counterpartyId : null,
+      },
       session.membershipId,
     );
     if (outcome.kind === "DUPLICATE") return { failure: "DUPLICATE" };
@@ -241,6 +263,7 @@ const FAILURE_MESSAGE: Record<MembersFailure, MessageKey> = {
   INVALID: "members.error.invalid",
   DUPLICATE: "members.error.duplicate",
   NEED_PROPERTY: "members.error.needProperty",
+  NEED_COUNTERPARTY: "members.error.needCounterparty",
   SELF: "members.error.self",
   LAST_OWNER: "members.error.lastOwner",
   ROLE_FAMILY: "members.error.roleFamily",
@@ -391,10 +414,23 @@ export default function Members() {
             ))}
           </select>
         </label>
+        <label className="pk-field">
+          <span className="pk-field__label">{t("members.field.counterparty")}</span>
+          {/* 発注元（CLIENT_VIEWER）のときだけ必須。他ロールでは無視される。 */}
+          <select className="pk-select" name="counterpartyId" defaultValue="">
+            <option value="">{t("members.field.counterparty.none")}</option>
+            {data.counterparties.map((counterparty) => (
+              <option key={counterparty.id} value={counterparty.id}>
+                {counterparty.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <button className="pk-button" type="submit">
           {t("members.create.submit")}
         </button>
       </Form>
+      <p className="pk-muted">{t("members.create.counterpartyNote")}</p>
       <p className="pk-muted">{t("members.create.propertyNote")}</p>
       <p className="pk-muted">{t("members.create.fieldStaffNote")}</p>
     </section>
