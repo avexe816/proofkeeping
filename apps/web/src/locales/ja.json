@@ -2071,5 +2071,7 @@
   "plat.tenants.trialCheck.1": "導入研修を母語で実施できたか",
   "plat.tenants.trialCheck.2": "入力所要時間が20秒以内に収まっているか",
   "plat.tenants.trialCheck.3": "1人あたりの担当室数が16室を超えていないか",
-  "plat.tenants.trialCheck.4": "差異が出たときの確認フローが機能しているか"
+  "plat.tenants.trialCheck.4": "差異が出たときの確認フローが機能しているか",
+  "staff.roster.card": "スタッフ一覧",
+  "stdtime.card": "目安時間と記録項目"
 }

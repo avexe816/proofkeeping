@@ -309,58 +309,80 @@ function StaffRoster({
         <li>{`${t("staff.kpi.expiring")} ${String(ledger.summary.expiringWithin90Days)}`}</li>
       </ul>
 
-      {ledger.rows.length === 0 ? (
-        <p className="pk-muted">{t("staff.roster.empty")}</p>
-      ) : (
-        <table className="pk-grid">
-          <thead>
-            <tr>
-              <th>{t("staff.roster.name")}</th>
-              <th>{t("staff.roster.staffNumber")}</th>
-              <th>{t("staff.roster.languages")}</th>
-              <th>{t("staff.roster.experience")}</th>
-              {canReadResidency ? <th>{t("staff.roster.expiresOn")}</th> : null}
-              <th>{t("staff.roster.status")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ledger.rows.map((row) => (
-              <tr key={row.membershipId}>
-                <th scope="row">{row.displayName}</th>
-                <td>{row.staffNumber ?? "—"}</td>
-                <td>{row.languages.map((code) => t(languageKey(code))).join(" · ")}</td>
-                <td>{experienceOf(row)}</td>
-                {canReadResidency ? <ExpiryCell row={row} /> : null}
-                <td>{t(`staff.status.${row.workStatus}` as Parameters<typeof t>[0])}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* 在留資格の免責（PK-SPEC-P8 §1.4 MUST / **編集不可**）。
-          列を出しているときだけ出す。**この文言を短くしないこと。** */}
-      {canReadResidency ? <p className="pk-notice">{t("staff.residency.disclaimer")}</p> : null}
+      {/* プロトタイプ ops 07「👥 スタッフ一覧」。 */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            👥
+          </span>
+          {t("staff.roster.card")}
+        </div>
+        {ledger.rows.length === 0 ? (
+          <div className="pk-panel__body">
+            <p className="pk-muted">{t("staff.roster.empty")}</p>
+          </div>
+        ) : (
+          <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+            <table className="pk-tbl">
+              <thead>
+                <tr>
+                  <th>{t("staff.roster.name")}</th>
+                  <th>{t("staff.roster.staffNumber")}</th>
+                  <th>{t("staff.roster.languages")}</th>
+                  <th>{t("staff.roster.experience")}</th>
+                  {canReadResidency ? <th>{t("staff.roster.expiresOn")}</th> : null}
+                  <th>{t("staff.roster.status")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ledger.rows.map((row) => (
+                  <tr key={row.membershipId}>
+                    <th scope="row">{row.displayName}</th>
+                    <td>{row.staffNumber ?? "—"}</td>
+                    <td>{row.languages.map((code) => t(languageKey(code))).join(" · ")}</td>
+                    <td>{experienceOf(row)}</td>
+                    {canReadResidency ? <ExpiryCell row={row} /> : null}
+                    <td>{t(`staff.status.${row.workStatus}` as Parameters<typeof t>[0])}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {/* 在留資格の免責（PK-SPEC-P8 §1.4 MUST / **編集不可**）。
+            列を出しているときだけ出す。**この文言を短くしないこと。** */}
+        {canReadResidency ? (
+          <div className="pk-panel__foot">{t("staff.residency.disclaimer")}</div>
+        ) : null}
+      </section>
 
       {canReadResidency ? <ResidencyForm rows={ledger.rows} /> : null}
 
       {/* 言語の構成（プロトタイプ ops 07 の「🌐 言語の構成」）。
        **1 人が複数の言語を持つので、合計は人数と一致しない。** */}
       {ledger.languages.length === 0 ? null : (
-        <>
-          <h2 className="pk-section__title">{t("staff.languages.title")}</h2>
-          <table className="pk-grid">
-            <tbody>
-              {ledger.languages.map((row) => (
-                <tr key={row.language}>
-                  <th scope="row">{t(languageKey(row.language))}</th>
-                  <td>{`${String(row.count)}${t("staff.languages.unit")}`}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="pk-muted">{t("staff.languages.note")}</p>
-        </>
+        <section className="pk-panel">
+          <div className="pk-panel__head">
+            <span className="pk-panel__icon" aria-hidden="true">
+              🌐
+            </span>
+            {t("staff.languages.title")}
+          </div>
+          <div className="pk-panel__body pk-panel__body--flush">
+            <table className="pk-tbl">
+              <tbody>
+                {ledger.languages.map((row) => (
+                  <tr key={row.language}>
+                    <th scope="row">{t(languageKey(row.language))}</th>
+                    <td>{`${String(row.count)}${t("staff.languages.unit")}`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* **1 人が複数の言語を持つので合計は人数と一致しない**（逐語）。 */}
+          <div className="pk-panel__foot">{t("staff.languages.note")}</div>
+        </section>
       )}
     </>
   );

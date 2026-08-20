@@ -193,56 +193,73 @@ export default function StandardTimes() {
       {/* §24.5: 既存タスクの標準時間は変わらない。事実として述べる。 */}
       <p className="pk-notice">{t("stdtime.appliesToNewTasks")}</p>
 
-      {data.rows.length === 0 ? (
-        <p className="pk-notice">{t("stdtime.noRoomTypes")}</p>
-      ) : (
-        <Form method="post">
-          <table className="pk-grid">
-            <thead>
-              <tr>
-                <th>{t("stdtime.roomType")}</th>
-                {EDITABLE_TASK_TYPES.map((taskType) => (
-                  <th key={taskType}>{t(`stdtime.taskType.${taskType}`)}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.rows.map((row) => (
-                <tr key={row.roomTypeId}>
-                  <th scope="row">
-                    {row.name}
-                    <span className="pk-muted">{` (${row.code})`}</span>
-                  </th>
-                  {row.cells.map((cell) => (
-                    <td key={cell.taskType}>
-                      {data.canWrite ? (
-                        <input
-                          name={fieldName(row.roomTypeId, cell.taskType)}
-                          aria-label={`${row.name} ${t(`stdtime.taskType.${cell.taskType}`)}`}
-                          inputMode="numeric"
-                          min={MINUTES_MIN}
-                          max={MINUTES_MAX}
-                          defaultValue={String(cell.minutes)}
-                        />
-                      ) : (
-                        <span>{String(cell.minutes)}</span>
-                      )}
-                      {cell.isDefault ? (
-                        <span className="pk-badge pk-badge--hidden">{t("stdtime.isDefault")}</span>
-                      ) : null}
-                    </td>
+      {/* プロトタイプ ops 11「⏱ 目安時間と記録項目」。 */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            ⏱
+          </span>
+          {t("stdtime.card")}
+        </div>
+        {data.rows.length === 0 ? (
+          <div className="pk-panel__body">
+            <p className="pk-notice">{t("stdtime.noRoomTypes")}</p>
+          </div>
+        ) : (
+          <Form method="post">
+            <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+              <table className="pk-tbl">
+                <thead>
+                  <tr>
+                    <th>{t("stdtime.roomType")}</th>
+                    {EDITABLE_TASK_TYPES.map((taskType) => (
+                      <th key={taskType}>{t(`stdtime.taskType.${taskType}`)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.rows.map((row) => (
+                    <tr key={row.roomTypeId}>
+                      <th scope="row">
+                        {row.name}
+                        <span className="pk-muted">{` (${row.code})`}</span>
+                      </th>
+                      {row.cells.map((cell) => (
+                        <td key={cell.taskType}>
+                          {data.canWrite ? (
+                            <input
+                              name={fieldName(row.roomTypeId, cell.taskType)}
+                              aria-label={`${row.name} ${t(`stdtime.taskType.${cell.taskType}`)}`}
+                              inputMode="numeric"
+                              min={MINUTES_MIN}
+                              max={MINUTES_MAX}
+                              defaultValue={String(cell.minutes)}
+                            />
+                          ) : (
+                            <span>{String(cell.minutes)}</span>
+                          )}
+                          {cell.isDefault ? (
+                            <span className="pk-badge pk-badge--hidden">
+                              {t("stdtime.isDefault")}
+                            </span>
+                          ) : null}
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {data.canWrite ? (
-            <button className="pk-button pk-button--primary" type="submit">
-              {t("stdtime.save")}
-            </button>
-          ) : null}
-        </Form>
-      )}
+                </tbody>
+              </table>
+            </div>
+            {data.canWrite ? (
+              <div className="pk-panel__foot">
+                <button className="pk-button pk-button--primary" type="submit">
+                  {t("stdtime.save")}
+                </button>
+              </div>
+            ) : null}
+          </Form>
+        )}
+      </section>
     </section>
   );
 }
