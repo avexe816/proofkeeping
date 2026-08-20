@@ -2294,3 +2294,45 @@ a.pk-nav:hover {
   white-space: nowrap;
   border: 0;
 }
+
+/* ──────────────────────────────────────────────────────────
+   進捗バー（ダッシュボード / プロトタイプ 01 の `.bar`）
+
+   **数値を必ず併記する**（契約 §1.3 MUST）。長さと色だけで伝えない。
+   **遅れを赤にしない**（ui-writing.md §3「急かさない」）。
+   ────────────────────────────────────────────────────────── */
+
+.pk-progress {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 120px;
+}
+
+.pk-progress__track {
+  flex: 1 1 auto;
+  height: 8px;
+  overflow: hidden;
+  background: var(--surf3);
+  border-radius: 4px;
+}
+
+.pk-progress__fill {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  border-radius: 4px;
+}
+
+.pk-progress__value {
+  font-size: 11.5px;
+  color: var(--ink2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* KPI カードの中に置く進捗バー。値は上の数字が持つので幅だけ揃える。 */
+.pk-stats__item .pk-progress {
+  display: flex;
+  margin-top: 7px;
+}
