@@ -99,7 +99,10 @@ interface BillingPeriodsData {
   canRequest: boolean;
 }
 
-export async function loader({ request, context }: LoaderFunctionArgs): Promise<BillingPeriodsData> {
+export async function loader({
+  request,
+  context,
+}: LoaderFunctionArgs): Promise<BillingPeriodsData> {
   const env = getEnv(context);
   const now = new Date();
   const { tenant } = await requireAppContext(env, request, now);
@@ -109,9 +112,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     listBillingPeriods(env, tenant, {}),
     listCounterparties(env, tenant),
   ]);
-  const nameOf = new Map(
-    counterparties.map((row) => [row.id, row.displayName ?? row.legalName]),
-  );
+  const nameOf = new Map(counterparties.map((row) => [row.id, row.displayName ?? row.legalName]));
 
   const rows: PeriodRow[] = periods.map((period) => ({
     billingPeriodId: period.id,
@@ -308,36 +309,49 @@ export default function BillingPeriods() {
         <p className="pk-notice">{t(DONE_MESSAGE[result.done])}</p>
       ) : null}
 
-      <table className="pk-grid">
-        <thead>
-          <tr>
-            <th>{t("billingPeriods.column.counterparty")}</th>
-            <th>{t("billingPeriods.column.period")}</th>
-            <th>{t("billingPeriods.column.status")}</th>
-            <th>{t("billingPeriods.column.actions")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.rows.map((row) => (
-            <tr key={row.billingPeriodId}>
-              <th scope="row">{row.counterpartyName}</th>
-              <td>{`${row.periodFrom} 〜 ${row.periodTo}`}</td>
-              <td>
-                {t(STATUS_LABEL[row.status])}
-                {row.status === "AGREED" && row.agreedByCounterparty ? (
-                  <span className="pk-badge">{t("billingPeriods.badge.byCounterparty")}</span>
-                ) : null}
-              </td>
-              <td>
-                <a className="pk-button" href={`?period=${row.billingPeriodId}`}>
-                  {t("billingPeriods.action.open")}
-                </a>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {data.rows.length === 0 ? <p className="pk-muted">{t("billingPeriods.empty")}</p> : null}
+      {/* プロトタイプ ops 10「💴 施設別の請求」。 */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            💴
+          </span>
+          {t("billingPeriods.card")}
+        </div>
+        <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+          <table className="pk-tbl">
+            <thead>
+              <tr>
+                <th>{t("billingPeriods.column.counterparty")}</th>
+                <th>{t("billingPeriods.column.period")}</th>
+                <th>{t("billingPeriods.column.status")}</th>
+                <th>{t("billingPeriods.column.actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.rows.map((row) => (
+                <tr key={row.billingPeriodId}>
+                  <th scope="row">{row.counterpartyName}</th>
+                  <td>{`${row.periodFrom} 〜 ${row.periodTo}`}</td>
+                  <td>
+                    {t(STATUS_LABEL[row.status])}
+                    {row.status === "AGREED" && row.agreedByCounterparty ? (
+                      <span className="pk-badge">{t("billingPeriods.badge.byCounterparty")}</span>
+                    ) : null}
+                  </td>
+                  <td>
+                    <a className="pk-button" href={`?period=${row.billingPeriodId}`}>
+                      {t("billingPeriods.action.open")}
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {data.rows.length === 0 ? (
+          <div className="pk-panel__foot">{t("billingPeriods.empty")}</div>
+        ) : null}
+      </section>
 
       {data.detail === null ? null : (
         <>
@@ -431,7 +445,11 @@ export default function BillingPeriods() {
               {data.detail.lines.map((line) => (
                 <label className="pk-field" key={line.lineKey}>
                   <span className="pk-field__label">{line.description}</span>
-                  <input className="pk-input" name={`lineComment:${line.lineKey}`} maxLength={500} />
+                  <input
+                    className="pk-input"
+                    name={`lineComment:${line.lineKey}`}
+                    maxLength={500}
+                  />
                 </label>
               ))}
               <button className="pk-button" type="submit">
