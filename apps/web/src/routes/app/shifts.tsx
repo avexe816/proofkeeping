@@ -17,6 +17,8 @@ import {
   type LoaderFunctionArgs,
 } from "react-router";
 
+import { WORKLOAD_LIMIT_MINUTES } from "@pk/engine";
+
 import { ORGANIZATION_TARGET, assertPermission } from "../../lib/auth/permission.js";
 import { businessDateOf } from "../../lib/businessDate.js";
 import { t } from "../../lib/i18n.js";
@@ -74,9 +76,7 @@ interface ShiftsData {
 }
 
 type ShiftsActionResult =
-  | { saved: number }
-  | { copied: number; copySkipped: number }
-  | { invalid: true };
+  { saved: number } | { copied: number; copySkipped: number } | { invalid: true };
 
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<ShiftsData> {
   const env = getEnv(context);
@@ -149,7 +149,10 @@ function fieldOf(form: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
-export async function action({ request, context }: ActionFunctionArgs): Promise<ShiftsActionResult> {
+export async function action({
+  request,
+  context,
+}: ActionFunctionArgs): Promise<ShiftsActionResult> {
   const env = getEnv(context);
   const now = new Date();
   const { tenant } = await requireAppContext(env, request, now);
@@ -385,6 +388,59 @@ export default function Shifts() {
           {t("shifts.save")}
         </button>
       </Form>
+
+      {/* ⚙️ 自動割当のルール（プロトタイプ ops 02 / P8-04 の実装を説明する）。
+          **表示だけ。** ここから変えられる形にしない。
+
+          **書いてあるのは実装どおりのことだけ。** プロトタイプの
+          「連続勤務日数の上限 5日」「前回の担当を優先する」は実装が無いので
+          出さない — 効いていない規則を並べると、効いていると読まれる。
+          上限も「16室」ではなく実装どおり標準時間の合計で書く。 */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            ⚙️
+          </span>
+          {t("shifts.rules.title")}
+          <span className="pk-lock">{t("shifts.rules.lock")}</span>
+        </div>
+        <div className="pk-panel__body">
+          {RULE_ROWS.map((rule) => (
+            <div key={rule.label} className="pk-qrow">
+              <div>
+                <div className="pk-qrow__label">{t(rule.label)}</div>
+                <p className="pk-qrow__note">{t(rule.note)}</p>
+              </div>
+              {rule.value === undefined ? null : (
+                <span className="pk-qrow__value">{rule.value}</span>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="pk-panel__foot">{t("shifts.rules.note")}</div>
+      </section>
     </section>
   );
 }
+
+/**
+ * ルールカードの行（P8-04 の実装と 1 対 1）。
+ *
+ * 規則を足したら**ここにも 1 行足す。** 実装だけ変えて説明を据え置くと、
+ * 画面が嘘をつく。
+ */
+const RULE_ROWS: readonly {
+  label: Parameters<typeof t>[0];
+  note: Parameters<typeof t>[0];
+  value?: string;
+}[] = [
+  { label: "shifts.rules.property", note: "shifts.rules.propertyNote" },
+  { label: "shifts.rules.skill", note: "shifts.rules.skillNote" },
+  { label: "shifts.rules.experience", note: "shifts.rules.experienceNote" },
+  { label: "shifts.rules.training", note: "shifts.rules.trainingNote" },
+  {
+    label: "shifts.rules.limit",
+    note: "shifts.rules.limitNote",
+    value: `${String(WORKLOAD_LIMIT_MINUTES)}${t("shifts.rules.unit.minutes")}`,
+  },
+];
