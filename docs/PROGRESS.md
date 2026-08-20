@@ -2052,7 +2052,9 @@ P8 へ送り、**監査ログの閲覧だけを P7-20 として起票した。**
 データ面はテナント面と交わらせない（DECISIONS #220）。
 テナントへの課金は**台帳だけ**で、決済を実装しない（DECISIONS #222）。
 
-- [ ] PF-01 基盤（認証・シェル・ナビ / `platform_operator`・`platform_audit_log`）
+- [x] PF-01 基盤（認証・シェル・ナビ / `platform_operator`・`platform_audit_log`）
+      — データ面 PR #143 → 画面 2/2。`/plat/*` の門は 404、`/app/*` は
+      `/login` へ戻す（DECISIONS #230 / OPEN_QUESTIONS #113 決着）
 - [ ] PF-02 テナントのスナップショット（Queue / SHARD_00 へ 1 テナント 1 行）
 - [ ] PF-03 サービス稼働（01）
 - [ ] PF-04 テナント管理（02）

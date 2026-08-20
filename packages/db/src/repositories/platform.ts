@@ -170,3 +170,45 @@ export async function recordPlatformAudit(env: Env, input: PlatformAuditInput): 
       createdAt: input.now,
     });
 }
+
+/** `createPlatformOperator()` の入力。**`id` は呼び出し側が決める。** */
+export interface CreatePlatformOperatorInput {
+  /** `plat_op_{ulid}`。シードが決定的な値を渡せるように外から受ける。 */
+  id: string;
+  email: string;
+  displayName: string;
+  /** PBKDF2-SHA256 210,000 回の自己記述文字列（security.md §2）。 */
+  passwordHash: string;
+  now: Date;
+}
+
+/**
+ * 運営担当者を作る。
+ *
+ * **呼び出し元はシード（local / staging）だけ。** 招待の画面はまだ無い
+ * （PF-14 の担当）。同じメールが既にあれば何もしない — シードが
+ * 3 回流れても 1 行のままにするため（testing.md §4）。
+ *
+ * **無効化は `status` で行う。DELETE の関数を作らない**（監査ログの
+ * `operator_id` が指す先を消さない / このファイル冒頭の注記）。
+ */
+export async function createPlatformOperator(
+  env: Env,
+  input: CreatePlatformOperatorInput,
+): Promise<void> {
+  await getPlatformDb(env)
+    .insert(platformOperator)
+    .values({
+      id: input.id,
+      email: input.email,
+      displayName: input.displayName,
+      passwordHash: input.passwordHash,
+      status: "ACTIVE",
+      failedAttempts: 0,
+      lockedUntil: null,
+      twoFactorSecret: null,
+      createdAt: input.now,
+      updatedAt: input.now,
+    })
+    .onConflictDoNothing();
+}

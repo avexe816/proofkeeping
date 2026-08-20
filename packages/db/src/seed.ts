@@ -36,6 +36,7 @@ import { createUlidFactory } from "./id.js";
 import { reserveOrgShortId } from "./orgDirectory.js";
 import { getTenantDb, type ShardContext } from "./router.js";
 import { legacyPolicyValues } from "./repositories/inspectionPolicy.js";
+import { createPlatformOperator } from "./repositories/platform.js";
 import { checklistItem, checklistTemplate } from "./schema/checklist.js";
 import { MODULE_CODES, moduleEntitlement } from "./schema/billing.js";
 import { propertyInspectionPolicy } from "./schema/inspection.js";
@@ -91,6 +92,15 @@ export const SEED_CLEANER_COUNT = SEED_PINS.length;
 export const SEED_OWNER_STAFF_NUMBER = "0001";
 
 /**
+ * シードが作る運営担当者のメール（PF-01 / `/plat/login`）。
+ *
+ * `.invalid` は実在し得ない TLD（RFC 2606）。**通知の宛先にならない。**
+ * パスワードは管理者と同じ（`credentials.ownerPassword`）— 動作確認のために
+ * 鍵を 2 本配らない。
+ */
+export const SEED_OPERATOR_EMAIL = "operator@seed.invalid";
+
+/**
  * ハッシュ化の注入。**本番のパスワード・PIN 設定と同じ実装を渡すこと。**
  * テストは決定的な代役を渡してよい。
  */
@@ -114,6 +124,8 @@ export interface SeedResult {
   cleaners: number;
   /** 既定のチェックリストテンプレート数（P1-06 / §6.2 の 2 種）。 */
   checklistTemplates: number;
+  /** 運営担当者のログインメール（PF-01。パスワードは管理者と同じ）。 */
+  operatorEmail: string;
 }
 
 /**
@@ -456,6 +468,24 @@ export async function seed(
     }
   }
 
+  // ── プラットフォーム運営の担当者 1 名（PF-01）─────────
+  //
+  // **テナントとは別の面**（DECISIONS #220）。SHARD_00 の
+  // `platform_operator` へ入れる。これが無いと `/plat/login` から先へ
+  // 進めず、運営画面を動かして確かめられない（staging の
+  // 「モジュールが 1 行も無くて何も開けない」と同じ形の詰まり）。
+  //
+  // ID はテナントの `id()` を使わない — `{orgShortId}__` を持たせない
+  // （運営の ID はどの組織にも属さない）。決定的な ULID なので
+  // 3 回流しても同じ 1 行のまま。
+  await createPlatformOperator(env, {
+    id: `plat_op_${ulid()}`,
+    email: SEED_OPERATOR_EMAIL,
+    displayName: "サンプル運営担当者",
+    passwordHash: await deps.hashPassword(credentials.ownerPassword),
+    now,
+  });
+
   return {
     organizationId,
     orgShortId: SEED_ORG_SHORT_ID,
@@ -463,5 +493,6 @@ export async function seed(
     rooms: roomCount,
     cleaners: SEED_CLEANER_COUNT,
     checklistTemplates: SEED_CHECKLIST_TEMPLATES.length,
+    operatorEmail: SEED_OPERATOR_EMAIL,
   };
 }

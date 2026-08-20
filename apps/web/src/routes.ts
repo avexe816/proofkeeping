@@ -123,8 +123,13 @@ export default [
   route("login", "routes/login.tsx"),
   route("logout", "routes/logout.ts"),
   route("m/login", "routes/m/login.tsx"),
+  // PF-01。運営面の入口。**シェルの外**（門を通すと 404 で入れない）。
+  route("plat/login", "routes/plat/login.tsx"),
+  route("plat/logout", "routes/plat/logout.ts"),
   // P5-17。確認依頼のメールリンク（認証不要・署名で守る）。layout の外。
   route("r/billing/:billingPeriodId", "routes/review/billingReview.tsx"),
+  // PF-01。運営面のシェル。PF-03〜PF-14 がここへ 11 本足す。
+  layout("routes/plat/layout.tsx", [route("plat/status", "routes/plat/status.tsx")]),
   layout("routes/m/layout.tsx", [
     route("m/today", "routes/m/today.tsx"),
     route("m/select-property", "routes/m/selectProperty.tsx"),

@@ -656,10 +656,12 @@ export {
 // プラットフォーム運営（PF-01 / DECISIONS #220）。**SHARD_00 のみ・テナントの表と交わらない。**
 // `platform_audit_log` に更新・削除の関数は無い（INV-30 と同じ扱い）。
 export {
+  createPlatformOperator,
   findPlatformOperatorByEmail,
   findPlatformOperatorById,
   recordPlatformAudit,
   recordPlatformLoginAttempt,
+  type CreatePlatformOperatorInput,
   type PlatformAuditInput,
   type PlatformLoginAttemptInput,
   type PlatformOperatorRow,
