@@ -2073,5 +2073,7 @@
   "plat.tenants.trialCheck.3": "1人あたりの担当室数が16室を超えていないか",
   "plat.tenants.trialCheck.4": "差異が出たときの確認フローが機能しているか",
   "staff.roster.card": "スタッフ一覧",
-  "stdtime.card": "目安時間と記録項目"
+  "stdtime.card": "目安時間と記録項目",
+  "auditLogs.card": "操作の履歴",
+  "billingPeriods.card": "施設別の請求"
 }

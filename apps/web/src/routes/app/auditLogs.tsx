@@ -120,34 +120,48 @@ export default function AuditLogs() {
         </Form>
       </div>
 
-      <p className="pk-muted">{t("auditLogs.intro")}</p>
-
-      {data.rows.length === 0 ? (
-        <p className="pk-muted">{t("auditLogs.empty")}</p>
-      ) : (
-        <table className="pk-grid">
-          <thead>
-            <tr>
-              <th>{t("auditLogs.column.at")}</th>
-              <th>{t("auditLogs.column.action")}</th>
-              <th>{t("auditLogs.column.target")}</th>
-              <th>{t("auditLogs.column.property")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((row) => (
-              <tr key={row.id}>
-                <td>{`${row.date} ${formatClock(row.at)}`}</td>
-                <td>
-                  <code>{row.action}</code>
-                </td>
-                <td>{`${row.targetType} ${row.targetId?.split("_").pop() ?? ""}`}</td>
-                <td>{row.propertyName ?? t("auditLogs.orgWide")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      {/* プロトタイプ owner 12「📜 操作の履歴」。 */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            📜
+          </span>
+          {t("auditLogs.card")}
+          <span className="pk-panel__note">{`${data.from} 〜 ${data.to}`}</span>
+        </div>
+        {data.rows.length === 0 ? (
+          <div className="pk-panel__body">
+            <p className="pk-muted">{t("auditLogs.empty")}</p>
+          </div>
+        ) : (
+          <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+            <table className="pk-tbl">
+              <thead>
+                <tr>
+                  <th>{t("auditLogs.column.at")}</th>
+                  <th>{t("auditLogs.column.action")}</th>
+                  <th>{t("auditLogs.column.target")}</th>
+                  <th>{t("auditLogs.column.property")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((row) => (
+                  <tr key={row.id}>
+                    <td>{`${row.date} ${formatClock(row.at)}`}</td>
+                    <td>
+                      <code>{row.action}</code>
+                    </td>
+                    <td>{`${row.targetType} ${row.targetId?.split("_").pop() ?? ""}`}</td>
+                    <td>{row.propertyName ?? t("auditLogs.orgWide")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {/* **閲覧のみで、追記も削除もできない**（INV-30 / 逐語）。 */}
+        <div className="pk-panel__foot">{t("auditLogs.intro")}</div>
+      </section>
     </section>
   );
 }
