@@ -1,8 +1,4 @@
-import {
-  findLatestSnapshotDate,
-  listTenantSnapshots,
-  readPlatformOperationSettings,
-} from "@pk/db";
+import { findLatestSnapshotDate, listTenantSnapshots, readPlatformOperationSettings } from "@pk/db";
 import { useLoaderData, type LoaderFunctionArgs } from "react-router";
 
 import { t } from "../../lib/i18n.js";
@@ -122,109 +118,128 @@ export default function PlatTenants() {
         </div>
         <div className="pk-stats__item">
           <dt>{t("plat.tenants.kpi.scale")}</dt>
-          <dd>
-            {`${String(data.summary.properties)} / ${String(data.summary.rooms)}`}
-          </dd>
+          <dd>{`${String(data.summary.properties)} / ${String(data.summary.rooms)}`}</dd>
         </div>
       </dl>
 
-      <div className="pk-card">
-        <h2 className="pk-card__title">{t("plat.tenants.list")}</h2>
-        <table className="pk-table">
-          <thead>
-            <tr>
-              <th scope="col">{t("plat.tenants.column.name")}</th>
-              <th scope="col">{t("plat.tenants.column.plan")}</th>
-              <th scope="col">{t("plat.tenants.column.properties")}</th>
-              <th scope="col">{t("plat.tenants.column.rooms")}</th>
-              <th scope="col">{t("plat.tenants.column.staff")}</th>
-              <th scope="col">{t("plat.tenants.column.completeness")}</th>
-              <th scope="col">{t("plat.tenants.column.state")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((row) => (
-              <tr key={row.organizationId}>
-                <td>
-                  {row.name}
-                  {row.contractedOn === null ? null : (
-                    <span className="pk-muted"> {row.contractedOn}</span>
-                  )}
-                </td>
-                <td>{row.plan === null ? t("plat.tenants.noPlan") : row.plan}</td>
-                <td>{row.propertyCount}</td>
-                <td>{row.roomCount}</td>
-                <td>{row.staffCount}</td>
-                <td>
-                  <Completeness percent={row.completenessPercent} />
-                </td>
-                <td>
-                  <span className={STATE_CLASS[row.state]}>{t(STATE_LABEL[row.state])}</span>
-                </td>
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            🏢
+          </span>
+          {t("plat.tenants.list")}
+        </div>
+        <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+          <table className="pk-tbl">
+            <thead>
+              <tr>
+                <th scope="col">{t("plat.tenants.column.name")}</th>
+                <th scope="col">{t("plat.tenants.column.plan")}</th>
+                <th scope="col">{t("plat.tenants.column.properties")}</th>
+                <th scope="col">{t("plat.tenants.column.rooms")}</th>
+                <th scope="col">{t("plat.tenants.column.staff")}</th>
+                <th scope="col">{t("plat.tenants.column.completeness")}</th>
+                <th scope="col">{t("plat.tenants.column.state")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {data.rows.map((row) => (
+                <tr key={row.organizationId}>
+                  <td>
+                    {row.name}
+                    {row.contractedOn === null ? null : (
+                      <span className="pk-muted"> {row.contractedOn}</span>
+                    )}
+                  </td>
+                  <td>{row.plan === null ? t("plat.tenants.noPlan") : row.plan}</td>
+                  <td>{row.propertyCount}</td>
+                  <td>{row.roomCount}</td>
+                  <td>{row.staffCount}</td>
+                  <td>
+                    <Completeness percent={row.completenessPercent} />
+                  </td>
+                  <td>
+                    <span className={STATE_CLASS[row.state]}>{t(STATE_LABEL[row.state])}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      <div className="pk-card">
-        <h2 className="pk-card__title">{t("plat.tenants.plans")}</h2>
-        <table className="pk-table">
-          <thead>
-            <tr>
-              <th scope="col">{t("plat.tenants.column.plan")}</th>
-              <th scope="col">{t("plat.tenants.column.count")}</th>
-              <th scope="col">{t("plat.tenants.column.properties")}</th>
-              <th scope="col">{t("plat.tenants.column.planNote")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.plans.map((plan) => (
-              <tr key={plan.plan}>
-                <td>{plan.plan}</td>
-                <td>{plan.tenants}</td>
-                <td>{plan.properties}</td>
-                <td>
-                  {plan.plan in PLAN_NOTE ? (
-                    t(PLAN_NOTE[plan.plan] as Parameters<typeof t>[0])
-                  ) : (
-                    <span className="pk-muted">{t("plat.tenants.noData")}</span>
-                  )}
-                </td>
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            📊
+          </span>
+          {t("plat.tenants.plans")}
+        </div>
+        <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+          <table className="pk-tbl">
+            <thead>
+              <tr>
+                <th scope="col">{t("plat.tenants.column.plan")}</th>
+                <th scope="col">{t("plat.tenants.column.count")}</th>
+                <th scope="col">{t("plat.tenants.column.properties")}</th>
+                <th scope="col">{t("plat.tenants.column.planNote")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.plans.map((plan) => (
+                <tr key={plan.plan}>
+                  <td>{plan.plan}</td>
+                  <td>{plan.tenants}</td>
+                  <td>{plan.properties}</td>
+                  <td>
+                    {plan.plan in PLAN_NOTE ? (
+                      t(PLAN_NOTE[plan.plan] as Parameters<typeof t>[0])
+                    ) : (
+                      <span className="pk-muted">{t("plat.tenants.noData")}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {/* 逐語の注記（PF-04「逐語で置く注記」）。**言い換えない。** */}
-        <p className="pk-muted">{t("plat.tenants.note.plan")}</p>
-      </div>
+        <div className="pk-panel__foot">{t("plat.tenants.note.plan")}</div>
+      </section>
 
       {data.trials.length === 0 ? null : (
-        <div className="pk-card">
-          <h2 className="pk-card__title">{t("plat.tenants.trials")}</h2>
-          <ul>
-            {data.trials.map((row) => {
-              const left = trialDaysLeft(row.trialEndsOn, data.businessDate);
-              return (
-                <li key={row.organizationId}>
-                  {row.name}
-                  {left === null ? null : (
-                    <span className="pk-muted">
-                      {` ${t("plat.tenants.trialLeft")} ${String(left)}`}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {/* 試用中の確認項目 4 つ（プロトタイプ 02）。**増やさない。** */}
-          <ul>
-            <li>{t("plat.tenants.trialCheck.1")}</li>
-            <li>{t("plat.tenants.trialCheck.2")}</li>
-            <li>{t("plat.tenants.trialCheck.3")}</li>
-            <li>{t("plat.tenants.trialCheck.4")}</li>
-          </ul>
-        </div>
+        <section className="pk-panel">
+          <div className="pk-panel__head">
+            <span className="pk-panel__icon" aria-hidden="true">
+              🧪
+            </span>
+            {t("plat.tenants.trials")}
+          </div>
+          <div className="pk-panel__body">
+            <ul>
+              {data.trials.map((row) => {
+                const left = trialDaysLeft(row.trialEndsOn, data.businessDate);
+                return (
+                  <li key={row.organizationId}>
+                    {row.name}
+                    {left === null ? null : (
+                      <span className="pk-muted">
+                        {` ${t("plat.tenants.trialLeft")} ${String(left)}`}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {/* 試用中の確認項目 4 つ（プロトタイプ 02）。**増やさない。** */}
+            <ul>
+              <li>{t("plat.tenants.trialCheck.1")}</li>
+              <li>{t("plat.tenants.trialCheck.2")}</li>
+              <li>{t("plat.tenants.trialCheck.3")}</li>
+              <li>{t("plat.tenants.trialCheck.4")}</li>
+            </ul>
+          </div>
+        </section>
       )}
     </section>
   );
