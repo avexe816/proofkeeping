@@ -170,24 +170,32 @@ export const platformTenantSnapshot = sqliteTable(
     /** 入力所要時間の中央値（ミリ秒）。計測が 1 件も無ければ `null`。 */
     inputDurationMedianMs: integer("input_duration_median_ms"),
 
+    // ── ここから 3 列は **nullable。`null` は「未計測」** ──────
+    //
+    // **既定値を持たせない**（DEFAULT 0 / '{}' にしない）。
+    // 0033 より前に書かれた行はこの 3 つを数えていないので、既定値を
+    // 入れると**未計測の過去データが「実測 0 件」に見える。**
+    // 全履歴を正しく再計算して backfill できない以上、
+    // 「まだ数えていない」を型で表せる形にしておく（オーナー判断）。
+    //
+    // 読み手は `?? 0` で 0 に落とさず、**「未計測」と表示する。**
+
     /**
-     * その業務日に記録された差異の数（PF-05）。
+     * その業務日に記録された差異の数（PF-05）。**`null` は未計測。**
      * 元は `daily_property_rollup.findingsHigh` の施設合計。
      */
-    findingsHigh: integer("findings_high").notNull().default(0),
-    /** その業務日にアップロードされた写真の枚数（PF-05）。 */
-    photoCount: integer("photo_count").notNull().default(0),
+    findingsHigh: integer("findings_high"),
+    /** その業務日にアップロードされた写真の枚数（PF-05）。**`null` は未計測。** */
+    photoCount: integer("photo_count"),
     /**
      * 表示言語ごとの人数（PF-05 の「言語の利用割合」）。`{"ja":12,"vi":31}`。
+     * **`null` は未計測**（`{}` は「数えたが 0 人」なので意味が違う）。
      *
      * **誰が何語かは持たない。** 人数だけ（security.md §5 / INV-10）。
      * 列を言語ごとに増やさないのは、対応言語が増えるたびに
      * マイグレーションが要る形にしないため。
      */
-    localeCounts: text("locale_counts", { mode: "json" })
-      .$type<Record<string, number>>()
-      .notNull()
-      .default({}),
+    localeCounts: text("locale_counts", { mode: "json" }).$type<Record<string, number>>(),
 
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },

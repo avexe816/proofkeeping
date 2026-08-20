@@ -7,7 +7,11 @@ import { useLoaderData, type LoaderFunctionArgs } from "react-router";
 
 import { t } from "../../lib/i18n.js";
 import { requirePlatformOperator } from "../../lib/platform/requireOperator.js";
-import { buildUsagePage, type UsagePage } from "../../lib/platform/usagePage.js";
+import {
+  buildUsagePage,
+  buildVerdictNote,
+  type UsagePage,
+} from "../../lib/platform/usagePage.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 
 /**
@@ -34,6 +38,17 @@ import { getEnv } from "../../lib/ui/cloudflare.js";
 function InputDuration({ ms }: { ms: number | null }) {
   if (ms === null) return <span className="pk-muted">{t("plat.usage.notMeasured")}</span>;
   return <span>{`${String(Math.round(ms / 1000))}${t("plat.usage.unit.seconds")}`}</span>;
+}
+
+/**
+ * 未計測（`null`）を **0 に落とさずに**出す。
+ *
+ * 0033 より前のスナップショットはこの値を数えていない。
+ * **`?? 0` で埋めると「実測 0 件」に見える**（オーナー指摘 / DECISIONS #242）。
+ */
+function Measured({ value }: { value: number | null }) {
+  if (value === null) return <span className="pk-muted">{t("plat.usage.notMeasured")}</span>;
+  return <span>{String(value)}</span>;
 }
 
 /** 割合。**出せない日は「記録なし」**（0% にしない）。 */
@@ -83,11 +98,15 @@ export default function PlatUsage() {
         </div>
         <div className="pk-stats__item">
           <dt>{t("plat.usage.kpi.photos")}</dt>
-          <dd>{String(data.summary.photoCount)}</dd>
+          <dd>
+            <Measured value={data.summary.photoCount} />
+          </dd>
         </div>
         <div className="pk-stats__item">
           <dt>{t("plat.usage.kpi.findings")}</dt>
-          <dd>{String(data.summary.findings)}</dd>
+          <dd>
+            <Measured value={data.summary.findings} />
+          </dd>
         </div>
       </dl>
 
@@ -129,13 +148,20 @@ export default function PlatUsage() {
             ))}
           </tbody>
         </table>
-        {/* 逐語の注記（PF-05「逐語で置く注記」）。**言い換えない。** */}
-        <p className="pk-muted">{t("plat.usage.note.verdict")}</p>
+        {/* 逐語の注記（PF-05「逐語で置く注記」）。**言い換えない。**
+            ただし**数値は固定しない** — PF-14 で閾値を変えたら
+            この文も変わる（DECISIONS #242）。 */}
+        <p className="pk-muted">
+          {buildVerdictNote(t("plat.usage.note.verdict"), data.thresholds)}
+        </p>
       </div>
 
       <div className="pk-card">
         <h2 className="pk-card__title">{t("plat.usage.locales")}</h2>
-        {data.totalPeople === 0 ? (
+        {data.totalPeople === null ? (
+          // **未計測。** 0033 より前の行が混ざっている（空の表を「0 人」と読ませない）。
+          <p className="pk-muted">{t("plat.usage.notMeasured.body")}</p>
+        ) : data.totalPeople === 0 ? (
           <p className="pk-muted">{t("plat.usage.locales.empty")}</p>
         ) : (
           <table className="pk-table">

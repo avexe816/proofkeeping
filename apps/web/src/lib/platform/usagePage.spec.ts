@@ -8,9 +8,12 @@
  */
 
 import type { PlatformOperationSettings, TenantSnapshotRow } from "@pk/db";
+import { COMPLETENESS_THRESHOLD_PERCENT } from "@pk/engine";
 import { describe, expect, it } from "vitest";
 
-import { buildUsagePage } from "./usagePage.js";
+import { ja } from "../../locales/index.js";
+
+import { buildUsagePage, buildVerdictNote } from "./usagePage.js";
 
 const SETTINGS: PlatformOperationSettings = {
   inputDurationFloorSeconds: 10,
@@ -218,5 +221,99 @@ describe("スナップショットが 0 件でも壊れない", () => {
     expect(page.locales).toEqual([]);
     expect(page.summary.completenessPercent).toBeNull();
     expect(page.businessDate).toBeNull();
+  });
+});
+
+describe("未計測（`null`）を 0 に落とさない（オーナー指摘 / DECISIONS #242）", () => {
+  it("写真と差異が未計測なら合計も `null`", () => {
+    const page = buildUsagePage(
+      [snapshot({ photoCount: null, findingsHigh: null })],
+      SETTINGS,
+      BUSINESS_DATE,
+    );
+    expect(page.summary.photoCount).toBeNull();
+    expect(page.summary.findings).toBeNull();
+  });
+
+  it("**1 つでも未計測が混ざったら合計は `null`**（測れたぶんだけ足さない）", () => {
+    const page = buildUsagePage(
+      [
+        snapshot({ organizationId: "a__org", photoCount: 100, findingsHigh: 2 }),
+        snapshot({ organizationId: "b__org", photoCount: null, findingsHigh: null }),
+      ],
+      SETTINGS,
+      BUSINESS_DATE,
+    );
+    // 100 を「実測」として出すと、b のぶんを 0 と数えた合計になる。
+    expect(page.summary.photoCount).toBeNull();
+    expect(page.summary.findings).toBeNull();
+  });
+
+  it("言語が未計測なら表を出さず `totalPeople` も `null`", () => {
+    const page = buildUsagePage([snapshot({ localeCounts: null })], SETTINGS, BUSINESS_DATE);
+    expect(page.locales).toEqual([]);
+    expect(page.totalPeople).toBeNull();
+  });
+
+  it("**`{}`（数えたが 0 人）と `null`（未計測）を分ける**", () => {
+    const measured = buildUsagePage([snapshot({ localeCounts: {} })], SETTINGS, BUSINESS_DATE);
+    expect(measured.totalPeople).toBe(0);
+
+    const unmeasured = buildUsagePage([snapshot({ localeCounts: null })], SETTINGS, BUSINESS_DATE);
+    expect(unmeasured.totalPeople).toBeNull();
+  });
+
+  it("未計測でも品質の表は出る（3 列は判定に使っていない）", () => {
+    const page = buildUsagePage(
+      [snapshot({ photoCount: null, findingsHigh: null, localeCounts: null })],
+      SETTINGS,
+      BUSINESS_DATE,
+    );
+    expect(page.quality).toHaveLength(1);
+    expect(page.quality[0]?.completenessPercent).not.toBeNull();
+  });
+});
+
+describe("判定の説明文は設定値から作る（オーナー指摘 / DECISIONS #242）", () => {
+  /** `ja.json` のテンプレート。**数値を持たない。** */
+  const TEMPLATE = ja["plat.usage.note.verdict"];
+
+  it("`ja.json` に数値が固定されていない", () => {
+    expect(TEMPLATE).toContain("{completeness}");
+    expect(TEMPLATE).toContain("{defaultRate}");
+    expect(TEMPLATE).toContain("{seconds}");
+    // 既定値がそのまま文言に埋まっていないこと。
+    expect(TEMPLATE).not.toContain("90%");
+    expect(TEMPLATE).not.toContain("70%");
+    expect(TEMPLATE).not.toContain("10秒");
+  });
+
+  it("既定値ならプロトタイプの逐語と一致する", () => {
+    const page = buildUsagePage([snapshot()], SETTINGS, BUSINESS_DATE);
+    expect(buildVerdictNote(TEMPLATE, page.thresholds)).toBe(
+      "判定は3指標の組み合わせです。完備率90%未満・既定値70%超・入力時間10秒未満のうち2つ以上該当で「要支援」とします。",
+    );
+  });
+
+  it("**設定を変えると説明文も変わる**（表示と判定が食い違わない）", () => {
+    const changed = buildUsagePage(
+      [snapshot()],
+      { ...SETTINGS, defaultRateThresholdPercent: 85, inputDurationFloorSeconds: 5 },
+      BUSINESS_DATE,
+    );
+    const note = buildVerdictNote(TEMPLATE, changed.thresholds);
+    expect(note).toContain("既定値85%超");
+    expect(note).toContain("入力時間5秒未満");
+    expect(note).not.toContain("70%");
+    expect(note).not.toContain("10秒");
+  });
+
+  it("説明文の閾値と、実際の判定に使う閾値が同じ", () => {
+    const settings = { ...SETTINGS, defaultRateThresholdPercent: 85, inputDurationFloorSeconds: 5 };
+    const page = buildUsagePage([snapshot()], settings, BUSINESS_DATE);
+    expect(page.thresholds.defaultRatePercent).toBe(settings.defaultRateThresholdPercent);
+    expect(page.thresholds.inputDurationFloorSeconds).toBe(settings.inputDurationFloorSeconds);
+    // 完備率だけは PF-14 の 5 項目に無いのでコード上の定数（engine）。
+    expect(page.thresholds.completenessPercent).toBe(COMPLETENESS_THRESHOLD_PERCENT);
   });
 });

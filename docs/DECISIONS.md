@@ -5820,3 +5820,31 @@
   5. **Passkey / WebAuthn は後続 task として残す**
 - 影響: `platform_operator.two_factor_secret`（PF-01 が列だけ置いてある）。
   PF-17 が実装する。PF-16 の初回ログインもここに依存する。
+
+## #242 未計測を 0 で埋めない・閾値の説明文を設定値から作る
+
+- 日付: 2026-08-20
+- task: `docs/tasks/PF-05.md`（PR #161 のレビュー指摘）
+- 由来: **オーナー指摘。** PF-05 の初版に 2 つの穴があった。
+- 決定 A（**未計測と実測 0 を分ける**）:
+  1. 0033 で足す 3 列（`findings_high` / `photo_count` / `locale_counts`）を
+     **nullable** にする。**DEFAULT 0 / `'{}'` を置かない。**
+     置くと**移行前の行が「実測 0 件」に見える。**
+  2. 実測値を書くのは**移行後に新しく生成したスナップショットだけ。**
+     過去ぶんの backfill は行わない（全履歴を正しく再計算できないため）。
+  3. UI は `null` を **「未計測」**と表示する。**`?? 0` で変換しない。**
+  4. 合計は **1 つでも未計測が混ざったら `null`。** 測れたぶんだけ足すと
+     「未計測のテナントを 0 と数えた合計」になる。
+  5. `{}`（数えたが 0 人）と `null`（未計測）を**別のものとして扱う。**
+- 決定 B（**閾値の説明文を固定しない**）:
+  1. 判定に使った 3 つの閾値を **loader の戻り値に含める**（`thresholds`）。
+  2. 説明文は `ja.json` の**プレースホルダ**（`{completeness}` /
+     `{defaultRate}` / `{seconds}`）を `buildVerdictNote()` が埋めて作る。
+  3. **`ja.json` に数値を書かない。** 書くと PF-14 で閾値を変えた瞬間に
+     **画面の説明と実際の判定が食い違う。**
+  4. **設定を変えると説明文も変わることをテストで固定する。**
+- 影響: `packages/db/src/schema/platform.ts`（3 列を nullable へ）/
+  migration 0033 / `repositories/platform.ts` の型 /
+  `lib/platform/usagePage.ts` / `routes/plat/usage.tsx` / `ja.json`。
+  **`platform_tenant_snapshot` の他の列はこの扱いにしない** — PF-02 の
+  時点から数えており、未計測の期間が無い。

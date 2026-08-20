@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e787072f-b127-454c-9b57-7c5b77bb11dd",
+  "id": "23df22b3-143a-43ac-8133-447d41cd3fe2",
   "prevId": "14233841-5fc0-4fd5-ab46-c36cc7150ccf",
   "tables": {
     "api_key": {
@@ -10271,25 +10271,22 @@
           "name": "findings_high",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
+          "notNull": false,
+          "autoincrement": false
         },
         "photo_count": {
           "name": "photo_count",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
+          "notNull": false,
+          "autoincrement": false
         },
         "locale_counts": {
           "name": "locale_counts",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'{}'"
+          "notNull": false,
+          "autoincrement": false
         },
         "updated_at": {
           "name": "updated_at",

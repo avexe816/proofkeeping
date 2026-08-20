@@ -15,7 +15,11 @@
  * 並べ替えの向きが仕様そのものなので、テストで固定する。
  */
 
-import { judgeTenantQuality, type TenantQualityVerdict } from "@pk/engine";
+import {
+  COMPLETENESS_THRESHOLD_PERCENT,
+  judgeTenantQuality,
+  type TenantQualityVerdict,
+} from "@pk/engine";
 import type { PlatformOperationSettings, TenantSnapshotRow } from "@pk/db";
 
 /** 品質の表の 1 行。**個人を特定できる値を持たない。** */
@@ -47,21 +51,59 @@ export interface UsageSummary {
   completedTasks: number;
   /** 記録の完備率（%）。分母が 0 なら `null`。 */
   completenessPercent: number | null;
-  /** 写真の枚数。 */
-  photoCount: number;
-  /** 記録された差異の数。 */
-  findings: number;
+  /** 写真の枚数。**`null` は未計測**（0033 より前の行が混ざっている）。 */
+  photoCount: number | null;
+  /** 記録された差異の数。**`null` は未計測。** */
+  findings: number | null;
+}
+
+/**
+ * 判定に使った 3 つの閾値。**画面の説明文をここから作る。**
+ *
+ * PF-14 の「運用（変更可）」で値を変えると**説明文も一緒に変わる**必要が
+ * ある。固定の文言を置くと、変えた瞬間に**画面の説明と実際の判定が
+ * 食い違う**（オーナー指摘 / DECISIONS #242）。
+ */
+export interface VerdictThresholds {
+  /** 完備率（%）。**PF-14 の 5 項目に無いのでコード上の定数**（engine）。 */
+  completenessPercent: number;
+  /** 既定値のまま比率（%）。PF-14 の設定値。 */
+  defaultRatePercent: number;
+  /** 入力所要時間（秒）。PF-14 の設定値。 */
+  inputDurationFloorSeconds: number;
 }
 
 export interface UsagePage {
   businessDate: string | null;
+  /** **loader の戻り値に含める。** 説明文はこれを埋めて作る。 */
+  thresholds: VerdictThresholds;
   summary: UsageSummary;
   /** **下位から**並んだ品質の表。 */
   quality: QualityRow[];
-  /** 言語の利用割合。**多い順。** */
+  /** 言語の利用割合。**多い順。** 未計測なら空。 */
   locales: LocaleRow[];
-  /** 全体の人数（言語の母数）。 */
-  totalPeople: number;
+  /** 全体の人数（言語の母数）。**`null` は未計測。** */
+  totalPeople: number | null;
+}
+
+/**
+ * 合計する。**1 つでも未計測（`null`）が混ざったら合計も `null`。**
+ *
+ * 測れたぶんだけ足すと、**未計測のテナントを黙って 0 として扱った合計**に
+ * なる。「一部のテナントが抜けた数」を実測として出すより、
+ * 「未計測」と言うほうが正しい（オーナー判断 / DECISIONS #242）。
+ *
+ * 0033 より前に書かれた行はこの 3 列を数えていない。同じ業務日の行は
+ * 同じコンシューマが書くので、**実際に混ざるのは移行の当日だけ。**
+ */
+function sumMeasured(values: readonly (number | null)[]): number | null {
+  if (values.length === 0) return null;
+  let total = 0;
+  for (const value of values) {
+    if (value === null) return null;
+    total += value;
+  }
+  return total;
 }
 
 /** 百分率（整数・切り捨て）。母数が 0 なら `null`。**0 を返さない。** */
@@ -99,17 +141,25 @@ export function buildUsagePage(
 
   let completedTasks = 0;
   let observationsRecorded = 0;
-  let photoCount = 0;
-  let findings = 0;
+
+  // **`?? 0` で未計測を 0 に落とさない。** null のまま集めて後で判定する。
+  const photoCounts: (number | null)[] = [];
+  const findingCounts: (number | null)[] = [];
+  // 言語も同じ。1 つでも未計測なら表そのものを出さない。
   const peopleByLocale = new Map<string, number>();
+  let localesMeasured = snapshots.length > 0;
 
   const quality: QualityRow[] = snapshots.map((snapshot) => {
     completedTasks += snapshot.completedTasks;
     observationsRecorded += snapshot.observationsRecorded;
-    photoCount += snapshot.photoCount;
-    findings += snapshot.findingsHigh;
-    for (const [locale, people] of Object.entries(snapshot.localeCounts)) {
-      peopleByLocale.set(locale, (peopleByLocale.get(locale) ?? 0) + people);
+    photoCounts.push(snapshot.photoCount);
+    findingCounts.push(snapshot.findingsHigh);
+    if (snapshot.localeCounts === null) {
+      localesMeasured = false;
+    } else {
+      for (const [locale, people] of Object.entries(snapshot.localeCounts)) {
+        peopleByLocale.set(locale, (peopleByLocale.get(locale) ?? 0) + people);
+      }
     }
 
     const verdict: TenantQualityVerdict = judgeTenantQuality(
@@ -133,21 +183,53 @@ export function buildUsagePage(
     };
   });
 
-  const totalPeople = [...peopleByLocale.values()].reduce((total, people) => total + people, 0);
-  const locales: LocaleRow[] = [...peopleByLocale.entries()]
-    .map(([locale, people]) => ({ locale, people, percent: percentOf(people, totalPeople) }))
-    .sort((a, b) => (b.people === a.people ? a.locale.localeCompare(b.locale) : b.people - a.people));
+  // 未計測なら**表ごと出さない**（空の表を「0 人」と読ませない）。
+  const measuredPeople = localesMeasured
+    ? [...peopleByLocale.values()].reduce((total, people) => total + people, 0)
+    : null;
+  const locales: LocaleRow[] =
+    measuredPeople === null
+      ? []
+      : [...peopleByLocale.entries()]
+          .map(([locale, people]) => ({
+            locale,
+            people,
+            percent: percentOf(people, measuredPeople),
+          }))
+          .sort((a, b) =>
+            b.people === a.people ? a.locale.localeCompare(b.locale) : b.people - a.people,
+          );
 
   return {
     businessDate,
+    thresholds: {
+      completenessPercent: COMPLETENESS_THRESHOLD_PERCENT,
+      defaultRatePercent: settings.defaultRateThresholdPercent,
+      inputDurationFloorSeconds: settings.inputDurationFloorSeconds,
+    },
     summary: {
       completedTasks,
       completenessPercent: percentOf(observationsRecorded, completedTasks),
-      photoCount,
-      findings,
+      photoCount: sumMeasured(photoCounts),
+      findings: sumMeasured(findingCounts),
     },
     quality: [...quality].sort(worstFirst),
     locales,
-    totalPeople,
+    totalPeople: measuredPeople,
   };
+}
+
+/**
+ * 判定の説明文を作る（PF-05 の逐語注記）。
+ *
+ * **数値を文言に固定しない。** `ja.json` はプレースホルダだけを持ち、
+ * 実際の値はここで埋める。PF-14 で閾値を変えたら、この文も一緒に変わる。
+ *
+ * @param template `{completeness}` / `{defaultRate}` / `{seconds}` を含む文。
+ */
+export function buildVerdictNote(template: string, thresholds: VerdictThresholds): string {
+  return template
+    .replaceAll("{completeness}", String(thresholds.completenessPercent))
+    .replaceAll("{defaultRate}", String(thresholds.defaultRatePercent))
+    .replaceAll("{seconds}", String(thresholds.inputDurationFloorSeconds));
 }
