@@ -184,17 +184,28 @@ export default function PropertyBoard(): React.ReactElement {
 
   return (
     <section className="pk-page">
+      {/* 絞り込みは**見出しの右端**に置く（人間の指示 2026-08-20 /
+          DECISIONS #218）。プロトタイプ owner 03 と同じく、盤面の上に
+          横たわる帯を作らずに済み、客室のタイルが 1 行ぶん上がる。
+          GET なので送信 = 再読込 = 「更新」を兼ねる。 */}
       <div className="pk-pagehead">
-        <h1 className="pk-pagehead__title">{t("nav.board")}</h1>
-        <p className="pk-muted">{`${data.propertyName} · ${data.businessDate}`}</p>
-      </div>
-
-      {/* 絞り込み（プロトタイプ owner 03: フロア・状態・更新）。GET なので
-          送信 = 再読込 = 「更新」を兼ねる。 */}
-      <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("board.filter.floor")}</span>
-          <select className="pk-select" name="floor" defaultValue={data.selectedFloor ?? ""}>
+        <div>
+          <h1 className="pk-pagehead__title">{t("nav.board")}</h1>
+          <p className="pk-pagehead__sub">{`${data.propertyName} · ${data.businessDate}`}</p>
+        </div>
+        <Form method="get" className="pk-pagehead__actions">
+          {/* **見出しの文字は出さない。** 既定の選択肢（「全フロア」
+              「すべての状態」）がそのまま何の絞り込みかを語っている。
+              読み上げと `htmlFor` の関連付けには残す。 */}
+          <label className="pk-visually-hidden" htmlFor="floor">
+            {t("board.filter.floor")}
+          </label>
+          <select
+            className="pk-select"
+            id="floor"
+            name="floor"
+            defaultValue={data.selectedFloor ?? ""}
+          >
             <option value="">{t("board.filter.allFloors")}</option>
             {data.floorOptions.map((floor) => (
               <option key={floor} value={floor}>
@@ -202,10 +213,15 @@ export default function PropertyBoard(): React.ReactElement {
               </option>
             ))}
           </select>
-        </label>
-        <label className="pk-field">
-          <span className="pk-field__label">{t("board.filter.state")}</span>
-          <select className="pk-select" name="state" defaultValue={data.selectedState ?? ""}>
+          <label className="pk-visually-hidden" htmlFor="state">
+            {t("board.filter.state")}
+          </label>
+          <select
+            className="pk-select"
+            id="state"
+            name="state"
+            defaultValue={data.selectedState ?? ""}
+          >
             <option value="">{t("board.filter.allStates")}</option>
             {/* 差異を読めない相手には選択肢ごと出さない（security.md §1）。 */}
             {data.findingRoomIds === null ? null : (
@@ -213,11 +229,12 @@ export default function PropertyBoard(): React.ReactElement {
             )}
             <option value="REWORK">{t("board.status.REWORK")}</option>
           </select>
-        </label>
-        <button className="pk-button" type="submit">
-          {t("board.filter.apply")}
-        </button>
-      </Form>
+          <button className="pk-button pk-button--primary" type="submit">
+            <span aria-hidden="true">🔄</span>
+            {t("board.filter.apply")}
+          </button>
+        </Form>
+      </div>
 
       {/* 表示区分の件数カード（プロトタイプ owner 03 の KPI 5 枚）。 */}
       <dl className="pk-stats pk-stats--board">
