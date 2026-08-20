@@ -39,10 +39,9 @@ const WITHOUT_RULE: Record<string, string> = {
   "pk-property-options": "datalist の id",
   // 修飾子（`--over`）と子孫セレクタの足場。素の行に足す見た目は無い。
   "pk-assign__row": "修飾子の足場",
-  // セクションの囲い。閉じたときは項目を DOM から外すので、
-  // 囲い自体に隠す規則は要らない（`--closed` は状態の目印）。
+  // セクションの囲い。素の行に足す見た目は無い（`--closed` の方は
+  // `.pk-sidebar__items` を 0fr へ畳む規則を持つので、ここには要らない）。
   "pk-sidebar__group": "囲いだけ",
-  "pk-sidebar__group--closed": "状態の目印",
 };
 
 /** `.tsx` を再帰で集める。 */

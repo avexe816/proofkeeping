@@ -6,6 +6,7 @@ import {
   type ModuleCode,
   type Role,
 } from "@pk/db";
+import { useEffect, useState } from "react";
 import { Outlet, useLoaderData, type LoaderFunctionArgs } from "react-router";
 
 import { businessDateOf } from "../../lib/businessDate.js";
@@ -146,10 +147,36 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
 export default function AppShell() {
   const data = useLoaderData<ShellData>();
 
+  // ── 畳む操作は待たせない ────────────────────────────────
+  // 折りたたみは**見た目の好み**で、画面の中身は 1px も変わらない。
+  // 以前は `<Form>` の POST → `redirect` → 画面ぶんの loader 再実行を
+  // 待ってから幅が変わっていたので、押してから畳まるまでが往復 1 回ぶん
+  // 遅かった。いまは状態をここに持って**押した瞬間に**幅を変え、
+  // セッションへの書き込みは背景の `fetch` に回す（`toggleSidebar.ts`）。
+  // SSR はセッションの値で描くので初回のちらつきは無い（A01 §4.4）。
+  const [collapsed, setCollapsed] = useState(data.sidebarCollapsed);
+
+  // 別の端末・タブで変えた値、あるいは書き込みに失敗した値はこちらへ寄せる。
+  useEffect(() => {
+    setCollapsed(data.sidebarCollapsed);
+  }, [data.sidebarCollapsed]);
+
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    // 失敗しても畳んだ見た目は保つ。次に画面を開いたとき元へ戻るだけで、
+    // 折りたたみの失敗で作業を止めない（`toggleSidebar.ts` と同じ扱い）。
+    void fetch("/app/toggle-sidebar", {
+      method: "POST",
+      body: new URLSearchParams({ collapsed: String(next), mode: "fetch" }),
+      credentials: "same-origin",
+    }).catch(() => undefined);
+  };
+
   return (
     // 修飾子が `--sidebarWidth` / `--brandWidth` を同時に切り替える。
     // ブランド幅とサイドバー幅は両状態で一致させる（A01 §1.1 / 基準 #13）。
-    <div className={data.sidebarCollapsed ? "pk-shell pk-shell--nav-collapsed" : "pk-shell"}>
+    <div className={collapsed ? "pk-shell pk-shell--nav-collapsed" : "pk-shell"}>
       <Topbar
         displayName={data.user.displayName}
         role={data.role}
@@ -166,7 +193,8 @@ export default function AppShell() {
           navigation={data.navigation}
           isOrgWide={data.isOrgWide}
           role={data.role}
-          collapsed={data.sidebarCollapsed}
+          collapsed={collapsed}
+          onToggleCollapsed={toggleCollapsed}
         />
         <main className="pk-main">
           <Outlet />

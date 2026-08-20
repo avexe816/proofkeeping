@@ -28,6 +28,16 @@ import { NAV_SECTION_LABEL, type VisibleNavItem, type VisibleNavSection } from "
  * - レール（全体）: セッションに持つ。SSR が確定した幅で描く（ちらつき禁止）。
  * - セクション開閉: 端末（`localStorage`）に持つ。SSR は常に全展開で描き、
  *   閉じた選択だけを hydration 後に反映する（`sidebarSections.ts` の注記）。
+ *
+ * ── 畳む動きは「押した瞬間に始まる」──────────────────────
+ * どちらの畳みも**サーバーの応答を待たない。** レールは `layout.tsx` が
+ * 状態を持ち、書き込みは背景の `fetch`。セクションは元から端末の中だけ。
+ * 見た目の移り変わりは CSS（`.pk-sidebar__items` の `grid-template-rows`、
+ * `.pk-sidebar` の `width`）が 180〜220ms で繋ぐ。**JS でアニメーションを
+ * 書かない**（`prefers-reduced-motion` の尊重が CSS 側で完結する）。
+ *
+ * 閉じたセクションの項目は DOM に残したまま高さ 0 へ畳む（動きを繋ぐため）。
+ * 見えない項目に Tab が止まらないよう `inert` を付ける。
  */
 export function Sidebar(props: {
   navigation: readonly VisibleNavSection[];
@@ -35,6 +45,12 @@ export function Sidebar(props: {
   role: Role;
   /** レール（56px）表示か（A01 §4.4）。 */
   collapsed: boolean;
+  /**
+   * レールの切替。**状態は `layout.tsx` が持つ**（シェルの修飾子が
+   * ブランド幅も同時に切り替えるため）。JS が無い環境ではこの
+   * ハンドラが呼ばれず、`<Form>` の素の POST がそのまま効く。
+   */
+  onToggleCollapsed: () => void;
 }) {
   const location = useLocation();
   // 依存はセクションの構成だけ（権限・契約で増減する）。並びが同じなら読み直さない。
@@ -74,11 +90,14 @@ export function Sidebar(props: {
               >
                 {t(NAV_SECTION_LABEL[group.section])}
               </button>
-              {closed
-                ? null
-                : group.items.map((entry) => (
+              {/* 高さを繋ぐための 2 枚。外が `0fr ↔ 1fr`、内が `overflow: hidden`。 */}
+              <div className="pk-sidebar__items" inert={closed}>
+                <div className="pk-sidebar__itemsInner">
+                  {group.items.map((entry) => (
                     <NavEntry collapsed={props.collapsed} entry={entry} key={entry.item.key} />
                   ))}
+                </div>
+              </div>
             </div>
           );
         })}
@@ -90,9 +109,17 @@ export function Sidebar(props: {
         {props.role === "AUDITOR" ? (
           <p className="pk-sidebar__scope">{t("sidebar.scope.readonly")}</p>
         ) : null}
-        {/* switch-property と同じく action-only ルートへ POST する。
-            リダイレクト後の SSR が新しい幅で描く（A01 §4.4「ちらつき禁止」）。 */}
-        <Form action="/app/toggle-sidebar" method="post">
+        {/* JS が無い環境のための素の POST（action-only ルート）。
+            JS があるときは既定の送信を止め、その場で幅を変える。
+            リダイレクトを待たないので押し心地が往復 1 回ぶん速い。 */}
+        <Form
+          action="/app/toggle-sidebar"
+          method="post"
+          onSubmit={(event) => {
+            event.preventDefault();
+            props.onToggleCollapsed();
+          }}
+        >
           <input name="collapsed" type="hidden" value={props.collapsed ? "false" : "true"} />
           <input name="next" type="hidden" value={location.pathname + location.search} />
           <button

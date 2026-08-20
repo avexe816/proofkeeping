@@ -47,3 +47,40 @@ describe("サイドバーの折りたたみ（A01 第2版 §4.4）", () => {
     expect(CSS).toMatch(/\.pk-shell--nav-collapsed\s+\.pk-sidebar__scope/);
   });
 });
+
+/**
+ * 畳む動き（人間の指示 2026-08-20「畳むのが遅い / なめらかにできないか」）。
+ *
+ * **速さの本体は CSS ではない**（レールの往復を止めたのは `layout.tsx`）。
+ * ここで固定するのは、動きが CSS 側だけで完結していること
+ * ＝ 2 つの幅が同じ時間で動き、動きを減らす設定に従うこと。
+ */
+describe("畳む動き", () => {
+  function block(selector: string): string {
+    return new RegExp(`${selector}\\s*\\{([^}]*)\\}`).exec(CSS)?.[1] ?? "";
+  }
+
+  /** 幅が違う時間で動くと、動いている間だけ縦のラインが折れる（基準 #13）。 */
+  it("サイドバー幅とブランド幅が同じ時間・同じ曲線で動く", () => {
+    const sidebar = /transition:\s*width\s*([^;]+);/.exec(block("\\.pk-sidebar"))?.[1];
+    const brand = /transition:\s*width\s*([^;]+);/.exec(block("\\.pk-topbar__brand"))?.[1];
+    expect(sidebar).toBeDefined();
+    expect(brand).toBe(sidebar);
+  });
+
+  /** セクションは高さを繋ぐ。**項目を DOM から外していない**ことの裏返し。 */
+  it("セクションの開閉が grid-template-rows で動く", () => {
+    expect(block("\\.pk-sidebar__items")).toMatch(/transition:\s*grid-template-rows/);
+    expect(block("\\.pk-sidebar__group--closed\\s+\\.pk-sidebar__items")).toMatch(
+      /grid-template-rows:\s*0fr/,
+    );
+  });
+
+  it("動きを減らす設定で transition を切る", () => {
+    const reduce = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/.exec(CSS)?.[1];
+    expect(reduce).toBeDefined();
+    expect(reduce).toMatch(/\.pk-sidebar\b/);
+    expect(reduce).toMatch(/\.pk-sidebar__items/);
+    expect(reduce).toMatch(/transition:\s*none/);
+  });
+});
