@@ -789,3 +789,19 @@ export {
   type PayRuleCreateRequest,
   type StaffPayProfileUpsertRequest,
 } from "./payout.js";
+
+// Workforce（P8-01 / P8-02 / PK-SPEC-P8 §1.3・§1.4）。
+// **在留カード番号・パスポート番号・住所・生年月日を受け取る項目が無い**
+// （security.md §3）。就労可否も受け取らない（§1.4 MUST）。
+export {
+  RESIDENCY_STATUS_TYPE_VALUES,
+  WORK_STATUS_VALUES,
+  residencyStatusTypeSchema,
+  residencyUpsertRequestSchema,
+  staffLedgerUpdateRequestSchema,
+  workStatusSchema,
+  type ResidencyStatusTypeValue,
+  type ResidencyUpsertRequest,
+  type StaffLedgerUpdateRequest,
+  type WorkStatusValue,
+} from "./workforce.js";

@@ -1,4 +1,4 @@
-import { fieldStaffCreateSchema, FIELD_STAFF_ROLES } from "@pk/contracts";
+import { fieldStaffCreateSchema, FIELD_STAFF_ROLES, RESIDENCY_STATUS_TYPE_VALUES } from "@pk/contracts";
 import {
   countExpiringResidencies,
   listOrgStaff,
@@ -13,6 +13,7 @@ import { t } from "../../lib/i18n.js";
 import { listSelectableProperties } from "../../lib/property/selection.js";
 import { encodeQr, qrPath } from "../../lib/qr/encode.js";
 import { buildStaffLedger, type StaffLedgerPage, type StaffLedgerView } from "../../lib/staff/ledger.js";
+import { saveResidency, type ResidencySaveResult } from "../../lib/staff/residency.js";
 import { registerFieldStaff } from "../../lib/staff/register.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
@@ -79,7 +80,9 @@ interface StaffData {
 type StaffActionResult =
   | { card: LoginCard }
   | { invalid: true }
-  | { duplicate: true };
+  | { duplicate: true }
+  /** 在留資格の保存結果（P8-02）。型は `lib/staff/residency.ts` が持つ。 */
+  | ResidencySaveResult;
 
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<StaffData> {
   const env = getEnv(context);
@@ -131,6 +134,18 @@ function addDays(businessDate: string, days: number): string {
   return new Date(at).toISOString().slice(0, 10);
 }
 
+/**
+ * Zod の `message` を文言のキーへ写す。
+ *
+ * **理由を出し分ける。** 「入力を確認してください」だけだと、
+ * 期限が必須だったのか日付の前後が逆だったのかが分からない。
+ */
+function residencyErrorKey(message: string): Parameters<typeof t>[0] {
+  if (message === "EXPIRES_ON_REQUIRED") return "staff.residency.error.expiresOnRequired";
+  if (message === "RENEWAL_AFTER_EXPIRY") return "staff.residency.error.renewalAfterExpiry";
+  return "staff.residency.error.invalid";
+}
+
 function fieldOf(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
@@ -138,9 +153,22 @@ function fieldOf(form: FormData, name: string): string {
 
 export async function action({ request, context }: ActionFunctionArgs): Promise<StaffActionResult> {
   const env = getEnv(context);
-  const { session, tenant } = await requireAppContext(env, request, new Date());
+  const now = new Date();
+  const { session, tenant } = await requireAppContext(env, request, now);
 
   const form = await request.formData();
+
+  // 1 画面に 2 つのフォームがある（スタッフの登録・在留資格の記録）。
+  // **`intent` で分ける。** 項目の有無で推測すると、片方の必須項目が
+  // 空のときにもう片方として処理されうる。
+  if (fieldOf(form, "intent") === "residency") {
+    // **PIN と同じファイルに監査ログの口を置かない**
+    // （`tests/security/initialPin.spec.ts`）。この画面は初期 PIN を
+    // `action` の戻り値として運ぶので、`recordAudit()` を呼ぶ経路が
+    // 同居していると、取り違えたときに PIN が監査ログへ入りうる。
+    return saveResidency(env, tenant, session.membershipId, form);
+  }
+
   const email = fieldOf(form, "email").trim();
   const locale = fieldOf(form, "locale");
 
@@ -295,6 +323,8 @@ function StaffRoster({
           列を出しているときだけ出す。**この文言を短くしないこと。** */}
       {canReadResidency ? <p className="pk-notice">{t("staff.residency.disclaimer")}</p> : null}
 
+      {canReadResidency ? <ResidencyForm rows={ledger.rows} /> : null}
+
       {/* 言語の構成（プロトタイプ ops 07 の「🌐 言語の構成」）。
           **1 人が複数の言語を持つので、合計は人数と一致しない。** */}
       {ledger.languages.length === 0 ? null : (
@@ -314,6 +344,63 @@ function StaffRoster({
         </>
       )}
     </>
+  );
+}
+
+/**
+ * 在留資格の記録（P8-02 / プロトタイプ ops 07「📅 在留資格の管理」）。
+ *
+ * ── 1 人ずつ、上書きで記録する ──────────────────────────
+ * 表は 1 スタッフ 1 行（`uq_residency_staff`）。**履歴を行で持たない**ので、
+ * このフォームは常に上書き。訂正の追跡は監査ログ（`residency.updated`）。
+ *
+ * ── 就労可否を聞かない ──────────────────────────────────
+ * 仕様 §1.4 MUST。聞くのは**種別と日付**だけで、
+ * 「働けるか」のチェックボックスを置かない。判断は事業者が行う。
+ *
+ * ── 期限切れの解除ボタンを置かない ──────────────────────
+ * 同 MUST。**`expiresOn` を更新する以外に停止を解く経路を作らない。**
+ */
+function ResidencyForm({ rows }: { rows: readonly StaffLedgerView[] }) {
+  return (
+    <Form method="post" className="pk-form">
+      <input type="hidden" name="intent" value="residency" />
+
+      <label htmlFor="staffProfileId">{t("staff.residency.staff")}</label>
+      <select id="staffProfileId" name="staffProfileId" required>
+        {rows.map((row) => (
+          <option key={row.membershipId} value={row.staffProfileId ?? ""}>
+            {row.displayName}
+          </option>
+        ))}
+      </select>
+
+      <label htmlFor="statusType">{t("staff.residency.statusType")}</label>
+      <select id="statusType" name="statusType" defaultValue="SPECIFIED_SKILLED_1">
+        {RESIDENCY_STATUS_TYPE_VALUES.map((value) => (
+          <option key={value} value={value}>
+            {t(`staff.residency.type.${value}` as Parameters<typeof t>[0])}
+          </option>
+        ))}
+      </select>
+
+      <label htmlFor="expiresOn">{t("staff.residency.expiresOn")}</label>
+      <input id="expiresOn" name="expiresOn" type="date" />
+      <p className="pk-form__note">{t("staff.residency.expiresOnNote")}</p>
+
+      <label htmlFor="renewalAppliedOn">{t("staff.residency.renewalAppliedOn")}</label>
+      <input id="renewalAppliedOn" name="renewalAppliedOn" type="date" />
+
+      <label className="pk-form__check">
+        <input type="checkbox" name="workPermitRequired" />
+        {t("staff.residency.workPermitRequired")}
+      </label>
+
+      <label htmlFor="weeklyHourLimit">{t("staff.residency.weeklyHourLimit")}</label>
+      <input id="weeklyHourLimit" name="weeklyHourLimit" type="number" min={0} max={168} />
+
+      <button type="submit">{t("staff.residency.submit")}</button>
+    </Form>
   );
 }
 
@@ -363,6 +450,12 @@ export default function Staff() {
       ) : null}
       {result !== undefined && "duplicate" in result ? (
         <p className="pk-notice">{t("staff.error.duplicate")}</p>
+      ) : null}
+      {result !== undefined && "residencySaved" in result ? (
+        <p className="pk-notice">{t("staff.residency.saved")}</p>
+      ) : null}
+      {result !== undefined && "residencyInvalid" in result ? (
+        <p className="pk-notice">{t(residencyErrorKey(result.residencyInvalid))}</p>
       ) : null}
 
       <Form method="post" className="pk-form pk-print__hide">

@@ -2010,9 +2010,11 @@ P8 へ送り、**監査ログの閲覧だけを P7-20 として起票した。**
 - [~] P8-02 residencyRecord と期限アラート（ops 07 / 通知は 90 日・30 日の 2 段）
       **土台まで。** 表・リポジトリ 4 関数・`residency.read`/`write`（INV-08 に
       合わせて `ORG_ADMIN` だけ）・越境テスト・一覧の在留期限の列・免責文。
-      **残り 3 つ**: ①編集フォーム（`recordAudit()` つき）②90/30 日の通知
-      （Cron 07:00 JST）③期限切れを新規配分から外す（`listExpiredResidencyStaffIds()`
-      は用意済み）。
+      **記録の口まで入った**（Zod・`lib/staff/residency.ts`・`residency.updated`）。
+      書き込みは**画面から切り出してある** — `staff.tsx` は初期 PIN を運ぶので、
+      `recordAudit()` を同居させると `tests/security/initialPin.spec.ts` が落ちる。
+      **残り 2 つ**: ①90/30 日の通知（Cron 07:00 JST）②期限切れを新規配分から
+      外す（`listExpiredResidencyStaffIds()` は用意済み）。
 - [ ] P8-03 shiftPlan とシフト・当日の割当（ops 02）
 - [ ] P8-04 スキルと言語を自動配分へ反映（P1-14 へ接続）
 - [ ] P8-10 研修と資格（ops 08 / 追加起票）
