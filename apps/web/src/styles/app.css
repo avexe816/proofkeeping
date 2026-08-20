@@ -164,10 +164,6 @@ body {
   font-size: 12.5px;
 }
 
-.pk-property__label {
-  color: #a9c6b7;
-}
-
 .pk-property__select {
   padding: 7px 10px;
   font: inherit;
@@ -2335,4 +2331,121 @@ a.pk-nav:hover {
 .pk-stats__item .pk-progress {
   display: flex;
   margin-top: 7px;
+}
+
+/* ──────────────────────────────────────────────────────────
+   記録の品質の 1 行（ダッシュボード / プロトタイプ 01 の `.rowsw`）
+   ────────────────────────────────────────────────────────── */
+
+.pk-qrow {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line2);
+}
+
+.pk-qrow:last-of-type {
+  border-bottom: 0;
+}
+
+.pk-qrow__label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.pk-qrow__note {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.pk-qrow__value {
+  font-size: 19px;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ──────────────────────────────────────────────────────────
+   本日の動き（ダッシュボード / プロトタイプ owner 02 の `.tl2`）
+
+   点の色は**区分**であって急かす色ではない（ui-writing.md §3）。
+   入室不可は青（契約 §11.2「清掃の遅れではない」）。
+   ────────────────────────────────────────────────────────── */
+
+.pk-tl {
+  position: relative;
+  padding: 2px 0 2px 20px;
+  margin: 0;
+  list-style: none;
+}
+
+/* 縦線。点の中心（左 5px）を通す。 */
+.pk-tl::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 5px;
+  width: 2px;
+  content: "";
+  background: var(--line);
+}
+
+.pk-tl__item {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  align-items: baseline;
+  padding: 7px 0;
+}
+
+.pk-tl__item::before {
+  position: absolute;
+  top: 12px;
+  left: -19px;
+  width: 10px;
+  height: 10px;
+  content: "";
+  background: var(--line);
+  border: 2px solid var(--surf);
+  border-radius: 50%;
+}
+
+.pk-tl__item--ok::before {
+  background: var(--ok);
+}
+
+.pk-tl__item--warn::before {
+  background: var(--warn);
+}
+
+.pk-tl__item--info::before {
+  background: var(--info);
+}
+
+.pk-tl__item--danger::before {
+  background: var(--danger);
+}
+
+.pk-tl__time {
+  min-width: 42px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-tl__label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.pk-tl__property {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
 }

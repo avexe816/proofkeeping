@@ -1,14 +1,18 @@
-import { listRollupsInRange } from "@pk/db";
+import { listAuditLogsForViewer, listObservations, listRollupsInRange } from "@pk/db";
 import { useEffect } from "react";
 import { Form, useLoaderData, useRevalidator, type LoaderFunctionArgs } from "react-router";
 
-import { businessDateOf } from "../../lib/businessDate.js";
+import { DEFAULT_DAY_CUTOFF_TIME, businessDateOf } from "../../lib/businessDate.js";
 import {
   buildDailyDashboard,
+  buildDailyQuality,
   recentBusinessDates,
   type DailyDashboardView,
+  type DailyQuality,
 } from "../../lib/dashboard/daily.js";
+import { buildTimeline, type TimelineRow } from "../../lib/dashboard/timeline.js";
 import { t } from "../../lib/i18n.js";
+import { formatClock } from "../../lib/mobile/format.js";
 import { buildInspectionQueue } from "../../lib/inspection/queue.js";
 import { resolveListScope } from "../../lib/property/listScope.js";
 import { listSelectableProperties, resolveSelectedScope } from "../../lib/property/selection.js";
@@ -49,6 +53,9 @@ export const REFRESH_INTERVAL_MS = 30_000;
 /** 棒グラフの日数（プロトタイプの「直近7日の完了件数」）。 */
 const TREND_DAYS = 7;
 
+/** 本日の動きの行数。多いと「全部あとで」になる。続きは監査ログへ。 */
+const TIMELINE_LIMIT = 10;
+
 interface DashboardData extends DailyDashboardView {
   businessDate: string;
   /** 検査待ちの件数（`inspectionQueue.summary`）。 */
@@ -57,6 +64,10 @@ interface DashboardData extends DailyDashboardView {
   inspectionOverSla: number;
   /** 月次の全社サマリーへ辿れるロールか。 */
   canOpenOrgDashboard: boolean;
+  /** 記録の品質（直近 7 日・施設単位の集計）。 */
+  quality: DailyQuality;
+  /** 本日の動き（表示中の業務日ぶん）。**実行者は出さない。** */
+  timeline: TimelineRow[];
 }
 
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<DashboardData> {
@@ -79,16 +90,35 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
       : businessDateOf(now);
 
   const dates = recentBusinessDates(businessDate, TREND_DAYS);
-  const [summaries, rollups, queue] = await Promise.all([
+  const from = dates[0] ?? businessDate;
+  const [summaries, rollups, queue, observations, logs] = await Promise.all([
     getPropertySummaries(env, tenant, businessDate),
     // 棒グラフと当日の差異件数を**この 1 回でまとめて読む**（日ごとに
     // 引くと 7 往復になる / `listRollupsInRange()` の注記）。
-    listRollupsInRange(env, tenant, { from: dates[0] ?? businessDate, to: businessDate }),
+    listRollupsInRange(env, tenant, { from, to: businessDate }),
     buildInspectionQueue(env, tenant, {
       scope,
       businessDate,
       viewerMembershipId: session.membershipId,
       now,
+    }),
+    // 記録の品質の**分子だけ**（分母は下で rollup から取る）。
+    // 施設セレクタで 1 施設に絞っているならその施設、そうでなければ
+    // リポジトリ層の施設スコープに任せる（`listObservations()` は
+    // `scopeToProperties()` を通る）。
+    listObservations(env, tenant, {
+      ...(property === null ? {} : { propertyId: property.id }),
+      from,
+      to: businessDate,
+    }),
+    // 本日の動き。**業務日の窓**（architecture.md §7。カレンダー日ではない）。
+    // 施設ごとの日締め設定までは見ない — 組織横断の 1 枚なので、どれか
+    // 1 施設の設定を全体へ当てるほうが誤りが大きい（`orgDashboard` と同じ）。
+    listAuditLogsForViewer(env, tenant, {
+      propertyIds: scope.propertyIds,
+      from: new Date(`${businessDate}T${DEFAULT_DAY_CUTOFF_TIME}:00+09:00`),
+      to: now,
+      limit: 200,
     }),
   ]);
 
@@ -120,6 +150,20 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     inspectionWaiting: queue.summary.total,
     inspectionOverSla: queue.summary.overSla,
     canOpenOrgDashboard: scope.propertyIds === null,
+    // 分母は**同じ 7 日窓の rollup 合計**（施設横断の集計は rollup /
+    // architecture.md §3）。タスク表を数え直さない。
+    quality: buildDailyQuality(
+      observations.map((row) => ({
+        usedDefaults: row.usedDefaults,
+        inputDurationMs: row.inputDurationMs,
+      })),
+      inScope.reduce((sum, row) => sum + row.totalTasks, 0),
+    ),
+    timeline: buildTimeline(
+      logs,
+      new Map(summaries.map((row) => [row.propertyId, row.name])),
+      TIMELINE_LIMIT,
+    ),
   };
 }
 
@@ -161,7 +205,11 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="pk-pagehead__actions">
-          {/* 業務日の切替（architecture.md §7。カレンダー日ではない）。 */}
+          {/* 業務日の切替（architecture.md §7。カレンダー日ではない）。
+              **ボタンは 1 つ。** 「表示」と「更新」を分けていたが、この
+              フォームの submit は選んだ日で loader を引き直すので、
+              日を変えたときも変えないときも同じ操作で足りる
+              （人間の指摘 2026-08-20 / DECISIONS #217）。 */}
           <Form method="get" className="pk-inlineform">
             <label className="pk-visually-hidden" htmlFor="businessDate">
               {t("dashboard.daily.businessDate")}
@@ -173,19 +221,10 @@ export default function Dashboard() {
               type="date"
               defaultValue={data.businessDate}
             />
-            <button className="pk-button" type="submit">
-              {t("dashboard.daily.show")}
+            <button className="pk-button pk-button--primary" type="submit">
+              {t("dashboard.daily.refresh")}
             </button>
           </Form>
-          <button
-            className="pk-button pk-button--primary"
-            type="button"
-            onClick={() => {
-              void revalidator.revalidate();
-            }}
-          >
-            {t("dashboard.daily.refresh")}
-          </button>
         </div>
       </div>
 
@@ -345,7 +384,8 @@ export default function Dashboard() {
             </section>
           </div>
 
-          {/* 直近 7 日の完了件数（プロトタイプの棒グラフ）。 */}
+          {/* 直近 7 日の完了件数 と 記録の品質 を並置（プロトタイプの g2）。 */}
+          <div className="pk-cols pk-cols--2">
           <section className="pk-panel">
             <div className="pk-panel__head">
               {t("dashboard.daily.trend")}
@@ -374,9 +414,103 @@ export default function Dashboard() {
               <p className="pk-muted">{t("dashboard.daily.trend.note")}</p>
             </div>
           </section>
+
+          {/* 記録の品質（プロトタイプ 01 の右下）。**施設単位でのみ集計する。**
+              清掃員個人の入力率は出さない（security.md §5）。 */}
+          <section className="pk-panel">
+            <div className="pk-panel__head">
+              {t("dashboard.daily.quality")}
+              <span className="pk-panel__note">{t("dashboard.daily.quality.range")}</span>
+            </div>
+            <div className="pk-panel__body">
+              <QualityRow
+                label={t("dashboard.daily.quality.inputRate")}
+                note={t("dashboard.daily.quality.inputRate.note")}
+                value={data.quality.inputPercent}
+              />
+              <QualityRow
+                label={t("dashboard.daily.quality.defaultRate")}
+                note={t("dashboard.daily.quality.defaultRate.note")}
+                value={data.quality.defaultPercent}
+              />
+              <QualityRow
+                label={t("dashboard.daily.quality.duration")}
+                note={t("dashboard.daily.quality.duration.note")}
+                value={
+                  data.quality.durationMedianSeconds === null
+                    ? null
+                    : `${String(data.quality.durationMedianSeconds)}${t("dashboard.daily.quality.unit.seconds")}`
+                }
+              />
+              <p className="pk-muted">
+                {`${t("dashboard.daily.quality.denominator")}: ${String(data.quality.observationCount)} / ${String(data.quality.taskCount)}`}
+              </p>
+              <p className="pk-notice pk-notice--info">
+                {t("dashboard.daily.quality.noIndividual")}
+              </p>
+            </div>
+            <div className="pk-panel__foot">
+              <a href="/app/settings/observation">{t("dashboard.daily.quality.settings")}</a>
+            </div>
+          </section>
+          </div>
+
+          {/* 本日の動き（人間の指示 2026-08-20）。監査ログから現場の操作
+              だけを拾う。**実行者は出さない**（security.md §5）。 */}
+          <section className="pk-panel">
+            <div className="pk-panel__head">
+              {t("dashboard.org.timeline")}
+              <span className="pk-panel__note">{t("dashboard.daily.timeline.note")}</span>
+            </div>
+            <div className="pk-panel__body">
+              {data.timeline.length === 0 ? (
+                <p className="pk-muted">{t("dashboard.org.timeline.empty")}</p>
+              ) : (
+                <ol className="pk-tl">
+                  {data.timeline.map((row) => (
+                    <li className={`pk-tl__item pk-tl__item--${row.tone}`} key={row.id}>
+                      <span className="pk-tl__time">{formatClock(row.at)}</span>
+                      <span className="pk-tl__label">{t(row.label)}</span>
+                      <span className="pk-tl__property">
+                        {row.propertyName ?? t("auditLogs.orgWide")}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+            <div className="pk-panel__foot">
+              <a href="/app/audit/logs">{t("dashboard.daily.timeline.open")}</a>
+            </div>
+          </section>
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * 記録の品質の 1 行（プロトタイプの `.rowsw`）。
+ * **値が無いときは「—」。** 0% と書くと「記録が 1 件も無い」と読めるが、
+ * 母数が無いのと 0 なのは違う。
+ */
+function QualityRow({
+  label,
+  note,
+  value,
+}: {
+  label: string;
+  note: string;
+  value: string | null;
+}) {
+  return (
+    <div className="pk-qrow">
+      <div>
+        <div className="pk-qrow__label">{label}</div>
+        <div className="pk-qrow__note">{note}</div>
+      </div>
+      <span className="pk-qrow__value">{value ?? "—"}</span>
+    </div>
   );
 }
 

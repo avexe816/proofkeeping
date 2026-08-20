@@ -12,7 +12,8 @@ import {
   formatYen,
   orDash,
 } from "../../lib/dashboard/format.js";
-import { t, type MessageKey } from "../../lib/i18n.js";
+import { buildTimeline, type TimelineRow } from "../../lib/dashboard/timeline.js";
+import { t } from "../../lib/i18n.js";
 import { formatClock } from "../../lib/mobile/format.js";
 import { ScopeForbiddenError, switchProperty } from "../../lib/property/selection.js";
 import { collectFindingList } from "../../lib/reconciliation/findings.js";
@@ -106,15 +107,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       businessDate: finding.businessDate,
     }));
 
-  const timeline = logs
-    .filter((log) => TIMELINE_EVENT_LABEL[log.action] !== undefined)
-    .slice(0, TIMELINE_LIMIT)
-    .map((log) => ({
-      id: log.id,
-      at: log.at.getTime(),
-      label: TIMELINE_EVENT_LABEL[log.action] as MessageKey,
-      propertyName: log.propertyId === null ? null : (nameOf.get(log.propertyId) ?? null),
-    }));
+  const timeline = buildTimeline(logs, nameOf, TIMELINE_LIMIT);
 
   return { ...dashboard, attention, timeline };
 }
@@ -134,34 +127,9 @@ interface AttentionRow {
   businessDate: string;
 }
 
-interface TimelineRow {
-  id: string;
-  at: number;
-  label: MessageKey;
-  propertyName: string | null;
-}
-
 type OrgDashboardData = OrgDashboardResponse & {
   attention: AttentionRow[];
   timeline: TimelineRow[];
-};
-
-/**
- * 本日の動きに載せる操作と文言。
- *
- * **監査ログの語彙のうち「現場で起きたこと」だけ。** 設定変更・マスタ更新は
- * 監査ログの画面（P7-20）で見るもので、朝の 1 枚に混ぜない。
- * 実行者は出さない（この画面に個人名を出さない / プロトタイプの確定事項）。
- */
-const TIMELINE_EVENT_LABEL: Partial<Record<string, MessageKey>> = {
-  "task.completed": "dashboard.org.event.taskCompleted",
-  "task.blocked": "dashboard.org.event.taskBlocked",
-  "task.reworkAssigned": "dashboard.org.event.reworkAssigned",
-  "rework.resolved": "dashboard.org.event.reworkResolved",
-  "inspection.passed": "dashboard.org.event.inspectionPassed",
-  "inspection.failed": "dashboard.org.event.inspectionFailed",
-  "room.statusOverridden": "dashboard.org.event.roomOverridden",
-  "finding.statusChanged": "dashboard.org.event.findingUpdated",
 };
 
 export default function OrgDashboard() {
