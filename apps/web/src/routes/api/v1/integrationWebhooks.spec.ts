@@ -18,7 +18,7 @@
 
 import type { Env } from "@pk/db";
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createFakeKv } from "../../../lib/auth/test-support/fake-kv.js";
 import { putCredential } from "../../../lib/integration/credentials.js";
@@ -310,20 +310,32 @@ describe("POST /api/v1/integrations/webhook/:integrationId", () => {
   });
 
   it("レート制限が効く（security.md §8: 1200 req/分/integration）", async () => {
-    const h = harness();
-    await storeSecret(h.env);
-    const headers = await signedHeaders(BODY, new Date());
+    // **時刻を止める。** 窓は `Math.floor(now / 60_000)` の実時計 1 分で、
+    // このルートは `new Date()` を直に読む（session middleware が
+    // 積む `now` を使わない経路 / `integrationWebhooks.ts` の注記）。
+    // 1201 回のループが分境界をまたぐとカウンタが次の窓へ移り、
+    // **どちらの窓も 1200 に届かないまま抜けて 429 が出ない。**
+    // 実際に CI で落ちた（`Date` だけを固定し、タイマーは本物のまま）。
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-11T03:00:00.000Z"));
+    try {
+      const h = harness();
+      await storeSecret(h.env);
+      const headers = await signedHeaders(BODY, new Date());
 
-    let limited: Response | undefined;
-    for (let attempt = 0; attempt < 1201; attempt += 1) {
-      const response = await post(h, headers, BODY);
-      if (response.status === 429) {
-        limited = response;
-        break;
+      let limited: Response | undefined;
+      for (let attempt = 0; attempt < 1201; attempt += 1) {
+        const response = await post(h, headers, BODY);
+        if (response.status === 429) {
+          limited = response;
+          break;
+        }
       }
-    }
 
-    expect(limited?.status).toBe(429);
-    expect(limited?.headers.get("Retry-After")).not.toBeNull();
+      expect(limited?.status).toBe(429);
+      expect(limited?.headers.get("Retry-After")).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
