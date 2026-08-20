@@ -119,9 +119,7 @@ export async function action({
     enabledItemCodes: form
       .getAll("itemCode")
       .filter((value): value is string => typeof value === "string")
-      .filter((value): value is ItemCodeValue =>
-        (ITEM_CODES as readonly string[]).includes(value),
-      ),
+      .filter((value): value is ItemCodeValue => (ITEM_CODES as readonly string[]).includes(value)),
     skipWarnThreshold: parseThreshold(form.get("skipWarnThreshold"), before.skipWarnThreshold),
   };
 
@@ -149,7 +147,9 @@ export default function ObservationSettings() {
   if (data.propertyId === null || data.config === null) {
     return (
       <section className="pk-page">
-        <h1 className="pk-page__title">{t("obs.settings.title")}</h1>
+        <div className="pk-pagehead">
+          <h1 className="pk-pagehead__title">{t("obs.settings.title")}</h1>
+        </div>
         <p className="pk-notice">{t("obs.settings.noProperty")}</p>
       </section>
     );
@@ -160,8 +160,12 @@ export default function ObservationSettings() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("obs.settings.title")}</h1>
-      <p className="pk-muted">{data.propertyName}</p>
+      <div className="pk-pagehead">
+        <div>
+          <h1 className="pk-pagehead__title">{t("obs.settings.title")}</h1>
+          <p className="pk-pagehead__sub">{data.propertyName}</p>
+        </div>
+      </div>
 
       {result?.saved === true ? <p className="pk-notice">{t("obs.settings.saved")}</p> : null}
 

@@ -251,7 +251,9 @@ export default function BaselineSettings() {
   if (data.propertyId === null) {
     return (
       <section className="pk-page">
-        <h1 className="pk-page__title">{t("baseline.title")}</h1>
+        <div className="pk-pagehead">
+          <h1 className="pk-pagehead__title">{t("baseline.title")}</h1>
+        </div>
         <p className="pk-notice">{t("baseline.noProperty")}</p>
       </section>
     );

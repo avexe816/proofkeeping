@@ -566,7 +566,9 @@ export default function Counterparties() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("cp.title")}</h1>
+      <div className="pk-pagehead">
+        <h1 className="pk-pagehead__title">{t("cp.title")}</h1>
+      </div>
       <p className="pk-notice">{t("cp.intro")}</p>
 
       {result?.saved === true ? <p className="pk-message">{t("cp.saved")}</p> : null}
@@ -591,10 +593,7 @@ export default function Counterparties() {
           </thead>
           <tbody>
             {data.counterparties.map((row) => (
-              <tr
-                key={row.counterpartyId}
-                className={row.isActive ? undefined : "pk-row--muted"}
-              >
+              <tr key={row.counterpartyId} className={row.isActive ? undefined : "pk-row--muted"}>
                 <th scope="row">
                   <a href={`/app/settings/counterparties?counterpartyId=${row.counterpartyId}`}>
                     {row.code}
@@ -632,8 +631,7 @@ export default function Counterparties() {
 
 /** 取引先の共通の入力欄。**作成と更新で同じ並び。** */
 function CounterpartyFields({ counterparty }: { counterparty: CounterpartySummary | null }) {
-  const idFor = (name: string): string =>
-    counterparty === null ? `new-${name}` : `edit-${name}`;
+  const idFor = (name: string): string => (counterparty === null ? `new-${name}` : `edit-${name}`);
 
   return (
     <>
@@ -845,9 +843,7 @@ function PricingSection({
                 <th scope="row">{t(ITEM_LABEL[rule.itemCode])}</th>
                 {/* 仕様が変わって梯子から外れた古い行を見つけられるようにする。 */}
                 <td>
-                  {rule.stage === null
-                    ? t("cp.pricing.unresolvable")
-                    : t(STAGE_LABEL[rule.stage])}
+                  {rule.stage === null ? t("cp.pricing.unresolvable") : t(STAGE_LABEL[rule.stage])}
                 </td>
                 <td>{propertyName(rule.propertyId)}</td>
                 <td>{roomTypeName(rule.roomTypeId)}</td>

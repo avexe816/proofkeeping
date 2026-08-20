@@ -90,8 +90,12 @@ export default function DataQuality() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("dq.title")}</h1>
-      <p className="pk-muted">{quality.month}</p>
+      <div className="pk-pagehead">
+        <div>
+          <h1 className="pk-pagehead__title">{t("dq.title")}</h1>
+          <p className="pk-pagehead__sub">{quality.month}</p>
+        </div>
+      </div>
 
       <ul className="pk-meters">
         {METERS.map((meter) => (
@@ -191,9 +195,7 @@ function formatPermille(permille: number | null): string {
 /** 指標 1 つの表示値。**平均入力時間だけ秒**（§6.3 の「12.4秒」）。 */
 function valueOf(quality: DataQualityResponse, key: (typeof METERS)[number]["key"]): string {
   if (key === "inputDuration") {
-    return quality.averageInputMs === null
-      ? NO_VALUE
-      : (quality.averageInputMs / 1000).toFixed(1);
+    return quality.averageInputMs === null ? NO_VALUE : (quality.averageInputMs / 1000).toFixed(1);
   }
   return formatPermille(quality[key].permille);
 }

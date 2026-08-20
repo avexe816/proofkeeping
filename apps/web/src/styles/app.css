@@ -1804,11 +1804,10 @@ a.pk-nav:hover {
 
 /* ── コンテンツ内のページ見出し ───────────────────────── */
 
-.pk-page__title {
-  margin: 0 0 2px;
-  font-size: 18px;
-  font-weight: 800;
-}
+/* `.pk-page__title` は削除した（2026-08-20 / DECISIONS #231）。
+   見出しは全画面が `.pk-pagehead` の帯に載っており、**同じ役割の
+   クラスを 2 つ残さない。** リード文（`.pk-page__lede`）は帯の下に
+   置く本文なので残す。 */
 
 .pk-page__lede {
   margin: 0 0 10px;
