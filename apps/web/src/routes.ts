@@ -162,6 +162,8 @@ export default [
     route("app/settings/staff", "routes/app/staff.tsx"),
     // P8-03 シフトと当日の割当（ops 02）。門は shift.manage（OWNER / ORG_ADMIN）。
     route("app/shifts", "routes/app/shifts.tsx"),
+    // P8-10 研修と資格（ops 08）。門は user.write（組織全体）。
+    route("app/training", "routes/app/training.tsx"),
     // W-11 施設設定（施設マスタの作成・編集 / OPEN_QUESTIONS #103 の残り半分）。
     route("app/settings/properties", "routes/app/propertySettings.tsx"),
     // W-12 権限と監査（権限側）。メンバー管理。門は user.write（組織全体）。

@@ -41,12 +41,12 @@ function resolution(overrides: Partial<ChannelResolution> = {}): ChannelResoluti
   };
 }
 
-describe("NOTIFICATION_EVENTS — 13 イベントが定義されている", () => {
-  it("13 件ある（§5.1 の 10 件 + P7 の 2 件 + P8 の 1 件）", () => {
+describe("NOTIFICATION_EVENTS — 14 イベントが定義されている", () => {
+  it("14 件ある（§5.1 の 10 件 + P7 の 2 件 + P8 の 2 件）", () => {
     // **11 件目は §5.1 の表に無い**（DECISIONS #163 / OPEN_QUESTIONS #097）。
     // PK-SPEC-P7 §4.5 MUST が通知を要求しているのに、§5.1 が P7 を
     // 織り込んでいないため。仕様の版上げで §5.1 へ入れること。
-    expect(NOTIFICATION_EVENTS).toHaveLength(13);
+    expect(NOTIFICATION_EVENTS).toHaveLength(14);
   });
 
   it("`packages/db` の語彙と 1 対 1 で対応する", () => {
@@ -89,7 +89,7 @@ describe("canReceive — `CLEANER` の境界（§5.1 MUST / security.md §1）",
 
   it("**それ以外は 1 つも受け取らない**", () => {
     const others = NOTIFICATION_EVENT_CODES.filter((code) => code !== CLEANER_ALLOWED_EVENT);
-    expect(others).toHaveLength(12);
+    expect(others).toHaveLength(13);
     for (const code of others) {
       expect(canReceive("CLEANER", code), code).toBe(false);
     }

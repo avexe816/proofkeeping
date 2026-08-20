@@ -25,6 +25,7 @@ import {
   countInspectionSelected,
   findInspectionPolicy,
   findMembershipStartedAt,
+  summarizeTrainingProgress,
   listRoomPlans,
   type Env,
   type TenantContext,
@@ -32,6 +33,7 @@ import {
 import {
   decideInspection,
   isNewStaff,
+  isNewStaffByTraining,
   policyFromLegacyFlag,
   type InspectionDecision,
   type InspectionPolicyInput,
@@ -100,7 +102,7 @@ export async function resolveInspectionDecision(
     });
   }
 
-  const [hasCheckin, startedAt, selectedToday] = await Promise.all([
+  const [hasCheckin, startedAt, selectedToday, training] = await Promise.all([
     policy.alwaysInspectCheckin
       ? hasCheckinToday(env, ctx, subject)
       : Promise.resolve(false),
@@ -108,6 +110,11 @@ export async function resolveInspectionDecision(
       ? Promise.resolve(undefined)
       : findMembershipStartedAt(env, ctx, subject.cleanerId),
     countInspectionSelected(env, ctx, subject.propertyId, subject.businessDate),
+    // 研修から見た新人（P8-10 / PK-SPEC-P8 §1.7）。**プログラムの無い
+    // 組織では効かない**（`isNewStaffByTraining()` の注記）。
+    subject.cleanerId === null
+      ? Promise.resolve(null)
+      : summarizeTrainingProgress(env, ctx, subject.cleanerId),
   ]);
 
   return decideInspection({
@@ -115,7 +122,17 @@ export async function resolveInspectionDecision(
     signals: {
       hasCheckin,
       hadRework: subject.reworkCount > 0,
-      isNewStaff: isNewStaff(startedAt?.getTime() ?? null, ctx.now.getTime()),
+      // 所属からの日数（P2 §2.2）**または**研修の状態（P8-10）。
+      // どちらかが新人と言えば新人 — 検査を減らす側に倒さない。
+      isNewStaff:
+        isNewStaff(startedAt?.getTime() ?? null, ctx.now.getTime()) ||
+        (training !== null &&
+          isNewStaffByTraining({
+            activePrograms: training.activePrograms,
+            completed: training.completed,
+            lastCompletedOnMs: epochMsOf(training.lastCompletedOn),
+            nowMs: ctx.now.getTime(),
+          })),
       // P2-11 / P2-12 で表ができたら差し替える（冒頭の注記）。
       hasReport: false,
       isPriorityRoom: false,
@@ -123,6 +140,14 @@ export async function resolveInspectionDecision(
     selectedToday,
     draw: drawUniform(),
   });
+}
+
+/** `YYYY-MM-DD` → epoch ミリ秒（UTC）。形が違えば `null`。 */
+function epochMsOf(date: string | null): number | null {
+  if (date === null) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (match === null) return null;
+  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
 /** 当日チェックインの有無（`dailyRoomPlan`）。予定が無ければ `false`。 */

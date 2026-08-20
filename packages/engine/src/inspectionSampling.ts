@@ -158,6 +158,34 @@ export function isNewStaff(startedAtMs: number | null, nowMs: number): boolean {
 }
 
 /**
+ * 研修から見た新人判定（P8-10 / PK-SPEC-P8 §1.7）。
+ *
+ * 「`trainingCompletedOn` が未設定のスタッフは『新人』として扱い、
+ * P2 §2.2 の必須検査対象にする。研修修了から 30 日間は新人扱いを継続する」。
+ *
+ * ── プログラムが無い組織では効かない ────────────────────
+ * `activePrograms === 0` は「研修の仕組みを使っていない」。全員を
+ * 未修了 = 新人にすると、**台帳を使わない組織の全タスクが検査対象**になり
+ * 検査待ちが詰まる（`isNewStaff()` が不明を新人に倒さないのと同じ理由）。
+ * 使っていない組織は従来どおり所属からの日数（`isNewStaff()`）だけで見る。
+ *
+ * @param lastCompletedOnMs 最後の修了日の epoch ミリ秒。未修了なら `null`。
+ */
+export function isNewStaffByTraining(input: {
+  activePrograms: number;
+  completed: number;
+  lastCompletedOnMs: number | null;
+  nowMs: number;
+}): boolean {
+  if (input.activePrograms === 0) return false;
+  if (input.completed < input.activePrograms) return true; // 未修了 = 新人
+  if (input.lastCompletedOnMs === null) return true; // 修了扱いだが日付が無い。新しい側へ
+  const elapsed = input.nowMs - input.lastCompletedOnMs;
+  if (elapsed < 0) return true; // 未来日付。登録の誤りだが、新しい側として扱う
+  return elapsed < NEW_STAFF_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
  * 施設の設定が無いときの既定。
  *
  * ── P1 の `property.inspectionRequired` から作る ─────────

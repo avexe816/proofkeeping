@@ -136,3 +136,79 @@ export const residencyRecord = sqliteTable(
     index("idx_residency_expires").on(t.organizationId, t.expiresOn),
   ],
 );
+
+/**
+ * 研修プログラム（P8-10 / プロトタイプ ops 08「📚 研修プログラム」）。
+ *
+ * 組織ごとの研修項目（プロトタイプは 6 項目）。**成績・点数の列を
+ * 持たない** — 研修は修了したかどうかだけを記録する（security.md §5）。
+ */
+export const trainingProgram = sqliteTable(
+  "training_program",
+  {
+    ...primaryId,
+    ...tenantColumn,
+    name: text("name").notNull(),
+    /** 目安時間（分）。表示のためだけ。 */
+    expectedMinutes: integer("expected_minutes").notNull().default(0),
+    /** 対応している資料の言語（プロトタイプの「対応言語」列）。 */
+    languages: text("languages", { mode: "json" }).$type<string[]>().notNull().default([]),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [index("idx_training_program").on(t.organizationId, t.isActive, t.sortOrder)],
+);
+
+/**
+ * 研修の修了記録（P8-10）。スタッフ × 項目で 1 行。
+ *
+ * **全項目の修了 = 単独作業可の前提**（プロトタイプ 08「6項目すべて
+ * 完了後に運営管理者が単独作業の可否を判断します」— 判断は人が行い、
+ * この表は事実だけを持つ）。
+ */
+export const trainingRecord = sqliteTable(
+  "training_record",
+  {
+    ...primaryId,
+    ...tenantColumn,
+    /** `membership.id`（シフト・タスクと同じキー / DECISIONS #223 の向き）。 */
+    membershipId: text("membership_id").notNull(),
+    programId: text("program_id").notNull(),
+    /** `YYYY-MM-DD`。 */
+    completedOn: text("completed_on").notNull(),
+    /** 同行者（`membership.id`）。単独で受けた研修は null。 */
+    mentorMembershipId: text("mentor_membership_id"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("uq_training_record").on(t.organizationId, t.membershipId, t.programId),
+    index("idx_training_record_member").on(t.organizationId, t.membershipId),
+  ],
+);
+
+/**
+ * 資格・講習の記録（P8-10 / プロトタイプ ops 08「📅 資格・講習の更新」）。
+ *
+ * 在留資格（`residencyRecord`）とは**別物** — こちらは衛生講習などの
+ * 業務資格で、読める相手も広い（台帳と同じ扱い）。1 人が複数持てる。
+ */
+export const certificationRecord = sqliteTable(
+  "certification_record",
+  {
+    ...primaryId,
+    ...tenantColumn,
+    /** `membership.id`。 */
+    membershipId: text("membership_id").notNull(),
+    /** 講習の名称（「衛生管理者講習」など）。マスタ化しない — 種類が少なく、自由記述で足りる。 */
+    name: text("name").notNull(),
+    /** `YYYY-MM-DD`。期限の無い資格は null。 */
+    expiresOn: text("expires_on"),
+    note: text("note"),
+    ...timestamps,
+  },
+  (t) => [
+    index("idx_certification_member").on(t.organizationId, t.membershipId),
+    index("idx_certification_expires").on(t.organizationId, t.expiresOn),
+  ],
+);
