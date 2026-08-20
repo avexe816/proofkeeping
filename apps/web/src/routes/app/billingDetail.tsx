@@ -52,6 +52,7 @@ import {
 import { INVOICE_STATUS_LABEL, formatYenAmount } from "../../lib/billing/labels.js";
 import { issueReceipt } from "../../lib/billing/receipt.js";
 import { t, type MessageKey } from "../../lib/i18n.js";
+import { signObjectUrl } from "../../lib/storage/signedUrl.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
 
@@ -105,6 +106,8 @@ interface BillingDetailData {
   } | null;
   prices: PriceRow[];
   canRecordPayment: boolean;
+  /** 請求書 PDF の署名付き URL（15 分）。未生成なら `null`（DECISIONS #215）。 */
+  pdfUrl: string | null;
 }
 
 /** 入金を記録できる状態（`markInvoicePaid()` の集合と同じ）。 */
@@ -185,6 +188,10 @@ export async function loader({
       can(tenant, "billing.write", ORGANIZATION_TARGET) &&
       !invoice.isCreditNote &&
       PAYABLE_STATUSES.includes(invoice.status),
+    pdfUrl:
+      invoice.pdfStorageKey === null
+        ? null
+        : await signObjectUrl(env.SESSION_SECRET, invoice.pdfStorageKey, now),
   };
 }
 
@@ -295,9 +302,18 @@ export default function BillingDetail() {
           </p>
         </div>
         <div className="pk-pagehead__actions">
-          <a className="pk-button pk-button--primary" href={`/api/v1/invoices/${invoice.id}/download`}>
-            {t("billing.pdf.download")}
-          </a>
+          {data.pdfUrl === null ? (
+            <span className="pk-badge pk-badge--hidden">{t("billing.pdf.pending")}</span>
+          ) : (
+            <a
+              className="pk-button pk-button--primary"
+              href={data.pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("billing.pdf.download")}
+            </a>
+          )}
         </div>
       </div>
 
