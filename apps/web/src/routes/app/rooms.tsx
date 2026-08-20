@@ -11,17 +11,19 @@ import {
   recordAudit,
   updateRoom,
 } from "@pk/db";
-import { Form, useActionData, useLoaderData, type ActionFunctionArgs, type LoaderFunctionArgs } from "react-router";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "react-router";
 
 import { t } from "../../lib/i18n.js";
 import { canAddRooms, limitsOf, trialPhaseOf } from "../../lib/plan/trial.js";
 import { assertPermission } from "../../lib/auth/permission.js";
 import { listSelectableProperties, resolveSelectedScope } from "../../lib/property/selection.js";
-import {
-  expandRoomRange,
-  parseExcludedNumbers,
-  parseRoomCsv,
-} from "../../lib/room/bulk.js";
+import { expandRoomRange, parseExcludedNumbers, parseRoomCsv } from "../../lib/room/bulk.js";
 import { buildRoomTypeIndex, resolveRoomTypeCodes } from "../../lib/room/roomTypes.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
@@ -353,13 +355,13 @@ export default function Rooms() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("room.title")}</h1>
+      <div className="pk-pagehead">
+        <h1 className="pk-pagehead__title">{t("room.title")}</h1>
+      </div>
 
       {result?.invalid === true ? <p className="pk-notice">{t("room.bulk.invalid")}</p> : null}
       {/* トライアルの上限（§2.5 / P7-03）。**1 室も作っていない。** */}
-      {result?.trialLimit === true ? (
-        <p className="pk-notice">{t("room.trialLimit")}</p>
-      ) : null}
+      {result?.trialLimit === true ? <p className="pk-notice">{t("room.trialLimit")}</p> : null}
       {result?.created === undefined ? null : (
         <p className="pk-notice">
           {`${t("room.bulk.result.created")}: ${String(result.created)} / ` +

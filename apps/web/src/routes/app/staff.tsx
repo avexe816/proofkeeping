@@ -1,18 +1,37 @@
-import { fieldStaffCreateSchema, FIELD_STAFF_ROLES, RESIDENCY_STATUS_TYPE_VALUES } from "@pk/contracts";
+import {
+  fieldStaffCreateSchema,
+  FIELD_STAFF_ROLES,
+  RESIDENCY_STATUS_TYPE_VALUES,
+} from "@pk/contracts";
 import {
   countExpiringResidencies,
   listOrgStaff,
   listResidencyRecords,
   listStaffLedger,
 } from "@pk/db";
-import { Form, useActionData, useLoaderData, type ActionFunctionArgs, type LoaderFunctionArgs } from "react-router";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "react-router";
 
-import { ORGANIZATION_TARGET, assertPermission, can, propertyTarget } from "../../lib/auth/permission.js";
+import {
+  ORGANIZATION_TARGET,
+  assertPermission,
+  can,
+  propertyTarget,
+} from "../../lib/auth/permission.js";
 import { businessDateOf } from "../../lib/businessDate.js";
 import { t } from "../../lib/i18n.js";
 import { listSelectableProperties } from "../../lib/property/selection.js";
 import { encodeQr, qrPath } from "../../lib/qr/encode.js";
-import { buildStaffLedger, type StaffLedgerPage, type StaffLedgerView } from "../../lib/staff/ledger.js";
+import {
+  buildStaffLedger,
+  type StaffLedgerPage,
+  type StaffLedgerView,
+} from "../../lib/staff/ledger.js";
 import { saveResidency, type ResidencySaveResult } from "../../lib/staff/residency.js";
 import { registerFieldStaff } from "../../lib/staff/register.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
@@ -326,7 +345,7 @@ function StaffRoster({
       {canReadResidency ? <ResidencyForm rows={ledger.rows} /> : null}
 
       {/* 言語の構成（プロトタイプ ops 07 の「🌐 言語の構成」）。
-          **1 人が複数の言語を持つので、合計は人数と一致しない。** */}
+       **1 人が複数の言語を持つので、合計は人数と一致しない。** */}
       {ledger.languages.length === 0 ? null : (
         <>
           <h2 className="pk-section__title">{t("staff.languages.title")}</h2>
@@ -407,9 +426,9 @@ function ResidencyForm({ rows }: { rows: readonly StaffLedgerView[] }) {
 /** 言語コード → 辞書のキー。**知らないコードは素のまま出さない。** */
 function languageKey(code: string): Parameters<typeof t>[0] {
   const known = ["ja", "en", "zh-CN", "vi", "id", "my", "ne"];
-  return (
-    known.includes(code) ? `staff.language.${code}` : "staff.language.other"
-  ) as Parameters<typeof t>[0];
+  return (known.includes(code) ? `staff.language.${code}` : "staff.language.other") as Parameters<
+    typeof t
+  >[0];
 }
 
 export default function Staff() {
@@ -420,7 +439,9 @@ export default function Staff() {
   if (data.properties.length === 0) {
     return (
       <section className="pk-page">
-        <h1 className="pk-page__title">{t("staff.title")}</h1>
+        <div className="pk-pagehead">
+          <h1 className="pk-pagehead__title">{t("staff.title")}</h1>
+        </div>
         <p className="pk-notice">{t("staff.noProperty")}</p>
       </section>
     );

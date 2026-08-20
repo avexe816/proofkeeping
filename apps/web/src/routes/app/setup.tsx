@@ -213,7 +213,9 @@ export default function Setup() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("setup.title")}</h1>
+      <div className="pk-pagehead">
+        <h1 className="pk-pagehead__title">{t("setup.title")}</h1>
+      </div>
       <p className="pk-page__lede">{t("setup.lede")}</p>
 
       <p className="pk-setup__progress">

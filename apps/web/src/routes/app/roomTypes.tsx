@@ -8,7 +8,13 @@ import {
   updateRoomType,
 } from "@pk/db";
 import { roomTypeCodeSchema } from "@pk/contracts";
-import { Form, useActionData, useLoaderData, type ActionFunctionArgs, type LoaderFunctionArgs } from "react-router";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "react-router";
 
 import { assertPermission, can, propertyTarget } from "../../lib/auth/permission.js";
 import { t } from "../../lib/i18n.js";
@@ -265,7 +271,9 @@ export default function RoomTypes() {
   if (data.propertyId === null) {
     return (
       <section className="pk-page">
-        <h1 className="pk-page__title">{t("roomType.title")}</h1>
+        <div className="pk-pagehead">
+          <h1 className="pk-pagehead__title">{t("roomType.title")}</h1>
+        </div>
         <p className="pk-notice">{t("roomType.noProperty")}</p>
       </section>
     );
@@ -273,8 +281,12 @@ export default function RoomTypes() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("roomType.title")}</h1>
-      <p className="pk-muted">{data.propertyName}</p>
+      <div className="pk-pagehead">
+        <div>
+          <h1 className="pk-pagehead__title">{t("roomType.title")}</h1>
+          <p className="pk-pagehead__sub">{data.propertyName}</p>
+        </div>
+      </div>
       <p className="pk-notice">{t("roomType.scopeNotice")}</p>
 
       {result?.invalid === true ? <p className="pk-notice">{t("roomType.invalid")}</p> : null}
@@ -345,9 +357,7 @@ export default function RoomTypes() {
               <tr key={row.roomTypeId} className={row.isActive ? undefined : "pk-row--inactive"}>
                 <th scope="row">
                   {row.code}
-                  {row.isActive ? null : (
-                    <span className="pk-badge">{t("roomType.inactive")}</span>
-                  )}
+                  {row.isActive ? null : <span className="pk-badge">{t("roomType.inactive")}</span>}
                 </th>
                 {data.canWrite ? (
                   <EditableCells row={row} />

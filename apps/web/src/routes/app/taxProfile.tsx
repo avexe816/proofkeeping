@@ -132,21 +132,19 @@ export default function TaxProfile() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("tax.title")}</h1>
+      <div className="pk-pagehead">
+        <h1 className="pk-pagehead__title">{t("tax.title")}</h1>
+      </div>
 
       {result?.saved === true ? <p className="pk-notice">{t("tax.saved")}</p> : null}
       {result?.invalidRegistrationNumber === true ? (
         <p className="pk-notice">{t("tax.invoiceRegistrationNumber.invalid")}</p>
       ) : null}
-      {result?.sealRejected === true ? (
-        <p className="pk-notice">{t("tax.seal.rejected")}</p>
-      ) : null}
+      {result?.sealRejected === true ? <p className="pk-notice">{t("tax.seal.rejected")}</p> : null}
 
       {/* 未設定であることを事実として述べる。入力は強制しない。 */}
       {data.invoiceRegistrationNumber === null ? (
-        <p className="pk-notice pk-notice--info">
-          {t("tax.invoiceRegistrationNumber.absent")}
-        </p>
+        <p className="pk-notice pk-notice--info">{t("tax.invoiceRegistrationNumber.absent")}</p>
       ) : null}
 
       <Form method="post" encType="multipart/form-data" className="pk-form">

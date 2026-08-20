@@ -302,7 +302,9 @@ export default function Checklists() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("checklist.title")}</h1>
+      <div className="pk-pagehead">
+        <h1 className="pk-pagehead__title">{t("checklist.title")}</h1>
+      </div>
       {data.propertyName === null ? null : <p className="pk-muted">{data.propertyName}</p>}
 
       {result?.invalid === true ? <p className="pk-notice">{t("checklist.invalid")}</p> : null}
