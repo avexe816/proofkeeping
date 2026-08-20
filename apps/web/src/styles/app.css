@@ -46,6 +46,11 @@
 
   --sh: 0 1px 3px rgb(20 30 25 / 6%);
 
+  /* 棒グラフの棒。プロトタイプは明色で `--brand`、`.dark` で `--ok` に
+     差し替える（濃色の面にブランド緑を置くと棒が沈む）。**部品側では
+     分岐させない** — ダークモードはトークンの差し替え 1 か所で効く。 */
+  --chartBar: var(--brand);
+
   /* A01 §1.1 の寸法。**sidebarWidth と brandWidth は同じ値であること**（縦ラインを通す）。 */
   --topbarHeight: 58px;
   --sidebarWidth: 214px;
@@ -99,6 +104,9 @@
     --dirtybg: #212a25;
 
     --sh: 0 1px 3px rgb(0 0 0 / 30%);
+
+    /* 棒は面から浮く色へ（プロトタイプの `.dark .hb .c i`）。 */
+    --chartBar: var(--ok);
   }
 }
 
@@ -2558,6 +2566,193 @@ a.pk-nav:hover {
   margin-left: auto;
   font-size: 11px;
   color: var(--muted);
+}
+
+/* ──────────────────────────────────────────────────────────
+   稼働の差異 04（プロトタイプ owner B / DECISIONS #224）
+
+   プロトタイプ `pkown-v3-B-findings-records.html` の 04 をそのまま写す。
+   足りていなかったのは**部品**（免責の枠・タグ・見出しのアイコン・
+   3:1 の 2 カラム）で、数字と門は 2026-08-19 に揃っている。
+   ────────────────────────────────────────────────────────── */
+
+/* 免責の枠（プロトタイプの `.al`）。アイコン・見出し・本文の 3 段。
+   **データより上に置く**（プロトタイプの確定事項）。`.pk-notice` との
+   違いは「見出しを持つ」こと。1 文の注記はあちらのまま。 */
+.pk-alert {
+  display: flex;
+  gap: 9px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  border: 1px solid;
+  border-radius: 9px;
+}
+
+.pk-alert__icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pk-alert__title {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 700;
+}
+
+.pk-alert--info {
+  color: var(--info);
+  background: var(--infobg);
+  border-color: var(--info);
+}
+
+/* 警告はオレンジまで。**赤にしない**（INV-05 / 契約 §11.2）。 */
+.pk-alert--warn {
+  color: var(--warn);
+  background: var(--warnbg);
+  border-color: var(--warn);
+}
+
+/* 表のセルに置く区分の印（プロトタイプの `.tag`）。
+   `.pk-badge` は見出しに付く印で `margin-left` を持つ。**セルでは効かない**
+   ので別の部品にする。 */
+.pk-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  border-radius: 5px;
+}
+
+.pk-tag--ok {
+  color: var(--ok);
+  background: var(--okbg);
+}
+
+.pk-tag--warn {
+  color: var(--warn);
+  background: var(--warnbg);
+}
+
+.pk-tag--danger {
+  color: var(--danger);
+  background: var(--dangerbg);
+}
+
+.pk-tag--info {
+  color: var(--info);
+  background: var(--infobg);
+}
+
+.pk-tag--muted {
+  color: var(--muted);
+  background: var(--surf3);
+}
+
+/* KPI・カード見出しのアイコン。**意味はラベルが持つ**ので読み上げない
+   （Sidebar の `.pk-nav__icon` と同じ扱い）。 */
+.pk-stats__icon,
+.pk-panel__icon {
+  margin-right: 5px;
+}
+
+/* 重要度 HIGH の KPI（プロトタイプの `kpi.dg`）。
+   ここでの赤は**急かす赤ではなく区分の赤**で、確信度の帯
+   （`.pk-meterbar__fill--HIGH`）と同じ色を使う。 */
+.pk-stats__item--accent-danger {
+  border-left: 3px solid var(--danger);
+}
+
+/* KPI を 4 等分で敷く（プロトタイプの `.g4`）。既定の `.pk-stats` は
+   `auto-fill` なので、4 枚だと広い画面で左半分に寄る。 */
+.pk-stats--4 {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 1180px) {
+  .pk-stats--4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ルール別（広い）と推移（狭い）の並置（プロトタイプの `.g31`）。 */
+.pk-cols--31 {
+  grid-template-columns: 3fr 1fr;
+}
+
+@media (max-width: 1180px) {
+  .pk-cols--31 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* セルの下に付く 1 行の補足（プロトタイプの `.mini`）。 */
+.pk-cellnote {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ルールの列（プロトタイプの `.rl`）。コードを小さく上に、名称を下に。 */
+.pk-rulecell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pk-rulecell__code {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.pk-rulecell__name {
+  font-size: 12px;
+}
+
+/* カードの中に入れる棒グラフ。カード自身が枠と背景を持つので、
+   `.pk-bars` の枠を外して幅いっぱいに敷く。 */
+.pk-panel__body > .pk-bars {
+  max-width: none;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+/* 棒の色をプロトタイプ（`.hb`）に合わせる。対象月だけ金にする。 */
+.pk-bars__bar {
+  background: var(--chartBar);
+  border: 0;
+  border-radius: 3px 3px 0 0;
+}
+
+.pk-bars__col--on .pk-bars__bar {
+  background: var(--accent);
+  border: 0;
+}
+
+.pk-bars__value {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* 棒グラフの下に置く基準（プロトタイプの `.px`）。**比較ではなく基準**。 */
+.pk-barsnote {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 9px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pk-barsnote b {
+  color: var(--ink);
 }
 
 /* ──────────────────────────────────────────────────────────

@@ -80,3 +80,31 @@ export const ACCESS_PURPOSE_LABEL: Record<RoomAccessPurpose, MessageKey> = {
   TRAINING: "roomAccess.purpose.training",
   OTHER: "roomAccess.purpose.other",
 };
+
+/**
+ * ルールの 1 行説明（プロトタイプ 04「ルール別の発生件数」の `.mini`）。
+ *
+ * **engine ではなくここに置く。** `Rule.title` は差異の `title` を組み立てる
+ * 判定側の語で、こちらは画面にだけ出る説明。UI 文字列はカタログ経由という
+ * 原則（ui-writing.md §1）に従い、鍵の対応表をこの表に置く。
+ *
+ * 未実装のコード（R007〜R009 / R011 / OPEN_QUESTIONS #066）は載っていない。
+ * **載っていないコードは説明を出さない**（推測で書かない）。
+ */
+const RULE_NOTE_LABEL: Readonly<Record<string, MessageKey>> = {
+  R001: "finding.rule.R001.note",
+  R002: "finding.rule.R002.note",
+  R003: "finding.rule.R003.note",
+  R004: "finding.rule.R004.note",
+  R005: "finding.rule.R005.note",
+  R006: "finding.rule.R006.note",
+  R010: "finding.rule.R010.note",
+  R012: "finding.rule.R012.note",
+  R013: "finding.rule.R013.note",
+  R014: "finding.rule.R014.note",
+};
+
+/** 1 行説明を引く。**未実装・未知のコードは `null`。** */
+export function ruleNoteLabel(ruleCode: string): MessageKey | null {
+  return RULE_NOTE_LABEL[ruleCode] ?? null;
+}

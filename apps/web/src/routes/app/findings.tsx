@@ -3,7 +3,8 @@
  *
  *   /app/audit/findings
  *
- * task:  docs/tasks/P4-06.md（2026-08-19 プロトタイプ準拠へ拡張 / 人間の指示）
+ * task:  docs/tasks/P4-06.md（2026-08-19 数字を拡張 / 2026-08-20 見た目を
+ *        プロトタイプ 04 に揃える — 人間の指示 / DECISIONS #224）
  * ルール: .claude/rules/security.md §1 / .claude/rules/ui-writing.md §2
  * 参照:  ui-prototypes/owner/pkown-v3-B-findings-records.html（04 稼働の差異）
  *
@@ -19,6 +20,11 @@
  *
  * ── 抑制を沈黙させない ──────────────────────────────────
  * §4.3。「抑制された差異 N 件」を常に出す。0 件のときも出す。
+ *
+ * ── 画面の骨組みはプロトタイプ 04 がそのまま正 ──────────
+ * 免責の枠（`.al`）→ KPI 4 枚 → ルール別（3）と推移（1）の並置 →
+ * 差異の一覧、の順。**この並びを入れ替えない。** 免責より上にデータを
+ * 置かないことが、この画面の設計そのもの（プロトタイプの確定事項）。
  *
  * ── 差異率を目標として出さない ──────────────────────────
  * 一般水準（1〜3%）を併記して基準を与えるが、0% を目標として提示しない。
@@ -54,7 +60,7 @@ import { businessDateOf } from "../../lib/businessDate.js";
 import { t } from "../../lib/i18n.js";
 import { listSelectableProperties, resolveSelectedScope } from "../../lib/property/selection.js";
 import { collectFindingList } from "../../lib/reconciliation/findings.js";
-import { SEVERITY_LABEL, STATUS_LABEL } from "../../lib/reconciliation/labels.js";
+import { SEVERITY_LABEL, STATUS_LABEL, ruleNoteLabel } from "../../lib/reconciliation/labels.js";
 import { previousMonthOf } from "../../lib/report/monthly.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
@@ -291,202 +297,353 @@ function meterClassOf(severity: FindingSeverity): string {
   return `pk-meterbar__fill pk-meterbar__fill--${severity}`;
 }
 
+
+/** 重要度 → タグの色（プロトタイプ 04 の `tag dg / wn / if`）。 */
+const SEVERITY_TAG: Record<FindingSeverity, string> = {
+  HIGH: "pk-tag pk-tag--danger",
+  MEDIUM: "pk-tag pk-tag--warn",
+  LOW: "pk-tag pk-tag--info",
+};
+
+/**
+ * 状態 → タグの色（プロトタイプ 04 は「未確認＝灰 / 確認済み＝緑」の 2 色）。
+ *
+ * 実装の状態は 5 つある（§2.5）。**未対応だけを灰にし、片付いたものを緑、
+ * 途中を橙にする。** 色の数を増やして「どれが急ぎか」を色で言わない。
+ */
+const STATUS_TAG: Record<FindingStatus, string> = {
+  OPEN: "pk-tag pk-tag--muted",
+  REVIEWING: "pk-tag pk-tag--warn",
+  RESOLVED: "pk-tag pk-tag--ok",
+  FALSE_POSITIVE: "pk-tag pk-tag--ok",
+  SUPPRESSED: "pk-tag pk-tag--muted",
+};
+
 export default function Findings() {
   const data = useLoaderData<FindingsData>();
+  const average = averageRateOf(data.trend);
 
   return (
     <section className="pk-page">
       <div className="pk-pagehead">
-        <h1 className="pk-pagehead__title">{t("finding.title")}</h1>
+        <div>
+          <h1 className="pk-pagehead__title">{t("finding.title")}</h1>
+          <p className="pk-pagehead__sub">{`${t("finding.lede")} · ${data.month}`}</p>
+        </div>
+        {/* プロトタイプは期間セレクタと CSV を見出しの右端に置く。 */}
+        <div className="pk-pagehead__actions">
+          <Form method="get" className="pk-filter">
+            <label className="pk-field">
+              <span className="pk-field__label">{t("finding.filter.month")}</span>
+              <input className="pk-input" type="month" name="month" defaultValue={data.month} />
+            </label>
+
+            <label className="pk-field">
+              <span className="pk-field__label">{t("finding.filter.status")}</span>
+              <select className="pk-select" name="status" defaultValue={data.status ?? ""}>
+                <option value="">{t("finding.filter.allStatuses")}</option>
+                {FINDING_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {t(STATUS_LABEL[status])}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <button className="pk-button pk-button--primary" type="submit">
+              {t("finding.filter.apply")}
+            </button>
+            {/* CSV は同じ絞り込みで出力する（データエクスポートとして監査ログに残る）。 */}
+            <button className="pk-button" type="submit" name="format" value="csv">
+              {t("finding.exportCsv")}
+            </button>
+          </Form>
+        </div>
       </div>
 
-      {/* §1.1。**免責をデータより上に置く**（プロトタイプの確定事項）。 */}
-      <p className="pk-notice">{t("finding.intro")}</p>
-
-      <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("finding.filter.status")}</span>
-          <select className="pk-select" name="status" defaultValue={data.status ?? ""}>
-            <option value="">{t("finding.filter.allStatuses")}</option>
-            {FINDING_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {t(STATUS_LABEL[status])}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="pk-field">
-          <span className="pk-field__label">{t("finding.filter.month")}</span>
-          <input className="pk-input" type="month" name="month" defaultValue={data.month} />
-        </label>
-
-        <button className="pk-button" type="submit">
-          {t("finding.filter.apply")}
-        </button>
-        {/* CSV は同じ絞り込みで出力する（データエクスポートとして監査ログに残る）。 */}
-        <button className="pk-button" type="submit" name="format" value="csv">
-          {t("finding.exportCsv")}
-        </button>
-      </Form>
+      {/* §1.1。**免責をデータより上に置く**（プロトタイプの確定事項）。
+          この 1 枚が無いと、確信度 92 が有罪の判定として読まれる。 */}
+      <div className="pk-alert pk-alert--info">
+        <span className="pk-alert__icon" aria-hidden="true">
+          ℹ
+        </span>
+        <p>
+          <b className="pk-alert__title">{t("finding.disclaimer.title")}</b>
+          {t("finding.intro")}
+        </p>
+      </div>
 
       {/* ── KPI（プロトタイプの 4 枚）──────────────────────── */}
-      <dl className="pk-stats">
-        <div className="pk-stats__item pk-stats__item--REWORK">
-          <dt>{t("finding.kpi.high")}</dt>
-          <dd>{String(data.severityCounts.HIGH)}</dd>
+      <dl className="pk-stats pk-stats--4">
+        <div className="pk-stats__item pk-stats__item--accent-danger">
+          <dt>
+            <span className="pk-stats__icon" aria-hidden="true">
+              🔴
+            </span>
+            {t("finding.kpi.high")}
+          </dt>
+          <dd>
+            {String(data.severityCounts.HIGH)}
+            <span className="pk-stats__unit">{t("finding.unit.count")}</span>
+          </dd>
           <p className="pk-report__delta">{t("finding.kpi.highNote")}</p>
         </div>
-        <div className="pk-stats__item pk-stats__item--IN_PROGRESS">
-          <dt>{t("finding.kpi.medium")}</dt>
-          <dd>{String(data.severityCounts.MEDIUM)}</dd>
+        <div className="pk-stats__item pk-stats__item--accent-warn">
+          <dt>
+            <span className="pk-stats__icon" aria-hidden="true">
+              🟠
+            </span>
+            {t("finding.kpi.medium")}
+          </dt>
+          <dd>
+            {String(data.severityCounts.MEDIUM)}
+            <span className="pk-stats__unit">{t("finding.unit.count")}</span>
+          </dd>
           <p className="pk-report__delta">{t("finding.kpi.mediumNote")}</p>
         </div>
-        <div className="pk-stats__item pk-stats__item--BLOCKED">
-          <dt>{t("finding.kpi.low")}</dt>
-          <dd>{String(data.severityCounts.LOW)}</dd>
+        <div className="pk-stats__item pk-stats__item--accent-info">
+          <dt>
+            <span className="pk-stats__icon" aria-hidden="true">
+              🔵
+            </span>
+            {t("finding.kpi.low")}
+          </dt>
+          <dd>
+            {String(data.severityCounts.LOW)}
+            <span className="pk-stats__unit">{t("finding.unit.count")}</span>
+          </dd>
           <p className="pk-report__delta">{t("finding.kpi.lowNote")}</p>
         </div>
-        <div className="pk-stats__item pk-stats__item--READY">
-          <dt>{t("finding.kpi.evaluated")}</dt>
-          <dd>{data.roomsEvaluated === null ? "—" : String(data.roomsEvaluated)}</dd>
+        <div className="pk-stats__item pk-stats__item--accent-ok">
+          <dt>
+            <span className="pk-stats__icon" aria-hidden="true">
+              ✓
+            </span>
+            {t("finding.kpi.evaluated")}
+          </dt>
+          <dd>
+            {data.roomsEvaluated === null ? "—" : String(data.roomsEvaluated)}
+            {data.roomsEvaluated === null ? null : (
+              <span className="pk-stats__unit">{t("finding.unit.rooms")}</span>
+            )}
+          </dd>
           <p className="pk-report__delta">
             {data.ratePermille === null
               ? t("finding.kpi.evaluatedNone")
-              : `${t("finding.kpi.rate")} ${(data.ratePermille / 10).toFixed(1)}%`}
+              : `${t("finding.kpi.rate")} ${formatPermille(data.ratePermille)}`}
           </p>
         </div>
       </dl>
 
-      {/* ── ルール別の発生件数 ─────────────────────────────── */}
-      {data.ruleRows.length === 0 ? null : (
-        <>
-          <h2 className="pk-section__title">{t("finding.byRule.title")}</h2>
-          <table className="pk-grid">
-            <thead>
-              <tr>
-                <th>{t("finding.byRule.rule")}</th>
-                <th>{t("finding.byRule.content")}</th>
-                <th>{t("finding.byRule.count")}</th>
-                <th>{t("finding.column.severity")}</th>
-                <th>{t("finding.byRule.averageConfidence")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.ruleRows.map((rule) => (
-                <tr key={rule.ruleCode}>
-                  <th scope="row">{rule.ruleCode}</th>
-                  <td>{rule.title}</td>
-                  <td>{String(rule.count)}</td>
-                  <td>{t(SEVERITY_LABEL[rule.severity])}</td>
-                  <td>
-                    <span className="pk-meterbar">
-                      <span className="pk-meterbar__track">
-                        <i
-                          className={meterClassOf(rule.severity)}
-                          style={{ width: `${String(rule.averageConfidence)}%` }}
-                        />
-                      </span>
-                      {String(rule.averageConfidence)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-
-      {/* ── 差異率の推移（施設を選んだときだけ）─────────────── */}
-      {data.trend.length === 0 ? null : (
-        <>
-          <h2 className="pk-section__title">{t("finding.trend.title")}</h2>
-          <div className="pk-bars">
-            {data.trend.map((point) => (
-              <div
-                key={point.month}
-                className={point.month === data.month ? "pk-bars__col pk-bars__col--on" : "pk-bars__col"}
-              >
-                <span className="pk-bars__value">
-                  {point.ratePermille === null ? "—" : (point.ratePermille / 10).toFixed(1)}
+      {/* ── ルール別（広い）と差異率の推移（狭い）を並置（`.g31`）──── */}
+      {data.ruleRows.length === 0 && data.trend.length === 0 ? null : (
+        <div className={data.trend.length === 0 ? "pk-cols" : "pk-cols pk-cols--31"}>
+          {data.ruleRows.length === 0 ? null : (
+            <section className="pk-panel">
+              <div className="pk-panel__head">
+                <span className="pk-panel__icon" aria-hidden="true">
+                  📊
                 </span>
-                <i
-                  className="pk-bars__bar"
-                  style={{ height: `${String(barHeight(point, data.trend))}%` }}
-                />
-                <span className="pk-bars__label">{point.month.slice(5)}</span>
+                {t("finding.byRule.title")}
+                <span className="pk-panel__note">{data.month}</span>
               </div>
-            ))}
-          </div>
-          {/* 0% を目標にしない（冒頭の注記）。一般水準を基準として併記する。 */}
-          <p className="pk-muted">{t("finding.trend.benchmark")}</p>
-          <p className="pk-muted">{t("finding.trend.note")}</p>
-        </>
-      )}
+              <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+                <table className="pk-tbl">
+                  <thead>
+                    <tr>
+                      <th>{t("finding.byRule.rule")}</th>
+                      <th>{t("finding.byRule.content")}</th>
+                      <th className="pk-num">{t("finding.byRule.count")}</th>
+                      <th>{t("finding.column.severity")}</th>
+                      <th>{t("finding.byRule.averageConfidence")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.ruleRows.map((rule) => {
+                      const note = ruleNoteLabel(rule.ruleCode);
+                      return (
+                        <tr key={rule.ruleCode}>
+                          <th scope="row">{rule.ruleCode}</th>
+                          <td>
+                            {rule.title}
+                            {note === null ? null : <p className="pk-cellnote">{t(note)}</p>}
+                          </td>
+                          <td className="pk-num">{String(rule.count)}</td>
+                          <td>
+                            <span className={SEVERITY_TAG[rule.severity]}>
+                              {t(SEVERITY_LABEL[rule.severity])}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="pk-meterbar">
+                              <span className="pk-meterbar__track">
+                                <i
+                                  className={meterClassOf(rule.severity)}
+                                  style={{ width: `${String(rule.averageConfidence)}%` }}
+                                />
+                              </span>
+                              {String(rule.averageConfidence)}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
-      <ul className="pk-board__counts">
-        {(["OPEN", "REVIEWING", "RESOLVED", "FALSE_POSITIVE"] as const).map((status) => (
-          <li key={status}>
-            {`${t(STATUS_LABEL[status])} ${String(data.counts[status])}`}
-          </li>
-        ))}
-      </ul>
-
-      {data.rows.length === 0 ? (
-        <p className="pk-muted">{t("finding.empty")}</p>
-      ) : (
-        <table className="pk-grid">
-          <thead>
-            <tr>
-              <th>{t("finding.column.room")}</th>
-              <th>{t("finding.column.date")}</th>
-              <th>{t("finding.column.property")}</th>
-              <th>{t("finding.column.rule")}</th>
-              <th>{t("finding.column.title")}</th>
-              <th>{t("finding.column.confidence")}</th>
-              <th>{t("finding.column.status")}</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((row) => (
-              <tr key={row.id}>
-                <th scope="row">{row.roomNumber}</th>
-                <td>{row.businessDate}</td>
-                <td>{row.propertyName}</td>
-                <td>{`${row.ruleCode} ${findRule(row.ruleCode)?.title ?? ""}`}</td>
-                <td>{row.title}</td>
-                {/* §1.3 MUST。**確信度を必ず示す。** */}
-                <td>
-                  <span className="pk-meterbar">
-                    <span className="pk-meterbar__track">
+          {/* 施設を選んだときだけ（冒頭の注記）。 */}
+          {data.trend.length === 0 ? null : (
+            <section className="pk-panel">
+              <div className="pk-panel__head">
+                <span className="pk-panel__icon" aria-hidden="true">
+                  📈
+                </span>
+                {t("finding.trend.title")}
+              </div>
+              <div className="pk-panel__body">
+                <div className="pk-bars">
+                  {data.trend.map((point) => (
+                    <div
+                      key={point.month}
+                      className={
+                        point.month === data.month ? "pk-bars__col pk-bars__col--on" : "pk-bars__col"
+                      }
+                    >
+                      <span className="pk-bars__value">
+                        {point.ratePermille === null ? "—" : formatPermille(point.ratePermille)}
+                      </span>
                       <i
-                        className={meterClassOf(row.severity)}
-                        style={{ width: `${String(row.confidence)}%` }}
+                        className="pk-bars__bar"
+                        style={{ height: `${String(barHeight(point, data.trend))}%` }}
                       />
+                      <span className="pk-bars__label">{point.month.slice(5)}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* 0% を目標にしない（冒頭の注記）。**他施設と比べない。**
+                    出すのは自施設の平均と、業界の一般的な水準だけ。 */}
+                <p className="pk-barsnote">
+                  {average === null ? null : (
+                    <span>
+                      {`${t("finding.trend.average")} `}
+                      <b>{formatPermille(average)}</b>
                     </span>
-                    {String(row.confidence)}
+                  )}
+                  <span>
+                    {`${t("finding.trend.benchmarkLabel")} `}
+                    <b>{t("finding.trend.benchmarkValue")}</b>
                   </span>
-                </td>
-                <td>{t(STATUS_LABEL[row.status])}</td>
-                <td>
-                  <a className="pk-button" href={`/app/audit/findings/${row.id}`}>
-                    {t("finding.open")}
-                  </a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </p>
+              </div>
+              <div className="pk-panel__foot">{t("finding.trend.note")}</div>
+            </section>
+          )}
+        </div>
       )}
 
-      {/* §4.3。**0 件でも出す。** 抑制を沈黙させない。 */}
-      <p className="pk-muted">
-        {`${t("finding.suppressed")} ${String(data.suppressedCount)}`}
-      </p>
-      <p className="pk-muted">{t("finding.suppressedNote")}</p>
+      {/* ── 差異の一覧 ─────────────────────────────────────── */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            ⚠️
+          </span>
+          {t("finding.list.title")}
+          <span className="pk-panel__note">{t("finding.list.order")}</span>
+        </div>
+
+        {data.rows.length === 0 ? (
+          <div className="pk-panel__body">
+            <p className="pk-muted">{t("finding.empty")}</p>
+          </div>
+        ) : (
+          <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+            <table className="pk-tbl">
+              <thead>
+                <tr>
+                  <th>{t("finding.column.room")}</th>
+                  <th>{t("finding.column.date")}</th>
+                  <th>{t("finding.column.property")}</th>
+                  <th>{t("finding.column.rule")}</th>
+                  <th>{t("finding.column.title")}</th>
+                  <th>{t("finding.column.confidence")}</th>
+                  <th>{t("finding.column.status")}</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((row) => (
+                  <tr key={row.id}>
+                    <th scope="row">{row.roomNumber}</th>
+                    <td>{row.businessDate}</td>
+                    <td>{row.propertyName}</td>
+                    <td>
+                      <span className="pk-rulecell">
+                        <span className="pk-rulecell__code">{row.ruleCode}</span>
+                        <span className="pk-rulecell__name">
+                          {findRule(row.ruleCode)?.title ?? ""}
+                        </span>
+                      </span>
+                    </td>
+                    <td>{row.title}</td>
+                    {/* §1.3 MUST。**確信度を必ず示す。** */}
+                    <td>
+                      <span className="pk-meterbar">
+                        <span className="pk-meterbar__track">
+                          <i
+                            className={meterClassOf(row.severity)}
+                            style={{ width: `${String(row.confidence)}%` }}
+                          />
+                        </span>
+                        {String(row.confidence)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={STATUS_TAG[row.status]}>{t(STATUS_LABEL[row.status])}</span>
+                    </td>
+                    <td>
+                      <a className="pk-button" href={`/app/audit/findings/${row.id}`}>
+                        {t("finding.open")}
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 状態別の件数は**絞り込みの外側**（「確認済みにすれば減る」数字に
+            しない）。プロトタイプは持たないが、絞りを掛けた画面で全体の
+            件数が読めなくなるため残す。 */}
+        <div className="pk-panel__foot">
+          {`${t("finding.counts.title")}: ${(["OPEN", "REVIEWING", "RESOLVED", "FALSE_POSITIVE"] as const)
+            .map((status) => `${t(STATUS_LABEL[status])} ${String(data.counts[status])}`)
+            .join(" / ")}`}
+        </div>
+
+        {/* §4.3。**0 件でも出す。** 抑制を沈黙させない。 */}
+        <div className="pk-panel__foot">
+          {`${t("finding.suppressed")}: ${String(data.suppressedCount)}`}
+          <p className="pk-cellnote">{t("finding.suppressedNote")}</p>
+        </div>
+      </section>
     </section>
   );
+}
+
+/** 千分率を「1.3%」の形に。**桁を増やさない**（0.1% 刻みで足りる）。 */
+function formatPermille(permille: number): string {
+  return `${(permille / 10).toFixed(1)}%`;
+}
+
+/** 推移の平均（千分率）。母数のある月だけで割る。1 つも無ければ `null`。 */
+function averageRateOf(trend: readonly TrendPoint[]): number | null {
+  const values = trend.map((point) => point.ratePermille).filter((value) => value !== null);
+  if (values.length === 0) return null;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
 /** 棒の高さ（%）。最大値を 96% に正規化する。母数の無い月は 4%。 */
