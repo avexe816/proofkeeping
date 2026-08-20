@@ -109,6 +109,7 @@ describe("previewAutoAssignment — 候補から外す", () => {
       unassigned: { taskCount: 1, minutes: 30 },
       limitMinutes: 480,
       blockedMembershipIds: [BLOCKED],
+      traits: [],
     };
 
     const plan = previewAutoAssignment(board);
@@ -137,6 +138,7 @@ describe("previewAutoAssignment — 候補から外す", () => {
       unassigned: { taskCount: 1, minutes: 30 },
       limitMinutes: 480,
       blockedMembershipIds: [BLOCKED],
+      traits: [],
     };
 
     const plan = previewAutoAssignment(board);

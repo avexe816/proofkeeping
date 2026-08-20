@@ -186,6 +186,109 @@ describe("planAutoAssignment — 触らないもの（負例）", () => {
   });
 });
 
+describe("planAutoAssignment — スキルと難易度（P8-04 / §1.7）", () => {
+  const CHECKOUT = task({ taskId: "t1", taskType: "CHECKOUT" });
+  const DEEP = task({ taskId: "t2", taskType: "DEEP" });
+
+  // ── 正例 ──────────────────────────────────────────────
+
+  it("スキルに合う人へ割り当たる", () => {
+    const plan = planAutoAssignment(
+      [CHECKOUT],
+      [{ membershipId: "m_a", staffNumber: "01", skills: ["CHECKOUT"] }],
+    );
+    expect(plan.assignments).toEqual([{ taskId: "t1", membershipId: "m_a" }]);
+  });
+
+  it("スキル外の人を飛ばして、できる人へ回る", () => {
+    const plan = planAutoAssignment(
+      [DEEP],
+      [
+        { membershipId: "m_a", staffNumber: "01", skills: ["CHECKOUT"] },
+        { membershipId: "m_b", staffNumber: "02", skills: ["DEEP"] },
+      ],
+    );
+    expect(plan.assignments).toEqual([{ taskId: "t2", membershipId: "m_b" }]);
+  });
+
+  it("**スキル未登録（空）は制約なし**（未入力の組織で従来どおり動く）", () => {
+    const plan = planAutoAssignment(
+      [DEEP],
+      [{ membershipId: "m_a", staffNumber: "01", skills: [] }],
+    );
+    expect(plan.assignments).toHaveLength(1);
+  });
+
+  it("スキルを渡さなければ従来どおり（後方互換）", () => {
+    const plan = planAutoAssignment([DEEP], [{ membershipId: "m_a", staffNumber: "01" }]);
+    expect(plan.assignments).toHaveLength(1);
+  });
+
+  it("taskType の無いタスクは誰にでも割り当たる", () => {
+    const plan = planAutoAssignment(
+      [task({ taskId: "t3" })],
+      [{ membershipId: "m_a", staffNumber: "01", skills: ["CHECKOUT"] }],
+    );
+    expect(plan.assignments).toHaveLength(1);
+  });
+
+  // ── 負例 ──────────────────────────────────────────────
+
+  it("**全員がスキル外なら未割当のまま残す**（無資格に詰め込まない）", () => {
+    const plan = planAutoAssignment(
+      [DEEP],
+      [{ membershipId: "m_a", staffNumber: "01", skills: ["CHECKOUT", "STAYOVER"] }],
+    );
+    expect(plan.assignments).toHaveLength(0);
+    expect(plan.unassignedTaskIds).toEqual(["t2"]);
+  });
+
+  it("1 年目（avoidHardTasks）に特別清掃を割り当てない", () => {
+    const plan = planAutoAssignment(
+      [DEEP],
+      [
+        { membershipId: "m_new", staffNumber: "01", avoidHardTasks: true },
+        { membershipId: "m_vet", staffNumber: "02" },
+      ],
+    );
+    expect(plan.assignments).toEqual([{ taskId: "t2", membershipId: "m_vet" }]);
+  });
+
+  it("1 年目でも通常清掃は受け持てる", () => {
+    const plan = planAutoAssignment(
+      [CHECKOUT],
+      [{ membershipId: "m_new", staffNumber: "01", avoidHardTasks: true }],
+    );
+    expect(plan.assignments).toHaveLength(1);
+  });
+
+  it("高難度の語彙を差し替えられる（既定は DEEP だけ）", () => {
+    const plan = planAutoAssignment(
+      [CHECKOUT],
+      [{ membershipId: "m_new", staffNumber: "01", avoidHardTasks: true }],
+      480,
+      ["CHECKOUT"],
+    );
+    expect(plan.assignments).toHaveLength(0);
+    expect(plan.unassignedTaskIds).toEqual(["t1"]);
+  });
+
+  it("スキル外を飛ばしても**負荷の上限は守る**（先にスキルを見る）", () => {
+    // m_a はスキル外、m_b は上限ぎりぎり。詰め込まず未割当に残す。
+    const heavy = task({ taskId: "t4", taskType: "DEEP", standardMinutes: 60 });
+    const plan = planAutoAssignment(
+      [heavy],
+      [
+        { membershipId: "m_a", staffNumber: "01", skills: ["CHECKOUT"] },
+        { membershipId: "m_b", staffNumber: "02", skills: ["DEEP"] },
+      ],
+      30,
+    );
+    expect(plan.assignments).toHaveLength(0);
+    expect(plan.unassignedTaskIds).toEqual(["t4"]);
+  });
+});
+
 describe("summarizeWorkload — §4.3", () => {
   it("割当済みだけを数える", () => {
     const rows = summarizeWorkload(

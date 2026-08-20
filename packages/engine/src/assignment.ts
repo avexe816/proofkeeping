@@ -37,6 +37,13 @@ export interface AssignableTask {
   status: TaskStatusValue;
   /** `membership.id`。未割当は `null`。 */
   assigneeId: string | null;
+  /**
+   * 作業種別（P8-04）。スキルの照合に使う。
+   *
+   * 省略可 — 渡さなければスキルの制約は掛からない
+   * （**スキル未整備の組織で従来どおり動く** / PK-SPEC-P8 §1.5 MUST と同じ向き）。
+   */
+  taskType?: string | undefined;
 }
 
 /** 配分先のスタッフ。**出勤しているかの判断は呼び出し側。** */
@@ -44,6 +51,23 @@ export interface AssignableStaff {
   membershipId: string;
   /** 並びを決めるためだけに使う。表示名ではない。 */
   staffNumber: string;
+  /**
+   * 対応できる作業種別（P8-04 / PK-SPEC-P8 §1.7）。
+   *
+   * **空・省略は「制約なし」。** スキルを登録していない組織で
+   * 自動配分が止まらないようにする（仕様 §1.5 のフォールバックと同じ向き）。
+   * 空配列を「何もできない」と読まない — 未入力と区別できないため。
+   */
+  skills?: readonly string[] | undefined;
+  /**
+   * 難易度の高い作業を避けるか（P8-04 / プロトタイプ ops 02
+   * 「1年目には難易度の高い客室を割当てません」）。
+   *
+   * 何を「難易度が高い」とするかは呼び出し側が決める（`hardTaskTypes`）。
+   * **判定の理由（1 年目かどうか）をここに持ち込まない** — engine は
+   * 在籍年数を知らない。
+   */
+  avoidHardTasks?: boolean | undefined;
 }
 
 /** 1 人ぶんの負荷（§4.3）。 */
@@ -172,10 +196,39 @@ export function summarizeUnassigned(tasks: readonly AssignableTask[]): {
  * @param tasks その業務日・その施設のタスク全件（割当済みを含む）。
  * @param staff 出勤スタッフ。空なら全件が未割当。
  */
+/**
+ * 難易度の高い作業種別の既定（P8-04）。
+ *
+ * **特別清掃だけ。** 客室ごとの難易度の指標はどこにも保存されていない
+ * （OPEN_QUESTIONS #039 の希望フロアと同じ状況）。推測のスコアで
+ * 選別すると「なぜこの部屋が高難度なのか」を誰も説明できない。
+ * 作業種別なら説明できる。
+ */
+export const HARD_TASK_TYPES: readonly string[] = ["DEEP"];
+
+/** `person` が `task` を受け持てるか（P8-04）。**理由は呼び出し側が持つ。** */
+function isEligible(
+  person: AssignableStaff,
+  task: AssignableTask,
+  hardTaskTypes: readonly string[],
+): boolean {
+  if (task.taskType === undefined) return true;
+  if (
+    person.skills !== undefined &&
+    person.skills.length > 0 &&
+    !person.skills.includes(task.taskType)
+  ) {
+    return false;
+  }
+  if (person.avoidHardTasks === true && hardTaskTypes.includes(task.taskType)) return false;
+  return true;
+}
+
 export function planAutoAssignment(
   tasks: readonly AssignableTask[],
   staff: readonly AssignableStaff[],
   limitMinutes: number = WORKLOAD_LIMIT_MINUTES,
+  hardTaskTypes: readonly string[] = HARD_TASK_TYPES,
 ): AssignmentPlan {
   // 既存の割当を含めた負荷から始める。**空の状態から配り直さない。**
   // 途中まで手で配ったところへ自動配分を掛けても、手の配分が消えない。
@@ -209,6 +262,9 @@ export function planAutoAssignment(
     for (let step = 0; step < order.length; step += 1) {
       const person = order[(cursor + step) % order.length];
       if (person === undefined) continue;
+      // スキル外・高難度回避（P8-04）。**上限より先に見る** — 上限で
+      // 飛ばした人を次の周で拾う仕組みに、資格の無い人が混ざらないように。
+      if (!isEligible(person, task, hardTaskTypes)) continue;
       const current = minutes.get(person.membershipId) ?? 0;
       if (current + task.standardMinutes > limitMinutes) continue;
       picked = person.membershipId;

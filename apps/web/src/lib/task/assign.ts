@@ -20,6 +20,7 @@ import {
   listFloors,
   listPropertyStaff,
   listRooms,
+  listStaffLedger,
   listTasks,
   recordAudit,
   NotFoundError,
@@ -39,6 +40,7 @@ import {
 
 import { assertPermission, propertyTarget } from "../auth/permission.js";
 import { listAssignmentBlockedMembershipIds } from "../staff/assignmentBlock.js";
+import { buildStaffTraits, type StaffTraits } from "../staff/traits.js";
 
 /** W-04 が描くのに要る盤面。**担当者の表示名の出し分けは画面の責務。** */
 export interface AssignmentBoard {
@@ -55,6 +57,12 @@ export interface AssignmentBoard {
    * 新しく配ることだけを止める。画面はこの ID にバッジを付ける。
    */
   blockedMembershipIds: readonly string[];
+  /**
+   * 自動配分に効くスタッフの属性（P8-04 / P8-10）。
+   * スキル・高難度回避（1 年目）・研修中。**手動配分は縛らない** —
+   * 例外の判断（同行での割当など）は責任者が行う。
+   */
+  traits: readonly StaffTraits[];
 }
 
 /** 盤面を読む。**権限は施設の資源として判定する。** */
@@ -68,13 +76,15 @@ export async function loadAssignmentBoard(
   if (property === undefined) throw new NotFoundError();
   assertPermission(ctx, "task.manage", propertyTarget([property.id]));
 
-  const [rows, rooms, floors, staff, blocked] = await Promise.all([
+  const [rows, rooms, floors, staff, blocked, ledger] = await Promise.all([
     listTasks(env, ctx, { propertyId, businessDate }),
     listRooms(env, ctx, { propertyId }),
     listFloors(env, ctx, propertyId),
     listPropertyStaff(env, ctx, propertyId),
     // 在留資格の期限切れ（P8-02）。**その日の業務日で判定する。**
     listAssignmentBlockedMembershipIds(env, ctx, businessDate),
+    // スキル・在籍年数・研修中（P8-04）。台帳が空でも従来どおり動く。
+    listStaffLedger(env, ctx),
   ]);
 
   const roomById = new Map(rooms.map((room) => [room.id, room]));
@@ -93,6 +103,7 @@ export async function loadAssignmentBoard(
           priority: task.priority,
           standardMinutes: task.standardMinutes,
           status: task.status,
+          taskType: task.taskType,
           assigneeId: task.assigneeId,
         };
       }),
@@ -107,6 +118,7 @@ export async function loadAssignmentBoard(
     unassigned: summarizeUnassigned(tasks),
     limitMinutes: WORKLOAD_LIMIT_MINUTES,
     blockedMembershipIds: [...blocked],
+    traits: buildStaffTraits(ledger, businessDate),
   };
 }
 
@@ -120,11 +132,23 @@ export function previewAutoAssignment(board: AssignmentBoard): {
   loads: readonly WorkloadRow[];
   unassignedTaskIds: readonly string[];
 } {
-  // 期限切れのスタッフを候補から外す（P8-02 / §1.4 MUST）。
-  // **engine は在留資格を知らない。** 純粋関数に法令の概念を持ち込まず、
-  // 候補の絞り込みで表す（スキル外を外す P8-04 も同じ形になる予定）。
+  // 期限切れ（P8-02）と研修中（P8-10 / プロトタイプ 08「研修中は同行作業
+  // のみとし自動割当から除外する」）を候補から外す。**engine は在留資格も
+  // 研修も知らない** — 純粋関数に法令・雇用の概念を持ち込まず、候補の
+  // 絞り込みとスキルの照合（P8-04）で表す。
   const blocked = new Set(board.blockedMembershipIds);
-  const assignable = board.staff.filter((person) => !blocked.has(person.membershipId));
+  const traitsByMembership = new Map(board.traits.map((row) => [row.membershipId, row]));
+  const assignable = board.staff
+    .filter((person) => !blocked.has(person.membershipId))
+    .filter((person) => traitsByMembership.get(person.membershipId)?.inTraining !== true)
+    .map((person) => {
+      const traits = traitsByMembership.get(person.membershipId);
+      return {
+        ...person,
+        skills: traits?.skills,
+        avoidHardTasks: traits?.isFirstYear === true,
+      };
+    });
   const plan = planAutoAssignment(board.tasks, assignable);
   return {
     pairs: plan.assignments,
