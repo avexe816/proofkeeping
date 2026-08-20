@@ -1,5 +1,118 @@
 # CONTINUE
 
+## 2026-08-20 の追記 その 2（**この節が最新**）
+
+### 最終状態
+
+- main HEAD: `262d5b4 PF-01（2/2）: 運営画面のシェル・ナビ・ログインのルート (#144)`
+  （**必ず `git log` で確かめ直すこと。** 並行セッションの PR も入る）
+- main の CI は 3 本とも緑。**レビュー待ちなし。**
+- マージ済み（この節のぶん）: **#142** P8-10 研修と資格（Workforce 完走）→
+  **#143** PF-01（1/2）データ面と認証（**並行セッション**）→
+  **#144** PF-01（2/2）画面。
+- **P8 は 5 task すべて完了。PF-01 も完了。**
+
+### 並行セッションとぶつかった（2 回目）
+
+**#143 は別セッションが PF-01 の前半を実装してマージしたもの。** こちらも
+同じ範囲を書いていたが、**マージ済みのほうを正として破棄し、向こうの
+`lib/platform/*` と `repositories/platform.ts` の上に画面だけを載せ直した**
+（DECISIONS #229 で P8-04 のときに採った扱いと同じ）。
+
+**PR を作る直前に `git fetch origin main` すること。** 45 分の作業が
+やり直しになる。
+
+### 次にやること: **PF-02**（PF-03〜PF-14 が全部これに依存する）
+
+`docs/tasks/PF-02.md`。**設計の下調べは済んでいる。以下をそのまま使ってよい。**
+
+#### 使えるものの在り処（調査済み）
+
+| 要る数字 | 出どころ |
+|---|---|
+| 施設数 | `property`（`repositories/property.ts`） |
+| 客室数・課金対象室数 | `countRooms()` / `countSellableRoomsByProperty()`（`room.ts`） |
+| スタッフ数 | `membership`（有効なもの） |
+| 完備率の分母 | `dailyPropertyRollup.completedTasks` を施設ぶん合計する |
+| 完備率の分子 | `observation` の行数（`businessDate` で絞る） |
+| 既定値のまま比率 | `observation.usedDefaults`（boolean 列） |
+| 入力所要時間の中央値 | `observation.inputDurationMs`（null あり） |
+| 未記録 | `cleaningTask.observationSkipped` |
+| プラン・契約日・試用期限・状態 | `subscription`（`plan` / `status` / `trialEndsAt` / `createdAt`）|
+
+`SUBSCRIPTION_PLANS = ["BASE","PRO","ENT"]` /
+`SUBSCRIPTION_STATUSES = ["TRIAL","ACTIVE","PAST_DUE","CANCELED"]`。
+
+#### 決めておいた設計（そのまま進めてよい）
+
+1. **キューを新設しない。** `pk-rollup-update` に `kind: "TENANT_SNAPSHOT"` で
+   相乗りさせる（`RollupUpdateMessage` が既に `kind` を持っている /
+   DECISIONS #140・#160 の判断と同じ）。Cloudflare のリソース作成を
+   人間に待たせない。dispatch は `apps/web/src/index.ts` の
+   `batch.queue.startsWith("pk-rollup-update")` を `kind` で 2 分割する。
+2. **cron を新設しない。** 02:00 JST の fallthrough に
+   `dispatchTenantSnapshot()` を 1 本足す（写真の保持期限・照合と同じ相乗り）。
+   **新しい cron 式を足すときは fallthrough より前に分岐を置くこと**
+   （忘れると 02:00 のタスク生成がその時刻にも走る）。
+3. **判定を保存しない。** スナップショットには**測った値だけ**を入れ、
+   「要支援」「注意」は**読むときに**閾値と突き合わせて出す。閾値は
+   PF-14 の「運用（変更可）」から来るので、焼き込むと値を変えた瞬間に
+   過去の行と食い違う。
+4. **閾値の置き場所。** PF-14 の 5 項目だけを持つ表を SHARD_00 に作り
+   （`platform_operation_setting`）、既定値は 1 つのモジュールに置く。
+   **PF-02 が読むのは 2 つだけ**（入力所要時間の基準 10 秒 / 既定値のまま
+   比率 70%）。**完備率 90% は PF-14 の 5 項目に無いのでコード上の定数**
+   （プロトタイプが上限 — 編集できる項目を勝手に増やさない）。
+   書き込み（申請・承認 2 名）は PF-14 の担当。
+5. **2-of-3 の判定は純粋関数**にして `packages/engine` へ
+   （`assignment.ts` / `inspectionSampling.ts` と同じ置き場）。
+   正例・負例を 5 件ずつ（testing.md §3）。逐語:
+   > 判定は3指標の組み合わせです。完備率90%未満・既定値70%超・入力時間10秒未満のうち2つ以上該当で「要支援」とします。
+6. 割合は**整数で持つ**（basis point。98.2% → 9820）。浮動小数点を使わない。
+7. 表は `platform_tenant_snapshot`（`organizationId` × `businessDate` で一意）。
+   **`orgShortId` を主キーにしない・シャード番号の列を持たない。**
+   **全 16 シャードに定義を流す**（`schema_version` の一致検査のため /
+   `schema/platform.ts` 冒頭の注記）。
+
+#### 手順
+
+```bash
+git fetch origin && git checkout main && git pull
+# 1. packages/db/src/schema/platform.ts に 2 表を足す
+# 2. pnpm db:generate（0032 になるはず。**必ず同じ PR に入れる**）
+# 3. repositories/platform.ts に upsert / list / 設定の読み取りを足す
+# 4. packages/engine に 2-of-3 の純粋関数
+# 5. apps/web/src/consumers/tenantSnapshot.ts と dispatch
+# 6. index.ts の queue 分岐と 02:00 の fallthrough に配線
+# 7. pnpm check → PR → CI → squash merge
+# 8. マージ後に staging へ migration を当てる（下の「staging」を見ること）
+```
+
+**マージ後の staging 反映**（0032 を当てる）:
+`mcp__github__actions_run_trigger` に
+`workflow_id: "staging-bootstrap.yml"`、inputs `{"phase":"migrate","confirm":"CREATE"}`。
+**`resource_id` ではなく `workflow_id`。** コンテナから Cloudflare へは直接届かない。
+
+### PF-01 の申し送り
+
+- **運営担当者を作る画面がまだ無い。** 増員はシード（local / staging の
+  `POST /api/v1/dev/seed` が `operator@seed.invalid` を 1 名作る。パスワードは
+  管理者と同じ）か PF-14 待ち。**本番の 1 人目をどう作るかは未定。**
+- 2FA は列だけ（OPEN_QUESTIONS #109）。方式が決まったら
+  `lib/platform/login.ts` と `routes/plat/login.tsx` の 2 か所に入る。
+- ナビ 12 項目のうちルートが在るのは `/plat/status` だけ。**残り 11 本は
+  グレーのまま**で、PF-03〜PF-14 が 1 つずつリンクに変える
+  （`routes/plat/layout.tsx` の `PLAT_NAV` と `apps/web/src/routes.ts`）。
+- `/plat/*` は未ログインで **404**、`/app/*` は `/login` へ戻す
+  （DECISIONS #230 / OPEN_QUESTIONS #113 決着）。**この非対称は意図的。**
+
+### 積み残し（PF に着手する前でも後でもよい）
+
+- **OPEN_QUESTIONS #111**: `payout` の 16 関数が `REPOSITORY_MODULES` に
+  入っておらず、組織条件の自動検査を受けていない。**次のバッチで登録する。**
+
+---
+
 ## 2026-08-20 の追記（この節が最新）
 
 ### 最終状態
