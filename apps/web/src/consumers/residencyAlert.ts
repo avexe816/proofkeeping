@@ -32,6 +32,7 @@
  */
 
 import {
+  listCertifications,
   listResidencyRecords,
   listStaffLedger,
   lookupOrganizationId,
@@ -40,7 +41,7 @@ import {
 } from "@pk/db";
 
 import { businessDateOf } from "../lib/businessDate.js";
-import { countResidencyAlerts } from "../lib/staff/residencyAlert.js";
+import { countCertificationAlerts, countResidencyAlerts } from "../lib/staff/residencyAlert.js";
 
 import { notify } from "./notify.js";
 
@@ -96,30 +97,50 @@ export async function runResidencyAlert(
 
   try {
     const businessDate = businessDateOf(now);
-    const [ledger, residency] = await Promise.all([
+    const [ledger, residency, certifications] = await Promise.all([
       listStaffLedger(env, ctx),
       listResidencyRecords(env, ctx),
+      listCertifications(env, ctx),
     ]);
 
     const counts = countResidencyAlerts({ ledger, residency, businessDate });
-    // **0 件なら送らない**（§1.4 のアラートは「いる」ときの通知）。
-    if (counts.total === 0) return { kind: "OK", total: 0, notified: false };
+    let notified = false;
+    if (counts.total > 0) {
+      await notify(env, {
+        orgShortId: ctx.orgShortId,
+        eventCode: "residency.expiry_due",
+        // 在留資格は組織の事実で、施設に紐づかない。
+        propertyId: null,
+        // **人数だけ。名前を載せない**（冒頭の注記）。
+        subject: "在留資格の期限確認のお願い",
+        summary: `期限の確認が必要なスタッフが ${String(counts.total)} 名います`,
+        linkPath: "/app/settings/staff",
+        // 1 日 1 通（冒頭の注記）。
+        dedupeKey: `residency-expiry:${ctx.orgShortId}:${businessDate}`,
+        requestedAtMs: message.requestedAtMs,
+      });
+      notified = true;
+    }
 
-    await notify(env, {
-      orgShortId: ctx.orgShortId,
-      eventCode: "residency.expiry_due",
-      // 在留資格は組織の事実で、施設に紐づかない。
-      propertyId: null,
-      // **人数だけ。名前を載せない**（冒頭の注記）。
-      subject: "在留資格の期限確認のお願い",
-      summary: `期限の確認が必要なスタッフが ${String(counts.total)} 名います`,
-      linkPath: "/app/settings/staff",
-      // 1 日 1 通（冒頭の注記）。
-      dedupeKey: `residency-expiry:${ctx.orgShortId}:${businessDate}`,
-      requestedAtMs: message.requestedAtMs,
-    });
+    // 資格・講習は 60 日前に 1 回だけ（P8-10 / ops 08）。同じバッチに
+    // 相乗りする — 別の cron を増やさない。
+    const certCount = countCertificationAlerts({ ledger, certifications, businessDate });
+    if (certCount > 0) {
+      await notify(env, {
+        orgShortId: ctx.orgShortId,
+        eventCode: "certification.expiry_due",
+        propertyId: null,
+        subject: "資格・講習の更新のお願い",
+        summary: `更新が必要な資格・講習が ${String(certCount)} 件あります`,
+        linkPath: "/app/training",
+        dedupeKey: `certification-expiry:${ctx.orgShortId}:${businessDate}`,
+        requestedAtMs: message.requestedAtMs,
+      });
+      notified = true;
+    }
 
-    return { kind: "OK", total: counts.total, notified: true };
+    // **どちらも 0 件なら送らない**（§1.4 のアラートは「いる」ときの通知）。
+    return { kind: "OK", total: counts.total + certCount, notified };
   } catch (error) {
     return { kind: "FAILED", reason: error instanceof Error ? error.name : "UNKNOWN" };
   }

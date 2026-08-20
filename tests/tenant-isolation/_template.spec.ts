@@ -145,6 +145,10 @@ const TENANT_TABLES = [
   "residency_record",
   // P8-03。シフト（PK-SPEC-P8 §1.5）。誰がいつ働くかは雇用管理の個人情報。
   "shift_plan",
+  // P8-10。研修と資格（プロトタイプ ops 08）。修了・期限も雇用管理の個人情報。
+  "training_program",
+  "training_record",
+  "certification_record",
 ] as const;
 
 /**

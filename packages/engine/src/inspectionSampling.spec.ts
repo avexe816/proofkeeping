@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   decideInspection,
   isNewStaff,
+  isNewStaffByTraining,
   policyFromLegacyFlag,
   type InspectionDecisionInput,
   type InspectionPolicyInput,
@@ -217,5 +218,87 @@ describe("isNewStaff", () => {
 
   it("未来日付は新しい側として扱う", () => {
     expect(isNewStaff(NOW + day, NOW)).toBe(true);
+  });
+});
+
+describe("isNewStaffByTraining — P8-10 / §1.7", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const NOW = Date.UTC(2026, 7, 20);
+
+  // ── 正例 ──────────────────────────────────────────────
+
+  it("未修了なら新人", () => {
+    expect(
+      isNewStaffByTraining({ activePrograms: 6, completed: 4, lastCompletedOnMs: null, nowMs: NOW }),
+    ).toBe(true);
+  });
+
+  it("修了から 29 日なら新人（継続 30 日）", () => {
+    expect(
+      isNewStaffByTraining({
+        activePrograms: 6,
+        completed: 6,
+        lastCompletedOnMs: NOW - 29 * DAY,
+        nowMs: NOW,
+      }),
+    ).toBe(true);
+  });
+
+  it("修了扱いなのに日付が無ければ新人（新しい側へ倒す）", () => {
+    expect(
+      isNewStaffByTraining({ activePrograms: 6, completed: 6, lastCompletedOnMs: null, nowMs: NOW }),
+    ).toBe(true);
+  });
+
+  it("修了日が未来なら新人（登録の誤りでも新しい側へ）", () => {
+    expect(
+      isNewStaffByTraining({
+        activePrograms: 6,
+        completed: 6,
+        lastCompletedOnMs: NOW + DAY,
+        nowMs: NOW,
+      }),
+    ).toBe(true);
+  });
+
+  it("完了数が総数を超えていても（無効化の残骸）修了扱いで日数を見る", () => {
+    expect(
+      isNewStaffByTraining({
+        activePrograms: 4,
+        completed: 6,
+        lastCompletedOnMs: NOW - 60 * DAY,
+        nowMs: NOW,
+      }),
+    ).toBe(false);
+  });
+
+  // ── 負例 ──────────────────────────────────────────────
+
+  it("**プログラムの無い組織では効かない**（全員が新人になって検査が詰まる）", () => {
+    expect(
+      isNewStaffByTraining({ activePrograms: 0, completed: 0, lastCompletedOnMs: null, nowMs: NOW }),
+    ).toBe(false);
+  });
+
+  it("修了から 30 日ちょうどで新人ではなくなる", () => {
+    expect(
+      isNewStaffByTraining({
+        activePrograms: 6,
+        completed: 6,
+        lastCompletedOnMs: NOW - 30 * DAY,
+        nowMs: NOW,
+      }),
+    ).toBe(false);
+  });
+
+  it("修了から 1 年なら新人ではない", () => {
+    expect(
+      isNewStaffByTraining({
+        activePrograms: 6,
+        completed: 6,
+        lastCompletedOnMs: NOW - 365 * DAY,
+        nowMs: NOW,
+      }),
+    ).toBe(false);
   });
 });

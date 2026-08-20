@@ -60,6 +60,7 @@ import * as rollupRepo from "./rollup.js";
 import * as roomRepo from "./room.js";
 import * as residencyRepo from "./residency.js";
 import * as shiftRepo from "./shift.js";
+import * as trainingRepo from "./training.js";
 import * as roomPlanRepo from "./roomPlan.js";
 import * as standardTimeRepo from "./standardTime.js";
 import * as taskPhotoRepo from "./taskPhoto.js";
@@ -132,6 +133,8 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   residency: residencyRepo,
   // P8-03 が登録したシフト（同 §1.5）。**予定の表。打刻の関数が無い。**
   shift: shiftRepo,
+  // P8-10 が登録した研修と資格。**成績・点数・順位の関数が無い。**
+  training: trainingRepo,
   user: userRepo,
 };
 
@@ -197,6 +200,9 @@ const OWN_ID = {
   externalMapping: generateId(TEST_ORG.orgShortId, "xmap"),
   // P8-01 / P8-02。台帳は `staff_pay_profile`（`sppf`）を指す。
   staffProfile: generateId(TEST_ORG.orgShortId, "sppf"),
+  // P8-10。
+  trainingProgram: generateId(TEST_ORG.orgShortId, "trpg"),
+  certification: generateId(TEST_ORG.orgShortId, "cert"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -280,6 +286,8 @@ const OTHER_ID = {
   syncLog: generateId(OTHER_ORG.orgShortId, "slog"),
   externalMapping: generateId(OTHER_ORG.orgShortId, "xmap"),
   staffProfile: generateId(OTHER_ORG.orgShortId, "sppf"),
+  trainingProgram: generateId(OTHER_ORG.orgShortId, "trpg"),
+  certification: generateId(OTHER_ORG.orgShortId, "cert"),
 } as const;
 
 /**
@@ -3438,6 +3446,83 @@ const INVOCATIONS: Invocation[] = [
         sourceTo: "2026-08-16",
         targetFrom: "2026-08-17",
       }),
+  },
+  // ── P8-10 研修と資格（プロトタイプ ops 08）────────────────
+  {
+    name: "training.listTrainingPrograms",
+    kind: "tenant",
+    run: (env, ctx) => trainingRepo.listTrainingPrograms(env, ctx),
+  },
+  {
+    name: "training.createTrainingProgram",
+    kind: "tenant",
+    run: (env, ctx) =>
+      trainingRepo.createTrainingProgram(env, ctx, {
+        name: "アプリの操作",
+        expectedMinutes: 120,
+        languages: ["ja", "vi"],
+        sortOrder: 1,
+      }),
+  },
+  {
+    name: "training.listTrainingRecords",
+    kind: "tenant",
+    run: (env, ctx) => trainingRepo.listTrainingRecords(env, ctx),
+  },
+  {
+    name: "training.upsertTrainingRecord",
+    kind: "tenant",
+    run: (env, ctx) =>
+      trainingRepo.upsertTrainingRecord(env, ctx, {
+        membershipId: OWN_ID.membership,
+        programId: OWN_ID.trainingProgram,
+        completedOn: "2026-08-20",
+        mentorMembershipId: null,
+      }),
+    // スタッフ・項目・同行者のどれも、別組織の ID を受け付けてはならない。
+    crossTenant: (env, ctx) =>
+      trainingRepo.upsertTrainingRecord(env, ctx, {
+        membershipId: OTHER_ID.membership,
+        programId: OWN_ID.trainingProgram,
+        completedOn: "2026-08-20",
+        mentorMembershipId: null,
+      }),
+  },
+  {
+    name: "training.summarizeTrainingProgress",
+    kind: "tenant",
+    run: (env, ctx) => trainingRepo.summarizeTrainingProgress(env, ctx, OWN_ID.membership),
+    crossTenant: (env, ctx) =>
+      trainingRepo.summarizeTrainingProgress(env, ctx, OTHER_ID.membership),
+  },
+  {
+    name: "training.listCertifications",
+    kind: "tenant",
+    run: (env, ctx) => trainingRepo.listCertifications(env, ctx),
+  },
+  {
+    name: "training.createCertification",
+    kind: "tenant",
+    run: (env, ctx) =>
+      trainingRepo.createCertification(env, ctx, {
+        membershipId: OWN_ID.membership,
+        name: "衛生管理者講習",
+        expiresOn: "2026-09-30",
+        note: null,
+      }),
+    crossTenant: (env, ctx) =>
+      trainingRepo.createCertification(env, ctx, {
+        membershipId: OTHER_ID.membership,
+        name: "衛生管理者講習",
+        expiresOn: null,
+        note: null,
+      }),
+  },
+  {
+    name: "training.deleteCertification",
+    kind: "tenant",
+    run: (env, ctx) => trainingRepo.deleteCertification(env, ctx, OWN_ID.certification),
+    crossTenant: (env, ctx) => trainingRepo.deleteCertification(env, ctx, OTHER_ID.certification),
   },
   // ── P8-02 在留資格（同 §1.4 / INV-08）───────────────────
   {
