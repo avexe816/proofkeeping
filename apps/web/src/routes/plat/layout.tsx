@@ -43,7 +43,7 @@ const PLAT_NAV: readonly PlatNavSection[] = [
     items: [
       { key: "plat.nav.status", icon: "📡", href: "/plat/status" },
       { key: "plat.nav.tenants", icon: "🏢", href: "/plat/tenants" },
-      { key: "plat.nav.usage", icon: "📊", href: null },
+      { key: "plat.nav.usage", icon: "📊", href: "/plat/usage" },
     ],
   },
   {

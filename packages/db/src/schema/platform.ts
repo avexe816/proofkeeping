@@ -170,6 +170,25 @@ export const platformTenantSnapshot = sqliteTable(
     /** 入力所要時間の中央値（ミリ秒）。計測が 1 件も無ければ `null`。 */
     inputDurationMedianMs: integer("input_duration_median_ms"),
 
+    /**
+     * その業務日に記録された差異の数（PF-05）。
+     * 元は `daily_property_rollup.findingsHigh` の施設合計。
+     */
+    findingsHigh: integer("findings_high").notNull().default(0),
+    /** その業務日にアップロードされた写真の枚数（PF-05）。 */
+    photoCount: integer("photo_count").notNull().default(0),
+    /**
+     * 表示言語ごとの人数（PF-05 の「言語の利用割合」）。`{"ja":12,"vi":31}`。
+     *
+     * **誰が何語かは持たない。** 人数だけ（security.md §5 / INV-10）。
+     * 列を言語ごとに増やさないのは、対応言語が増えるたびに
+     * マイグレーションが要る形にしないため。
+     */
+    localeCounts: text("locale_counts", { mode: "json" })
+      .$type<Record<string, number>>()
+      .notNull()
+      .default({}),
+
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [

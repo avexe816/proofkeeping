@@ -36,10 +36,12 @@
 
 import { medianDurationMs } from "@pk/engine";
 import {
+  countActiveMembersByLocale,
   countActiveMembershipsByRole,
   countRooms,
   countSellableRoomsByProperty,
   countSkippedObservations,
+  countTaskPhotosByBusinessDate,
   findOrganization,
   findSubscription,
   listProperties,
@@ -138,14 +140,21 @@ export async function runTenantSnapshot(
     if (organization === undefined) return { kind: "DROPPED", reason: "ORGANIZATION_MISSING" };
 
     // 完了タスク数は rollup の施設合計。**タスク表を直に数えない。**
-    const [rollups, observations, skipped] = await Promise.all([
+    const [rollups, observations, skipped, photoCount, localeCounts] = await Promise.all([
       listPropertyRollups(env, ctx, businessDate),
       summarizeObservationInput(env, ctx, businessDate),
       countSkippedObservations(env, ctx, businessDate),
+      countTaskPhotosByBusinessDate(env, ctx, businessDate),
+      countActiveMembersByLocale(env, ctx),
     ]);
 
     let completedTasks = 0;
-    for (const rollup of rollups) completedTasks += rollup.completedTasks;
+    // 差異は rollup の施設合計（PF-05）。**差異の表を直に数えない。**
+    let findingsHigh = 0;
+    for (const rollup of rollups) {
+      completedTasks += rollup.completedTasks;
+      findingsHigh += rollup.findingsHigh;
+    }
 
     let billableRoomCount = 0;
     for (const count of sellableByProperty.values()) billableRoomCount += count;
@@ -173,6 +182,10 @@ export async function runTenantSnapshot(
       observationsUsedDefaults: observations.usedDefaults,
       // 中央値は純粋関数（SQLite に中央値の集約が無い）。
       inputDurationMedianMs: medianDurationMs(observations.durationsMs),
+      findingsHigh,
+      photoCount,
+      // **誰が何語かは持たない。** 言語 → 人数だけ（INV-10）。
+      localeCounts: Object.fromEntries(localeCounts),
       now,
     });
 

@@ -232,6 +232,13 @@
       "when": 1787229752414,
       "tag": "0032_living_dust",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1787246160308,
+      "tag": "0033_strange_norrin_radd",
+      "breakpoints": true
     }
   ]
 }

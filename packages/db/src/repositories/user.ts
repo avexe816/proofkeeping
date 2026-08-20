@@ -23,7 +23,7 @@
  * この層は行をそのまま返すため、**マスクは呼び出し側の責務**。
  */
 
-import { count, desc, eq, notInArray } from "drizzle-orm";
+import { and, count, desc, eq, notInArray } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -865,4 +865,30 @@ export async function resetUserPassword(
     })
     .where(withTenantScope(user, ctx, NO_PROPERTY_SCOPE, eq(user.id, input.userId)));
   return result.meta.changes;
+}
+
+/**
+ * 有効なメンバーを**表示言語ごとに**数える（PF-05 の「言語の利用割合」）。
+ *
+ * ── 個人を返さない（security.md §5 / INV-07）────────────
+ * 返すのは言語 → 人数だけ。**誰が何語かを引ける口にしない。**
+ * 運営面（PF-05）へ渡る値なので、個人単位の軸を作らない。
+ *
+ * 組織内の GROUP BY なので、テナント横断の集計にはあたらない。
+ */
+export async function countActiveMembersByLocale(
+  env: Env,
+  ctx: TenantContext,
+): Promise<Map<string, number>> {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({ locale: user.locale, count: count() })
+    .from(membership)
+    .innerJoin(
+      user,
+      and(eq(user.organizationId, membership.organizationId), eq(user.id, membership.userId)),
+    )
+    .where(withTenantScope(membership, ctx, NO_PROPERTY_SCOPE, eq(membership.isActive, true)))
+    .groupBy(user.locale);
+  return new Map(rows.map((row) => [row.locale, row.count]));
 }

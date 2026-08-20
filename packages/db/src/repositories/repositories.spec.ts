@@ -2042,6 +2042,16 @@ const INVOCATIONS: Invocation[] = [
       }),
   },
   {
+    name: "taskPhoto.countTaskPhotosByBusinessDate",
+    kind: "tenant",
+    run: (env, ctx) => taskPhotoRepo.countTaskPhotosByBusinessDate(env, ctx, "2026-09-01"),
+  },
+  {
+    name: "user.countActiveMembersByLocale",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.countActiveMembersByLocale(env, ctx),
+  },
+  {
     name: "observation.summarizeObservationInput",
     kind: "tenant",
     run: (env, ctx) => observationRepo.summarizeObservationInput(env, ctx, "2026-09-01"),

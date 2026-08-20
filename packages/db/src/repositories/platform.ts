@@ -291,6 +291,12 @@ export interface TenantSnapshotInput {
   observationsSkipped: number;
   observationsUsedDefaults: number;
   inputDurationMedianMs: number | null;
+  /** その業務日に記録された差異の数（PF-05）。 */
+  findingsHigh: number;
+  /** その業務日にアップロードされた写真の枚数（PF-05）。 */
+  photoCount: number;
+  /** 表示言語ごとの人数（PF-05）。**誰が何語かは持たない。** */
+  localeCounts: Record<string, number>;
   now: Date;
 }
 
@@ -322,6 +328,9 @@ export async function upsertTenantSnapshot(
     observationsSkipped: input.observationsSkipped,
     observationsUsedDefaults: input.observationsUsedDefaults,
     inputDurationMedianMs: input.inputDurationMedianMs,
+    findingsHigh: input.findingsHigh,
+    photoCount: input.photoCount,
+    localeCounts: input.localeCounts,
     updatedAt: input.now,
   };
 
@@ -377,6 +386,9 @@ export async function listTenantSnapshots(
       observationsSkipped: platformTenantSnapshot.observationsSkipped,
       observationsUsedDefaults: platformTenantSnapshot.observationsUsedDefaults,
       inputDurationMedianMs: platformTenantSnapshot.inputDurationMedianMs,
+      findingsHigh: platformTenantSnapshot.findingsHigh,
+      photoCount: platformTenantSnapshot.photoCount,
+      localeCounts: platformTenantSnapshot.localeCounts,
       updatedAt: platformTenantSnapshot.updatedAt,
     })
     .from(platformTenantSnapshot)
