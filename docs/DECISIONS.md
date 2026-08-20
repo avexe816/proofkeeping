@@ -5409,3 +5409,33 @@
   （`ruleNoteLabel()`）/ app.css（`pk-alert` / `pk-tag` / `pk-cols--31` /
   `pk-stats--4` / `pk-stats__icon` / `pk-panel__icon` / `pk-cellnote` /
   `pk-rulecell` / `pk-barsnote`、`pk-bars` の色をプロトタイプへ）/ ja.json。
+
+## #225 web セッションでの PR 運用（`gh` なし・CI が起動しない場合）
+
+- 日付: 2026-08-20
+- task: なし（人間の指示「これからずっと自動的に PR → CI → merge」）
+- 背景: Claude Code on the web のコンテナには `gh` が入っていない。
+  workflow.md §4 の手順が `gh` 前提で書かれており、そのままでは進めない。
+  加えて **CI が永遠に来ない PR** に当たった（PR #131。作成から 45 分、
+  `github-actions` の check-suite が現れなかった）。**原因は衝突。**
+  `pull_request` のワークフローは `refs/pull/<N>/merge` を checkout するが、
+  衝突しているとその ref が作れず、実行そのものが作られない。
+  実際 `mergeable_state` は `dirty` で、main を取り込んだ push で即座に走った。
+  **「アプリのトークンで作った PR では起動しない」ではない** — 衝突の無い
+  PR #133 は作成イベント（`event: pull_request`）で起動している。
+- 決定:
+  1. `gh` の代わりに **GitHub MCP ツール**（`mcp__github__*`）と
+     `curl` ＋ `$GITHUB_TOKEN` を使う。やることは変えない。
+  2. **CI のポーリングは背景ジョブで行う。** 前景の `sleep` はハーネスが
+     拒否する。webhook / PR イベントの購読は従来どおり作らない
+     （merge 後の削除で人間に確認ダイアログが出るため）。
+  3. **CI が 5 分待っても現れないときは、まず `mergeable_state` を見る。**
+     `dirty`（衝突）なら CI は永遠に来ない。main を取り込んで解消する
+     （それが push になり CI も走る）。衝突でなければ
+     `github-actions` のスイートの有無で起動を判断する。
+     **空コミットで蹴らない。** 押し出す実変更が無いのに走らないときは、
+     止まって人間に報告する。
+  4. **マージ後のブランチ削除が 403 で落ちてもよい**（web セッションの
+     トークンは `git/refs` の DELETE を持たないことがある）。残したまま
+     `git checkout -B <同じ名前> origin/main` で作り直して次へ進む。
+- 影響: `.claude/rules/workflow.md` §4。
