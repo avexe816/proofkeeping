@@ -346,6 +346,15 @@ export const invoice = sqliteTable(
  * `sourceRef` に集計元（タスク ID 等）を残す。**§6.3 の証跡への
  * ドリルダウン（P5-13）がここを辿る。**
  */
+/**
+ * 数量の単位のうち「清掃した客室の数」を表すもの。
+ *
+ * KPI の清掃件数（明細画面）と履歴の清掃件数（一覧）が**同じ定義で
+ * 数える**ために置く。文字列を画面ごとに書くと、片方だけ直した日に
+ * 一覧と明細で違う件数が出る。
+ */
+export const ROOM_UNIT = "室";
+
 export const invoiceLine = sqliteTable(
   "invoice_line",
   {
@@ -359,7 +368,7 @@ export const invoiceLine = sqliteTable(
     serviceDateFrom: text("service_date_from"),
     serviceDateTo: text("service_date_to"),
     quantity: real("quantity").notNull(),
-    unit: text("unit").notNull().default("室"),
+    unit: text("unit").notNull().default(ROOM_UNIT),
     unitPrice: integer("unit_price").notNull(),
     amount: integer("amount").notNull(),
     taxRate: integer("tax_rate").notNull(),

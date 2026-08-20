@@ -250,6 +250,7 @@ export {
   INVOICE_STATUSES,
   PAYMENT_METHODS,
   RECEIPT_STATUSES,
+  ROOM_UNIT,
   billingPeriod,
   billingPeriodReview,
   counterparty,

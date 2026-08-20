@@ -32,6 +32,7 @@ import {
   listInvoiceTaxSummaries,
   listPricingRules,
   NotFoundError,
+  ROOM_UNIT,
   recordAudit,
   type InvoiceStatus,
 } from "@pk/db";
@@ -151,7 +152,7 @@ export async function loader({
       isQualifiedInvoice: invoice.isQualifiedInvoice,
     },
     cleaningCount: lines
-      .filter((line) => line.unit === "室")
+      .filter((line) => line.unit === ROOM_UNIT)
       .reduce((sum, line) => sum + line.quantity, 0),
     lines: lines.map((line) => ({
       lineNo: line.lineNo,

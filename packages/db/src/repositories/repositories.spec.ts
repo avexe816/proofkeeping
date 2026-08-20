@@ -2573,6 +2573,15 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => invoiceRepo.listInvoiceLines(env, ctx, OWN_ID.invoice),
     crossTenant: (env, ctx) => invoiceRepo.listInvoiceLines(env, ctx, OTHER_ID.invoice),
   },
+  // 履歴の清掃件数（プロトタイプ 10）。**ID の並びを受ける**ので
+  // 越境も並びの中身で試す。
+  {
+    name: "invoice.findInvoiceRoomQuantities",
+    kind: "tenant",
+    run: (env, ctx) => invoiceRepo.findInvoiceRoomQuantities(env, ctx, [OWN_ID.invoice]),
+    crossTenant: (env, ctx) =>
+      invoiceRepo.findInvoiceRoomQuantities(env, ctx, [OTHER_ID.invoice]),
+  },
   {
     name: "invoice.listInvoiceTaxSummaries",
     kind: "tenant",
