@@ -26,6 +26,12 @@ import type { OrgStaff, ResidencyRow, StaffLedgerRow, WorkStatus } from "@pk/db"
 /** 一覧の 1 行（プロトタイプ ops 07 の列）。 */
 export interface StaffLedgerView {
   membershipId: string;
+  /**
+   * `staff_pay_profile.id`。**台帳の行が無ければ `null`。**
+   * 在留資格はこの ID に紐づくので、`null` のスタッフには記録できない
+   * （先に台帳の行が要る）。
+   */
+  staffProfileId: string | null;
   displayName: string;
   staffNumber: string | null;
   /** 対応できる言語。台帳が空なら表示言語 1 つで代用する。 */
@@ -143,6 +149,7 @@ export function buildStaffLedger(input: BuildStaffLedgerInput): StaffLedgerPage 
 
     return {
       membershipId: person.membershipId,
+      staffProfileId: ledger?.id ?? null,
       displayName: person.displayName,
       staffNumber: person.staffNumber,
       languages,

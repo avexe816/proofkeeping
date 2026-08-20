@@ -69,6 +69,21 @@ export const AUDIT_ACTIONS = {
   // 「消したはずの人が入れた」を追うとき、同じ語彙だと向きが読めない。
   "user.reactivated": { requiresReason: false },
   "user.pinReset": { requiresReason: false },
+  /**
+   * 在留資格の登録・更新（P8-02 / PK-SPEC-P8 §1.4）。
+   *
+   * security.md §6 の列挙には無いが、**期限切れで新規タスク配分が止まる**
+   * ので、期限を書き換える操作は業務の可否を直に動かす。
+   * 「停止解除は `ORG_ADMIN` 以上が `expiresOn` を更新した場合のみ」
+   * （§1.4 MUST）という設計は、**誰がいつ延ばしたかが残って初めて成立する。**
+   *
+   * `before` / `after` に**期限と種別だけ**を載せること。ノートには
+   * 手続きの経緯が書かれうるので載せない（security.md §6 と同じ考え方で、
+   * 監査ログに個人の事情を写さない）。
+   */
+  "residency.updated": { requiresReason: false },
+  /** スタッフ台帳の更新（P8-01）。在籍・言語・スキルの変更。 */
+  "staffLedger.updated": { requiresReason: false },
   // パスワードの再発行（管理系の資格情報。PIN リセットと同じ扱い）。
   "user.passwordReset": { requiresReason: false },
   // タスクの完了・検査合格・差戻し（P1 以降で使う）
