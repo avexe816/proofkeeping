@@ -102,7 +102,8 @@ dev.post("/seed", async (c) => {
     rooms: result.rooms,
     cleaners: result.cleaners,
     checklistTemplates: result.checklistTemplates,
-    message: `Seed complete: ${String(result.properties)} properties, ${String(result.rooms)} rooms, ${String(result.cleaners)} cleaners. Login with orgShortId=${result.orgShortId} + staff no. + password.`,
+    operatorEmail: result.operatorEmail,
+    message: `Seed complete: ${String(result.properties)} properties, ${String(result.rooms)} rooms, ${String(result.cleaners)} cleaners. Login with orgShortId=${result.orgShortId} + staff no. + password. Platform console: /plat/login with ${result.operatorEmail} + the same password.`,
   });
 });
 

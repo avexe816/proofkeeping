@@ -64,7 +64,12 @@ export default tseslint.config(
     // 制御の手段として使う。redirect() が返すのは `Response` で `Error` ではない。
     // **`Error` 以外を投げてよいのはこの形だけ。** 文字列やオブジェクトを
     // 投げる余地は残さない。
-    files: ["apps/web/src/routes/**/*.{ts,tsx}", "apps/web/src/lib/ui/**/*.ts"],
+    // lib/platform は運営面の門（PF-01）。404 の Response を投げる。
+    files: [
+      "apps/web/src/routes/**/*.{ts,tsx}",
+      "apps/web/src/lib/ui/**/*.ts",
+      "apps/web/src/lib/platform/**/*.ts",
+    ],
     rules: {
       "@typescript-eslint/only-throw-error": [
         "error",

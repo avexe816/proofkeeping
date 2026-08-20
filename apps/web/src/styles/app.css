@@ -2815,3 +2815,31 @@ a.pk-nav:hover {
   padding: 8px 14px;
   white-space: nowrap;
 }
+
+/* ──────────────────────────────────────────────────────────
+   プラットフォーム運営（PF-01 / /plat/*）
+
+   運営面はテナントのシェルと**同じトークン・同じ部品**で描く。
+   ここに置くのは運営面にしか無い 2 つだけ。増やさない。
+   ────────────────────────────────────────────────────────── */
+
+/* ブランド脇のバッジ「PLATFORM ADMIN」（プロトタイプの並び）。 */
+.pk-plat-badge {
+  padding: 2px 7px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--accent2);
+  letter-spacing: 0.08em;
+  vertical-align: middle;
+  border: 1px solid var(--accent2);
+  border-radius: 999px;
+}
+
+/* 開閉しない見出し（運営ナビは 12 項目で折りたたみを持たない）。 */
+.pk-sidebar__heading--static {
+  cursor: default;
+}
+
+.pk-sidebar__heading--static::after {
+  content: none;
+}
