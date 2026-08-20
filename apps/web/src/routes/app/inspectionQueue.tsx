@@ -208,54 +208,68 @@ export default function InspectionQueue() {
         </p>
       )}
 
-      {data.rows.length === 0 ? (
-        <p className="pk-muted">{t("inspectionQueue.empty")}</p>
-      ) : (
-        <table className="pk-grid">
-          <thead>
-            <tr>
-              <th>{t("inspectionQueue.column.room")}</th>
-              <th>{t("inspectionQueue.column.property")}</th>
-              <th>{t("inspectionQueue.column.completedAt")}</th>
-              <th>{t("inspectionQueue.column.waited")}</th>
-              <th>{t("inspectionQueue.column.round")}</th>
-              <th>{t("inspectionQueue.column.tone")}</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((row) => (
-              <tr key={row.taskId}>
-                <th scope="row">{row.roomNumber}</th>
-                <td>{row.propertyName}</td>
-                <td>
-                  {/* **端末のタイムゾーンで出さない**（`formatClock()` の注記）。 */}
-                  {row.completedAt === null
-                    ? t("inspectionQueue.notRecorded")
-                    : formatClock(row.completedAt)}
-                </td>
-                <td>{`${String(row.waitedMinutes)} / ${String(row.slaMinutes)}`}</td>
-                <td>{String(row.nextRound)}</td>
-                <td>{t(TONE_LABEL[row.tone])}</td>
-                <td>
-                  <button
-                    className="pk-button"
-                    type="button"
-                    disabled={starting !== null}
-                    onClick={() => {
-                      start(row.taskId);
-                    }}
-                  >
-                    {starting === row.taskId
-                      ? t("inspectionQueue.starting")
-                      : t("inspectionQueue.start")}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      {/* プロトタイプ ops 04「👁 検査待ちの一覧」。**表はカードの中。** */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            👁
+          </span>
+          {t("inspectionQueue.list.title")}
+          <span className="pk-panel__note">{t("inspectionQueue.list.order")}</span>
+        </div>
+        {data.rows.length === 0 ? (
+          <div className="pk-panel__body">
+            <p className="pk-muted">{t("inspectionQueue.empty")}</p>
+          </div>
+        ) : (
+          <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+            <table className="pk-tbl">
+              <thead>
+                <tr>
+                  <th>{t("inspectionQueue.column.room")}</th>
+                  <th>{t("inspectionQueue.column.property")}</th>
+                  <th>{t("inspectionQueue.column.completedAt")}</th>
+                  <th>{t("inspectionQueue.column.waited")}</th>
+                  <th>{t("inspectionQueue.column.round")}</th>
+                  <th>{t("inspectionQueue.column.tone")}</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((row) => (
+                  <tr key={row.taskId}>
+                    <th scope="row">{row.roomNumber}</th>
+                    <td>{row.propertyName}</td>
+                    <td>
+                      {/* **端末のタイムゾーンで出さない**（`formatClock()` の注記）。 */}
+                      {row.completedAt === null
+                        ? t("inspectionQueue.notRecorded")
+                        : formatClock(row.completedAt)}
+                    </td>
+                    <td>{`${String(row.waitedMinutes)} / ${String(row.slaMinutes)}`}</td>
+                    <td>{String(row.nextRound)}</td>
+                    <td>{t(TONE_LABEL[row.tone])}</td>
+                    <td>
+                      <button
+                        className="pk-button"
+                        type="button"
+                        disabled={starting !== null}
+                        onClick={() => {
+                          start(row.taskId);
+                        }}
+                      >
+                        {starting === row.taskId
+                          ? t("inspectionQueue.starting")
+                          : t("inspectionQueue.start")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </section>
   );
 }

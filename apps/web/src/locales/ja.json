@@ -2019,5 +2019,9 @@
   "plat.nav.footer.privacy": "個人情報へのアクセスは制限されます",
   "plat.status.title": "サービス稼働",
   "plat.status.welcome": "ようこそ、",
-  "plat.status.placeholder": "この画面の指標は準備中です。実測を集める仕組みができてから表示します（推定や仮の数字は置きません）。"
+  "plat.status.placeholder": "この画面の指標は準備中です。実測を集める仕組みができてから表示します（推定や仮の数字は置きません）。",
+  "inspectionQueue.list.title": "検査待ちの一覧",
+  "inspectionQueue.list.order": "待ち時間の長い順",
+  "opsProgress.byProperty.title": "施設別の進捗",
+  "evidence.list.card": "清掃記録の一覧"
 }
