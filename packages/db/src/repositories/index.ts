@@ -515,6 +515,18 @@ export {
   type UpdateStaffLedgerInput,
 } from "./staffLedger.js";
 
+// シフト（P8-03 / PK-SPEC-P8 §1.5）。**予定の表。打刻の関数が無い**
+// （DECISIONS #221）。個人ごとの勤務時間合計・出勤率を返す関数も無い
+// （security.md §5）。
+export {
+  copyShiftWeek,
+  deleteShift,
+  listShifts,
+  upsertShift,
+  type ShiftRow,
+  type UpsertShiftInput,
+} from "./shift.js";
+
 // 在留資格（P8-02 / PK-SPEC-P8 §1.4）。**件数だけを返す口を分けてある**
 // （`PROPERTY_MANAGER` には件数のみ / INV-08）。
 export {

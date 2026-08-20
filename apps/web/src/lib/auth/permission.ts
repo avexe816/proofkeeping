@@ -82,6 +82,17 @@ export const PERMISSION_ACTIONS = {
   "residency.read": { write: false },
   /** 在留資格の登録・更新（security.md §6 の監査対象）。 */
   "residency.write": { write: true },
+  /**
+   * シフトの閲覧と組み替え（P8-03 / PK-SPEC-P8 §1.5）。
+   *
+   * **仕様 §3 の表（`PROPERTY_MANAGER ○` / `VENDOR_ADMIN ○`）より狭い**
+   * （OPEN_QUESTIONS #112）。画面はスタッフ名を組織全体で並べ、
+   * プロトタイプ ops 02 が「担当者名は運営管理者のみ閲覧できます」と
+   * 明記している。`VENDOR_ADMIN` は自組織の管理者ではない —
+   * 清掃会社が自社スタッフのシフトを組む場合、その人はその組織の
+   * `ORG_ADMIN` として入る（#110 と同じ判断）。
+   */
+  "shift.manage": { write: true },
   /** 施設の閲覧。 */
   "property.read": { write: false },
   /** 施設マスタの作成・更新・無効化（security.md §6 の監査対象）。 */
@@ -681,7 +692,19 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     VENDOR_ADMIN: "DENY",
     AUDITOR: "DENY",
     CLIENT_VIEWER: "DENY",
+  },  // シフト（P8-03）。スタッフ名を組織全体で並べる画面の門
+  // （プロトタイプ ops 02「担当者名は運営管理者のみ閲覧できます」）。
+  "shift.manage": {
+    OWNER: "ORG",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
   },
+
   // **書き込みは自施設のみ。** `PROPERTY_MANAGER` は担当施設に割り当てられた
   // ユーザーだけを触れる。`VENDOR_ADMIN` が自社スタッフを招待できるかは
   // security.md §1 に明記が無いため DENY。広げるのは招待画面を作る task。

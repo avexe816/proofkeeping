@@ -293,9 +293,14 @@ export {
   type WorkStatus,
 } from "./payout.js";
 
-// Workforce（P8-02 / 在留資格）。**番号も国籍も持たない**（security.md §3）。
+// Workforce（P8-02 在留資格 / P8-03 シフト）。
+// 在留資格は**番号も国籍も持たない**（security.md §3）。
+// シフトは**予定**で、打刻の表は無い（DECISIONS #221）。
 export {
   RESIDENCY_STATUS_TYPES,
+  SHIFT_TYPES,
   residencyRecord,
+  shiftPlan,
   type ResidencyStatusType,
+  type ShiftType,
 } from "./workforce.js";

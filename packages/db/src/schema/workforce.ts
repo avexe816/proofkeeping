@@ -27,6 +27,56 @@ import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqli
 import { primaryId, tenantColumn, timestamps } from "./columns.js";
 
 /**
+ * シフトの区分（PK-SPEC-P8 §1.5 / P8-03）。
+ *
+ * `WORK` だけが施設を持つ。休み（`OFF` / `PAID_LEAVE` / `SICK`）と
+ * 研修（`TRAINING`）は施設に紐づかない。
+ */
+export const SHIFT_TYPES = ["WORK", "OFF", "PAID_LEAVE", "SICK", "TRAINING"] as const;
+
+export type ShiftType = (typeof SHIFT_TYPES)[number];
+
+/**
+ * シフト（仕様 §1.5）。スタッフ × 業務日で 1 行。
+ *
+ * ── `staffProfileId` ではなく `membershipId` ────────────
+ * 仕様の定義は `staffProfileId` だが、**タスクの担当（`assigneeId`）も
+ * 支払（`payoutPeriod`）も `membershipId` で人を指している。**
+ * 「出勤予定 26 / 出勤済み 24」の突き合わせ（P8-03 の KPI）は
+ * シフトとタスクの照合そのもので、キーが違うと毎回台帳を経由する
+ * 変換が挟まり、台帳の行が無いスタッフのシフトが組めなくなる。
+ * 人の同定は `membershipId` に揃える（DECISIONS #223 と同じ向き）。
+ *
+ * ── シフトが無くても業務は成立する ──────────────────────
+ * 仕様 §1.5 MUST「シフト未登録でも P1-14 の自動配分は動作すること」。
+ * この表は**予定**であって、当日の実際（タスクの開始）を縛らない。
+ */
+export const shiftPlan = sqliteTable(
+  "shift_plan",
+  {
+    ...primaryId,
+    ...tenantColumn,
+    /** `membership.id`。 */
+    membershipId: text("membership_id").notNull(),
+    /** `YYYY-MM-DD`（architecture.md §7）。 */
+    businessDate: text("business_date").notNull(),
+    shiftType: text("shift_type", { enum: SHIFT_TYPES }).notNull(),
+    /** `WORK` のときだけ入る。休み・研修は null。 */
+    propertyId: text("property_id"),
+    /** `"09:00"` 形式。**予定**であって打刻ではない（打刻は作らない / DECISIONS #221）。 */
+    startAt: text("start_at"),
+    endAt: text("end_at"),
+    breakMinutes: integer("break_minutes").notNull().default(60),
+    note: text("note"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("uq_shift_plan").on(t.organizationId, t.membershipId, t.businessDate),
+    index("idx_shift_plan_date").on(t.organizationId, t.businessDate),
+  ],
+);
+
+/**
  * 在留資格の種別（仕様 §1.4）。
  *
  * **表示のためだけの区分。** どれが就労できるかをコードに埋めない。

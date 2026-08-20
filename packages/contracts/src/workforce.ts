@@ -105,3 +105,44 @@ export const staffLedgerUpdateRequestSchema = z.object({
 });
 
 export type StaffLedgerUpdateRequest = z.infer<typeof staffLedgerUpdateRequestSchema>;
+
+/** シフトの区分（P8-03）。`packages/db` の `SHIFT_TYPES` と同じ語彙。 */
+export const SHIFT_TYPE_VALUES = ["WORK", "OFF", "PAID_LEAVE", "SICK", "TRAINING"] as const;
+
+export const shiftTypeSchema = z.enum(SHIFT_TYPE_VALUES);
+
+export type ShiftTypeValue = (typeof SHIFT_TYPE_VALUES)[number];
+
+/** `"09:00"` 形式。**打刻ではなく予定**（DECISIONS #221）。 */
+export const clockSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+/**
+ * シフトの登録・上書き（P8-03 / PK-SPEC-P8 §1.5）。1 スタッフ × 1 業務日。
+ *
+ * **`WORK` だけが施設を持つ。** 休み・研修に施設が付いていたら弾き、
+ * `WORK` に施設が無くても弾く（下の `superRefine`）。どちらの取り違えも
+ * 「その施設の出勤者数」を静かに狂わせる。
+ */
+export const shiftUpsertRequestSchema = z
+  .object({
+    membershipId: resourceIdSchema,
+    businessDate: businessDateSchema,
+    shiftType: shiftTypeSchema,
+    propertyId: resourceIdSchema.nullish(),
+    startAt: clockSchema.nullish(),
+    endAt: clockSchema.nullish(),
+    /** 分。既定 60（仕様 §1.5）。 */
+    breakMinutes: z.number().int().min(0).max(480).default(60),
+    note: z.string().max(200).nullish(),
+  })
+  .superRefine((value, ctx) => {
+    const hasProperty = value.propertyId !== null && value.propertyId !== undefined;
+    if (value.shiftType === "WORK" && !hasProperty) {
+      ctx.addIssue({ code: "custom", path: ["propertyId"], message: "PROPERTY_REQUIRED" });
+    }
+    if (value.shiftType !== "WORK" && hasProperty) {
+      ctx.addIssue({ code: "custom", path: ["propertyId"], message: "PROPERTY_NOT_ALLOWED" });
+    }
+  });
+
+export type ShiftUpsertRequest = z.infer<typeof shiftUpsertRequestSchema>;
