@@ -5,6 +5,7 @@
 export {
   fnv1a32,
   getGlobalDb,
+  getPlatformDb,
   getShardBinding,
   getTenantDb,
   resolveShard,
@@ -96,11 +97,7 @@ export { isSystemActorId, systemActorId } from "./systemActor.js";
 
 // D1 の 1 文あたりバインド変数上限（100）と、それに収める分割。
 // **「SQLite の 999」で分割の大きさを決めないこと**（limits.ts の注記）。
-export {
-  D1_MAX_BOUND_PARAMS,
-  chunkByParamBudget,
-  chunkIdsForInArray,
-} from "./limits.js";
+export { D1_MAX_BOUND_PARAMS, chunkByParamBudget, chunkIdsForInArray } from "./limits.js";
 
 // ID 採番（P0-05）。テナント分離の第 2 層。ID を受け取ったら DB 問い合わせ前に
 // `assertIdBelongsToTenant()` を通すこと（一元化は P0-10 の withResourceGuard）。
@@ -129,12 +126,7 @@ export {
 export { NotFoundError, PaymentRequiredError } from "./errors.js";
 
 // ヘルスチェック（P0-20）。**返すのは件数と真偽だけ。シャード番号を含めない。**
-export {
-  checkHealth,
-  type HealthReport,
-  type HealthState,
-  type ShardHealth,
-} from "./health.js";
+export { checkHealth, type HealthReport, type HealthState, type ShardHealth } from "./health.js";
 
 // シードデータ（P0-18）。ハッシュ化は注入で受ける（apps/web が渡す）。
 export {
@@ -162,6 +154,17 @@ export { MASKED, maskSensitive, serializeAuditPayload } from "./mask.js";
 // 全局テーブル（org_directory）は `getGlobalDb()` 経由でしか引けない。
 export * from "./schema/index.js";
 export { schemaVersion } from "./schema/meta.js";
+
+// プラットフォーム運営の表（PF-01 / DECISIONS #220）。**全局（SHARD_00）。**
+// `schema/index.ts` に載せない — あちらはテナントスコープの表だけで、
+// `schema.spec.ts` が organization_id と index の不変条件をそこに掛けている。
+// **この表は `getPlatformDb()` からしか引けない。**
+export {
+  PLATFORM_OPERATOR_STATUSES,
+  platformAuditLog,
+  platformOperator,
+  type PlatformOperatorStatus,
+} from "./schema/platform.js";
 
 // orgShortId の全局レジストリ（P0-06）。組織作成の手順は orgDirectory.ts の冒頭を読むこと。
 export {

@@ -18,6 +18,10 @@
  * SHARD_00 にだけ作ると `schema_version` がシャード間で食い違い、
  * 起動時の不一致検出が正常時に発火する（docs/DECISIONS.md #014）。
  *
+ * ── platform.ts も含める ────────────────────────────────
+ * `platform_operator` / `platform_audit_log` も SHARD_00 の実体だけを使うが、
+ * 定義は全シャードへ流す（global.ts と同じ理由 / DECISIONS #220）。
+ *
  * 名前を決めて生成すること: `pnpm db:generate --name p0_initial`
  */
 
@@ -25,6 +29,10 @@ import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
   dialect: "sqlite",
-  schema: ["./packages/db/src/schema/index.ts", "./packages/db/src/schema/global.ts"],
+  schema: [
+    "./packages/db/src/schema/index.ts",
+    "./packages/db/src/schema/global.ts",
+    "./packages/db/src/schema/platform.ts",
+  ],
   out: "./packages/db/migrations",
 });
