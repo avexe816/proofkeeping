@@ -49,7 +49,10 @@ export function PropertySwitcher(props: {
   return (
     <Form className="pk-property" method="post" action="/app/switch-property">
       <input type="hidden" name="next" value={next} />
-      <label className="pk-property__label" htmlFor="propertyId">
+      {/* **見出しは目には出さない**（人間の指示 2026-08-20）。施設名そのものが
+          何を指すかを語っており、「表示中の施設」の 6 文字は topbar の幅を
+          食うだけだった。読み上げと `htmlFor` の関連付けには残す。 */}
+      <label className="pk-visually-hidden" htmlFor="propertyId">
         {t("property.current")}
       </label>
 

@@ -186,6 +186,75 @@ export function buildDailyDashboard(
   };
 }
 
+/**
+ * 記録の品質（プロトタイプ 01 の右下のカード）。
+ *
+ * **施設単位でのみ集計する。** 清掃員個人の入力率は出さない
+ * （security.md §5 / プロトタイプの確定事項「個人の入力率を出すと、
+ * それが評価指標になり記録の質が落ちる」）。この型に人の識別子は無い。
+ */
+export interface DailyQuality {
+  /** 記録の完備率（観察のあるタスク / 対象タスク）。分母 0 なら `null`。 */
+  inputPercent: string | null;
+  /** 既定値のまま確定した比率（観察のうち）。分母 0 なら `null`。 */
+  defaultPercent: string | null;
+  /** 入力所要時間の中央値（秒）。計測のある観察が無ければ `null`。 */
+  durationMedianSeconds: number | null;
+  /** 観察の件数（分母を画面に添えるため）。 */
+  observationCount: number;
+  /** 対象タスクの件数（rollup の合計）。 */
+  taskCount: number;
+}
+
+/** 観察 1 件ぶんの入力。**人の識別子を受け取らない。** */
+export interface DailyQualityObservation {
+  usedDefaults: boolean;
+  /** 未計測は `null`（中央値の母数に入れない）。 */
+  inputDurationMs: number | null;
+}
+
+/** 中央値。**偶数個なら中央 2 つの平均**。空なら `null`。 */
+function median(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[middle] ?? null;
+  return Math.round(((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2);
+}
+
+/**
+ * 記録の品質を組み立てる。**純粋関数。**
+ *
+ * ── 分母はタスク、分子は観察 ────────────────────────────
+ * 完備率の分母は rollup の対象タスク数（施設横断の集計は rollup /
+ * architecture.md §3）。分子だけを観察の表から数えるので、
+ * **タスク表を施設横断で数え直さない。**
+ *
+ * ── 平均ではなく中央値 ──────────────────────────────────
+ * プロトタイプが中央値。1 件の極端な値（入力途中で放置した記録など）に
+ * 引っぱられないため。
+ */
+export function buildDailyQuality(
+  observations: readonly DailyQualityObservation[],
+  taskCount: number,
+): DailyQuality {
+  const durations = observations
+    .map((row) => row.inputDurationMs)
+    .filter((value): value is number => value !== null && value >= 0);
+  const medianMs = median(durations);
+
+  return {
+    inputPercent: formatPercent(observations.length, taskCount),
+    defaultPercent: formatPercent(
+      observations.filter((row) => row.usedDefaults).length,
+      observations.length,
+    ),
+    durationMedianSeconds: medianMs === null ? null : Math.round(medianMs / 1000),
+    observationCount: observations.length,
+    taskCount,
+  };
+}
+
 /** 直近 N 日の業務日を古い順に並べる。**`YYYY-MM-DD` の文字計算**。 */
 export function recentBusinessDates(businessDate: string, days: number): string[] {
   const base = new Date(`${businessDate}T00:00:00Z`);

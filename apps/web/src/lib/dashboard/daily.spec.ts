@@ -8,7 +8,7 @@
 import type { PropertySummary } from "@pk/contracts";
 import { describe, expect, it } from "vitest";
 
-import { buildDailyDashboard, recentBusinessDates } from "./daily.js";
+import { buildDailyDashboard, buildDailyQuality, recentBusinessDates } from "./daily.js";
 
 const DATE = "2026-08-11";
 
@@ -202,5 +202,81 @@ describe("recentBusinessDates", () => {
       "2026-03-01",
       "2026-03-02",
     ]);
+  });
+});
+
+describe("buildDailyQuality — 記録の品質", () => {
+  it("完備率は観察件数 / 対象タスク", () => {
+    const quality = buildDailyQuality(
+      [
+        { usedDefaults: false, inputDurationMs: 15_000 },
+        { usedDefaults: true, inputDurationMs: 17_000 },
+      ],
+      4,
+    );
+
+    expect(quality.inputPercent).toBe("50.0%");
+    expect(quality.observationCount).toBe(2);
+    expect(quality.taskCount).toBe(4);
+  });
+
+  it("既定値のまま確定した比率は観察が分母", () => {
+    const quality = buildDailyQuality(
+      [
+        { usedDefaults: true, inputDurationMs: null },
+        { usedDefaults: true, inputDurationMs: null },
+        { usedDefaults: false, inputDurationMs: null },
+        { usedDefaults: false, inputDurationMs: null },
+      ],
+      100,
+    );
+
+    expect(quality.defaultPercent).toBe("50.0%");
+  });
+
+  it("中央値は奇数個なら真ん中", () => {
+    const quality = buildDailyQuality(
+      [
+        { usedDefaults: false, inputDurationMs: 12_000 },
+        { usedDefaults: false, inputDurationMs: 17_000 },
+        { usedDefaults: false, inputDurationMs: 90_000 },
+      ],
+      3,
+    );
+
+    // 極端な 90 秒に引っぱられない（平均なら 39.7 秒）。
+    expect(quality.durationMedianSeconds).toBe(17);
+  });
+
+  it("中央値は偶数個なら中央 2 つの平均", () => {
+    const quality = buildDailyQuality(
+      [
+        { usedDefaults: false, inputDurationMs: 10_000 },
+        { usedDefaults: false, inputDurationMs: 20_000 },
+      ],
+      2,
+    );
+
+    expect(quality.durationMedianSeconds).toBe(15);
+  });
+
+  it("未計測は中央値の母数に入れない", () => {
+    const quality = buildDailyQuality(
+      [
+        { usedDefaults: false, inputDurationMs: null },
+        { usedDefaults: false, inputDurationMs: 20_000 },
+      ],
+      2,
+    );
+
+    expect(quality.durationMedianSeconds).toBe(20);
+  });
+
+  it("観察が 1 件も無ければ 0% ではなく null（母数が無いのと 0 は違う）", () => {
+    const quality = buildDailyQuality([], 0);
+
+    expect(quality.inputPercent).toBeNull();
+    expect(quality.defaultPercent).toBeNull();
+    expect(quality.durationMedianSeconds).toBeNull();
   });
 });
