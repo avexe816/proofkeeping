@@ -103,9 +103,8 @@ export async function loader({ request, params, context }: LoaderFunctionArgs): 
   const selectedFloor = url.searchParams.get("floor");
   const requestedState = stateFilterOf(url.searchParams.get("state"));
   // 差異を読めない相手に「差異あり」の絞り込みを効かせない（候補にも出さない）。
-  const selectedState = requestedState === "FINDING" && findingRoomIds === null
-    ? null
-    : requestedState;
+  const selectedState =
+    requestedState === "FINDING" && findingRoomIds === null ? null : requestedState;
 
   const findingSet = new Set(findingRoomIds ?? []);
   let sections: readonly BoardSection[] = board.sections;
@@ -150,10 +149,7 @@ interface BoardActionResult {
   invalid?: boolean;
 }
 
-export async function action({
-  request,
-  context,
-}: ActionFunctionArgs): Promise<BoardActionResult> {
+export async function action({ request, context }: ActionFunctionArgs): Promise<BoardActionResult> {
   const env = getEnv(context);
   const now = new Date();
   const { session, tenant } = await requireAppContext(env, request, now);
@@ -237,7 +233,7 @@ export default function PropertyBoard(): React.ReactElement {
       </div>
 
       {/* 表示区分の件数カード（プロトタイプ owner 03 の KPI 5 枚）。 */}
-      <dl className="pk-stats pk-stats--board">
+      <dl className="pk-stats pk-stats--board pk-stats--5">
         {BOARD_DISPLAY_GROUPS.map((group) => (
           <div key={group} className={`pk-stats__item pk-stats__item--${group}`}>
             <dt>{`${BOARD_MARKS[group]} ${t(`board.status.${group}` as MessageKey)}`}</dt>
@@ -249,48 +245,55 @@ export default function PropertyBoard(): React.ReactElement {
       {result?.reasonRequired === true ? (
         <p className="pk-notice pk-notice--warn">{t("board.override.reasonRequired")}</p>
       ) : null}
-      {result?.overridden === true ? (
-        <p className="pk-notice">{t("board.override.done")}</p>
-      ) : null}
+      {result?.overridden === true ? <p className="pk-notice">{t("board.override.done")}</p> : null}
 
-      {/* プロトタイプの「客室の状態」カードの見出しとヒント。 */}
-      <h2 className="pk-section__title">{t("board.legend.title")}</h2>
-      <p className="pk-muted">{t("board.legend.hint")}</p>
-
-      <RoomBoard
-        sections={data.sections}
-        staff={data.staff}
-        t={t}
-        findingRoomIds={data.findingRoomIds === null ? undefined : new Set(data.findingRoomIds)}
-        renderDetailExtra={
-          data.canOverride
-            ? (cell) => (
-                <Form method="post" className="pk-override">
-                  <input type="hidden" name="roomId" value={cell.roomId} />
-                  <label htmlFor={`status-${cell.roomId}`}>{t("board.override.status")}</label>
-                  <select
-                    id={`status-${cell.roomId}`}
-                    name="status"
-                    className="pk-select"
-                    defaultValue={cell.housekeepingStatus}
-                  >
-                    {HOUSEKEEPING_STATUSES.map((value) => (
-                      <option key={value} value={value}>
-                        {t(`board.housekeeping.${value}` as MessageKey)}
-                      </option>
-                    ))}
-                  </select>
-                  {/* §11.2 MUST。**理由の入力を必須にする。** */}
-                  <label htmlFor={`reason-${cell.roomId}`}>{t("board.override.reason")}</label>
-                  <input id={`reason-${cell.roomId}`} name="reason" required />
-                  <button className="pk-button" type="submit">
-                    {t("board.override.submit")}
-                  </button>
-                </Form>
-              )
-            : undefined
-        }
-      />
+      {/* プロトタイプの「客室の状態」カード。**盤面はカードの中**（見出しと
+          ヒントが同じ枠に入る）。凡例はカードの本文の先頭に来る。 */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            🏨
+          </span>
+          {t("board.legend.title")}
+          <span className="pk-panel__note">{t("board.legend.hint")}</span>
+        </div>
+        <div className="pk-panel__body">
+          <RoomBoard
+            sections={data.sections}
+            staff={data.staff}
+            t={t}
+            findingRoomIds={data.findingRoomIds === null ? undefined : new Set(data.findingRoomIds)}
+            renderDetailExtra={
+              data.canOverride
+                ? (cell) => (
+                    <Form method="post" className="pk-override">
+                      <input type="hidden" name="roomId" value={cell.roomId} />
+                      <label htmlFor={`status-${cell.roomId}`}>{t("board.override.status")}</label>
+                      <select
+                        id={`status-${cell.roomId}`}
+                        name="status"
+                        className="pk-select"
+                        defaultValue={cell.housekeepingStatus}
+                      >
+                        {HOUSEKEEPING_STATUSES.map((value) => (
+                          <option key={value} value={value}>
+                            {t(`board.housekeeping.${value}` as MessageKey)}
+                          </option>
+                        ))}
+                      </select>
+                      {/* §11.2 MUST。**理由の入力を必須にする。** */}
+                      <label htmlFor={`reason-${cell.roomId}`}>{t("board.override.reason")}</label>
+                      <input id={`reason-${cell.roomId}`} name="reason" required />
+                      <button className="pk-button" type="submit">
+                        {t("board.override.submit")}
+                      </button>
+                    </Form>
+                  )
+                : undefined
+            }
+          />
+        </div>
+      </section>
     </section>
   );
 }

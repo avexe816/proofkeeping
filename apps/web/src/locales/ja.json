@@ -89,6 +89,7 @@
   "board.detail.notStarted": "未着手",
   "board.detail.photos": "写真",
   "board.unit.photos": "枚",
+  "board.unit.rooms": "室",
   "board.unit.minutes": "分",
   "board.override.status": "客室の状態",
   "board.override.reason": "変更の理由",

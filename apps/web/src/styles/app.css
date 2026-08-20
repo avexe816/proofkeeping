@@ -520,6 +520,14 @@ a.pk-nav:hover {
   border-bottom: 1px solid var(--line);
 }
 
+/* **見出しの帯は端まで敷く**（プロトタイプの `.pgh`）。`.pk-page` の余白を
+   打ち消して全幅にし、下に本文ぶんの間（プロトタイプの `.ct3` の上余白）を
+   空ける。これが無いと帯と直下の KPI が接して 1 枚の箱に見える
+   （人間の指摘 2026-08-20「上の完了、作業中など枠は上の枠とくっついている」）。 */
+.pk-page > .pk-pagehead:first-child {
+  margin: -18px -22px 20px;
+}
+
 .pk-pagehead__title {
   font-size: 16.5px;
   font-weight: 800;
@@ -851,15 +859,18 @@ a.pk-nav:hover {
 }
 
 .pk-board__floorName {
-  margin-bottom: 6px;
-  font-size: 13px;
+  margin-bottom: 7px;
+  font-size: 10.5px;
+  font-weight: 700;
   color: var(--muted);
 }
 
+/* プロトタイプの `.rooms`。**折り返しではなく列で決める** — 幅が変わっても
+   マスの大きさが揃い、フロアごとに列がずれない。 */
 .pk-board__grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+  gap: 6px;
 }
 
 .pk-board__slot {
@@ -967,8 +978,10 @@ a.pk-nav:hover {
   gap: 2px;
   align-items: center;
   justify-content: center;
-  width: 82px;
-  min-height: 66px;
+  width: 100%;
+  /* 正方形（プロトタイプの `.rm`）。手袋でも押せる大きさは
+     `minmax(68px, …)` の下限が担保する（INV-25）。 */
+  aspect-ratio: 1;
   font-family: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -1026,6 +1039,17 @@ a.pk-nav:hover {
 /* 客室ボードの KPI 5 枚（プロトタイプ owner 03）。左縁の色で区分を示す。 */
 .pk-stats--board .pk-stats__item {
   border-left: 3px solid var(--line);
+}
+
+
+/* 盤面の上に置く 5 枚は本体が客室マスなので小さくする
+   （プロトタイプは `padding:12px 14px` / 値 23px）。 */
+.pk-stats--board .pk-stats__item {
+  padding: 12px 14px;
+}
+
+.pk-stats--board .pk-stats__item dd {
+  font-size: 23px;
 }
 
 .pk-stats--board .pk-stats__item--READY {
@@ -2676,6 +2700,19 @@ a.pk-nav:hover {
 @media (max-width: 1180px) {
   .pk-stats--4 {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 客室ボードの 5 枚（プロトタイプの `.g5`）。**`.pk-stats` より後ろに置く** —
+   既定の `auto-fill` と同じ詳細度なので、前に書くと打ち消せない。 */
+.pk-stats--5 {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 1180px) {
+  .pk-stats--5 {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
