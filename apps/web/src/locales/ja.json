@@ -2018,6 +2018,19 @@
   "plat.nav.footer.role": "プラットフォーム運営",
   "plat.nav.footer.privacy": "個人情報へのアクセスは制限されます",
   "plat.status.title": "サービス稼働",
-  "plat.status.welcome": "ようこそ、",
-  "plat.status.placeholder": "この画面の指標は準備中です。実測を集める仕組みができてから表示します（推定や仮の数字は置きません）。"
+  "plat.status.overall.ok": "すべてのコンポーネントが応答しています。",
+  "plat.status.overall.degraded": "応答していないコンポーネントがあります。",
+  "plat.status.components": "コンポーネントの状態",
+  "plat.status.column.component": "コンポーネント",
+  "plat.status.column.state": "状態",
+  "plat.status.component.shards": "データベース",
+  "plat.status.component.storage": "ファイル保管",
+  "plat.status.component.cache": "セッション",
+  "plat.status.component.queues": "非同期処理",
+  "plat.status.state.ok": "応答",
+  "plat.status.state.degraded": "要確認",
+  "plat.status.metrics.pending": "この画面のその他の指標は、実測を集める仕組みができてから並べます。仮の数字は置きません。",
+  "plat.status.notes": "運用の方針",
+  "plat.status.note.conflict": "競合が起きても清掃員の記録は削除しません。採用されなかった記録も conflictLog に保持しています。",
+  "plat.status.note.maintenance": "清掃業務は早朝から午前中に集中します。深夜帯のメンテナンスウィンドウは 02:00〜04:00 を基本とします。"
 }
