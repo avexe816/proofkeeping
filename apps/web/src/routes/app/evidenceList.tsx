@@ -286,94 +286,117 @@ export default function EvidenceList(): React.ReactElement {
       {/* ── 実作業時間の分布 ───────────────────────────────── */}
       {data.overMedianNote ? (
         <>
-          <h2 className="pk-section__title">{t("evidence.hist.title")}</h2>
-          <div className="pk-bars">
-            {data.histogram.map((bucket) => (
-              <div key={bucket.key} className="pk-bars__col">
-                <span className="pk-bars__value">{String(bucket.count)}</span>
-                <i
-                  className="pk-bars__bar"
-                  style={{
-                    height: `${String(Math.max(4, Math.round((bucket.count * 96) / maxBucket)))}%`,
-                  }}
-                />
-                <span className="pk-bars__label">
-                  {t(HISTOGRAM_LABEL[bucket.key] as MessageKey)}
-                </span>
+          {/* プロトタイプ owner 06「📊 実作業時間の分布」。 */}
+          <section className="pk-panel">
+            <div className="pk-panel__head">
+              <span className="pk-panel__icon" aria-hidden="true">
+                📊
+              </span>
+              {t("evidence.hist.title")}
+            </div>
+            <div className="pk-panel__body">
+              <div className="pk-bars">
+                {data.histogram.map((bucket) => (
+                  <div key={bucket.key} className="pk-bars__col">
+                    <span className="pk-bars__value">{String(bucket.count)}</span>
+                    <i
+                      className="pk-bars__bar"
+                      style={{
+                        height: `${String(Math.max(4, Math.round((bucket.count * 96) / maxBucket)))}%`,
+                      }}
+                    />
+                    <span className="pk-bars__label">
+                      {t(HISTOGRAM_LABEL[bucket.key] as MessageKey)}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {/* 超過を問題として示さない（INV-05 / プロトタイプの注記そのまま）。 */}
-          <p className="pk-muted">{t("evidence.hist.note")}</p>
+              {/* 超過を問題として示さない（INV-05 / プロトタイプの注記そのまま）。 */}
+              <p className="pk-muted">{t("evidence.hist.note")}</p>
+            </div>
+          </section>
         </>
       ) : null}
 
-      {data.rows.length === 0 ? (
-        <p className="pk-muted">{t("evidence.list.empty")}</p>
-      ) : (
-        <table className="pk-grid">
-          <thead>
-            <tr>
-              <th>{t("evidence.list.room")}</th>
-              <th>{t("evidence.list.date")}</th>
-              <th>{t("evidence.list.taskType")}</th>
-              <th>{t("evidence.list.clock")}</th>
-              <th>{t("evidence.list.minutes")}</th>
-              <th>{t("evidence.list.photos")}</th>
-              <th>{t("evidence.list.inspection")}</th>
-              {data.canReadFindings ? <th>{t("evidence.list.finding")}</th> : null}
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((row) => (
-              <tr key={row.taskId}>
-                <th scope="row">{row.roomNumber}</th>
-                <td>{row.businessDate}</td>
-                <td>{labelOfTaskType(row.taskType)}</td>
-                <td>
-                  {row.startClock === null ? "—" : `${row.startClock} → ${row.endClock ?? ""}`}
-                </td>
-                <td>
-                  {row.actualMinutes === null
-                    ? "—"
-                    : `${String(row.actualMinutes)}${t("evidence.unit.minutes")}`}
-                </td>
-                <td>{String(row.photoCount)}</td>
-                <td>
-                  {row.inspection === "PASS"
-                    ? t("evidence.inspection.pass")
-                    : row.inspection === "FAIL"
-                      ? t("evidence.inspection.rework")
-                      : t("evidence.inspection.none")}
-                </td>
-                {data.canReadFindings ? (
-                  <td>
-                    {row.finding === null ? (
-                      "—"
-                    ) : (
-                      <a href={`/app/audit/findings/${row.finding.id}`}>
-                        {String(row.finding.confidence)}
-                      </a>
-                    )}
-                  </td>
-                ) : null}
-                <td>
-                  <Link
-                    className="pk-button"
-                    to={`/app/p/${data.propertyId}/evidence/${row.taskId}`}
-                  >
-                    {t("evidence.list.open")}
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* 担当者の氏名はこの画面に出さない（プロトタイプの注記 / INV-06）。 */}
-      <p className="pk-muted">{t("evidence.staffHidden")}</p>
+      {/* プロトタイプ owner 06「📋 清掃記録の一覧」。 */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            📋
+          </span>
+          {t("evidence.list.card")}
+          <span className="pk-panel__note">{`${data.from} 〜 ${data.to}`}</span>
+        </div>
+        {data.rows.length === 0 ? (
+          <div className="pk-panel__body">
+            <p className="pk-muted">{t("evidence.list.empty")}</p>
+          </div>
+        ) : (
+          <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+            <table className="pk-tbl">
+              <thead>
+                <tr>
+                  <th>{t("evidence.list.room")}</th>
+                  <th>{t("evidence.list.date")}</th>
+                  <th>{t("evidence.list.taskType")}</th>
+                  <th>{t("evidence.list.clock")}</th>
+                  <th>{t("evidence.list.minutes")}</th>
+                  <th>{t("evidence.list.photos")}</th>
+                  <th>{t("evidence.list.inspection")}</th>
+                  {data.canReadFindings ? <th>{t("evidence.list.finding")}</th> : null}
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((row) => (
+                  <tr key={row.taskId}>
+                    <th scope="row">{row.roomNumber}</th>
+                    <td>{row.businessDate}</td>
+                    <td>{labelOfTaskType(row.taskType)}</td>
+                    <td>
+                      {row.startClock === null ? "—" : `${row.startClock} → ${row.endClock ?? ""}`}
+                    </td>
+                    <td>
+                      {row.actualMinutes === null
+                        ? "—"
+                        : `${String(row.actualMinutes)}${t("evidence.unit.minutes")}`}
+                    </td>
+                    <td>{String(row.photoCount)}</td>
+                    <td>
+                      {row.inspection === "PASS"
+                        ? t("evidence.inspection.pass")
+                        : row.inspection === "FAIL"
+                          ? t("evidence.inspection.rework")
+                          : t("evidence.inspection.none")}
+                    </td>
+                    {data.canReadFindings ? (
+                      <td>
+                        {row.finding === null ? (
+                          "—"
+                        ) : (
+                          <a href={`/app/audit/findings/${row.finding.id}`}>
+                            {String(row.finding.confidence)}
+                          </a>
+                        )}
+                      </td>
+                    ) : null}
+                    <td>
+                      <Link
+                        className="pk-button"
+                        to={`/app/p/${data.propertyId}/evidence/${row.taskId}`}
+                      >
+                        {t("evidence.list.open")}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {/* 担当者の氏名はこの画面に出さない（プロトタイプの注記 / INV-06）。 */}
+        <div className="pk-panel__foot">{t("evidence.staffHidden")}</div>
+      </section>
     </section>
   );
 }

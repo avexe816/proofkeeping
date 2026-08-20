@@ -2032,5 +2032,9 @@
   "plat.status.metrics.pending": "この画面のその他の指標は、実測を集める仕組みができてから並べます。仮の数字は置きません。",
   "plat.status.notes": "運用の方針",
   "plat.status.note.conflict": "競合が起きても清掃員の記録は削除しません。採用されなかった記録も conflictLog に保持しています。",
-  "plat.status.note.maintenance": "清掃業務は早朝から午前中に集中します。深夜帯のメンテナンスウィンドウは 02:00〜04:00 を基本とします。"
+  "plat.status.note.maintenance": "清掃業務は早朝から午前中に集中します。深夜帯のメンテナンスウィンドウは 02:00〜04:00 を基本とします。",
+  "inspectionQueue.list.title": "検査待ちの一覧",
+  "inspectionQueue.list.order": "待ち時間の長い順",
+  "opsProgress.byProperty.title": "施設別の進捗",
+  "evidence.list.card": "清掃記録の一覧"
 }

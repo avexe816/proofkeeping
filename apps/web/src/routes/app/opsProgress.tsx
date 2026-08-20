@@ -122,49 +122,63 @@ export default function OpsProgress() {
         <p className="pk-muted">{t("opsProgress.pendingNotice")}</p>
       )}
 
-      {data.rows.length === 0 ? (
-        <p className="pk-muted">{t("opsProgress.empty")}</p>
-      ) : (
-        <table className="pk-grid">
-          <thead>
-            <tr>
-              <th>{t("opsProgress.column.property")}</th>
-              <th>{t("opsProgress.column.rooms")}</th>
-              <th>{t("opsProgress.column.planned")}</th>
-              <th>{t("opsProgress.column.completed")}</th>
-              <th>{t("opsProgress.column.rework")}</th>
-              <th>{t("opsProgress.column.percent")}</th>
-              <th>{t("opsProgress.column.linenCollected")}</th>
-              <th>{t("opsProgress.column.linenSupplied")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((row) => (
-              <tr key={row.propertyId}>
-                <th scope="row">{row.name}</th>
-                <td>{String(row.roomCount)}</td>
-                {row.hasRollup ? (
-                  <>
-                    <td>{String(row.totalTasks)}</td>
-                    <td>{String(row.completedTasks)}</td>
-                    <td>{String(row.reworkTasks)}</td>
-                    <td>{row.percent ?? "—"}</td>
-                    <td>
-                      {row.linen === null
-                        ? t("opsProgress.noLinen")
-                        : String(row.linen.collectedQty)}
-                    </td>
-                    <td>{row.linen === null ? "" : String(row.linen.suppliedQty)}</td>
-                  </>
-                ) : (
-                  // 「0」と「集計前」を区別する（`propertySummarySchema` の注記）。
-                  <td colSpan={6}>{t("opsProgress.noRollup")}</td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      {/* プロトタイプ ops 03「🏨 施設別の進捗」。**表はカードの中。** */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            🏨
+          </span>
+          {t("opsProgress.byProperty.title")}
+          <span className="pk-panel__note">{data.businessDate}</span>
+        </div>
+        {data.rows.length === 0 ? (
+          <div className="pk-panel__body">
+            <p className="pk-muted">{t("opsProgress.empty")}</p>
+          </div>
+        ) : (
+          <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+            <table className="pk-tbl">
+              <thead>
+                <tr>
+                  <th>{t("opsProgress.column.property")}</th>
+                  <th>{t("opsProgress.column.rooms")}</th>
+                  <th>{t("opsProgress.column.planned")}</th>
+                  <th>{t("opsProgress.column.completed")}</th>
+                  <th>{t("opsProgress.column.rework")}</th>
+                  <th>{t("opsProgress.column.percent")}</th>
+                  <th>{t("opsProgress.column.linenCollected")}</th>
+                  <th>{t("opsProgress.column.linenSupplied")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((row) => (
+                  <tr key={row.propertyId}>
+                    <th scope="row">{row.name}</th>
+                    <td>{String(row.roomCount)}</td>
+                    {row.hasRollup ? (
+                      <>
+                        <td>{String(row.totalTasks)}</td>
+                        <td>{String(row.completedTasks)}</td>
+                        <td>{String(row.reworkTasks)}</td>
+                        <td>{row.percent ?? "—"}</td>
+                        <td>
+                          {row.linen === null
+                            ? t("opsProgress.noLinen")
+                            : String(row.linen.collectedQty)}
+                        </td>
+                        <td>{row.linen === null ? "" : String(row.linen.suppliedQty)}</td>
+                      </>
+                    ) : (
+                      // 「0」と「集計前」を区別する（`propertySummarySchema` の注記）。
+                      <td colSpan={6}>{t("opsProgress.noRollup")}</td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </section>
   );
 }
