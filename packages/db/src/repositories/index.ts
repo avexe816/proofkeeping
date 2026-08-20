@@ -242,6 +242,7 @@ export {
   findUserByStaffNumber,
   listAssignedPropertyIds,
   listOrgMembers,
+  listOrgStaff,
   listPropertyStaff,
   listRecentPasswordHashes,
   listUsers,
@@ -258,6 +259,7 @@ export {
   type CreateFieldStaffResult,
   type LoginAttemptInput,
   type OrgMember,
+  type OrgStaff,
   type PropertyStaff,
   type SetPasswordHashInput,
   type UserFilter,
@@ -502,6 +504,27 @@ export {
   type UpdatePayoutPeriodStatusInput,
   type UpsertStaffPayProfileInput,
 } from "./payout.js";
+
+// スタッフ台帳（P8-01 / PK-SPEC-P8 §1.3）。表は `staff_pay_profile` だが
+// **読む相手が違う**ので関数を分けてある（DECISIONS #223）。単価を返さない。
+export {
+  listStaffLedger,
+  updateStaffLedger,
+  type StaffLedgerFilter,
+  type StaffLedgerRow,
+  type UpdateStaffLedgerInput,
+} from "./staffLedger.js";
+
+// 在留資格（P8-02 / PK-SPEC-P8 §1.4）。**件数だけを返す口を分けてある**
+// （`PROPERTY_MANAGER` には件数のみ / INV-08）。
+export {
+  countExpiringResidencies,
+  listExpiredResidencyStaffIds,
+  listResidencyRecords,
+  upsertResidencyRecord,
+  type ResidencyRow,
+  type UpsertResidencyInput,
+} from "./residency.js";
 
 // 外部連携（P6-01 / P6-04 / P6-07 / PK-SPEC-P6 §2・§3.4）。
 // **資格情報そのものを返す関数が無い。** 返すのは KV の参照キーまでで、

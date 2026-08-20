@@ -236,6 +236,52 @@ export async function listPropertyStaff(
   );
 }
 
+/** 組織のスタッフ 1 人（P8-01）。**認証情報を含めない。** */
+export interface OrgStaff {
+  membershipId: string;
+  userId: string;
+  role: Role;
+  /** ログインできない（未設定の）行もあるので `null` を許す。 */
+  staffNumber: string | null;
+  displayName: string;
+  locale: string;
+  isActive: boolean;
+}
+
+/**
+ * 組織のスタッフ一覧（P8-01 / プロトタイプ ops 07）。
+ *
+ * ── `listUsers()` を使わない理由 ────────────────────────
+ * あれは行をそのまま返すので `passwordHash` / `pinHash` が付いてくる。
+ * 一覧はレスポンスへそのまま載るため、**列を明示する**
+ * （`listPropertyStaff()` と同じ判断 / security.md §6）。
+ *
+ * ── 施設で絞らない ──────────────────────────────────────
+ * `user` / `membership` は `propertyId` を持たず、`scopeToProperties()` が
+ * 掛からない（`user.read` は施設スコープロールも組織全体 /
+ * OPEN_QUESTIONS #016）。担当施設での絞りは呼び出し側。
+ *
+ * **無効化済みも返す。** 「退職者を含めて 31 名」と「稼働中 28 名」を
+ * 同じ一覧から数えるため。落とすのは画面側。
+ */
+export async function listOrgStaff(env: Env, ctx: TenantContext): Promise<OrgStaff[]> {
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select({
+      membershipId: membership.id,
+      userId: user.id,
+      role: membership.role,
+      staffNumber: user.staffNumber,
+      displayName: user.displayName,
+      locale: user.locale,
+      isActive: membership.isActive,
+    })
+    .from(membership)
+    .innerJoin(user, eq(user.id, membership.userId))
+    .where(withTenantScope(membership, ctx, NO_PROPERTY_SCOPE))
+    .orderBy(user.staffNumber);
+}
+
 /**
  * 表示言語を変える（PK-SPEC-P1 §12.3 / M-11 の設定）。
  *

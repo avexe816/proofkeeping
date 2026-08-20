@@ -2002,8 +2002,17 @@ P8 へ送り、**監査ログの閲覧だけを P7-20 として起票した。**
 **範囲はプロトタイプまで**に絞ってある（DECISIONS #221）。
 
 ### 実装する
-- [ ] P8-01 staffProfile スタッフ台帳（プロトタイプ ops 07）
-- [ ] P8-02 residencyRecord と期限アラート（ops 07 / 通知は 90 日・30 日の 2 段）
+- [x] P8-01 staffProfile スタッフ台帳（プロトタイプ ops 07）
+      **新しい表を作らず `staff_pay_profile` に 6 列を足した**（DECISIONS #223）。
+      リポジトリは `staffLedger.ts` に分ける（表は同じでも読む相手が違う）。
+      `staffPii.spec.ts` を新設し、住所・マイナンバー・口座・控除の列が
+      無いことを走査する。
+- [~] P8-02 residencyRecord と期限アラート（ops 07 / 通知は 90 日・30 日の 2 段）
+      **土台まで。** 表・リポジトリ 4 関数・`residency.read`/`write`（INV-08 に
+      合わせて `ORG_ADMIN` だけ）・越境テスト・一覧の在留期限の列・免責文。
+      **残り 3 つ**: ①編集フォーム（`recordAudit()` つき）②90/30 日の通知
+      （Cron 07:00 JST）③期限切れを新規配分から外す（`listExpiredResidencyStaffIds()`
+      は用意済み）。
 - [ ] P8-03 shiftPlan とシフト・当日の割当（ops 02）
 - [ ] P8-04 スキルと言語を自動配分へ反映（P1-14 へ接続）
 - [ ] P8-10 研修と資格（ops 08 / 追加起票）

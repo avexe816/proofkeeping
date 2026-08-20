@@ -206,6 +206,26 @@ body {
   margin-left: auto;
 }
 
+/* ── 在留期限のセル（P8-01 / プロトタイプ ops 07）────────
+
+   **90 日以内はオレンジ。赤にしない。** 急かす色を人の在籍に当てない
+   （ui-writing.md §3 が経過時間の赤を禁じているのと同じ理由）。
+   期限切れだけ `--danger` にするのは、法令の問題であって催促ではない。 */
+
+.pk-expiry {
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-expiry--near {
+  color: var(--warn);
+  font-weight: 700;
+}
+
+.pk-expiry--over {
+  color: var(--danger);
+  font-weight: 700;
+}
+
 /* ── 通知の鈴（A01 §3.1 / §3.2 / プロトタイプ `.bell`）──── */
 
 .pk-bell {

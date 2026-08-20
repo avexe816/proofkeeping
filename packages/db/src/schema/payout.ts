@@ -27,6 +27,17 @@ export const EMPLOYMENT_TYPES = ["FULL_TIME", "PART_TIME", "CONTRACTOR"] as cons
 
 export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
 
+/**
+ * 就業の状態（PK-SPEC-P8 §1.3 / P8-01）。プロトタイプ ops 07 の
+ * 絞り込み「全員 / 稼働中 / 研修中」と状態タグに対応する。
+ *
+ * `TRAINING` は**研修中**。P8-10 が 6 項目の進捗を持ち、
+ * 未修了のあいだ自動配分から外れる（同行作業のみ）。
+ */
+export const WORK_STATUSES = ["ACTIVE", "TRAINING", "ON_LEAVE", "RESIGNED"] as const;
+
+export type WorkStatus = (typeof WORK_STATUSES)[number];
+
 /** 単価の種類（PAY §1.2）。 */
 export const PAY_UNIT_TYPES = ["PER_TASK", "HOURLY"] as const;
 
@@ -43,10 +54,23 @@ export const PAYOUT_LINE_TYPES = ["TASK", "ADJUSTMENT", "REIMBURSEMENT"] as cons
 export type PayoutLineType = (typeof PAYOUT_LINE_TYPES)[number];
 
 /**
- * スタッフの支払属性（PAY §1.1）。
+ * スタッフの台帳（PAY §1.1 ＋ PK-SPEC-P8 §1.3 / P8-01）。
  *
  * `membership` を拡張しない（支払集計を使わない組織に列を持たせない —
  * P8 §1.3 と同じ判断）。1 スタッフ 1 行。
+ *
+ * ── 表の名前より粒度を見ること ──────────────────────────
+ * 名前は支払寄りだが、**P8-01 でスタッフ台帳そのものになった**
+ * （DECISIONS #223）。仕様 §1.3 の `staffProfile` は
+ * `organizationId` × `membershipId` で 1 行という**同じ粒度**で、
+ * 別表にすると「どちらが在籍の正か」が生まれる。
+ * **リネームしない**（列の削除・リネームを 1 リリースで行わない /
+ * architecture.md §6）。
+ *
+ * ── 置かない列 ──────────────────────────────────────────
+ * 本籍・住所・生年月日・マイナンバー・口座情報（PAY §1.1 MUST /
+ * PK-SPEC-P8 §1.3 MUST）。氏名とスタッフ番号は `user` が持ち、
+ * 単価は `payRule` が持つ。**同じ事実を 2 か所に置かない。**
  */
 export const staffPayProfile = sqliteTable(
   "staff_pay_profile",
@@ -57,12 +81,31 @@ export const staffPayProfile = sqliteTable(
     employmentType: text("employment_type", { enum: EMPLOYMENT_TYPES }).notNull(),
     /** 適格請求書発行事業者の登録番号（T+13桁）。CONTRACTOR のみ。 */
     invoiceRegistrationNo: text("invoice_registration_no"),
+
+    // ── P8-01 で足した台帳の列。すべて後方互換（既存行は既定値で通る）──
+    /** 入社日 `YYYY-MM-DD`。プロトタイプ ops 07 の「経験 5 年目」はここから導く。 */
+    hiredOn: text("hired_on"),
+    /** 退職日 `YYYY-MM-DD`。 */
+    resignedOn: text("resigned_on"),
+    /**
+     * 就業の状態。**`isActive` と混ぜないこと。**
+     * `isActive` は「支払の対象か」で、こちらは「いま働いているか」。
+     * 休職中でも前月分の支払は残る（DECISIONS #223）。
+     */
+    workStatus: text("work_status", { enum: WORK_STATUSES }).notNull().default("ACTIVE"),
+    /** 対応できる言語。`user.locale`（表示言語）とは別物。 */
+    languages: text("languages", { mode: "json" }).$type<string[]>().notNull().default([]),
+    /** 対応できる作業。P8-04 の自動配分が読む。 */
+    skills: text("skills", { mode: "json" }).$type<string[]>().notNull().default([]),
+    note: text("note"),
+
     ...activeFlag,
     ...timestamps,
   },
   (t) => [
     uniqueIndex("uq_staff_pay_profile").on(t.organizationId, t.membershipId),
     index("idx_staff_pay_profile").on(t.organizationId, t.isActive),
+    index("idx_staff_pay_profile_status").on(t.organizationId, t.workStatus),
   ],
 );
 

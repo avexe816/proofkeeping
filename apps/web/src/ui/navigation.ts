@@ -473,6 +473,21 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/settings/properties",
   },
+  // ops 07 スタッフ管理（P8-01）。**登録と台帳を 1 画面に持つ**
+  // （プロトタイプのヘッダーが「＋ スタッフを登録」で、その下が一覧）。
+  // 門は `user.write` — 登録の口が同じ画面にあるため、読むだけの相手を
+  // 入れると押せないボタンが並ぶ。在留期限の列だけは `residency.read`
+  // で別に絞る（INV-08 / 画面側）。
+  {
+    key: "nav.staff",
+    icon: "👥",
+    section: "settings",
+    moduleCode: "PLATFORM",
+    action: "user.write",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/settings/staff",
+  },
   // W-12 権限と監査の権限側（メンバー管理 / 人間の指示 2026-08-19）。
   // 監査側の閲覧は nav.auditLogs（P7-20）。
   {
