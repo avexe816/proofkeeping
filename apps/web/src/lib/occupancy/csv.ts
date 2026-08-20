@@ -151,7 +151,7 @@ export function parseOccupancyCsv(csv: string, businessDate: string): ParsedOccu
     if (line.trim() === "") continue;
     const lineNumber = index + 1;
 
-    const cells = splitCsvLine(line);
+    const cells = splitCsvLine(line, header.delimiter);
     const roomNumber = at(cells, "room_number").trim();
     if (roomNumber === "") {
       skippedLines.push(lineNumber);

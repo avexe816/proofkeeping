@@ -241,3 +241,12 @@ describe("parseOccupancyCsv — 値の正規化", () => {
     expect(parseOccupancyCsv(csv, DATE)).toEqual(parseOccupancyCsv(csv, DATE));
   });
 });
+
+describe("parseOccupancyCsv — タブ区切り（DECISIONS #211）", () => {
+  it("カンマ区切りと同じ結果になる", () => {
+    const csvLines = [HEADER, `303,${DATE},true,2,RSV-8891,,,false,1,3,false`].join("\n");
+    const tsvLines = csvLines.replace(/,/g, "\t");
+
+    expect(parseOccupancyCsv(tsvLines, DATE)).toEqual(parseOccupancyCsv(csvLines, DATE));
+  });
+});

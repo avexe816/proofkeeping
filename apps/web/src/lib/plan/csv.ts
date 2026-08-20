@@ -9,7 +9,7 @@
  * ```
  *
  * ── 1 行の誤りで全体を落とさない ────────────────────────
- * 前日の夜に PMS から出した CSV を貼り付ける運用（§3.4）。1 行の書式違いで
+ * 前日の夜に PMS から出した CSV を取り込む運用（§3.4）。1 行の書式違いで
  * 100 行が取り込めないと、現場は入力そのものを諦める。**読めた行は取り込み、
  * 読めなかった行の番号を返す。** 画面が「N 行を取り込めませんでした」と
  * 事実として示す（PK-IMPL-CONTRACT §11.3）。
@@ -84,7 +84,7 @@ export function parsePlanCsv(csv: string, businessDate: string): ParsedCsv {
     const line = lines[index] ?? "";
     if (line.trim() === "") continue;
 
-    const cells = splitCsvLine(line);
+    const cells = splitCsvLine(line, header.delimiter);
     const roomNumber = at(cells, "room_number").trim();
     if (roomNumber === "") {
       skippedLines.push(index + 1);

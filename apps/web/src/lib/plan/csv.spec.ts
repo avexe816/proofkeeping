@@ -154,3 +154,34 @@ describe("parsePlanCsv — 1 行の誤りで全体を落とさない", () => {
     expect(parsePlanCsv(csv, "2026-09-01")).toEqual(once);
   });
 });
+
+describe("parsePlanCsv — タブ区切り（Excel コピー / DECISIONS #211）", () => {
+  it("タブ区切りでも同じ内容を読める", () => {
+    const tsv = [
+      "room_number\tbusiness_date\thas_checkout\thas_checkin\tis_stayover\tguest_count\tdecline_clean",
+      "302\t2026-09-01\ttrue\ttrue\tfalse\t2\tfalse",
+    ].join("\n");
+
+    const { rows, skippedLines } = parsePlanCsv(tsv, "2026-09-01");
+
+    expect(skippedLines).toEqual([]);
+    expect(rows).toEqual([
+      {
+        roomNumber: "302",
+        businessDate: "2026-09-01",
+        hasCheckout: true,
+        hasCheckin: true,
+        isStayover: false,
+        guestCount: 2,
+        declineClean: false,
+      },
+    ]);
+  });
+
+  it("カンマ区切りと同じ結果になる（区切りの違いで意味が変わらない）", () => {
+    const csv = [HEADER, "302,2026-09-01,true,false,true,1,false"].join("\n");
+    const tsv = csv.replace(/,/g, "\t");
+
+    expect(parsePlanCsv(tsv, "2026-09-01")).toEqual(parsePlanCsv(csv, "2026-09-01"));
+  });
+});

@@ -9,6 +9,7 @@ import {
 
 import { assertPermission, can, propertyTarget } from "../../lib/auth/permission.js";
 import { businessDateOf } from "../../lib/businessDate.js";
+import { MAX_CSV_FILE_BYTES, decodeCsvBuffer } from "../../lib/csv/decode.js";
 import { t } from "../../lib/i18n.js";
 import { parsePlanCsv } from "../../lib/plan/csv.js";
 import {
@@ -38,6 +39,11 @@ import { requireAppContext } from "../../lib/ui/requireSession.js";
  * ── 取り込めなかったものを黙って捨てない ────────────────
  * CSV の読めなかった行番号と、客室マスタに無い部屋番号を必ず数で出す
  * （P1-04 の判断 1 / PK-IMPL-CONTRACT §11.3）。
+ *
+ * ── CSV はファイルが主、貼り付けは逃げ道 ────────────────
+ * PMS から出すのはファイルで、貼り付けは「開いて全選択してコピー」を
+ * 挟む。しかも Excel のコピーはタブ区切りになる（DECISIONS #211）。
+ * ファイルは Shift_JIS を含めて `decodeCsvBuffer()` で読む。
  *
  * ── 宿泊者の情報を受け取らない ──────────────────────────
  * security.md §3。入力欄は §10.3 の 5 つ（OUT / IN / 連泊 / 人数 / 清掃辞退）
@@ -112,6 +118,10 @@ interface PlanActionResult {
   rejectedRoomNumbers?: readonly string[];
   /** 「全室アウト清掃として生成」の確認待ち。対象件数を添える。 */
   confirmAllCheckout?: number;
+  /** CSV のファイルも貼り付けも無かった。 */
+  csvMissing?: boolean;
+  /** CSV ファイルが大きすぎる（`MAX_CSV_FILE_BYTES` 超）。 */
+  csvTooLarge?: boolean;
   invalid?: boolean;
 }
 
@@ -176,7 +186,20 @@ export async function action({
   }
 
   if (intent === "csv") {
-    const parsed = parsePlanCsv(fieldOf(form, "csv"), businessDate);
+    // ファイルを主、貼り付けを逃げ道にする（DECISIONS #211）。ファイルが
+    // 選ばれていればそちらを採り、貼り付け欄は見ない（両方あるとき
+    // どちらが効いたか分からない状態を作らない）。
+    const file = form.get("csvFile");
+    let csvText: string;
+    if (file instanceof File && file.size > 0) {
+      if (file.size > MAX_CSV_FILE_BYTES) return { csvTooLarge: true };
+      csvText = decodeCsvBuffer(await file.arrayBuffer());
+    } else {
+      csvText = fieldOf(form, "csv");
+    }
+    if (csvText.trim() === "") return { csvMissing: true };
+
+    const parsed = parsePlanCsv(csvText, businessDate);
     const roomByNumber = new Map(rooms.map((room) => [room.roomNumber, room.id]));
 
     const unknownRoomNumbers: string[] = [];
@@ -251,6 +274,12 @@ export default function PropertyPlan() {
       <p className="pk-muted">{data.businessDate}</p>
 
       {result?.invalid === true ? <p className="pk-notice">{t("plan.invalid")}</p> : null}
+      {result?.csvMissing === true ? (
+        <p className="pk-notice pk-notice--warn">{t("plan.csv.missing")}</p>
+      ) : null}
+      {result?.csvTooLarge === true ? (
+        <p className="pk-notice pk-notice--warn">{t("plan.csv.tooLarge")}</p>
+      ) : null}
       {result?.applied === undefined ? null : (
         <p className="pk-notice">{`${t("plan.applied")}: ${String(result.applied)}`}</p>
       )}
@@ -311,12 +340,17 @@ export default function PropertyPlan() {
       ) : null}
 
       {data.canWrite ? (
-        <Form method="post" className="pk-form">
+        <Form method="post" encType="multipart/form-data" className="pk-form">
           <input type="hidden" name="intent" value="csv" />
           <input type="hidden" name="businessDate" value={data.businessDate} />
           <h2>{t("plan.csv.title")}</h2>
-          <label htmlFor="csv">{t("plan.csv.hint")}</label>
-          <textarea id="csv" name="csv" rows={6} required />
+          {/* ファイルが主経路。貼り付けは逃げ道として残す（DECISIONS #211）。 */}
+          <label htmlFor="csvFile">{t("plan.csv.file")}</label>
+          <input id="csvFile" name="csvFile" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" />
+          <p className="pk-hint">{t("plan.csv.file.hint")}</p>
+          <label htmlFor="csv">{t("plan.csv.paste")}</label>
+          <textarea id="csv" name="csv" rows={6} />
+          <p className="pk-hint">{t("plan.csv.hint")}</p>
           <button className="pk-button" type="submit">
             {t("plan.csv.submit")}
           </button>
