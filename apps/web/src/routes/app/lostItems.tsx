@@ -267,6 +267,22 @@ export default function LostItems() {
     <section className="pk-page">
       <div className="pk-pagehead">
         <h1 className="pk-pagehead__title">{t("lostItems.title")}</h1>
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("lostItems.filter.status")}</span>
+            <select className="pk-select" name="status" defaultValue={data.status ?? ""}>
+              <option value="">{t("lostItems.filter.all")}</option>
+              {LOST_ITEM_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {t(STATUS_LABEL[status])}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("lostItems.filter.apply")}
+          </button>
+        </Form>
       </div>
       <p className="pk-muted">{t("lostItems.lede")}</p>
 
@@ -275,23 +291,6 @@ export default function LostItems() {
       ) : null}
       {result?.advanced === true ? <p className="pk-notice">{t("lostItems.advanced")}</p> : null}
       {result?.contacted === true ? <p className="pk-notice">{t("lostItems.contacted")}</p> : null}
-
-      <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("lostItems.filter.status")}</span>
-          <select className="pk-select" name="status" defaultValue={data.status ?? ""}>
-            <option value="">{t("lostItems.filter.all")}</option>
-            {LOST_ITEM_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {t(STATUS_LABEL[status])}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="pk-button" type="submit">
-          {t("lostItems.filter.apply")}
-        </button>
-      </Form>
 
       <table className="pk-grid">
         <thead>

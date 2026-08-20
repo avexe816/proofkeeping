@@ -25,7 +25,14 @@
  * 担当者の氏名はこの画面に出さない。
  */
 
-import { NotFoundError, countPhotosByTask, listFindings, listObservations, listRoomNumbersByIds, listTasks } from "@pk/db";
+import {
+  NotFoundError,
+  countPhotosByTask,
+  listFindings,
+  listObservations,
+  listRoomNumbersByIds,
+  listTasks,
+} from "@pk/db";
 import { medianMinutes } from "@pk/engine";
 import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
 
@@ -111,9 +118,7 @@ export async function loader({
   const [tasks, observations, findings] = await Promise.all([
     listTasks(env, tenant, { propertyId, businessDateFrom: from, businessDateTo: to }),
     listObservations(env, tenant, { propertyId, from, to }),
-    canReadFindings
-      ? listFindings(env, tenant, { propertyId, from, to })
-      : Promise.resolve([]),
+    canReadFindings ? listFindings(env, tenant, { propertyId, from, to }) : Promise.resolve([]),
   ]);
 
   const [photoCounts, roomNumbers] = await Promise.all([
@@ -122,11 +127,7 @@ export async function loader({
       tenant,
       tasks.map((task) => task.id),
     ),
-    listRoomNumbersByIds(
-      env,
-      tenant,
-      [...new Set(tasks.map((task) => task.roomId))],
-    ),
+    listRoomNumbersByIds(env, tenant, [...new Set(tasks.map((task) => task.roomId))]),
   ]);
 
   const observedTaskIds = new Set(observations.map((row) => row.taskId));
@@ -233,23 +234,22 @@ export default function EvidenceList(): React.ReactElement {
       <div className="pk-pagehead">
         <h1 className="pk-pagehead__title">{t("evidence.list.title")}</h1>
         <p className="pk-muted">{`${data.from} 〜 ${data.to}`}</p>
+        <form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("evidence.list.period")}</span>
+            <select className="pk-select" name="days" defaultValue={String(data.days)}>
+              <option value="7">{t("evidence.period.7")}</option>
+              <option value="30">{t("evidence.period.30")}</option>
+            </select>
+          </label>
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("evidence.list.apply")}
+          </button>
+        </form>
       </div>
 
       {/* §6.1 / P2 固有の絶対ルール。**法的タイムスタンプと表現しない。** */}
       <p className="pk-notice">{t("evidence.disclaimer")}</p>
-
-      <form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("evidence.list.period")}</span>
-          <select className="pk-select" name="days" defaultValue={String(data.days)}>
-            <option value="7">{t("evidence.period.7")}</option>
-            <option value="30">{t("evidence.period.30")}</option>
-          </select>
-        </label>
-        <button className="pk-button" type="submit">
-          {t("evidence.list.apply")}
-        </button>
-      </form>
 
       {/* ── KPI（プロトタイプの 4 枚。完備率が主役）──────────── */}
       <dl className="pk-stats">
@@ -293,9 +293,13 @@ export default function EvidenceList(): React.ReactElement {
                 <span className="pk-bars__value">{String(bucket.count)}</span>
                 <i
                   className="pk-bars__bar"
-                  style={{ height: `${String(Math.max(4, Math.round((bucket.count * 96) / maxBucket)))}%` }}
+                  style={{
+                    height: `${String(Math.max(4, Math.round((bucket.count * 96) / maxBucket)))}%`,
+                  }}
                 />
-                <span className="pk-bars__label">{t(HISTOGRAM_LABEL[bucket.key] as MessageKey)}</span>
+                <span className="pk-bars__label">
+                  {t(HISTOGRAM_LABEL[bucket.key] as MessageKey)}
+                </span>
               </div>
             ))}
           </div>
@@ -328,9 +332,7 @@ export default function EvidenceList(): React.ReactElement {
                 <td>{row.businessDate}</td>
                 <td>{labelOfTaskType(row.taskType)}</td>
                 <td>
-                  {row.startClock === null
-                    ? "—"
-                    : `${row.startClock} → ${row.endClock ?? ""}`}
+                  {row.startClock === null ? "—" : `${row.startClock} → ${row.endClock ?? ""}`}
                 </td>
                 <td>
                   {row.actualMinutes === null
@@ -357,7 +359,10 @@ export default function EvidenceList(): React.ReactElement {
                   </td>
                 ) : null}
                 <td>
-                  <Link className="pk-button" to={`/app/p/${data.propertyId}/evidence/${row.taskId}`}>
+                  <Link
+                    className="pk-button"
+                    to={`/app/p/${data.propertyId}/evidence/${row.taskId}`}
+                  >
                     {t("evidence.list.open")}
                   </Link>
                 </td>

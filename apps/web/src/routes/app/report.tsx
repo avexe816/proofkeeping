@@ -93,20 +93,22 @@ export default function MonthlyReportScreen() {
   return (
     <section className="pk-page">
       <div className="pk-pagehead pk-print__hide">
-        <h1 className="pk-pagehead__title">{t("report.title")}</h1>
+        <div>
+          <h1 className="pk-pagehead__title">{t("report.title")}</h1>
+          <p className="pk-pagehead__sub">{propertyName}</p>
+        </div>
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("report.filter.month")}</span>
+            <input className="pk-input" type="month" name="month" defaultValue={report.month} />
+          </label>
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("report.filter.apply")}
+          </button>
+        </Form>
       </div>
 
       <p className="pk-notice pk-print__hide">{t("report.intro")}</p>
-
-      <Form method="get" className="pk-filter pk-print__hide">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("report.filter.month")}</span>
-          <input className="pk-input" type="month" name="month" defaultValue={report.month} />
-        </label>
-        <button className="pk-button" type="submit">
-          {t("report.filter.apply")}
-        </button>
-      </Form>
       <p className="pk-muted pk-print__hide">{t("report.printHint")}</p>
 
       <div className="pk-print pk-report">

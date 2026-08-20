@@ -140,17 +140,16 @@ export default function OrgDashboard() {
     <section className="pk-page">
       <div className="pk-pagehead">
         <h1 className="pk-pagehead__title">{t("dashboard.org.title")}</h1>
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("dashboard.org.month")}</span>
+            <input className="pk-input" type="month" name="month" defaultValue={data.month} />
+          </label>
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("dashboard.org.apply")}
+          </button>
+        </Form>
       </div>
-
-      <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("dashboard.org.month")}</span>
-          <input className="pk-input" type="month" name="month" defaultValue={data.month} />
-        </label>
-        <button className="pk-button" type="submit">
-          {t("dashboard.org.apply")}
-        </button>
-      </Form>
 
       {/* 集計がまだ無い月に 0 を並べない（`hasRollup` / P0-21 と同じ判断）。 */}
       {!data.hasRollup ? <p className="pk-muted">{t("dashboard.org.noRollup")}</p> : null}

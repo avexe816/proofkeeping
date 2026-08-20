@@ -92,17 +92,16 @@ export default function VendorPlan() {
     <section className="pk-page">
       <div className="pk-pagehead">
         <h1 className="pk-pagehead__title">{t("vendorPlan.title")}</h1>
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("vendorPlan.month")}</span>
+            <input className="pk-input" type="month" name="month" defaultValue={data.month} />
+          </label>
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("vendorPlan.apply")}
+          </button>
+        </Form>
       </div>
-
-      <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("vendorPlan.month")}</span>
-          <input className="pk-input" type="month" name="month" defaultValue={data.month} />
-        </label>
-        <button className="pk-button" type="submit">
-          {t("vendorPlan.apply")}
-        </button>
-      </Form>
 
       {/* 集計がまだ無い月に 0 を並べない（W-02 と同じ判断）。 */}
       {!data.hasRollup ? <p className="pk-muted">{t("vendorPlan.noRollup")}</p> : null}
@@ -157,7 +156,9 @@ export default function VendorPlan() {
                     {/* 確定していない金額に印を付ける。合意の途中で見せた
                         写しを、請求済みの額と同じ顔で並べない。 */}
                     {row.amount !== null && !row.isConfirmedAmount ? (
-                      <span className="pk-badge pk-badge--hidden">{t("vendorPlan.provisionalAmount")}</span>
+                      <span className="pk-badge pk-badge--hidden">
+                        {t("vendorPlan.provisionalAmount")}
+                      </span>
                     ) : null}
                   </td>
                   <td>
@@ -213,7 +214,7 @@ export default function VendorPlan() {
                   <td>
                     {orDash(formatYen(rate))}
                     {/* §7.2 MUST: 組織平均の 85% を下回る施設に警告。
-                        **急かす色にしない**（ui-writing.md §3）。 */}
+                     **急かす色にしない**（ui-writing.md §3）。 */}
                     {isLowHourlyRate(rate, averageRate) ? (
                       <span className="pk-badge pk-badge--warn">{t("vendorPlan.lowRate")}</span>
                     ) : null}

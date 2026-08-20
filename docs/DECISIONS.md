@@ -5471,3 +5471,32 @@
 - 影響: app.css（`pk-pagehead` の全幅化・`pk-stats--5`・`pk-board__grid`・
   `pk-room`・`pk-board__floorName`）/ propertyBoard.tsx / ui/RoomBoard.tsx /
   ja.json（`board.unit.rooms`）。
+
+## #227 絞り込みと主要な操作を見出しの右端へ（横断）
+
+- 日付: 2026-08-20
+- task: なし（人間の指示「他の画面も、添付写真のようなところは右上のところに
+  移動して」。**写真はセッションに届いていない**ため、直前の 2 件
+  （DECISIONS #218 客室ボード / #226 稼働の差異）と同じ「本文の先頭にある
+  絞り込みバーを見出しの右端へ移す」と解釈した。解釈は PR 本文に明記した）
+- 決定:
+  1. **先頭の GET 絞り込みフォームを `pk-pagehead__actions` へ移す。**
+     対象は 12 画面（監査ログ・清掃記録・検査キュー・不具合・忘れ物・
+     進捗モニタ・組織ダッシュボード・支払集計・清掃会社ダッシュボード・
+     ベースライン・客室予定・月次レポート）。`.pk-filter` の帯が本文の
+     先頭から消え、表と KPI が 1 行ぶん上がる。
+  2. **本文に残すもの**: 明細の中の POST フォーム（忘れ物の返却・不具合の
+     進行・請求の確認）と、確認を挟む破壊的操作（客室予定の一括退室・
+     CSV 取込）。**見出しに操作を集めない** — 押し間違いの重さが違う。
+     例外は清掃タスク生成の 2 つ（再生成・自動割当）で、これは画面の
+     主要な操作なので右端へ置いた。
+  3. **見出しの中の submit は primary にする**（プロトタイプの `btn p`）。
+     副次の操作（CSV 出力など）は既定のまま。1 つの帯に主が 2 つ並ばない。
+  4. **`pk-page__title` だった 2 画面（ベースライン・客室予定）を
+     `pk-pagehead` に揃えた。** 見出しの形が画面ごとに違う状態を残さない。
+  5. 稼働の差異は #226 で入れた `<div className="pk-pagehead__actions">` の
+     入れ子をやめ、他の 12 画面と同じく Form 自身に付けた。
+- 影響: routes/app/{auditLogs, baselineSettings, evidenceList, findings,
+  inspectionQueue, issues, lostItems, opsProgress, orgDashboard, payouts,
+  propertyPlan, propertyTasks, report, vendorPlan}.tsx。CSS の追加は無い
+  （#226 で入れた `.pk-pagehead` の全幅化と `pk-pagehead__actions` を使う）。

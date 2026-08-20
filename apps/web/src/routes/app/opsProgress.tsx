@@ -44,10 +44,7 @@ interface OpsProgressData extends ProgressView {
   businessDate: string;
 }
 
-export async function loader({
-  request,
-  context,
-}: LoaderFunctionArgs): Promise<OpsProgressData> {
+export async function loader({ request, context }: LoaderFunctionArgs): Promise<OpsProgressData> {
   const env = getEnv(context);
   const now = new Date();
   const { session, tenant } = await requireAppContext(env, request, now);
@@ -92,24 +89,23 @@ export default function OpsProgress() {
     <section className="pk-page">
       <div className="pk-pagehead">
         <h1 className="pk-pagehead__title">{t("opsProgress.title")}</h1>
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("opsProgress.filter.businessDate")}</span>
+            <input
+              className="pk-input"
+              type="date"
+              name="businessDate"
+              defaultValue={data.businessDate}
+            />
+          </label>
+
+          {/* 手動更新（ui-writing.md §3）。GET の再送 = loader の引き直し。 */}
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("opsProgress.filter.refresh")}
+          </button>
+        </Form>
       </div>
-
-      <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("opsProgress.filter.businessDate")}</span>
-          <input
-            className="pk-input"
-            type="date"
-            name="businessDate"
-            defaultValue={data.businessDate}
-          />
-        </label>
-
-        {/* 手動更新（ui-writing.md §3）。GET の再送 = loader の引き直し。 */}
-        <button className="pk-button" type="submit">
-          {t("opsProgress.filter.refresh")}
-        </button>
-      </Form>
 
       <ul className="pk-board__counts">
         <li>{`${t("opsProgress.totals.planned")} ${String(data.totals.totalTasks)}`}</li>
@@ -153,7 +149,11 @@ export default function OpsProgress() {
                     <td>{String(row.completedTasks)}</td>
                     <td>{String(row.reworkTasks)}</td>
                     <td>{row.percent ?? "—"}</td>
-                    <td>{row.linen === null ? t("opsProgress.noLinen") : String(row.linen.collectedQty)}</td>
+                    <td>
+                      {row.linen === null
+                        ? t("opsProgress.noLinen")
+                        : String(row.linen.collectedQty)}
+                    </td>
                     <td>{row.linen === null ? "" : String(row.linen.suppliedQty)}</td>
                   </>
                 ) : (

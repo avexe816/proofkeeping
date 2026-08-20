@@ -124,7 +124,12 @@ interface TasksActionResult {
   /** 自動配分の提案（プレビュー）。確定するまで DB は変わらない。 */
   preview?: {
     pairs: readonly { taskId: string; membershipId: string }[];
-    loads: readonly { membershipId: string; taskCount: number; minutes: number; overLimit: boolean }[];
+    loads: readonly {
+      membershipId: string;
+      taskCount: number;
+      minutes: number;
+      overLimit: boolean;
+    }[];
     unassignedTaskIds: readonly string[];
   };
   applied?: number;
@@ -193,7 +198,9 @@ export async function action({
   }
 
   if (intent === "assign") {
-    const taskIds = form.getAll("taskId").filter((value): value is string => typeof value === "string");
+    const taskIds = form
+      .getAll("taskId")
+      .filter((value): value is string => typeof value === "string");
     if (taskIds.length === 0) return { invalid: true };
     const raw = fieldOf(form, "membershipId");
     const result = await applyAssignments(env, tenant, {
@@ -265,32 +272,32 @@ export default function PropertyTasks(): React.ReactElement {
     );
   };
 
-  const previewLoad = new Map(
-    (result?.preview?.loads ?? []).map((row) => [row.membershipId, row]),
-  );
+  const previewLoad = new Map((result?.preview?.loads ?? []).map((row) => [row.membershipId, row]));
 
   return (
     <section className="pk-page">
       <div className="pk-pagehead">
-        <h1 className="pk-pagehead__title">{t("tasks.title")}</h1>
-        <p className="pk-muted">{data.businessDate}</p>
-      </div>
-
-      <div className="pk-toolbar">
-        <Form method="post">
-          <input type="hidden" name="intent" value="regenerate" />
-          <input type="hidden" name="businessDate" value={data.businessDate} />
-          <button className="pk-button" type="submit">
-            {t("tasks.regenerate")}
-          </button>
-        </Form>
-        <Form method="post">
-          <input type="hidden" name="intent" value="preview" />
-          <input type="hidden" name="businessDate" value={data.businessDate} />
-          <button className="pk-button pk-button--primary" type="submit">
-            {t("tasks.autoAssign")}
-          </button>
-        </Form>
+        <div>
+          <h1 className="pk-pagehead__title">{t("tasks.title")}</h1>
+          <p className="pk-pagehead__sub">{data.businessDate}</p>
+        </div>
+        {/* 主要な操作は見出しの右端（A01 §3.2 / DECISIONS #227）。 */}
+        <div className="pk-pagehead__actions">
+          <Form method="post">
+            <input type="hidden" name="intent" value="regenerate" />
+            <input type="hidden" name="businessDate" value={data.businessDate} />
+            <button className="pk-button" type="submit">
+              {t("tasks.regenerate")}
+            </button>
+          </Form>
+          <Form method="post">
+            <input type="hidden" name="intent" value="preview" />
+            <input type="hidden" name="businessDate" value={data.businessDate} />
+            <button className="pk-button pk-button--primary" type="submit">
+              {t("tasks.autoAssign")}
+            </button>
+          </Form>
+        </div>
       </div>
 
       {result?.invalid === true ? <p className="pk-notice">{t("tasks.invalid")}</p> : null}
@@ -421,7 +428,6 @@ export default function PropertyTasks(): React.ReactElement {
   );
 }
 
-
 function labelOf(staff: StaffRow): string {
   return staff.displayName === null
     ? `${staff.staffNumber}（${t("staff.nameHidden")}）`
@@ -472,7 +478,11 @@ function AssignRow({
   const ratio = Math.min(100, Math.round((minutes / limitMinutes) * 100));
 
   return (
-    <tr className={staff?.overLimit === true ? "pk-assign__row pk-assign__row--over" : "pk-assign__row"}>
+    <tr
+      className={
+        staff?.overLimit === true ? "pk-assign__row pk-assign__row--over" : "pk-assign__row"
+      }
+    >
       <th scope="row">
         {staff === null ? <span>{t("tasks.unassigned")}</span> : <StaffLabel staff={staff} />}
         <span className="pk-assign__load">
