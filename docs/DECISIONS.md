@@ -5009,3 +5009,43 @@
 - 影響: app.css / billing.tsx / billingDetail.tsx / propertySettings.tsx /
   members.tsx / payRules.tsx / payouts.tsx / ja.json。loader の追加は
   members の監査ログ 8 件のみ（門は auditLog.read / P7-20 と同じ）。
+
+## #214 契約と請求はプロトタイプ 10 と同じく 1 枚の画面にする
+
+- 日付: 2026-08-20
+- task: なし（人間の指示「契約と請求の画面は 3 枚の画像どおりに実現できましたか。
+  現在のシステムにはその三つ画面が見えない」）
+- 文脈: DECISIONS #213 でカード化はしたが、**プロトタイプ 10 の 1 画面を
+  `/app/billing`（一覧）と `/app/billing/:invoiceId`（明細）の 2 ルートに
+  割ったままだった。** そのためサイドバーから開くと対象月セレクタ・
+  請求書 PDF・KPI（清掃件数）・ご請求の内訳・契約の内容が出ず、履歴の
+  「明細」を押すまで見えなかった。プロトタイプは**見た目の正**
+  （CLAUDE.md §7）で、ここが食い違っていた。
+- 決定:
+  1. `/app/billing` を 1 枚の画面にする。上から順に
+     pagehead（対象月セレクタ＋請求書 PDF）→ KPI 4 枚（清掃件数 →
+     ご請求金額 → お支払期限 → 状態）→ ご請求の内訳と契約の内容の並置
+     → 請求の履歴。**画像 1〜3 と同じ並び。**
+  2. 表示する 1 件は `?invoiceId=`、既定は最新（`listInvoices()` は
+     発行日の降順）。セレクタは**候補の中にある ID しか採らない。**
+  3. 対象月セレクタは submit で送る（JS 無しでも切り替わる。
+     `ui/PropertySwitcher.tsx` と同じ判断）。プロトタイプに無い「表示」
+     ボタンが 1 つ増えるが、共用端末で確実に動くほうを採る。
+  4. 履歴の列をプロトタイプに合わせる（対象月 / 清掃件数 / ご請求金額 /
+     状態 / お支払日 / 明細）。**清掃件数は
+     `findInvoiceRoomQuantities()` で 1 文にまとめて引く**（行ごとに
+     明細を読むと N+1）。数え方は明細画面の KPI と同じ `unit === ROOM_UNIT`
+     で、定数を `schema/invoice.ts` に置いて定義を 2 か所に持たない。
+  5. 「再清掃は無償です」は**固定文にしない。** 0 円の明細が実際にある
+     ときだけ出す（単価は組織の料金設定で決まるため、常時表示だと
+     事実と食い違いうる。#213 で見送った判断をデータ駆動で解決した）。
+  6. `/app/billing/:invoiceId` は残す。入金の記録（＝領収書の発行）は
+     着金を確かめてから行う操作で、一覧のボタンから直接押させない。
+- 実装しなかったもの（データが無い）: 契約期間・契約形態・対象客室。
+  `counterparty` に該当する列が無く、**仕様に無い列を足さない**
+  （CLAUDE.md §1.4）。契約の内容には対象期間・締め日・支払期限・
+  お支払期限・単価表を出す。必要になれば仕様の版上げで決める。
+- 影響: billing.tsx（全面）・billingDetail.tsx（ROOM_UNIT 共有）・
+  repositories/invoice.ts（`findInvoiceRoomQuantities()` 追加）・
+  schema/invoice.ts（`ROOM_UNIT`）・ja.json・app.css
+  （`pk-visually-hidden`）。

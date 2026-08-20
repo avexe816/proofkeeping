@@ -40,6 +40,7 @@ import {
   invoice,
   invoiceLine,
   invoiceTaxSummary,
+  ROOM_UNIT,
   pricingRule,
   receipt,
   type BillingPeriodReviewAction,
@@ -514,6 +515,53 @@ export async function listInvoiceLines(env: Env, ctx: TenantContext, invoiceId: 
     .from(invoiceLine)
     .where(withTenantScope(invoiceLine, ctx, NO_PROPERTY_SCOPE, eq(invoiceLine.invoiceId, invoiceId)))
     .orderBy(invoiceLine.lineNo);
+}
+
+/**
+ * 請求書ごとの清掃件数（単位が「室」の明細の数量合計）。
+ *
+ * 参照: ui-prototypes/owner/pkown-v3-D-billing-settings-perm.html（10 の
+ * 「請求の履歴」に清掃件数の列がある）
+ *
+ * ── なぜ一覧のためだけに関数を足すのか ──────────────────
+ * 履歴の行ごとに `listInvoiceLines()` を呼ぶと、請求書の件数だけ D1 を
+ * 往復する（N+1）。**件数は行ごとに要るが、明細そのものは要らない。**
+ * ここで 1 文にまとめて数量だけを引く。
+ *
+ * ── 「室」で絞るのは KPI と同じ定義にするため ────────────
+ * 明細画面の清掃件数（`unit === "室"` の数量合計）と同じ数字でなければ、
+ * 一覧と明細で違う件数が出る。**定義を 2 か所に持たない。**
+ *
+ * @returns 請求書 ID → 清掃件数。**「室」の明細が無い請求書は載らない。**
+ */
+export async function findInvoiceRoomQuantities(
+  env: Env,
+  ctx: TenantContext,
+  invoiceIds: readonly string[],
+): Promise<Map<string, number>> {
+  if (invoiceIds.length === 0) return new Map();
+  for (const invoiceId of invoiceIds) assertIdBelongsToTenant(invoiceId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const totals = new Map<string, number>();
+  for (const chunk of chunkIdsForInArray(invoiceIds)) {
+    const rows = await db
+      .select({ invoiceId: invoiceLine.invoiceId, quantity: invoiceLine.quantity })
+      .from(invoiceLine)
+      .where(
+        withTenantScope(
+          invoiceLine,
+          ctx,
+          NO_PROPERTY_SCOPE,
+          inArray(invoiceLine.invoiceId, [...chunk]),
+          eq(invoiceLine.unit, ROOM_UNIT),
+        ),
+      );
+    for (const row of rows) {
+      totals.set(row.invoiceId, (totals.get(row.invoiceId) ?? 0) + row.quantity);
+    }
+  }
+  return totals;
 }
 
 /** 税区分サマリー（§2.5）。**税率ごとに 1 行。** */

@@ -432,6 +432,7 @@ export {
   findDocumentDeliveryById,
   findInvoiceById,
   findLatestReviewSnapshotTotals,
+  findInvoiceRoomQuantities,
   findPricingRuleById,
   findReceiptById,
   insertPricingRule,
