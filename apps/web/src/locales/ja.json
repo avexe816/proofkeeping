@@ -1364,6 +1364,8 @@
   "billing.history.paymentNote": "入金の記録は各請求書の明細画面から行います。銀行振込の着金を確認してから記録してください。",
   "billing.selector.label": "対象の請求書",
   "billing.selector.show": "表示",
+  "billing.pdf.pending": "PDF を作成中です",
+  "billing.pay.open": "入金を記録する（領収書を発行します）",
   "billing.column.month": "対象月",
   "billing.column.cleaningCount": "清掃件数",
   "billing.lines.freeNote": "0 円で計上した明細があります。検査での指摘による再清掃など、料金設定で 0 円としている項目はご請求に含めていません。件数は事実として残しています。",

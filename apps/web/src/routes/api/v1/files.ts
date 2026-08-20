@@ -42,11 +42,27 @@ import {
   DAILY_REPORT_PREFIX,
   isOwnDailyReportKey,
 } from "../../../lib/report/dailyReportKey.js";
+import {
+  INVOICE_PDF_PREFIX,
+  RECEIPT_PDF_PREFIX,
+} from "../../../lib/report/invoice.js";
+import { PAYOUT_PDF_PREFIX } from "../../../lib/report/payout.js";
 import { DOCUMENTS_PREFIX } from "../../../lib/storage/prefix.js";
 import { PHOTOS_PREFIX, isOwnPhotoKey } from "../../../lib/photo/upload.js";
 import { verifyObjectUrl } from "../../../lib/storage/signedUrl.js";
 import { getNow, getTenant, type AppEnv } from "../../../middleware/index.js";
 import { Hono } from "hono";
+
+/**
+ * 帳票 PDF の接頭辞。**キーは `{接頭辞}/{組織 ID}/...` の形。**
+ * 増やすときは `lib/report/*` のキー生成関数と必ず対にすること。
+ * 対応は `lib/storage/documentKeys.spec.ts` が検査する。
+ */
+const BILLING_PDF_PREFIXES: readonly string[] = [
+  INVOICE_PDF_PREFIX,
+  RECEIPT_PDF_PREFIX,
+  PAYOUT_PDF_PREFIX,
+];
 
 const files = new Hono<AppEnv>();
 
@@ -62,10 +78,25 @@ files.get("/:key", async (c) => {
   // **フォント（`fonts/`）はここに載せていない。** 署名付き URL で
   // 配る対象ではない（`lib/report/font.ts`）。
   const isDailyReport = key.startsWith(DAILY_REPORT_PREFIX);
-  if (!isDocument && !isPhoto && !isBundle && !isDailyReport) return c.notFound();
+  // 帳票 PDF（請求書・領収書・支払明細書）。**キーの 2 区間目が組織 ID**
+  // （`invoicePdfKey()` / `receiptPdfKey()` / `payoutPdfKey()`）。
+  //
+  // **ここに載っていないと、正しく署名した URL でも 404 になる。**
+  // 画面の「請求書PDF」が開けなかったのはこれ（DECISIONS #215）。
+  const isBillingDocument = BILLING_PDF_PREFIXES.some((prefix) => key.startsWith(`${prefix}/`));
+  if (!isDocument && !isPhoto && !isBundle && !isDailyReport && !isBillingDocument) {
+    return c.notFound();
+  }
 
   const organizationId = getTenant(c).organizationId;
   if (isPhoto && !isOwnPhotoKey(key, organizationId)) return c.notFound();
+  // 帳票も同じ照合。**署名だけを頼りにしない**（第 2 層 / architecture.md §2）。
+  if (
+    isBillingDocument &&
+    !BILLING_PDF_PREFIXES.some((prefix) => key.startsWith(`${prefix}/${organizationId}/`))
+  ) {
+    return c.notFound();
+  }
   // 証跡 ZIP も同じ照合。**キーの 2 区間目が自組織であること。**
   if (isBundle && !key.startsWith(`${EVIDENCE_BUNDLE_PREFIX}${organizationId}/`)) {
     return c.notFound();

@@ -38,9 +38,10 @@ import {
 } from "@pk/db";
 import { Form, useLoaderData, type LoaderFunctionArgs } from "react-router";
 
-import { ORGANIZATION_TARGET, assertPermission } from "../../lib/auth/permission.js";
+import { ORGANIZATION_TARGET, assertPermission, can } from "../../lib/auth/permission.js";
 import { INVOICE_STATUS_LABEL, formatYenAmount } from "../../lib/billing/labels.js";
 import { t, type MessageKey } from "../../lib/i18n.js";
+import { signObjectUrl } from "../../lib/storage/signedUrl.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
 
@@ -60,6 +61,8 @@ interface InvoiceRow {
   cleaningCount: number;
   /** セレクタと履歴に出す「2026年7月分」。 */
   monthLabel: string;
+  /** セレクタの表示名。同じ月が複数あるときだけ取引先を添える。 */
+  optionLabel: string;
 }
 
 interface LineRow {
@@ -96,12 +99,26 @@ interface SelectedInvoice {
   prices: PriceRow[];
   /** 0 円で計上した明細があるか（プロトタイプの「再清掃は無償です」）。 */
   hasFreeLine: boolean;
+  /**
+   * 請求書 PDF の署名付き URL（15 分 / security.md §4）。
+   *
+   * **API の `/api/v1/invoices/{id}/download` へ繋がない。** あれは
+   * `{url, documentNo}` の JSON を返す口で、ブラウザで開くと PDF ではなく
+   * JSON が出る（DECISIONS #215）。支払明細書（`payouts.tsx`）と同じく、
+   * loader で署名して `href` に直に入れる。
+   */
+  pdfUrl: string | null;
+  /** 入金を記録できる状態か。**記録そのものは明細画面**（着金を確かめてから）。 */
+  canRecordPayment: boolean;
 }
 
 interface BillingData {
   rows: InvoiceRow[];
   selected: SelectedInvoice | null;
 }
+
+/** 入金を記録できる状態（`markInvoicePaid()` の集合と同じ）。 */
+const PAYABLE_STATUSES: readonly InvoiceStatus[] = ["CONFIRMED", "SENT", "VIEWED", "OVERDUE"];
 
 /** `YYYY-MM-DD` → 「2026年7月分」。**対象期間の末日で数える。** */
 function monthLabelOf(periodTo: string): string {
@@ -140,11 +157,24 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     isCreditNote: invoice.isCreditNote,
     cleaningCount: roomCounts.get(invoice.id) ?? 0,
     monthLabel: monthLabelOf(invoice.periodTo),
+    optionLabel: monthLabelOf(invoice.periodTo),
   }));
 
   // **`?invoiceId=` は候補の中にあるものだけを採る。** 見つからなければ
   // 最新へ落とす（別組織の ID は `findInvoiceById()` が 404 にするが、
   // ここで候補に絞っておけば DB へ行かずに済む）。
+  // セレクタの表示名。**同じ対象月が 2 件以上あるときだけ取引先を添える**
+  // （プロトタイプは「2026年7月分」だけ。1 取引先なら同じ見た目になる）。
+  const monthCounts = new Map<string, number>();
+  for (const row of rows) {
+    monthCounts.set(row.monthLabel, (monthCounts.get(row.monthLabel) ?? 0) + 1);
+  }
+  for (const row of rows) {
+    if ((monthCounts.get(row.monthLabel) ?? 0) > 1) {
+      row.optionLabel = `${row.monthLabel} · ${row.counterpartyName}`;
+    }
+  }
+
   const requestedId = new URL(request.url).searchParams.get("invoiceId");
   const selectedRow =
     rows.find((row) => row.id === requestedId) ?? rows[0] ?? null;
@@ -191,6 +221,15 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
       // プロトタイプの「再清掃は無償です」。**固定文にしない** — 0 円の行が
       // 実際にあるときだけ出す（単価は組織の料金設定で決まる）。
       hasFreeLine: lines.some((line) => line.amount === 0),
+      // PDF は Queue が作る（billing.md §7 の⑦）。**まだ無い間は `null`。**
+      pdfUrl:
+        invoice.pdfStorageKey === null
+          ? null
+          : await signObjectUrl(env.SESSION_SECRET, invoice.pdfStorageKey, now),
+      canRecordPayment:
+        can(tenant, "billing.write", ORGANIZATION_TARGET) &&
+        !invoice.isCreditNote &&
+        PAYABLE_STATUSES.includes(invoice.status),
     },
   };
 }
@@ -244,7 +283,7 @@ export default function Billing() {
               >
                 {data.rows.map((row) => (
                   <option key={row.id} value={row.id}>
-                    {`${row.monthLabel} · ${row.counterpartyName}`}
+                    {row.optionLabel}
                   </option>
                 ))}
               </select>
@@ -252,12 +291,19 @@ export default function Billing() {
                 {t("billing.selector.show")}
               </button>
             </Form>
-            <a
-              className="pk-button pk-button--primary"
-              href={`/api/v1/invoices/${selected.row.id}/download`}
-            >
-              {t("billing.pdf.download")}
-            </a>
+            {/* 署名付き URL（15 分）。**PDF がまだ無い間は押せる形にしない。** */}
+            {selected.pdfUrl === null ? (
+              <span className="pk-badge pk-badge--hidden">{t("billing.pdf.pending")}</span>
+            ) : (
+              <a
+                className="pk-button pk-button--primary"
+                href={selected.pdfUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {t("billing.pdf.download")}
+              </a>
+            )}
           </div>
         )}
       </div>
@@ -356,6 +402,18 @@ export default function Billing() {
               ) : null}
               {selected.isQualifiedInvoice ? null : (
                 <div className="pk-panel__foot">{t("billing.notQualified")}</div>
+              )}
+              {/* 入金の記録（＝領収書の発行）は着金を確かめてから。
+                  **一覧の行にボタンを並べない**（隣の行と押し間違える）。 */}
+              {selected.canRecordPayment ? (
+                <div className="pk-panel__foot">
+                  <a href={`/app/billing/${selected.row.id}`}>{t("billing.pay.open")}</a>
+                </div>
+              ) : null}
+              {selected.row.paidDate === null ? null : (
+                <div className="pk-panel__foot">
+                  {`${t("billing.pay.paidOn")} ${selected.row.paidDate}`}
+                </div>
               )}
             </section>
 
@@ -465,7 +523,9 @@ export default function Billing() {
                     </td>
                     <td>{row.paidDate ?? "—"}</td>
                     <td>
-                      <a className="pk-button" href={`/app/billing/${row.id}`}>
+                      {/* **同じ画面の上半分を差し替える。** 別ルートへ飛ばすと
+                          「内訳を見るには画面を移る」形に戻る（DECISIONS #214）。 */}
+                      <a className="pk-button" href={`?invoiceId=${row.id}`}>
                         {t("billing.open")}
                       </a>
                     </td>

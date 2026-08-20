@@ -5049,3 +5049,36 @@
   repositories/invoice.ts（`findInvoiceRoomQuantities()` 追加）・
   schema/invoice.ts（`ROOM_UNIT`）・ja.json・app.css
   （`pk-visually-hidden`）。
+
+## #215 帳票 PDF は署名付き URL を `href` に入れる。API の download は JSON
+
+- 日付: 2026-08-20
+- task: なし（人間の指示「対象月セレクタ＋請求書PDF を実装して」）
+- 文脈: 画面の「請求書PDF」が `/api/v1/invoices/{id}/download` を指していた
+  が、**あの口は `{url, documentNo}` の JSON を返す。** ブラウザで開くと
+  PDF ではなく JSON が出る。さらに `/api/v1/files/:key`（署名付き URL の
+  配布先）は接頭辞で配布対象を絞っており、**`invoices/` /`receipts/` /
+  `payouts/` が許可一覧に無かった。** つまり正しく署名しても 404 で、
+  請求書 PDF はどの経路でも開けなかった。
+- 決定:
+  1. 画面は **loader で `signObjectUrl()` して `href` に直に入れる**
+     （支払明細書 / `payouts.tsx` と同じ形）。API の `download` は
+     外部利用者向けの契約なのでそのまま残す。
+  2. `files.ts` の許可一覧に帳票 3 種の接頭辞を足す。**署名だけを頼りに
+     せず、`{接頭辞}/{組織 ID}/` で自組織のものかを併せて照合する**
+     （第 2 層 / architecture.md §2。証跡 ZIP・日報と同じ扱い）。
+  3. PDF がまだ無い（Queue が生成中 / billing.md §7 の⑦）間は
+     **押せるボタンを出さない。**「PDF を作成中です」と述べる。
+  4. 接頭辞を足す側（`lib/report/*`）と許可する側（`files.ts`）が
+     別ファイルで、片方だけ足しても型が通る。
+     `lib/storage/documentKeys.spec.ts` が対応を検査する。
+- 併せて（同じ画面の仕上げ）:
+  - 対象月セレクタの表示名は「2026年7月分」。**同じ月が 2 件以上ある
+    ときだけ取引先を添える**（1 取引先ならプロトタイプと同じ見た目）。
+  - 履歴の「明細」は `?invoiceId=` で**同じ画面の上半分を差し替える。**
+    別ルートへ飛ばすと「内訳を見るには画面を移る」形に戻る（#214）。
+  - 入金の記録への導線は内訳カードの脚に置く（着金を確かめてから行う
+    操作なので、一覧の行にボタンを並べない）。
+- 影響: files.ts / billing.tsx / billingDetail.tsx / ja.json /
+  documentKeys.spec.ts（新規）。**領収書・支払明細書の PDF も同じ理由で
+  開けなかったので併せて直っている。**
