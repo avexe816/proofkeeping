@@ -1,10 +1,18 @@
 import { fieldStaffCreateSchema, FIELD_STAFF_ROLES } from "@pk/contracts";
+import {
+  countExpiringResidencies,
+  listOrgStaff,
+  listResidencyRecords,
+  listStaffLedger,
+} from "@pk/db";
 import { Form, useActionData, useLoaderData, type ActionFunctionArgs, type LoaderFunctionArgs } from "react-router";
 
-import { assertPermission, propertyTarget } from "../../lib/auth/permission.js";
+import { ORGANIZATION_TARGET, assertPermission, can, propertyTarget } from "../../lib/auth/permission.js";
+import { businessDateOf } from "../../lib/businessDate.js";
 import { t } from "../../lib/i18n.js";
 import { listSelectableProperties } from "../../lib/property/selection.js";
 import { encodeQr, qrPath } from "../../lib/qr/encode.js";
+import { buildStaffLedger, type StaffLedgerPage, type StaffLedgerView } from "../../lib/staff/ledger.js";
 import { registerFieldStaff } from "../../lib/staff/register.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
@@ -62,6 +70,10 @@ interface StaffProperty {
 
 interface StaffData {
   properties: StaffProperty[];
+  /** 台帳（P8-01 / プロトタイプ ops 07）。 */
+  ledger: StaffLedgerPage;
+  /** **在留期限の列を出すか**（INV-08。`ORG_ADMIN` だけ真）。 */
+  canReadResidency: boolean;
 }
 
 type StaffActionResult =
@@ -71,19 +83,52 @@ type StaffActionResult =
 
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<StaffData> {
   const env = getEnv(context);
-  const { tenant } = await requireAppContext(env, request, new Date());
+  const now = new Date();
+  const { tenant } = await requireAppContext(env, request, now);
   // **一覧を出す前に権限を見る。** `CLEANER` / `INSPECTOR` / `AUDITOR` は
   // ここで 404（403 はリソースの存在を示唆する / architecture.md §2）。
   assertPermission(tenant, "user.write", propertyTarget(tenant.allowedPropertyIds));
 
   const properties = await listSelectableProperties(env, tenant);
+
+  // ── 在留期限は読める相手にだけ引く（INV-08）──────────────
+  // **`can()` で分岐したうえで、読めないときは引かない。** 引いてから
+  // 画面で隠す形にすると、loader の戻り値（= HTML に載る JSON）に
+  // 期限が残る。件数の KPI は誰にでも出せる（個人を特定しない）。
+  const canReadResidency = can(tenant, "residency.read", ORGANIZATION_TARGET);
+  const businessDate = businessDateOf(now);
+  const expiryHorizon = addDays(businessDate, 90);
+
+  const [staff, ledgerRows, residency, expiringWithin90Days] = await Promise.all([
+    listOrgStaff(env, tenant),
+    listStaffLedger(env, tenant),
+    canReadResidency ? listResidencyRecords(env, tenant) : Promise.resolve([]),
+    countExpiringResidencies(env, tenant, expiryHorizon),
+  ]);
+
   return {
     properties: properties.map((property) => ({
       id: property.id,
       code: property.code,
       name: property.name,
     })),
+    ledger: buildStaffLedger({
+      staff,
+      ledger: ledgerRows,
+      residency,
+      businessDate,
+      expiringWithin90Days,
+    }),
+    canReadResidency,
   };
+}
+
+/** `YYYY-MM-DD` に日を足す。**業務日の文字列のまま扱う**（architecture.md §7）。 */
+function addDays(businessDate: string, days: number): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(businessDate);
+  if (match === null) return businessDate;
+  const at = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days);
+  return new Date(at).toISOString().slice(0, 10);
 }
 
 function fieldOf(form: FormData, name: string): string {
@@ -169,6 +214,117 @@ function LoginCardSheet({ card }: { card: LoginCard }) {
   );
 }
 
+/**
+ * 在留期限のセル（プロトタイプ ops 07）。
+ *
+ * **90 日以内はオレンジ。赤にしない。** 急かす色を人の在籍に当てない
+ * （ui-writing.md §3 が経過時間で赤を禁じているのと同じ理由）。
+ * 期限切れだけは `--danger`（法令の問題であって、催促ではない）。
+ */
+function ExpiryCell({ row }: { row: StaffLedgerView }) {
+  if (row.expiresOn === null) return <td className="pk-muted">—</td>;
+
+  const days = row.daysUntilExpiry;
+  const modifier =
+    days === null ? "" : days < 0 ? " pk-expiry--over" : days <= 90 ? " pk-expiry--near" : "";
+  return <td className={`pk-expiry${modifier}`}>{row.expiresOn}</td>;
+}
+
+/** 在籍年数の表示。**未入力を「0 年目」にしない**（`buildStaffLedger()` の注記）。 */
+function experienceOf(row: StaffLedgerView): string {
+  if (row.months === null) return "—";
+  return row.years !== null && row.years > 0
+    ? `${String(row.years)}${t("staff.roster.years")}`
+    : `${String(row.months)}${t("staff.roster.months")}`;
+}
+
+/**
+ * スタッフ一覧と言語の構成（P8-01 / プロトタイプ ops 07）。
+ *
+ * ── 個人の実績を出さない ────────────────────────────────
+ * security.md §5 / CLAUDE.md §4。**完了件数・平均時間・順位の列を
+ * 足さないこと。** 出すのは在籍の事実だけ。
+ */
+function StaffRoster({
+  ledger,
+  canReadResidency,
+}: {
+  ledger: StaffLedgerPage;
+  canReadResidency: boolean;
+}) {
+  return (
+    <>
+      <ul className="pk-board__counts">
+        <li>{`${t("staff.kpi.registered")} ${String(ledger.summary.registered)}`}</li>
+        <li>{`${t("staff.kpi.active")} ${String(ledger.summary.active)}`}</li>
+        <li>{`${t("staff.kpi.training")} ${String(ledger.summary.training)}`}</li>
+        {/* **件数だけは誰にでも出す**（INV-08 / 仕様 §1.4 の「件数のみ」）。 */}
+        <li>{`${t("staff.kpi.expiring")} ${String(ledger.summary.expiringWithin90Days)}`}</li>
+      </ul>
+
+      {ledger.rows.length === 0 ? (
+        <p className="pk-muted">{t("staff.roster.empty")}</p>
+      ) : (
+        <table className="pk-grid">
+          <thead>
+            <tr>
+              <th>{t("staff.roster.name")}</th>
+              <th>{t("staff.roster.staffNumber")}</th>
+              <th>{t("staff.roster.languages")}</th>
+              <th>{t("staff.roster.experience")}</th>
+              {canReadResidency ? <th>{t("staff.roster.expiresOn")}</th> : null}
+              <th>{t("staff.roster.status")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ledger.rows.map((row) => (
+              <tr key={row.membershipId}>
+                <th scope="row">{row.displayName}</th>
+                <td>{row.staffNumber ?? "—"}</td>
+                <td>{row.languages.map((code) => t(languageKey(code))).join(" · ")}</td>
+                <td>{experienceOf(row)}</td>
+                {canReadResidency ? <ExpiryCell row={row} /> : null}
+                <td>{t(`staff.status.${row.workStatus}` as Parameters<typeof t>[0])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {/* 在留資格の免責（PK-SPEC-P8 §1.4 MUST / **編集不可**）。
+          列を出しているときだけ出す。**この文言を短くしないこと。** */}
+      {canReadResidency ? <p className="pk-notice">{t("staff.residency.disclaimer")}</p> : null}
+
+      {/* 言語の構成（プロトタイプ ops 07 の「🌐 言語の構成」）。
+          **1 人が複数の言語を持つので、合計は人数と一致しない。** */}
+      {ledger.languages.length === 0 ? null : (
+        <>
+          <h2 className="pk-section__title">{t("staff.languages.title")}</h2>
+          <table className="pk-grid">
+            <tbody>
+              {ledger.languages.map((row) => (
+                <tr key={row.language}>
+                  <th scope="row">{t(languageKey(row.language))}</th>
+                  <td>{`${String(row.count)}${t("staff.languages.unit")}`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="pk-muted">{t("staff.languages.note")}</p>
+        </>
+      )}
+    </>
+  );
+}
+
+/** 言語コード → 辞書のキー。**知らないコードは素のまま出さない。** */
+function languageKey(code: string): Parameters<typeof t>[0] {
+  const known = ["ja", "en", "zh-CN", "vi", "id", "my", "ne"];
+  return (
+    known.includes(code) ? `staff.language.${code}` : "staff.language.other"
+  ) as Parameters<typeof t>[0];
+}
+
 export default function Staff() {
   const data = useLoaderData<StaffData>();
   const result = useActionData<StaffActionResult>();
@@ -185,8 +341,12 @@ export default function Staff() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("staff.title")}</h1>
+      <div className="pk-pagehead">
+        <h1 className="pk-pagehead__title">{t("staff.title")}</h1>
+      </div>
       <p className="pk-page__lede">{t("staff.lede")}</p>
+
+      <StaffRoster ledger={data.ledger} canReadResidency={data.canReadResidency} />
 
       {card === null ? null : (
         <div className="pk-print">

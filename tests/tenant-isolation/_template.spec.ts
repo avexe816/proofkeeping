@@ -139,6 +139,10 @@ const TENANT_TABLES = [
   "pay_rule",
   "payout_period",
   "payout_line",
+  // P8-02。在留資格（PK-SPEC-P8 §1.4 / INV-08）。**他組織の行が混ざれば、
+  // 他社スタッフの在留期限が自社の画面に載る。** 読める相手を絞る
+  // （`residency.read` は `ORG_ADMIN` のみ）のとは別に効く防御。
+  "residency_record",
 ] as const;
 
 /**

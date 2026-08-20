@@ -168,6 +168,10 @@ export const ENTITY_PREFIXES = [
   "payr", // payRule
   "pout", // payoutPeriod
   "poln", // payoutLine
+  // P8-02 が決めたもの。在留資格（PK-SPEC-P8 §1.4）。
+  // **台帳（`staffProfile`）の接頭辞は増やしていない。** 台帳は
+  // `staff_pay_profile` に列を足す形にしたため（DECISIONS #223）。
+  "resd", // residencyRecord
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

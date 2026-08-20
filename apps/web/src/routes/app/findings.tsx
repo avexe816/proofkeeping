@@ -4,7 +4,7 @@
  *   /app/audit/findings
  *
  * task:  docs/tasks/P4-06.md（2026-08-19 数字を拡張 / 2026-08-20 見た目を
- *        プロトタイプ 04 に揃える — 人間の指示 / DECISIONS #218）
+ *        プロトタイプ 04 に揃える — 人間の指示 / DECISIONS #224）
  * ルール: .claude/rules/security.md §1 / .claude/rules/ui-writing.md §2
  * 参照:  ui-prototypes/owner/pkown-v3-B-findings-records.html（04 稼働の差異）
  *

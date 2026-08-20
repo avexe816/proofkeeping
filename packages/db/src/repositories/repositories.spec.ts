@@ -58,9 +58,11 @@ import * as organizationRepo from "./organization.js";
 import * as propertyRepo from "./property.js";
 import * as rollupRepo from "./rollup.js";
 import * as roomRepo from "./room.js";
+import * as residencyRepo from "./residency.js";
 import * as roomPlanRepo from "./roomPlan.js";
 import * as standardTimeRepo from "./standardTime.js";
 import * as taskPhotoRepo from "./taskPhoto.js";
+import * as staffLedgerRepo from "./staffLedger.js";
 import * as userRepo from "./user.js";
 
 /** 検証対象のリポジトリモジュール。**新しいファイルを足したらここに追加する。** */
@@ -121,6 +123,12 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   room: roomRepo,
   roomPlan: roomPlanRepo,
   standardTime: standardTimeRepo,
+  // P8-01 が登録したスタッフ台帳（PK-SPEC-P8 §1.3）。
+  // **単価を返す関数が無い**（`payRule` は別の門 / DECISIONS #221）。
+  staffLedger: staffLedgerRepo,
+  // P8-02 が登録した在留資格（同 §1.4 / INV-08）。
+  // **件数だけを返す口を分けてある**（`PROPERTY_MANAGER` には件数のみ）。
+  residency: residencyRepo,
   user: userRepo,
 };
 
@@ -184,6 +192,8 @@ const OWN_ID = {
   integration: generateId(TEST_ORG.orgShortId, "intg"),
   syncLog: generateId(TEST_ORG.orgShortId, "slog"),
   externalMapping: generateId(TEST_ORG.orgShortId, "xmap"),
+  // P8-01 / P8-02。台帳は `staff_pay_profile`（`sppf`）を指す。
+  staffProfile: generateId(TEST_ORG.orgShortId, "sppf"),
 } as const;
 
 /** ハッシュの中身は問わない検証で使う値。実在のパスワードから作ったものではない。 */
@@ -266,6 +276,7 @@ const OTHER_ID = {
   integration: generateId(OTHER_ORG.orgShortId, "intg"),
   syncLog: generateId(OTHER_ORG.orgShortId, "slog"),
   externalMapping: generateId(OTHER_ORG.orgShortId, "xmap"),
+  staffProfile: generateId(OTHER_ORG.orgShortId, "sppf"),
 } as const;
 
 /**
@@ -3339,6 +3350,79 @@ const INVOCATIONS: Invocation[] = [
           deviceId: "LOCK-302",
         },
       ]),
+  },
+  {
+    // P8-01。組織のスタッフ一覧。**認証情報を含めない**（列を明示している）。
+    name: "user.listOrgStaff",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.listOrgStaff(env, ctx),
+  },
+  // ── P8-01 スタッフ台帳（PK-SPEC-P8 §1.3）──────────────────
+  {
+    name: "staffLedger.listStaffLedger",
+    kind: "tenant",
+    run: (env, ctx) => staffLedgerRepo.listStaffLedger(env, ctx),
+  },
+  {
+    name: "staffLedger.updateStaffLedger",
+    kind: "tenant",
+    run: (env, ctx) =>
+      staffLedgerRepo.updateStaffLedger(env, ctx, {
+        membershipId: OWN_ID.membership,
+        workStatus: "TRAINING",
+        languages: ["ja", "vi"],
+      }),
+    // membership は自己記述 ID。別組織のスタッフを書き換えられてはならない。
+    crossTenant: (env, ctx) =>
+      staffLedgerRepo.updateStaffLedger(env, ctx, {
+        membershipId: OTHER_ID.membership,
+        workStatus: "RESIGNED",
+      }),
+  },
+  // ── P8-02 在留資格（同 §1.4 / INV-08）───────────────────
+  {
+    name: "residency.listResidencyRecords",
+    kind: "tenant",
+    run: (env, ctx) => residencyRepo.listResidencyRecords(env, ctx),
+  },
+  {
+    name: "residency.countExpiringResidencies",
+    kind: "tenant",
+    run: (env, ctx) => residencyRepo.countExpiringResidencies(env, ctx, "2026-11-18"),
+  },
+  {
+    name: "residency.listExpiredResidencyStaffIds",
+    kind: "tenant",
+    run: (env, ctx) => residencyRepo.listExpiredResidencyStaffIds(env, ctx, "2026-08-20"),
+  },
+  {
+    name: "residency.upsertResidencyRecord",
+    kind: "tenant",
+    run: (env, ctx) =>
+      residencyRepo.upsertResidencyRecord(env, ctx, {
+        staffProfileId: OWN_ID.staffProfile,
+        statusType: "SPECIFIED_SKILLED_1",
+        statusLabel: null,
+        expiresOn: "2026-11-30",
+        renewalAppliedOn: null,
+        workPermitRequired: false,
+        weeklyHourLimit: null,
+        note: null,
+        updatedById: OWN_ID.membership,
+      }),
+    // 対象のスタッフも、更新者も、別組織の ID を受け付けてはならない。
+    crossTenant: (env, ctx) =>
+      residencyRepo.upsertResidencyRecord(env, ctx, {
+        staffProfileId: OTHER_ID.staffProfile,
+        statusType: "SPECIFIED_SKILLED_1",
+        statusLabel: null,
+        expiresOn: "2026-11-30",
+        renewalAppliedOn: null,
+        workPermitRequired: false,
+        weeklyHourLimit: null,
+        note: null,
+        updatedById: OWN_ID.membership,
+      }),
   },
 ];
 

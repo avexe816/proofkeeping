@@ -46,11 +46,68 @@
 
   --sh: 0 1px 3px rgb(20 30 25 / 6%);
 
+  /* 棒グラフの棒。プロトタイプは明色で `--brand`、`.dark` で `--ok` に
+     差し替える（濃色の面にブランド緑を置くと棒が沈む）。**部品側では
+     分岐させない** — ダークモードはトークンの差し替え 1 か所で効く。 */
+  --chartBar: var(--brand);
+
   /* A01 §1.1 の寸法。**sidebarWidth と brandWidth は同じ値であること**（縦ラインを通す）。 */
   --topbarHeight: 58px;
   --sidebarWidth: 214px;
   --brandWidth: 214px;
   --sidebarWidthCollapsed: 56px;
+}
+
+/*
+ * ダークモード（プロトタイプの `.dark` トークン）。
+ *
+ * ── 切り替えボタンを作らない ────────────────────────────
+ * プロトタイプの `🌙 ダーク` ボタンは `.dc`（デモ用の外枠）にあり、
+ * **製品の画面の中には無い。** A01 §3.3 のユーザーメニュー 5 項目にも
+ * 入っていない。設定を 1 つ増やして保存先（セッション or ユーザー属性）
+ * を決めるより、**端末の設定に従うだけ**にするほうが簡素で、
+ * 共用端末でも取り違えが起きない（ui-writing.md §1 が言語で同じ判断を
+ * 避けているのは「端末の言語 ≠ 使う人の言語」だからで、明るさは逆に
+ * 端末＝その場の環境そのもの）。
+ *
+ * ── 上書きするのは面と文字と状態色だけ ──────────────────
+ * `--brand` 系と `--accent` 系はプロトタイプの `.dark` も触っていない。
+ * topbar とサイドバーは元から濃色なので、暗くしても同じ見え方になる。
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    /* 面 */
+    --bg: #0d1512;
+    --surf: #141f1b;
+    --surf2: #18251f;
+    --surf3: #1e2b25;
+    --line: #283730;
+    --line2: #22302a;
+
+    /* 文字 */
+    --ink: #e7ece8;
+    --ink2: #b2beb8;
+    --muted: #7c8a84;
+
+    /* 状態 */
+    --ok: #5bc192;
+    --okbg: #14372a;
+    --warn: #e29556;
+    --warnbg: #3b2515;
+    --info: #7fa3dc;
+    --infobg: #18253c;
+    --danger: #d98b80;
+    --dangerbg: #381c19;
+    --dirty: #98a19a;
+    --dirtybg: #212a25;
+
+    --sh: 0 1px 3px rgb(0 0 0 / 30%);
+
+    /* 棒は面から浮く色へ（プロトタイプの `.dark .hb .c i`）。 */
+    --chartBar: var(--ok);
+  }
 }
 
 /* レール表示（A01 §4.4 / P7-21）。**2 つの幅を同時に切り替える**ことで
@@ -155,6 +212,62 @@ body {
   gap: 10px;
   align-items: center;
   margin-left: auto;
+}
+
+/* ── 在留期限のセル（P8-01 / プロトタイプ ops 07）────────
+
+   **90 日以内はオレンジ。赤にしない。** 急かす色を人の在籍に当てない
+   （ui-writing.md §3 が経過時間の赤を禁じているのと同じ理由）。
+   期限切れだけ `--danger` にするのは、法令の問題であって催促ではない。 */
+
+.pk-expiry {
+  font-variant-numeric: tabular-nums;
+}
+
+.pk-expiry--near {
+  color: var(--warn);
+  font-weight: 700;
+}
+
+.pk-expiry--over {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* ── 通知の鈴（A01 §3.1 / §3.2 / プロトタイプ `.bell`）──── */
+
+.pk-bell {
+  position: relative;
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  font-size: 17px;
+  text-decoration: none;
+}
+
+.pk-bell:hover {
+  background: rgb(255 255 255 / 11%);
+}
+
+/* 金の丸に件数。**0 件のときは要素ごと出さない**（描画側が出し分ける）。 */
+.pk-bell__badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: flex;
+  min-width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #241806;
+  font-size: 9px;
+  font-weight: 800;
 }
 
 /* ── 施設セレクタ ─────────────────────────────────────── */
@@ -784,8 +897,8 @@ a.pk-nav:hover {
 }
 
 .pk-board__swatch--IN_PROGRESS {
-  background: #f6efdf;
-  border: 1px solid var(--accent);
+  background: var(--warnbg);
+  border: 1px solid var(--warn);
 }
 
 .pk-board__swatch--DIRTY {
@@ -881,9 +994,12 @@ a.pk-nav:hover {
   border-color: var(--ok);
 }
 
+/* 清掃中はプロトタイプの `.rm.run` と同じ `--warn` 系（owner 03）。
+   **クリーム色をベタ書きしない。** トークンから外れた 1 色は
+   ダークモードでそこだけ明るいまま残る。 */
 .pk-room--IN_PROGRESS {
-  background: #f6efdf;
-  border-color: var(--accent);
+  background: var(--warnbg);
+  border-color: var(--warn);
 }
 
 .pk-room--DIRTY {
@@ -2453,7 +2569,7 @@ a.pk-nav:hover {
 }
 
 /* ──────────────────────────────────────────────────────────
-   稼働の差異 04（プロトタイプ owner B / DECISIONS #218）
+   稼働の差異 04（プロトタイプ owner B / DECISIONS #224）
 
    プロトタイプ `pkown-v3-B-findings-records.html` の 04 をそのまま写す。
    足りていなかったのは**部品**（免責の枠・タグ・見出しのアイコン・
@@ -2610,7 +2726,7 @@ a.pk-nav:hover {
 
 /* 棒の色をプロトタイプ（`.hb`）に合わせる。対象月だけ金にする。 */
 .pk-bars__bar {
-  background: var(--brand);
+  background: var(--chartBar);
   border: 0;
   border-radius: 3px 3px 0 0;
 }
@@ -2637,4 +2753,28 @@ a.pk-nav:hover {
 
 .pk-barsnote b {
   color: var(--ink);
+}
+
+/* ──────────────────────────────────────────────────────────
+   見出しの右端に置く操作（A01 §3.2 / DECISIONS #218）
+
+   絞り込みを本文の帯ではなく pagehead に置く画面（客室ボードなど）で、
+   セレクタとボタンの高さを揃える。**`.pk-select` の既定より少し大きい** —
+   見出しの行に載るので、詰まって見えないだけの余白を持たせる。
+   ────────────────────────────────────────────────────────── */
+
+.pk-pagehead__actions .pk-select,
+.pk-pagehead__actions .pk-input {
+  min-height: 36px;
+  padding: 8px 11px;
+  font-size: 13px;
+}
+
+.pk-pagehead__actions .pk-button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 14px;
+  white-space: nowrap;
 }
