@@ -25,7 +25,10 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { MODULE_CODES } from "@pk/db";
+
 import { SESSION_COOKIE_NAME } from "../auth/cookie.js";
+import { ja } from "../../locales/index.js";
 
 import { PLATFORM_SESSION_COOKIE_NAME, readPlatformSessionCookie } from "./session.js";
 
@@ -130,5 +133,42 @@ describe("運営面とテナント面の分離（#220）", () => {
     // `pk_session` しか無い Cookie ヘッダ → 運営面では未ログイン（= 404）。
     expect(readPlatformSessionCookie(`${SESSION_COOKIE_NAME}=abc.def`)).toBeNull();
     expect(readPlatformSessionCookie(null)).toBeNull();
+  });
+});
+
+describe("プランで言語と保存期間を差別化しない（PF-04 完了条件）", () => {
+  it("`MODULE_CODES` に言語・保持期間のモジュールが無い", () => {
+    // 契約で機能を出し分ける単位はこの 6 つだけ。
+    // **言語（多言語対応）と記録の保存期間はここに無い。** 足した瞬間、
+    // 「清掃員が使う機能を課金で差別化しない」が崩れる。
+    expect([...MODULE_CODES]).toEqual([
+      "PLATFORM",
+      "HOUSEKEEPING_CORE",
+      "AUDIT",
+      "BILLING",
+      "VENDOR_PLAN",
+      "INTEGRATION",
+    ]);
+    for (const code of MODULE_CODES) {
+      for (const forbidden of ["LOCALE", "LANG", "RETENTION", "ARCHIVE_MONTHS"]) {
+        expect(code).not.toContain(forbidden);
+      }
+    }
+  });
+
+  it("逐語の注記が入っている（PF-04「逐語で置く注記」）", () => {
+    expect(ja["plat.tenants.note.plan"]).toBe(
+      "プランによって機能は制限しますが、記録の保存期間と多言語対応は制限しません。清掃員が使う機能を課金で差別化しないためです。",
+    );
+  });
+});
+
+describe("テナントのデータへ入る導線を作らない（PF-04 やらないこと）", () => {
+  it("テナント一覧に `/app/*` へのリンクが無い", () => {
+    const tenants = PLATFORM_SOURCES.find((entry) => entry.path.endsWith("tenants.tsx"));
+    expect(tenants).toBeDefined();
+    // 「詳細」からテナントの画面へ入る形にしない（INV-10 / PF-13 を通す）。
+    expect(tenants?.code).not.toContain('to="/app');
+    expect(tenants?.code).not.toContain('href="/app');
   });
 });

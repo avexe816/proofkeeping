@@ -664,6 +664,7 @@ export {
   createPlatformOperator,
   findPlatformOperatorByEmail,
   findPlatformOperatorById,
+  findLatestSnapshotDate,
   listTenantSnapshots,
   readPlatformOperationSettings,
   recordPlatformAudit,
