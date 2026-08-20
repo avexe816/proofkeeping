@@ -9,6 +9,7 @@ import {
 import { Outlet, useLoaderData, type LoaderFunctionArgs } from "react-router";
 
 import { businessDateOf } from "../../lib/businessDate.js";
+import { countNotificationBadge } from "../../lib/notification/badge.js";
 import {
   hasOrgWideView,
   listSelectableProperties,
@@ -59,6 +60,8 @@ export interface ShellData {
   summaries: readonly PropertySummary[];
   navigation: readonly VisibleNavSection[];
   enabledModules: readonly ModuleCode[];
+  /** 通知バッジの件数（A01 §3.2）。**鈴を出さない相手には `null`。** */
+  notificationCount: number | null;
   /** サイドバーをレールに畳んでいるか（A01 §4.4 / P7-21）。 */
   sidebarCollapsed: boolean;
 }
@@ -113,6 +116,13 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
 
   const user = await findUserById(env, tenant, session.userId);
 
+  // 通知の鈴（A01 §3.2）。**サイドバーの「稼働の差異」と同じ門**にする。
+  // 契約に AUDIT が無い組織では差異そのものが出ないので鈴も出さない
+  // （項目だけ残ると「押しても何も無い」入口になる）。
+  const notificationCount = enabledModules.includes("AUDIT")
+    ? await countNotificationBadge(env, tenant, selectedPropertyId)
+    : null;
+
   return {
     // `findUserById()` はテナントスコープで引くので、ここで見つからないのは
     // 所属だけ残ってユーザーが消えた状態。名前を出さずに画面は開く。
@@ -128,6 +138,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     summaries,
     navigation: buildNavigation(tenant, { selectedPropertyId: navPropertyId, enabledModules }),
     enabledModules,
+    notificationCount,
     sidebarCollapsed: session.sidebarCollapsed === true,
   };
 }
@@ -148,6 +159,7 @@ export default function AppShell() {
         isOrgScope={data.isOrgScope}
         canViewOrgWide={data.canViewOrgWide}
         summaries={data.summaries}
+        notificationCount={data.notificationCount}
       />
       <div className="pk-shell__body">
         <Sidebar

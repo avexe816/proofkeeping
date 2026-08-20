@@ -115,6 +115,7 @@
   "property.summary.openFindings": "要確認",
   "property.summary.unavailable": "集計はまだありません",
   "property.manage": "施設を追加・編集する",
+  "notification.bell.label": "要確認項目のお知らせ",
   "user.menu": "アカウント",
   "user.logout": "ログアウト",
   "user.language": "表示言語",
