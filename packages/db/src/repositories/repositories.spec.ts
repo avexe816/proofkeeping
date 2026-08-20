@@ -2042,6 +2042,16 @@ const INVOCATIONS: Invocation[] = [
       }),
   },
   {
+    name: "observation.summarizeObservationInput",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.summarizeObservationInput(env, ctx, "2026-09-01"),
+  },
+  {
+    name: "observation.countSkippedObservations",
+    kind: "tenant",
+    run: (env, ctx) => observationRepo.countSkippedObservations(env, ctx, "2026-09-01"),
+  },
+  {
     name: "observation.upsertObservation",
     kind: "tenant",
     run: (env, ctx) => observationRepo.upsertObservation(env, ctx, OBSERVATION_INPUT(OWN_ID)),

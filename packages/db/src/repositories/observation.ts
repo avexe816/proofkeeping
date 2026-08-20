@@ -758,3 +758,82 @@ function markTaskObserved(
     })
     .where(and(eq(cleaningTask.organizationId, ctx.organizationId), eq(cleaningTask.id, taskId)));
 }
+
+/** `summarizeObservationInput()` の結果（PF-02 のスナップショット）。 */
+export interface ObservationInputSummary {
+  /** 観察記録が入ったタスク数（完備率の分子）。 */
+  recorded: number;
+  /** そのうち既定値のまま確定した数。 */
+  usedDefaults: number;
+  /** 計測のある `inputDurationMs`。**中央値の計算は呼び出し側**（純粋関数）。 */
+  durationsMs: number[];
+}
+
+/**
+ * ある業務日の入力品質を数える（PF-02 / PK-SPEC-P3 §4.1）。
+ *
+ * ── 個人を返さない ──────────────────────────────────────
+ * `recordedById` を選ばない。運営面へ渡る値なので、**誰が速かったかを
+ * 出せる形にしない**（security.md §5 / INV-07 / INV-10）。
+ *
+ * ── 中央値をここで出さない ──────────────────────────────
+ * SQLite に中央値の集約関数が無く、SQL で書くと窓関数の入れ子になる。
+ * **計測値の配列を返し、中央値は `medianDurationMs()`（純粋関数）に任せる。**
+ * 1 テナント 1 日ぶんなので件数はたかが知れており、Queue コンシューマの
+ * 中で回す（CPU 50ms の制限はリクエストハンドラの話）。
+ */
+export async function summarizeObservationInput(
+  env: Env,
+  ctx: TenantContext,
+  businessDate: string,
+): Promise<ObservationInputSummary> {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({
+      usedDefaults: roomObservation.usedDefaults,
+      inputDurationMs: roomObservation.inputDurationMs,
+    })
+    .from(roomObservation)
+    .where(
+      withTenantScope(
+        roomObservation,
+        ctx,
+        roomObservation.propertyId,
+        eq(roomObservation.businessDate, businessDate),
+      ),
+    );
+
+  const durationsMs: number[] = [];
+  let usedDefaults = 0;
+  for (const row of rows) {
+    if (row.usedDefaults) usedDefaults += 1;
+    if (row.inputDurationMs !== null) durationsMs.push(row.inputDurationMs);
+  }
+  return { recorded: rows.length, usedDefaults, durationsMs };
+}
+
+/**
+ * 「今回は記録しない」を選んだタスク数（ui-writing.md §4 / PF-02）。
+ *
+ * **理由は持っていない**（`skipObservation()` が受け取らない）。数だけ。
+ */
+export async function countSkippedObservations(
+  env: Env,
+  ctx: TenantContext,
+  businessDate: string,
+): Promise<number> {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({ value: sql<number>`count(*)` })
+    .from(cleaningTask)
+    .where(
+      withTenantScope(
+        cleaningTask,
+        ctx,
+        cleaningTask.propertyId,
+        eq(cleaningTask.businessDate, businessDate),
+        eq(cleaningTask.observationSkipped, true),
+      ),
+    );
+  return rows[0]?.value ?? 0;
+}

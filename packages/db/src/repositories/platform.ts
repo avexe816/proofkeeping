@@ -29,7 +29,9 @@ import type { Env } from "../env.js";
 import { getPlatformDb } from "../router.js";
 import {
   platformAuditLog,
+  platformOperationSetting,
   platformOperator,
+  platformTenantSnapshot,
   type PlatformOperatorStatus,
 } from "../schema/platform.js";
 
@@ -211,4 +213,173 @@ export async function createPlatformOperator(
       updatedAt: input.now,
     })
     .onConflictDoNothing();
+}
+
+/**
+ * 運用設定の 1 行の `id`（PF-14 / `platform_operation_setting`）。
+ *
+ * **1 行しか持たない表**なので固定値で引く（schema/platform.ts の注記）。
+ */
+export const PLATFORM_SETTING_ID = "plat_setting_singleton";
+
+/** 運用（変更可）の 5 項目。**PF-14 の表と 1 対 1。増やさない。** */
+export interface PlatformOperationSettings {
+  inputDurationFloorSeconds: number;
+  defaultRateThresholdPercent: number;
+  photoRetentionDays: number;
+  roomsPerStaffLimit: number;
+  maintenanceStartJst: string;
+  maintenanceEndJst: string;
+}
+
+/**
+ * 既定値。**ここが唯一の出どころ。**
+ *
+ * 表の `default()` と同じ値を持たせてあるのは、**行がまだ無いとき**に
+ * 読み手が同じ値を得るため（SQLite の既定値は INSERT のときしか効かない）。
+ * 値は PF-14 の表（既定 10 秒 / 70% / 90 日 / 16 室 / 03:00〜04:00）。
+ */
+export const PLATFORM_OPERATION_DEFAULTS: PlatformOperationSettings = {
+  inputDurationFloorSeconds: 10,
+  defaultRateThresholdPercent: 70,
+  photoRetentionDays: 90,
+  roomsPerStaffLimit: 16,
+  maintenanceStartJst: "03:00",
+  maintenanceEndJst: "04:00",
+};
+
+/**
+ * 運用設定を読む。**行が無ければ既定値。**
+ *
+ * 読み手（PF-02 / PF-05）が「未設定」を意識しなくてよい形にする。
+ * **書き込みの関数はここに無い** — 変更は申請と承認 2 名を通る
+ * （PF-14 の担当）。
+ */
+export async function readPlatformOperationSettings(
+  env: Env,
+): Promise<PlatformOperationSettings> {
+  const rows = await getPlatformDb(env)
+    .select({
+      inputDurationFloorSeconds: platformOperationSetting.inputDurationFloorSeconds,
+      defaultRateThresholdPercent: platformOperationSetting.defaultRateThresholdPercent,
+      photoRetentionDays: platformOperationSetting.photoRetentionDays,
+      roomsPerStaffLimit: platformOperationSetting.roomsPerStaffLimit,
+      maintenanceStartJst: platformOperationSetting.maintenanceStartJst,
+      maintenanceEndJst: platformOperationSetting.maintenanceEndJst,
+    })
+    .from(platformOperationSetting)
+    .where(eq(platformOperationSetting.id, PLATFORM_SETTING_ID))
+    .limit(1);
+  return rows[0] ?? PLATFORM_OPERATION_DEFAULTS;
+}
+
+/** スナップショット 1 行ぶんの値（PF-02）。**割合と判定を含めない。** */
+export interface TenantSnapshotInput {
+  organizationId: string;
+  businessDate: string;
+  name: string;
+  plan: string | null;
+  subscriptionStatus: string | null;
+  contractedOn: string | null;
+  trialEndsOn: string | null;
+  propertyCount: number;
+  roomCount: number;
+  billableRoomCount: number;
+  staffCount: number;
+  completedTasks: number;
+  observationsRecorded: number;
+  observationsSkipped: number;
+  observationsUsedDefaults: number;
+  inputDurationMedianMs: number | null;
+  now: Date;
+}
+
+/**
+ * スナップショットを 1 行書く（PF-02）。**再計算方式の UPSERT。**
+ *
+ * 差分を足さない。数え直した値でそのまま上書きする（architecture.md §3）。
+ * **3 回流しても結果が変わらない**（testing.md §4）。`id` は組織と業務日から
+ * 決まる形にしてあるので、衝突時に別 ID の行が増えることもない。
+ */
+export async function upsertTenantSnapshot(
+  env: Env,
+  input: TenantSnapshotInput,
+): Promise<void> {
+  const values = {
+    organizationId: input.organizationId,
+    businessDate: input.businessDate,
+    name: input.name,
+    plan: input.plan,
+    subscriptionStatus: input.subscriptionStatus,
+    contractedOn: input.contractedOn,
+    trialEndsOn: input.trialEndsOn,
+    propertyCount: input.propertyCount,
+    roomCount: input.roomCount,
+    billableRoomCount: input.billableRoomCount,
+    staffCount: input.staffCount,
+    completedTasks: input.completedTasks,
+    observationsRecorded: input.observationsRecorded,
+    observationsSkipped: input.observationsSkipped,
+    observationsUsedDefaults: input.observationsUsedDefaults,
+    inputDurationMedianMs: input.inputDurationMedianMs,
+    updatedAt: input.now,
+  };
+
+  await getPlatformDb(env)
+    .insert(platformTenantSnapshot)
+    .values({ id: tenantSnapshotId(input.organizationId, input.businessDate), ...values })
+    .onConflictDoUpdate({
+      target: [platformTenantSnapshot.organizationId, platformTenantSnapshot.businessDate],
+      set: values,
+    });
+}
+
+/**
+ * スナップショットの `id`。**組織と業務日から決まる。**
+ *
+ * ランダムにすると、一意制約で弾かれた 2 回目が「別 ID の行を作ろうとして
+ * 落ちた」のか「同じ行を更新した」のか読めなくなる（シードの ID を
+ * 決定的にしてあるのと同じ理由）。
+ */
+function tenantSnapshotId(organizationId: string, businessDate: string): string {
+  return `plat_snap_${organizationId}_${businessDate}`;
+}
+
+/** スナップショット 1 行（読み出し）。書き込みの `now` が `updatedAt` になる。 */
+export type TenantSnapshotRow = Omit<TenantSnapshotInput, "now"> & { updatedAt: Date };
+
+/**
+ * ある業務日のスナップショットを全テナントぶん読む（PF-04 / PF-05 が使う）。
+ *
+ * **これはテナント横断の読み出しだが、`getTenantDb()` を通っていない。**
+ * 読んでいるのは SHARD_00 の運営面の表だけで、テナントの表には触れない
+ * （#220 の 2 — 横断はスナップショット経由でだけ成立する）。
+ */
+export async function listTenantSnapshots(
+  env: Env,
+  businessDate: string,
+): Promise<TenantSnapshotRow[]> {
+  return getPlatformDb(env)
+    .select({
+      organizationId: platformTenantSnapshot.organizationId,
+      businessDate: platformTenantSnapshot.businessDate,
+      name: platformTenantSnapshot.name,
+      plan: platformTenantSnapshot.plan,
+      subscriptionStatus: platformTenantSnapshot.subscriptionStatus,
+      contractedOn: platformTenantSnapshot.contractedOn,
+      trialEndsOn: platformTenantSnapshot.trialEndsOn,
+      propertyCount: platformTenantSnapshot.propertyCount,
+      roomCount: platformTenantSnapshot.roomCount,
+      billableRoomCount: platformTenantSnapshot.billableRoomCount,
+      staffCount: platformTenantSnapshot.staffCount,
+      completedTasks: platformTenantSnapshot.completedTasks,
+      observationsRecorded: platformTenantSnapshot.observationsRecorded,
+      observationsSkipped: platformTenantSnapshot.observationsSkipped,
+      observationsUsedDefaults: platformTenantSnapshot.observationsUsedDefaults,
+      inputDurationMedianMs: platformTenantSnapshot.inputDurationMedianMs,
+      updatedAt: platformTenantSnapshot.updatedAt,
+    })
+    .from(platformTenantSnapshot)
+    .where(eq(platformTenantSnapshot.businessDate, businessDate))
+    .orderBy(platformTenantSnapshot.name);
 }

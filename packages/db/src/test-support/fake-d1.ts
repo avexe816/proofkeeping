@@ -20,6 +20,8 @@
  * `raw()`（配列の配列）を通る。記録は `bind()` の時点で行う。
  */
 
+import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core";
+
 import type { Env } from "../env.js";
 import type { ShardContext, TenantContext } from "../router.js";
 import type { Role } from "../schema/user.js";
@@ -163,4 +165,18 @@ export function tenantContext(overrides: Partial<TenantContext> = {}): TenantCon
     now: TEST_NOW,
   };
   return { ...base, ...overrides };
+}
+
+/**
+ * 表の列順どおりの 1 行を作る（`select()` の結果の代役）。
+ *
+ * `select()`（全列）は表の定義順で返るので、**手で並べた配列にすると
+ * 列が増えた日に静かにズレる。** 列名で置いて、並びはスキーマから取る。
+ * 指定しなかった列は `null`。
+ *
+ * `apps/web` から呼べるように**ここに置く**（あちらは `drizzle-orm` を
+ * 直接 import しない / ESLint `no-raw-drizzle`）。
+ */
+export function rowFor(table: SQLiteTable, values: Record<string, unknown>): unknown[] {
+  return getTableConfig(table).columns.map((column) => values[column.name] ?? null);
 }
