@@ -118,6 +118,8 @@ describe("登録簿の不変条件", () => {
       "nav.auditLogs",
       // 施設設定（owner 11 / OPEN_QUESTIONS #103 の残り半分）。
       "nav.propertySettings",
+      // P8-01。ops 07 スタッフ管理（登録と台帳を 1 画面に持つ）。
+      "nav.staff",
       // W-12 権限と監査の権限側（メンバー管理 / 2026-08-19）。
       "nav.permission",
     ]);
@@ -197,6 +199,8 @@ describe("権限による非表示（security.md §1 の絶対境界）", () => 
     const keys = keysFor("AUDITOR");
     expect(keys).not.toContain("nav.propertySettings");
     expect(keys).not.toContain("nav.permission");
+    // P8-01。スタッフ管理も `user.write` の門（登録の口が同じ画面にある）。
+    expect(keys).not.toContain("nav.staff");
     // 読取専用。設定の 4 画面はいずれも書き込みの操作を action に持つ。
     expect(keys).not.toContain("nav.rooms");
     expect(keys).not.toContain("nav.checklists");

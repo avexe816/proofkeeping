@@ -273,13 +273,15 @@ export {
   type ReceiptStatus,
 } from "./invoice.js";
 
-// スタッフ支払集計（P5-18 / docs/PK-SPEC-PAY.md）。
+// スタッフ台帳と支払集計（P5-18 / P8-01 / docs/PK-SPEC-PAY.md / PK-SPEC-P8 §1.3）。
 // **控除の列は無い**（支給総額の基礎まで）。個人情報の列も無い（PAY §1.1 MUST）。
+// `staffPayProfile` は P8-01 で台帳そのものになった（DECISIONS #223）。
 export {
   EMPLOYMENT_TYPES,
   PAY_UNIT_TYPES,
   PAYOUT_LINE_TYPES,
   PAYOUT_PERIOD_STATUSES,
+  WORK_STATUSES,
   payoutLine,
   payoutPeriod,
   payRule,
@@ -288,4 +290,12 @@ export {
   type PayoutLineType,
   type PayoutPeriodStatus,
   type PayUnitType,
+  type WorkStatus,
 } from "./payout.js";
+
+// Workforce（P8-02 / 在留資格）。**番号も国籍も持たない**（security.md §3）。
+export {
+  RESIDENCY_STATUS_TYPES,
+  residencyRecord,
+  type ResidencyStatusType,
+} from "./workforce.js";

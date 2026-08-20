@@ -16,6 +16,29 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 
 ## 未回答
 
+### #111 `payout` のリポジトリ 16 関数が組織条件の自動検査を受けていない
+- 提起: 2026-08-20 / P8-01 実装中
+- 内容: `packages/db/src/repositories/repositories.spec.ts` の
+  `REPOSITORY_MODULES` に **`payout` が入っていない。** P5-18 で入った
+  16 関数（`listStaffPayProfiles` / `upsertStaffPayProfile` / `listPayRules` /
+  `insertPayRule` / `closePayRule` / `ensurePayoutPeriod` / … ）は、
+  「発行する SQL に `organization_id` 条件が付いているか」「越境 ID を
+  渡すと `NotFoundError` になるか」の**自動検査を 1 つも受けていない。**
+  登録漏れを検出するテストは `REPOSITORY_MODULES` に載っている
+  モジュールしか見ないので、**載せ忘れは検出されない。**
+- 影響: `staff_pay_profile` / `pay_rule` / `payout_period` / `payout_line`。
+  越境テスト（`tests/tenant-isolation/payout.spec.ts`）は 4 表とも
+  あるので、**一覧と単体取得の経路は塞がっている。**
+  検査を受けていないのは INSERT / UPDATE 系。
+- 暫定対応: P8-01 では**範囲を広げず**、新設した 2 モジュール
+  （`staffLedger` / `residency`）と `user.listOrgStaff` だけを登録した。
+  P8-01 が足した台帳の関数は `staffLedger.ts` に分けてあるので、
+  **新しい surface は検査下にある。**
+- 決める人: 実装の判断。**推奨は次の P8 バッチで `payout` を登録すること。**
+  16 件ぶんの `Invocation` を書くだけで、挙動は変わらない。
+  併せて「`REPOSITORY_MODULES` にファイルが全部載っているか」を
+  ディレクトリ走査で見るテストを足すと、載せ忘れ自体が塞がる。
+
 ### #108 課金モデルが PK-SPEC-P7 §3 とプロトタイプ 10 で食い違う
 - 提起: 2026-08-20 / PF-12 起票時
 - 内容: **どちらも「正」と読める書き方で、金額の出し方が違う。**

@@ -170,6 +170,9 @@ describe("P0-06 スキーマ", () => {
       "receipt",
       // P4-01。照合の実行記録（PK-SPEC-P4 §2.4）。
       "reconciliationRun",
+      // P8-02。在留資格（PK-SPEC-P8 §1.4）。**番号も国籍も持たない**
+      // （期限の管理に要るのは種別と日付だけ / security.md §3）。
+      "residencyRecord",
       // P2-01。差戻しサイクル（同 §3.4）。
       "reworkCycle",
       "room",

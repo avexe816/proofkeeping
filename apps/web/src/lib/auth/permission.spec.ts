@@ -56,6 +56,11 @@ const EXPECTED: Record<PermissionAction, string> = {
   "taxProfile.write": "OO------",
   "user.read": "OOOOOOO-",
   "user.write": "OOA-----",
+  // P8-02。**INV-08 を採った**（OPEN_QUESTIONS #110）。仕様 PK-SPEC-P8 §3 は
+  // `OWNER ○` / `VENDOR_ADMIN ○` だが、実装契約が優先（CLAUDE.md §6）。
+  // `PROPERTY_MANAGER` の「件数のみ」は `countExpiringResidencies()` で表す。
+  "residency.read": "-O------",
+  "residency.write": "-O------",
   "property.read": "OOAAAAOA",
   "property.write": "OOA-----",
   "finding.read": "OOA--AOA",

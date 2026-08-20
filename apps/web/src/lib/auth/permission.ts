@@ -67,6 +67,21 @@ export const PERMISSION_ACTIONS = {
   "user.read": { write: false },
   /** 招待・ロール変更・無効化・PIN リセット（security.md §6 の監査対象）。 */
   "user.write": { write: true },
+  /**
+   * 在留資格の閲覧（P8-02 / PK-SPEC-P8 §1.4）。
+   *
+   * **INV-08 を採る**（OPEN_QUESTIONS #110）。「在留資格の情報は運営管理者
+   * のみが閲覧できる。現場責任者・**オーナー**・プラットフォーム運営に
+   * 公開しない」。PK-SPEC-P8 §3 の権限表は `OWNER ○` としているが、
+   * **矛盾したら実装契約が優先**（CLAUDE.md §6）。
+   *
+   * `PROPERTY_MANAGER` の「件数のみ」はこの操作では表せない
+   * （`can()` は真偽しか返さない）。**件数を返す関数を別に置く**ことで
+   * 表す（`countExpiringResidencies()` は個人を特定できる値を返さない）。
+   */
+  "residency.read": { write: false },
+  /** 在留資格の登録・更新（security.md §6 の監査対象）。 */
+  "residency.write": { write: true },
   /** 施設の閲覧。 */
   "property.read": { write: false },
   /** 施設マスタの作成・更新・無効化（security.md §6 の監査対象）。 */
@@ -639,6 +654,32 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     CLEANER: "ORG",
     VENDOR_ADMIN: "ORG",
     AUDITOR: "ORG",
+    CLIENT_VIEWER: "DENY",
+  },
+  // 在留資格（P8-02 / INV-08）。**運営管理者だけ。**
+  // `OWNER` も `DENY`（INV-08 が名指しで除外している）。
+  // `VENDOR_ADMIN` も `DENY` — 清掃会社が自社スタッフの在留資格を見る場合、
+  // その人はその組織の `ORG_ADMIN` として入るのが正しい（OPEN_QUESTIONS #110）。
+  // `PROPERTY_MANAGER` の「件数のみ」は `countExpiringResidencies()` で表す。
+  "residency.read": {
+    OWNER: "DENY",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
+    CLIENT_VIEWER: "DENY",
+  },
+  // 編集も同じ境界。**読めない相手に書かせない。**
+  "residency.write": {
+    OWNER: "DENY",
+    ORG_ADMIN: "ORG",
+    PROPERTY_MANAGER: "DENY",
+    INSPECTOR: "DENY",
+    CLEANER: "DENY",
+    VENDOR_ADMIN: "DENY",
+    AUDITOR: "DENY",
     CLIENT_VIEWER: "DENY",
   },
   // **書き込みは自施設のみ。** `PROPERTY_MANAGER` は担当施設に割り当てられた
