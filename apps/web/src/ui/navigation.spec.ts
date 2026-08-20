@@ -4,7 +4,14 @@ import { describe, expect, it } from "vitest";
 import { PERMISSION_ACTION_LIST } from "../lib/auth/permission.js";
 import { ja } from "../locales/index.js";
 
-import { NAV_ITEMS, NAV_SECTIONS, NAV_SECTION_LABEL, buildNavigation } from "./navigation.js";
+import {
+  NAV_GROUPS,
+  NAV_ITEMS,
+  NAV_SECTIONS,
+  NAV_SECTION_LABEL,
+  buildNavigation,
+  groupNavItems,
+} from "./navigation.js";
 
 /**
  * ナビゲーションの出し分け（P0-14）。
@@ -17,6 +24,16 @@ import { NAV_ITEMS, NAV_SECTIONS, NAV_SECTION_LABEL, buildNavigation } from "./n
 const PROPERTY_ID = "o7k2m9__prop_01JBXQ3ZK8N4P2VYR60000";
 
 const ALL_MODULES: readonly ModuleCode[] = MODULE_CODES;
+
+const ALL_ROLES: readonly Role[] = [
+  "OWNER",
+  "ORG_ADMIN",
+  "PROPERTY_MANAGER",
+  "INSPECTOR",
+  "CLEANER",
+  "VENDOR_ADMIN",
+  "AUDITOR",
+];
 
 function ctxFor(role: Role, allowedPropertyIds: readonly string[] = [PROPERTY_ID]): TenantContext {
   return {
@@ -66,43 +83,50 @@ describe("登録簿の不変条件", () => {
     // ここへ 1 行足す。** P0-14 はダッシュボードだけ、P1-14 / P1-15 が
     // タスク管理と客室ボードを足した。
     expect(NAV_ITEMS.filter((item) => item.status === "READY").map((item) => item.key)).toEqual([
+      // ── 日次運用 ──
       "nav.dashboard",
       "nav.board",
-      // 進捗モニタ（P7-19）。「日次運用」で客室ボードの直後。
+      // W-05（P1-04 の未達分）。客室ボードの子（2026-08-20 の 2 段化）。
+      "nav.plan",
+      // 進捗モニタ（P7-19）。同じく客室ボードの子。
       "nav.progress",
       "nav.tasks",
-      // W-05（P1-04 の未達分）。
-      "nav.plan",
-      // ops 02 シフトと割当（P8-03）。
+      // ops 02 シフトと割当（P8-03）。「タスクとシフト」の子。
       "nav.shifts",
-      // W-06 差異レポート一覧（P4-06）。「日次運用」の最後。
-      "nav.findings",
-      // W-07 差異の詳細への入口（2026-08-17）。「記録の確認」の 1 つめ。
-      "nav.findingDetail",
+      // ── 記録の確認 ──
       // W-06 証跡一覧（P2-09）。
       "nav.cleaningRecords",
+      // W-22 データ品質ダッシュボード（P3-12）。清掃記録の子へ移した
+      // （2026-08-20。それまでは「資材と分析」の 1 つめ）。
+      "nav.dataQuality",
+      // 検査キュー（P7-18）。
+      "nav.inspection",
       // W-09 忘れ物管理 / W-10 不具合管理（P7-22 / OQ #082 の残り半分）。
       "nav.lostItems",
       "nav.issues",
-      // 検査キュー（P7-18）。「記録の確認」の不具合管理の直後。
-      "nav.inspection",
-      // W-22 データ品質ダッシュボード（P3-12）。「資材と分析」の 1 つめ。
-      "nav.dataQuality",
+      // W-06 差異レポート一覧（P4-06）。差異の詳細と束ねるため
+      // 「日次運用」から移した（2026-08-20）。
+      "nav.findings",
+      // W-07 差異の詳細への入口（2026-08-17）。稼働の差異の子。
+      "nav.findingDetail",
+      // ── 請求と分析 ──
       // 月次レポート（owner 09 / docs/PROTOTYPE_GAP.md 第2批 09）。
       "nav.report",
-      // 請求確認（P5-19）。発注元にも出す唯一の請求系項目。
+      // 「請求」の子 3 つ。請求確認（P5-19）は発注元にも出す。
       "nav.billingPeriods",
       // 契約と請求（owner 10 / 人間の指示 2026-08-17）。
       "nav.billing",
       // §7.2 清掃会社プラン（P5-15）。
       "nav.vendorPlan",
-      // 支払集計（P5-18）。「資材と分析」の最後。
+      // 支払集計（P5-18）。
       "nav.payouts",
-      // `/app/settings/*` の 4 画面。客室マスタ（P0-22）と事業者税務（P0-16）は
-      // ルートが実在するのに**サイドバーに出ていなかった。**
+      // ── 設定 ──
+      // 「施設と客室」の子 3 つ。施設設定（owner 11 / OQ #103 の残り半分）、
+      // 客室マスタ（P0-22）、W-25 客室タイプ管理（P1-24）。
+      "nav.propertySettings",
       "nav.rooms",
-      // W-25 客室タイプ管理（P1-24）。客室マスタの直後。
       "nav.roomTypes",
+      // 「業務ルール」の子 5 つ。
       "nav.checklists",
       "nav.standardTimes",
       // P3-11 が足した W-20（観察項目の設定）。
@@ -111,21 +135,19 @@ describe("登録簿の不変条件", () => {
       "nav.rules",
       // P3-10 が足した W-21（ベースライン確認・上書き）。
       "nav.baseline",
+      // 「取引と料金」の子 3 つ。事業者税務（P0-16）、取引先（P5-02 /
+      // P5-03）、支払単価（P5-18）。
       "nav.taxProfile",
-      // 取引先と料金（P5-02 / P5-03）。事業者・税務設定の直後。
       "nav.counterparties",
-      // 支払単価（P5-18）。取引先の直後。
       "nav.payRules",
-      // 監査ログの閲覧（P7-20）。取引先の直後。
-      "nav.auditLogs",
-      // 施設設定（owner 11 / OPEN_QUESTIONS #103 の残り半分）。
-      "nav.propertySettings",
       // P8-01。ops 07 スタッフ管理（登録と台帳を 1 画面に持つ）。
       "nav.staff",
-      // P8-10。ops 08 研修と資格。
+      // P8-10。ops 08 研修と資格。スタッフ管理の子。
       "nav.training",
       // W-12 権限と監査の権限側（メンバー管理 / 2026-08-19）。
       "nav.permission",
+      // 監査ログの閲覧（P7-20）。権限と監査の子。
+      "nav.auditLogs",
     ]);
   });
 
@@ -331,7 +353,7 @@ describe("契約によるグレー表示", () => {
 });
 
 describe("セクション", () => {
-  it("プロトタイプの順序（日次運用 → 記録の確認 → 資材と分析 → 設定）を保つ", () => {
+  it("プロトタイプの順序（日次運用 → 記録の確認 → 請求と分析 → 設定）を保つ", () => {
     const sections = buildNavigation(ctxFor("OWNER"), {
       selectedPropertyId: PROPERTY_ID,
       enabledModules: ALL_MODULES,
@@ -349,5 +371,101 @@ describe("セクション", () => {
     }).map((group) => group.section);
 
     expect(sections).not.toContain("settings");
+  });
+});
+
+/**
+ * 2 段のナビ（人間の指示 2026-08-20「メニューが長い・多い。纏められないか」）。
+ *
+ * **束ねただけで、画面は 1 つも消していない。** ここで固定するのは
+ * 「消えていないこと」と「束が痩せたら平らに戻ること」の 2 つ。
+ */
+describe("束（親 → 子）", () => {
+  function groupsFor(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES) {
+    return buildNavigation(ctxFor(role), {
+      selectedPropertyId: PROPERTY_ID,
+      enabledModules,
+    }).map((section) => ({ section: section.section, groups: groupNavItems(section.items) }));
+  }
+
+  it("束の構成員がすべて実在する項目キー", () => {
+    const keys = new Set(NAV_ITEMS.map((item) => item.key));
+    for (const def of NAV_GROUPS) {
+      if (def.lead !== undefined) expect(keys, def.key).toContain(def.lead);
+      for (const child of def.children) expect(keys, def.key).toContain(child);
+    }
+  });
+
+  it("1 つの項目が 2 つの束に属さない", () => {
+    const members = NAV_GROUPS.flatMap((def) => [
+      ...(def.lead === undefined ? [] : [def.lead]),
+      ...def.children,
+    ]);
+    expect(new Set(members).size).toBe(members.length);
+  });
+
+  it("束の構成員が同じセクションに属する", () => {
+    const sectionOf = new Map(NAV_ITEMS.map((item) => [item.key, item.section]));
+    for (const def of NAV_GROUPS) {
+      const sections = new Set(
+        [...(def.lead === undefined ? [] : [def.lead]), ...def.children].map((key) =>
+          sectionOf.get(key),
+        ),
+      );
+      expect(sections.size, def.key).toBe(1);
+    }
+  });
+
+  it("見出しだけの親は文言とアイコンを持ち、ja に文言がある", () => {
+    for (const def of NAV_GROUPS) {
+      if (def.lead !== undefined) continue;
+      expect(def.label, def.key).toBeDefined();
+      expect(def.icon, def.key).toBeTruthy();
+      expect(Object.keys(ja), def.key).toContain(def.label);
+    }
+  });
+
+  /** 33 項目 37 行 → 16 親 20 行。**これが指示の中身。** */
+  it("OWNER の常時表示が 4 見出し + 16 親になる", () => {
+    const groups = groupsFor("OWNER");
+    expect(groups.map((entry) => entry.groups.length)).toEqual([3, 5, 3, 5]);
+  });
+
+  it("親を開けば全項目へ到達できる（束ねて消えた画面が無い）", () => {
+    for (const role of ["OWNER", "PROPERTY_MANAGER", "INSPECTOR", "CLEANER"] as const) {
+      const flat = buildNavigation(ctxFor(role), {
+        selectedPropertyId: PROPERTY_ID,
+        enabledModules: ALL_MODULES,
+      }).flatMap((section) => section.items.map((entry) => entry.item.key));
+      const grouped = groupsFor(role).flatMap((section) =>
+        section.groups.flatMap((group) => [
+          ...(group.lead === null ? [] : [group.lead.item.key]),
+          ...group.children.map((child) => child.item.key),
+        ]),
+      );
+      expect([...grouped].sort(), role).toEqual([...flat].sort());
+    }
+  });
+
+  /**
+   * 権限・契約で構成員が減ると束ねる意味が無くなる。**▸ を押しても
+   * 1 行しか出ない親を作らない。** 検査担当は記録の状況を持たないので、
+   * 「清掃記録」は束ではなく平らな 1 行になる。
+   */
+  it("構成員が 1 つになった束は平らな 1 行に戻る", () => {
+    const records = groupsFor("INSPECTOR").find((entry) => entry.section === "records");
+    const evidence = records?.groups.find((group) => group.key === "nav.cleaningRecords");
+    expect(evidence?.children).toEqual([]);
+    expect(evidence?.lead?.item.key).toBe("nav.cleaningRecords");
+  });
+
+  it("子を持たない親は必ず到達先を持つ（押せない行を作らない）", () => {
+    for (const role of ALL_ROLES) {
+      for (const section of groupsFor(role)) {
+        for (const group of section.groups) {
+          if (group.children.length === 0) expect(group.lead, `${role}/${group.key}`).not.toBeNull();
+        }
+      }
+    }
   });
 });
