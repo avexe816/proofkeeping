@@ -94,7 +94,7 @@ export type NavItem =
  * **P0-21 の担当**。P0-14 は `/app/dashboard` だけを実在させる。
  */
 export const NAV_ITEMS: readonly NavItem[] = [
-  // ── 日次運用 ──────────────────────────────────────────
+  // ── 日次運用 ────────────────────────────────────────────────
   {
     key: "nav.dashboard",
     icon: "📊",
@@ -114,6 +114,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
     scope: "PROPERTY",
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/board`,
+  },
+  // W-05（P1-04 の未達分）。**`roomPlan.write`。** 当日の客室状況は
+  // 入力する画面で、読むだけの人が辿る先ではない（§10.1 の `P_MANAGER 以上`）。
+  {
+    key: "nav.plan",
+    icon: "🛏️",
+    section: "daily",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "roomPlan.write",
+    scope: "PROPERTY",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/plan`,
   },
   // P7-19 進捗モニタ。**施設横断**の画面で URL に施設 ID を持たない
   // （`nav.inspection` と同じ形）。操作は `property.read` なので
@@ -140,18 +152,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/tasks`,
   },
-  // W-05（P1-04 の未達分）。**`roomPlan.write`。** 当日の客室状況は
-  // 入力する画面で、読むだけの人が辿る先ではない（§10.1 の `P_MANAGER 以上`）。
-  {
-    key: "nav.plan",
-    icon: "🛏️",
-    section: "daily",
-    moduleCode: "HOUSEKEEPING_CORE",
-    action: "roomPlan.write",
-    scope: "PROPERTY",
-    status: "READY",
-    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/plan`,
-  },
   // ops 02 シフトと割当（P8-03）。「日次運用」の進捗モニタの後。
   // 門は shift.manage（OWNER / ORG_ADMIN のみ / OPEN_QUESTIONS #112）。
   {
@@ -164,36 +164,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/shifts",
   },
-  // W-06 差異レポート一覧（P4-06 / PK-SPEC-P4 §6.1）。
-  // **`href` に `{propertyId}` を持たない。** §6.1 のフィルタは「全施設」を
-  // 含み、施設は画面のセレクタで切り替える。`scope` を `PROPERTY` のままに
-  // してあるのは、施設スコープロール（`PROPERTY_MANAGER` / `VENDOR_ADMIN`）に
-  // 出すため。組織全体を読めない相手には表示中の施設が既定になる。
-  {
-    key: "nav.findings",
-    icon: "⚠️",
-    section: "daily",
-    moduleCode: "AUDIT",
-    action: "finding.read",
-    scope: "PROPERTY",
-    status: "READY",
-    href: "/app/audit/findings",
-  },
-  // ── 記録の確認 ────────────────────────────────────────
-  // W-07 差異詳細（P4-07 / 人間の指示 2026-08-17 で入口を実装）。
-  // ID の無いサイドバーからは 1 件を指せないので、**「次に確認する 1 件」へ
-  // 直行する入口**（`/app/audit/findings/next`）に繋ぐ。未確認が無ければ
-  // 空状態が出る。個別の詳細へは従来どおり一覧の行からも入れる。
-  {
-    key: "nav.findingDetail",
-    icon: "🔍",
-    section: "records",
-    moduleCode: "AUDIT",
-    action: "finding.read",
-    scope: "PROPERTY",
-    status: "READY",
-    href: "/app/audit/findings/next",
-  },
+
+  // ── 記録の確認 ──────────────────────────────────────────────
   // W-06 証跡一覧（P2-09 / PK-SPEC-P2 §12.1）。**`task.read`。**
   // 中身はタスクの記録なので、それを読める相手が辿れる先にする
   // （`routes/api/v1/tasks.ts` の `/evidence/verify` と同じ判断）。
@@ -207,6 +179,35 @@ export const NAV_ITEMS: readonly NavItem[] = [
     scope: "PROPERTY",
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/evidence`,
+  },
+  // W-22 データ品質ダッシュボード（P3-12 / PK-SPEC-P3 §6.3）。
+  // **`scope` は `PROPERTY`。** 施設と月で見る画面で、URL に施設 ID を持つ。
+  {
+    key: "nav.dataQuality",
+    icon: "📈",
+    section: "records",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "dataQuality.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/data-quality`,
+  },
+  // 検査キュー（P7-18 / ui-prototypes/ops/pkops-A-daily-quality.html 04）。
+  // **`action` を `property.read` から `inspection.read` へ差し替えた。**
+  // 冒頭「`action` の暫定的な当て方」が言う「画面を作る task が差し替える」
+  // のがこれ。`property.read` のままだと `CLEANER` の項目が残る
+  // （あちらは現場ロールにも配られている）。
+  // **`href` に `{propertyId}` を持たない。** 施設横断の一覧で、施設は
+  // 画面のセレクタで絞る（`nav.findings` と同じ判断）。
+  {
+    key: "nav.inspection",
+    icon: "👁️",
+    section: "records",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "inspection.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: "/app/inspections/queue",
   },
   // W-09 忘れ物管理（P7-22 / PK-SPEC-P2 §12.1）。**`lostItem.read`。**
   // `CLEANER` にも出る（自分が登録した分だけが見える / §7.4 — 絞りは lib）。
@@ -232,36 +233,37 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/issues`,
   },
-  // 検査キュー（P7-18 / ui-prototypes/ops/pkops-A-daily-quality.html 04）。
-  // **`action` を `property.read` から `inspection.read` へ差し替えた。**
-  // 冒頭「`action` の暫定的な当て方」が言う「画面を作る task が差し替える」
-  // のがこれ。`property.read` のままだと `CLEANER` の項目が残る
-  // （あちらは現場ロールにも配られている）。
-  // **`href` に `{propertyId}` を持たない。** 施設横断の一覧で、施設は
-  // 画面のセレクタで絞る（`nav.findings` と同じ判断）。
+  // W-06 差異レポート一覧（P4-06 / PK-SPEC-P4 §6.1）。
+  // **`href` に `{propertyId}` を持たない。** §6.1 のフィルタは「全施設」を
+  // 含み、施設は画面のセレクタで切り替える。`scope` を `PROPERTY` のままに
+  // してあるのは、施設スコープロール（`PROPERTY_MANAGER` / `VENDOR_ADMIN`）に
+  // 出すため。組織全体を読めない相手には表示中の施設が既定になる。
   {
-    key: "nav.inspection",
-    icon: "👁️",
+    key: "nav.findings",
+    icon: "⚠️",
     section: "records",
-    moduleCode: "HOUSEKEEPING_CORE",
-    action: "inspection.read",
+    moduleCode: "AUDIT",
+    action: "finding.read",
     scope: "PROPERTY",
     status: "READY",
-    href: "/app/inspections/queue",
+    href: "/app/audit/findings",
   },
-  // ── 資材と分析 ────────────────────────────────────────
-  // W-22 データ品質ダッシュボード（P3-12 / PK-SPEC-P3 §6.3）。
-  // **`scope` は `PROPERTY`。** 施設と月で見る画面で、URL に施設 ID を持つ。
+  // W-07 差異詳細（P4-07 / 人間の指示 2026-08-17 で入口を実装）。
+  // ID の無いサイドバーからは 1 件を指せないので、**「次に確認する 1 件」へ
+  // 直行する入口**（`/app/audit/findings/next`）に繋ぐ。未確認が無ければ
+  // 空状態が出る。個別の詳細へは従来どおり一覧の行からも入れる。
   {
-    key: "nav.dataQuality",
-    icon: "📈",
-    section: "analysis",
-    moduleCode: "HOUSEKEEPING_CORE",
-    action: "dataQuality.read",
+    key: "nav.findingDetail",
+    icon: "🔍",
+    section: "records",
+    moduleCode: "AUDIT",
+    action: "finding.read",
     scope: "PROPERTY",
     status: "READY",
-    href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/data-quality`,
+    href: "/app/audit/findings/next",
   },
+
+  // ── 請求と分析 ──────────────────────────────────────────────
   // リネン消費の独立項目は**置かない**（人間の指示 2026-08-17）。
   // 集計は進捗モニタの列として実装済み（第3批-09 / DECISIONS #195 の運用）。
   // 「準備中」のまま押せない項目を残さない。
@@ -333,7 +335,21 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/org/payouts",
   },
-  // ── 設定 ──────────────────────────────────────────────
+
+  // ── 設定 ────────────────────────────────────────────────────
+  // 施設設定（owner 11 / OPEN_QUESTIONS #103 の残り半分）。施設マスタの
+  // 作成・編集。**施設横断の画面**なので `{propertyId}` を持たない
+  // （作成は施設が決まる前の操作）。
+  {
+    key: "nav.propertySettings",
+    icon: "⚙️",
+    section: "settings",
+    moduleCode: "PLATFORM",
+    action: "property.write",
+    scope: "PROPERTY",
+    status: "READY",
+    href: "/app/settings/properties",
+  },
   // ここまで `/app/settings/*` の 3 画面（客室マスタ・事業者税務・そして
   // 今回の 2 つ）は**サイドバーに現れなかった。** ルートは実在するのに
   // 到達経路が無く、URL を直に打つしか無い状態だった。
@@ -460,31 +476,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/settings/pay-rules",
   },
-  // P7-20 監査ログの閲覧。**読み取り専用。** 門は auditLog.read
-  // （P5-16 で finding.read から分離。発注元に操作履歴を開かない）。
-  {
-    key: "nav.auditLogs",
-    icon: "🧭",
-    section: "settings",
-    moduleCode: "AUDIT",
-    action: "auditLog.read",
-    scope: "PROPERTY",
-    status: "READY",
-    href: "/app/audit/logs",
-  },
-  // 施設設定（owner 11 / OPEN_QUESTIONS #103 の残り半分）。施設マスタの
-  // 作成・編集。**施設横断の画面**なので `{propertyId}` を持たない
-  // （作成は施設が決まる前の操作）。
-  {
-    key: "nav.propertySettings",
-    icon: "⚙️",
-    section: "settings",
-    moduleCode: "PLATFORM",
-    action: "property.write",
-    scope: "PROPERTY",
-    status: "READY",
-    href: "/app/settings/properties",
-  },
   // ops 07 スタッフ管理（P8-01）。**登録と台帳を 1 画面に持つ**
   // （プロトタイプのヘッダーが「＋ スタッフを登録」で、その下が一覧）。
   // 門は `user.write` — 登録の口が同じ画面にあるため、読むだけの相手を
@@ -522,6 +513,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
     scope: "ORGANIZATION",
     status: "READY",
     href: "/app/settings/members",
+  },
+  // P7-20 監査ログの閲覧。**読み取り専用。** 門は auditLog.read
+  // （P5-16 で finding.read から分離。発注元に操作履歴を開かない）。
+  {
+    key: "nav.auditLogs",
+    icon: "🧭",
+    section: "settings",
+    moduleCode: "AUDIT",
+    action: "auditLog.read",
+    scope: "PROPERTY",
+    status: "READY",
+    href: "/app/audit/logs",
   },
 ];
 
@@ -589,4 +592,170 @@ export function buildNavigation(
     section,
     items: visible.filter((entry) => entry.item.section === section),
   })).filter((group) => group.items.length > 0);
+}
+
+/* ── 2 段のナビ（人間の指示 2026-08-20） ─────────────────────
+ *
+ * サイドバーの項目は画面が増えるたびに 1 行ずつ伸び、**4 セクション
+ * 33 項目**になった（プロトタイプは 11 項目）。参考として挙がった 2 社
+ * （Jtas / YOHAKU）はどちらも大分類 5〜6 個で、下位は画面の中にある。
+ *
+ * **画面は 1 つも消さない。URL も変えない。** 束ねて既定で閉じるだけ。
+ * 常時見えるのは 4 見出し + 16 親 = 20 行（従来 37 行）。
+ *
+ * 親は 2 種類ある。
+ *
+ * | 種類 | 例 | 見え方 |
+ * |---|---|---|
+ * | 画面を持つ親（`lead`） | 客室ボード ▸ 当日の客室状況 / 進捗モニタ | 行そのものがリンク。▸ で子が開く |
+ * | 見出しだけの親（`label`） | 業務ルール ▸ チェックリスト定義 … | リンクにしない。押すと開くだけ |
+ *
+ * **束ねた結果 1 つしか残らない親は束ねない**（▸ を押しても 1 行しか
+ * 出ないものに階層を作らない）。権限・契約で子が消える組織では、
+ * 同じ束が自動的に平らな 1 項目になる。
+ */
+interface NavGroupDef {
+  /** 開閉を覚えるときの名前。**項目キーと別に持つ**（並べ替えで壊れない）。 */
+  key: string;
+  /** 親自身の画面。持たない親は `undefined`。 */
+  lead?: MessageKey;
+  /** 見出しだけの親の文言。`lead` を持つ親では使わない。 */
+  label?: MessageKey;
+  /** 見出しだけの親のアイコン。`lead` を持つ親は項目のアイコンを使う。 */
+  icon?: string;
+  /** 子。**親と同じセクションの項目だけ**を並べる。 */
+  children: readonly MessageKey[];
+}
+
+/**
+ * 親の定義。**ここに無い項目は平らな 1 行のまま**（ダッシュボード等）。
+ * 並びは `NAV_ITEMS` の順に従うので、ここでの順序は意味を持たない。
+ */
+export const NAV_GROUPS: readonly NavGroupDef[] = [
+  // 日次運用
+  { key: "board", lead: "nav.board", children: ["nav.plan", "nav.progress"] },
+  {
+    key: "tasks",
+    label: "nav.group.tasks",
+    icon: "📋",
+    children: ["nav.tasks", "nav.shifts"],
+  },
+  // 記録の確認
+  { key: "records", lead: "nav.cleaningRecords", children: ["nav.dataQuality"] },
+  { key: "findings", lead: "nav.findings", children: ["nav.findingDetail"] },
+  // 請求と分析
+  {
+    key: "billing",
+    label: "nav.group.billing",
+    icon: "💴",
+    children: ["nav.billingPeriods", "nav.billing", "nav.vendorPlan"],
+  },
+  // 設定
+  {
+    key: "property",
+    label: "nav.group.property",
+    icon: "🏨",
+    children: ["nav.propertySettings", "nav.rooms", "nav.roomTypes"],
+  },
+  {
+    key: "rules",
+    label: "nav.group.rules",
+    icon: "⚙️",
+    children: [
+      "nav.checklists",
+      "nav.standardTimes",
+      "nav.observationSettings",
+      "nav.rules",
+      "nav.baseline",
+    ],
+  },
+  {
+    key: "money",
+    label: "nav.group.money",
+    icon: "🧾",
+    children: ["nav.taxProfile", "nav.counterparties", "nav.payRules"],
+  },
+  { key: "staff", lead: "nav.staff", children: ["nav.training"] },
+  { key: "permission", lead: "nav.permission", children: ["nav.auditLogs"] },
+];
+
+/** 画面へ渡す親 1 つぶん。子が空なら平らな 1 行として描く。 */
+export interface VisibleNavGroup {
+  /** 開閉の保存キー。束ねない行では項目キーがそのまま入る。 */
+  key: string;
+  /** 見出しの文言。 */
+  label: MessageKey;
+  icon: string;
+  /** 親自身の到達先。見出しだけの親は `null`。 */
+  lead: VisibleNavItem | null;
+  children: readonly VisibleNavItem[];
+}
+
+/**
+ * 1 セクションぶんの項目を親子へ束ねる。**純粋関数。**
+ *
+ * 並びは受け取った順（＝ `NAV_ITEMS` の順）。束は**最初に現れた構成員の
+ * 位置**に置き、残りの構成員はそこへ吸い上げる。
+ */
+export function groupNavItems(items: readonly VisibleNavItem[]): readonly VisibleNavGroup[] {
+  const byKey = new Map(items.map((entry) => [entry.item.key, entry]));
+  const groupOf = new Map<MessageKey, NavGroupDef>();
+  for (const def of NAV_GROUPS) {
+    if (def.lead !== undefined) groupOf.set(def.lead, def);
+    for (const child of def.children) groupOf.set(child, def);
+  }
+
+  const taken = new Set<string>();
+  const groups: VisibleNavGroup[] = [];
+
+  for (const entry of items) {
+    if (taken.has(entry.item.key)) continue;
+    const def = groupOf.get(entry.item.key);
+
+    if (def === undefined) {
+      taken.add(entry.item.key);
+      groups.push({
+        key: entry.item.key,
+        label: entry.item.key,
+        icon: entry.item.icon,
+        lead: entry,
+        children: [],
+      });
+      continue;
+    }
+
+    const lead = def.lead === undefined ? null : (byKey.get(def.lead) ?? null);
+    const children = def.children
+      .map((key) => byKey.get(key))
+      .filter((child): child is VisibleNavItem => child !== undefined);
+    for (const member of [lead, ...children]) {
+      if (member !== null) taken.add(member.item.key);
+    }
+
+    const members = lead === null ? children : [lead, ...children];
+    // 束ねる意味が無くなった形（権限・契約で構成員が減った組織）は平らに描く。
+    const only = members[0];
+    if (only === undefined) continue;
+    if (members.length === 1) {
+      groups.push({
+        key: only.item.key,
+        label: only.item.key,
+        icon: only.item.icon,
+        lead: only,
+        children: [],
+      });
+      continue;
+    }
+
+    groups.push({
+      key: def.key,
+      // 見出しだけの親は `label` を必ず持つ（navigation.spec.ts が固定）。
+      label: def.label ?? lead?.item.key ?? only.item.key,
+      icon: def.icon ?? lead?.item.icon ?? only.item.icon,
+      lead,
+      children,
+    });
+  }
+
+  return groups;
 }

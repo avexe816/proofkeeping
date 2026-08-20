@@ -71,7 +71,7 @@ describe("畳む動き", () => {
   /** セクションは高さを繋ぐ。**項目を DOM から外していない**ことの裏返し。 */
   it("セクションの開閉が grid-template-rows で動く", () => {
     expect(block("\\.pk-sidebar__items")).toMatch(/transition:\s*grid-template-rows/);
-    expect(block("\\.pk-sidebar__group--closed\\s+\\.pk-sidebar__items")).toMatch(
+    expect(block("\\.pk-sidebar__group--closed\\s*>\\s*\\.pk-sidebar__items")).toMatch(
       /grid-template-rows:\s*0fr/,
     );
   });
