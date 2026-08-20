@@ -368,8 +368,9 @@ export default function Payouts() {
             </tbody>
           </table>
 
+          {/* 4 項目の入力フォーム。絞り込みバーではなくフォームグリッド（DECISIONS #213）。 */}
           {data.detail.status === "REVIEWING" ? (
-            <Form method="post" className="pk-filter">
+            <Form method="post" className="pk-formgrid">
               <input type="hidden" name="intent" value="adjust" />
               <input type="hidden" name="payoutPeriodId" value={data.detail.payoutPeriodId} />
               <label className="pk-field">
@@ -391,9 +392,11 @@ export default function Payouts() {
                 <span className="pk-field__label">{t("payouts.adjust.reason")}</span>
                 <input className="pk-input" name="reason" required maxLength={500} />
               </label>
-              <button className="pk-button" type="submit">
-                {t("payouts.adjust.submit")}
-              </button>
+              <div className="pk-formgrid__actions">
+                <button className="pk-button pk-button--primary" type="submit">
+                  {t("payouts.adjust.submit")}
+                </button>
+              </div>
             </Form>
           ) : null}
         </>

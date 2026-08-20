@@ -263,9 +263,14 @@ export default function PropertySettings() {
   return (
     <section className="pk-page">
       <div className="pk-pagehead">
-        <h1 className="pk-pagehead__title">{t("propSettings.title")}</h1>
+        <div>
+          <h1 className="pk-pagehead__title">{t("propSettings.title")}</h1>
+          <p className="pk-pagehead__sub">{t("propSettings.lede")}</p>
+        </div>
       </div>
-      <p className="pk-muted">{t("propSettings.lede")}</p>
+
+      {/* 変えられる範囲を最初に述べる（プロトタイプ D-11 の確定事項）。 */}
+      <p className="pk-notice pk-notice--info">{t("propSettings.scopeNote")}</p>
 
       {result?.failure !== undefined ? (
         <p className="pk-notice pk-notice--warn">{t(FAILURE_MESSAGE[result.failure])}</p>
@@ -273,123 +278,134 @@ export default function PropertySettings() {
       {result?.created === true ? <p className="pk-notice">{t("propSettings.created")}</p> : null}
       {result?.updated === true ? <p className="pk-notice">{t("propSettings.updated")}</p> : null}
 
-      {data.properties.map((property) => (
-        <Form method="post" key={property.id} className="pk-propcard">
-          <input type="hidden" name="intent" value="update" />
-          <input type="hidden" name="propertyId" value={property.id} />
-          <h2 className="pk-section__title">
-            {`${property.name}（${property.code}）`}
-            {property.isActive ? null : (
-              <span className="pk-badge pk-badge--warn">{t("propSettings.inactive")}</span>
-            )}
-          </h2>
-          <div className="pk-filter">
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.name")}</span>
-              <input className="pk-input" name="name" defaultValue={property.name} required maxLength={64} />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.postalCode")}</span>
-              <input className="pk-input" name="postalCode" defaultValue={property.postalCode ?? ""} maxLength={8} />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.address")}</span>
-              <input className="pk-input" name="address" defaultValue={property.address ?? ""} maxLength={128} />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.phone")}</span>
-              <input className="pk-input" name="phone" defaultValue={property.phone ?? ""} maxLength={20} inputMode="tel" />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.contactName")}</span>
-              <input className="pk-input" name="contactName" defaultValue={property.contactName ?? ""} maxLength={64} />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.dayCutoffTime")}</span>
-              <input
-                className="pk-input"
-                name="dayCutoffTime"
-                defaultValue={property.dayCutoffTime}
-                required
-                pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-              />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.lostItemRetentionDays")}</span>
-              <input
-                className="pk-input"
-                name="lostItemRetentionDays"
-                defaultValue={property.lostItemRetentionDays ?? ""}
-                inputMode="numeric"
-                pattern="[0-9]{1,3}"
-              />
-            </label>
-            <label className="pk-field pk-field--check">
-              <span className="pk-field__label">{t("propSettings.field.isActive")}</span>
-              <input type="checkbox" name="isActive" defaultChecked={property.isActive} />
-            </label>
-            <button className="pk-button" type="submit">
-              {t("propSettings.save")}
-            </button>
-          </div>
-          {/* 日締めは全集計の区切り（architecture.md §7）。軽く変える項目ではない。 */}
-          <p className="pk-muted">{t("propSettings.cutoffNote")}</p>
-          {/* §7.3。貴重品等の 7 日・食品の当日はこの設定より優先される固定規則。 */}
-          <p className="pk-muted">{t("propSettings.retentionNote")}</p>
-        </Form>
-      ))}
+      {/* 1 施設 = 1 カード（プロトタイプ D-11 のカード配置）。 */}
+      <div className="pk-cols pk-cols--2">
+        {data.properties.map((property) => (
+          <Form method="post" key={property.id} className="pk-panel">
+            <input type="hidden" name="intent" value="update" />
+            <input type="hidden" name="propertyId" value={property.id} />
+            <div className="pk-panel__head">
+              {`${property.name}（${property.code}）`}
+              {property.isActive ? null : (
+                <span className="pk-badge pk-badge--warn">{t("propSettings.inactive")}</span>
+              )}
+            </div>
+            <div className="pk-panel__body">
+              <div className="pk-formgrid">
+                <label className="pk-field">
+                  <span className="pk-field__label">{t("propSettings.field.name")}</span>
+                  <input className="pk-input" name="name" defaultValue={property.name} required maxLength={64} />
+                </label>
+                <label className="pk-field">
+                  <span className="pk-field__label">{t("propSettings.field.postalCode")}</span>
+                  <input className="pk-input" name="postalCode" defaultValue={property.postalCode ?? ""} maxLength={8} />
+                </label>
+                <label className="pk-field pk-field--wide">
+                  <span className="pk-field__label">{t("propSettings.field.address")}</span>
+                  <input className="pk-input" name="address" defaultValue={property.address ?? ""} maxLength={128} />
+                </label>
+                <label className="pk-field">
+                  <span className="pk-field__label">{t("propSettings.field.phone")}</span>
+                  <input className="pk-input" name="phone" defaultValue={property.phone ?? ""} maxLength={20} inputMode="tel" />
+                </label>
+                <label className="pk-field">
+                  <span className="pk-field__label">{t("propSettings.field.contactName")}</span>
+                  <input className="pk-input" name="contactName" defaultValue={property.contactName ?? ""} maxLength={64} />
+                </label>
+                <label className="pk-field">
+                  <span className="pk-field__label">{t("propSettings.field.dayCutoffTime")}</span>
+                  <input
+                    className="pk-input"
+                    name="dayCutoffTime"
+                    defaultValue={property.dayCutoffTime}
+                    required
+                    pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                  />
+                  {/* 日締めは全集計の区切り（architecture.md §7）。軽く変える項目ではない。 */}
+                  <span className="pk-field__hint">{t("propSettings.cutoffNote")}</span>
+                </label>
+                <label className="pk-field">
+                  <span className="pk-field__label">{t("propSettings.field.lostItemRetentionDays")}</span>
+                  <input
+                    className="pk-input"
+                    name="lostItemRetentionDays"
+                    defaultValue={property.lostItemRetentionDays ?? ""}
+                    inputMode="numeric"
+                    pattern="[0-9]{1,3}"
+                  />
+                  {/* §7.3。貴重品等の 7 日・食品の当日はこの設定より優先される固定規則。 */}
+                  <span className="pk-field__hint">{t("propSettings.retentionNote")}</span>
+                </label>
+                <label className="pk-field pk-field--check">
+                  <span className="pk-field__label">{t("propSettings.field.isActive")}</span>
+                  <input type="checkbox" name="isActive" defaultChecked={property.isActive} />
+                </label>
+                <div className="pk-formgrid__actions">
+                  <button className="pk-button pk-button--primary" type="submit">
+                    {t("propSettings.save")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Form>
+        ))}
+      </div>
 
       {data.canCreate ? (
-        <Form method="post" className="pk-propcard pk-propcard--new">
+        <Form method="post" className="pk-panel pk-panel--new">
           <input type="hidden" name="intent" value="create" />
-          <h2 className="pk-section__title">{t("propSettings.createTitle")}</h2>
-          <div className="pk-filter">
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.code")}</span>
-              <input
-                className="pk-input"
-                name="code"
-                required
-                maxLength={16}
-                pattern="[A-Za-z0-9-]{1,16}"
-              />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.name")}</span>
-              <input className="pk-input" name="name" required maxLength={64} />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.postalCode")}</span>
-              <input className="pk-input" name="postalCode" maxLength={8} />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.address")}</span>
-              <input className="pk-input" name="address" maxLength={128} />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.phone")}</span>
-              <input className="pk-input" name="phone" maxLength={20} inputMode="tel" />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.contactName")}</span>
-              <input className="pk-input" name="contactName" maxLength={64} />
-            </label>
-            <label className="pk-field">
-              <span className="pk-field__label">{t("propSettings.field.dayCutoffTime")}</span>
-              <input
-                className="pk-input"
-                name="dayCutoffTime"
-                defaultValue="05:00"
-                required
-                pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-              />
-            </label>
-            <button className="pk-button" type="submit">
-              {t("propSettings.create")}
-            </button>
+          <div className="pk-panel__head">{t("propSettings.createTitle")}</div>
+          <div className="pk-panel__body">
+            <div className="pk-formgrid">
+              <label className="pk-field">
+                <span className="pk-field__label">{t("propSettings.field.code")}</span>
+                <input
+                  className="pk-input"
+                  name="code"
+                  required
+                  maxLength={16}
+                  pattern="[A-Za-z0-9-]{1,16}"
+                />
+                <span className="pk-field__hint">{t("propSettings.codeNote")}</span>
+              </label>
+              <label className="pk-field">
+                <span className="pk-field__label">{t("propSettings.field.name")}</span>
+                <input className="pk-input" name="name" required maxLength={64} />
+              </label>
+              <label className="pk-field">
+                <span className="pk-field__label">{t("propSettings.field.postalCode")}</span>
+                <input className="pk-input" name="postalCode" maxLength={8} />
+              </label>
+              <label className="pk-field pk-field--wide">
+                <span className="pk-field__label">{t("propSettings.field.address")}</span>
+                <input className="pk-input" name="address" maxLength={128} />
+              </label>
+              <label className="pk-field">
+                <span className="pk-field__label">{t("propSettings.field.phone")}</span>
+                <input className="pk-input" name="phone" maxLength={20} inputMode="tel" />
+              </label>
+              <label className="pk-field">
+                <span className="pk-field__label">{t("propSettings.field.contactName")}</span>
+                <input className="pk-input" name="contactName" maxLength={64} />
+              </label>
+              <label className="pk-field">
+                <span className="pk-field__label">{t("propSettings.field.dayCutoffTime")}</span>
+                <input
+                  className="pk-input"
+                  name="dayCutoffTime"
+                  defaultValue="05:00"
+                  required
+                  pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                />
+              </label>
+              <div className="pk-formgrid__actions">
+                <button className="pk-button pk-button--primary" type="submit">
+                  {t("propSettings.create")}
+                </button>
+                <span className="pk-muted">{t("propSettings.nextSteps")}</span>
+              </div>
+            </div>
           </div>
-          <p className="pk-muted">{t("propSettings.codeNote")}</p>
-          <p className="pk-muted">{t("propSettings.nextSteps")}</p>
         </Form>
       ) : null}
     </section>

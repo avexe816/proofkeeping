@@ -306,7 +306,9 @@ export default function PayRules() {
 
       {/* ── 単価の追加 ─────────────────────────────────── */}
       <h2 className="pk-section__title">{t("payRules.create.title")}</h2>
-      <Form method="post" className="pk-filter">
+      {/* 6 項目の登録フォーム。**絞り込みバーではなくフォームグリッド**
+          （DECISIONS #213）。 */}
+      <Form method="post" className="pk-formgrid">
         <input type="hidden" name="intent" value="createRule" />
         <label className="pk-field">
           <span className="pk-field__label">{t("payRules.column.staff")}</span>
@@ -356,9 +358,11 @@ export default function PayRules() {
           <span className="pk-field__label">{t("payRules.field.validFrom")}</span>
           <input className="pk-input" name="validFrom" type="date" />
         </label>
-        <button className="pk-button" type="submit">
-          {t("payRules.create.submit")}
-        </button>
+        <div className="pk-formgrid__actions">
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("payRules.create.submit")}
+          </button>
+        </div>
       </Form>
       <p className="pk-muted">{t("payRules.stageNote")}</p>
 
