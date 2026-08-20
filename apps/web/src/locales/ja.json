@@ -2036,5 +2036,7 @@
   "inspectionQueue.list.title": "検査待ちの一覧",
   "inspectionQueue.list.order": "待ち時間の長い順",
   "opsProgress.byProperty.title": "施設別の進捗",
-  "evidence.list.card": "清掃記録の一覧"
+  "evidence.list.card": "清掃記録の一覧",
+  "staff.roster.card": "スタッフ一覧",
+  "stdtime.card": "目安時間と記録項目"
 }
