@@ -1,5 +1,17 @@
-import { NotFoundError, listRoomTypes, listStandardTimes, recordAudit, upsertStandardTimes } from "@pk/db";
-import { Form, useActionData, useLoaderData, type ActionFunctionArgs, type LoaderFunctionArgs } from "react-router";
+import {
+  NotFoundError,
+  listRoomTypes,
+  listStandardTimes,
+  recordAudit,
+  upsertStandardTimes,
+} from "@pk/db";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "react-router";
 
 import { assertPermission, can, propertyTarget } from "../../lib/auth/permission.js";
 import { t } from "../../lib/i18n.js";
@@ -44,10 +56,7 @@ interface StandardTimesData {
   canWrite: boolean;
 }
 
-export async function loader({
-  request,
-  context,
-}: LoaderFunctionArgs): Promise<StandardTimesData> {
+export async function loader({ request, context }: LoaderFunctionArgs): Promise<StandardTimesData> {
   const env = getEnv(context);
   const now = new Date();
   const { session, tenant } = await requireAppContext(env, request, now);
@@ -155,7 +164,9 @@ export default function StandardTimes() {
   if (data.propertyId === null) {
     return (
       <section className="pk-page">
-        <h1 className="pk-page__title">{t("stdtime.title")}</h1>
+        <div className="pk-pagehead">
+          <h1 className="pk-pagehead__title">{t("stdtime.title")}</h1>
+        </div>
         <p className="pk-notice">{t("stdtime.noProperty")}</p>
       </section>
     );
@@ -163,8 +174,12 @@ export default function StandardTimes() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("stdtime.title")}</h1>
-      <p className="pk-muted">{data.propertyName}</p>
+      <div className="pk-pagehead">
+        <div>
+          <h1 className="pk-pagehead__title">{t("stdtime.title")}</h1>
+          <p className="pk-pagehead__sub">{data.propertyName}</p>
+        </div>
+      </div>
 
       {result?.applied === undefined ? null : (
         <p className="pk-notice">{`${t("stdtime.saved")}: ${String(result.applied)}`}</p>

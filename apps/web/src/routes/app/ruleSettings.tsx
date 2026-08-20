@@ -97,7 +97,10 @@ interface RuleSettingsResult {
  * 両方に書いているので、片方だけ直さないこと**（W-20 / W-21 と同じ形 /
  * DECISIONS #099）。
  */
-export async function action({ request, context }: ActionFunctionArgs): Promise<RuleSettingsResult> {
+export async function action({
+  request,
+  context,
+}: ActionFunctionArgs): Promise<RuleSettingsResult> {
   const env = getEnv(context);
   const now = new Date();
   const { session, tenant } = await requireAppContext(env, request, now);
@@ -149,7 +152,9 @@ export default function RuleSettings() {
   if (data.propertyId === null) {
     return (
       <section className="pk-page">
-        <h1 className="pk-page__title">{t("ruleConfig.title")}</h1>
+        <div className="pk-pagehead">
+          <h1 className="pk-pagehead__title">{t("ruleConfig.title")}</h1>
+        </div>
         <p className="pk-notice">{t("ruleConfig.noProperty")}</p>
       </section>
     );
@@ -157,8 +162,12 @@ export default function RuleSettings() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("ruleConfig.title")}</h1>
-      <p className="pk-muted">{data.propertyName}</p>
+      <div className="pk-pagehead">
+        <div>
+          <h1 className="pk-pagehead__title">{t("ruleConfig.title")}</h1>
+          <p className="pk-pagehead__sub">{data.propertyName}</p>
+        </div>
+      </div>
       <p className="pk-notice">{t("ruleConfig.intro")}</p>
 
       {result?.saved === true ? <p className="pk-message">{t("ruleConfig.saved")}</p> : null}
@@ -178,9 +187,7 @@ export default function RuleSettings() {
           {data.rules.map((rule) => (
             <tr key={rule.ruleCode} className={rule.isImplemented ? undefined : "pk-row--muted"}>
               <th scope="row">{rule.ruleCode}</th>
-              <td>
-                {rule.isImplemented ? rule.title : t("ruleConfig.notImplemented")}
-              </td>
+              <td>{rule.isImplemented ? rule.title : t("ruleConfig.notImplemented")}</td>
               <td>
                 <Form method="post" className="pk-inline">
                   <input type="hidden" name="propertyId" value={data.propertyId ?? ""} />
@@ -211,7 +218,11 @@ export default function RuleSettings() {
                   ) : null}
                 </Form>
               </td>
-              <td>{rule.severityOverride === null ? t("ruleConfig.severityDefault") : t(SEVERITY_LABEL[rule.severityOverride])}</td>
+              <td>
+                {rule.severityOverride === null
+                  ? t("ruleConfig.severityDefault")
+                  : t(SEVERITY_LABEL[rule.severityOverride])}
+              </td>
               <td>
                 {rule.isDefault
                   ? t("ruleConfig.scope.default")
