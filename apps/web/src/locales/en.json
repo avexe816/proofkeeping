@@ -10,6 +10,7 @@
   "login.rejected": "The organization ID, staff number, or password does not match.",
   "login.rateLimited": "Please wait a moment and try again.",
   "login.invalid": "Please check the format of your entries.",
+  "notification.bell.label": "Items to review",
   "user.menu": "Account",
   "user.logout": "Sign out",
   "user.language": "Language",

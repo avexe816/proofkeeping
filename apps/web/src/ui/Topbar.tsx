@@ -5,6 +5,7 @@ import type { SelectableProperty } from "../lib/property/selection.js";
 
 import type { PropertySummary } from "@pk/contracts";
 
+import { NotificationBell } from "./NotificationBell.js";
 import { PropertySwitcher } from "./PropertySwitcher.js";
 import { UserMenu } from "./UserMenu.js";
 
@@ -18,11 +19,10 @@ import { UserMenu } from "./UserMenu.js";
  * ブランドの幅をサイドバーと揃えることで、施設セレクタの左端と
  * サイドバーの右端に縦のラインが通る（A01 §1.1）。
  *
- * ── 通知は器も置いていない ──────────────────────────────
- * A01 §3.2 はバッジの規定（HIGH・MEDIUM のみ、99+、0 件は出さない）を
- * 定めるが、**数える対象の通知が P0 に無い。** 0 件のときバッジを出さない
- * 規定に従うと、今は常に空になる。空の鈴だけ置いても意味が無いので、
- * 通知そのものを作る task が topbar 右端（ユーザーの左隣）に足すこと。
+ * ── 通知の鈴 ────────────────────────────────────────────
+ * 数える対象は未対応の差異（HIGH・MEDIUM）。`notificationCount` が
+ * `null` のときは**鈴ごと出さない。** 差異を読めない相手
+ * （`CLEANER` / `INSPECTOR`）に件数だけ見せない（security.md §1）。
  */
 export function Topbar(props: {
   displayName: string;
@@ -36,6 +36,8 @@ export function Topbar(props: {
   canViewOrgWide: boolean;
   /** ミニバッジの元（§23.3）。読めていなければ空。 */
   summaries: readonly PropertySummary[];
+  /** 通知バッジの件数（§3.2）。**`null` なら鈴を出さない。** */
+  notificationCount: number | null;
 }) {
   return (
     <header className="pk-topbar">
@@ -63,6 +65,10 @@ export function Topbar(props: {
         summaries={props.summaries}
       />
       <div className="pk-topbar__right">
+        {/* A01 §3.1 の並びは**通知 → ユーザー**。 */}
+        {props.notificationCount === null ? null : (
+          <NotificationBell count={props.notificationCount} />
+        )}
         <UserMenu displayName={props.displayName} role={props.role} isOrgWide={props.isOrgWide} />
       </div>
     </header>
