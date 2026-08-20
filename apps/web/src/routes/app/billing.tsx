@@ -74,54 +74,119 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
 export default function BillingList() {
   const data = useLoaderData<BillingData>();
 
+  // KPI はこの一覧（直近 100 件）から導出する。**別の集計を持たない** —
+  // 表と数字が食い違うと、どちらが正か画面から判別できない。
+  const unpaid = data.rows.filter(
+    (row) => !row.isCreditNote && row.paidDate === null && row.status !== "VOIDED",
+  );
+  const unpaidTotal = unpaid.reduce((sum, row) => sum + row.totalAmount, 0);
+  const nextDue = unpaid.map((row) => row.dueDate).sort()[0] ?? null;
+
   return (
     <section className="pk-page">
       <div className="pk-pagehead">
-        <h1 className="pk-pagehead__title">{t("billing.title")}</h1>
+        <div>
+          <h1 className="pk-pagehead__title">{t("billing.title")}</h1>
+          <p className="pk-pagehead__sub">{t("billing.lede")}</p>
+        </div>
       </div>
-      <p className="pk-muted">{t("billing.lede")}</p>
+
+      {/* プロトタイプ D-10 の KPI 行。金額より先に件数（根拠）を見せる。 */}
+      <dl className="pk-stats">
+        <div className="pk-stats__item">
+          <dt>{t("billing.kpi.invoiceCount")}</dt>
+          <dd>
+            {String(data.rows.length)}
+            <span className="pk-stats__unit">{t("billing.unit.invoices")}</span>
+          </dd>
+        </div>
+        <div className={`pk-stats__item${unpaid.length > 0 ? " pk-stats__item--accent-warn" : ""}`}>
+          <dt>{t("billing.kpi.unpaidCount")}</dt>
+          <dd>
+            {String(unpaid.length)}
+            <span className="pk-stats__unit">{t("billing.unit.invoices")}</span>
+          </dd>
+        </div>
+        <div className="pk-stats__item">
+          <dt>{t("billing.kpi.unpaidTotal")}</dt>
+          <dd>
+            {formatYenAmount(unpaidTotal)}
+            <span className="pk-stats__unit">{t("billing.unit.yen")}</span>
+          </dd>
+        </div>
+        <div className="pk-stats__item pk-stats__item--accent-info">
+          <dt>{t("billing.kpi.nextDue")}</dt>
+          <dd className="pk-stats__small">{nextDue ?? t("billing.kpi.nextDue.none")}</dd>
+        </div>
+      </dl>
 
       {data.rows.length === 0 ? (
         <p className="pk-muted">{t("billing.empty")}</p>
       ) : (
-        <table className="pk-grid">
-          <thead>
-            <tr>
-              <th>{t("billing.column.documentNo")}</th>
-              <th>{t("billing.column.period")}</th>
-              <th>{t("billing.column.counterparty")}</th>
-              <th>{t("billing.column.amount")}</th>
-              <th>{t("billing.column.status")}</th>
-              <th>{t("billing.column.dueDate")}</th>
-              <th>{t("billing.column.paidDate")}</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((row) => (
-              <tr key={row.id}>
-                <th scope="row">
-                  {row.documentNo}
-                  {row.isCreditNote ? (
-                    <span className="pk-badge pk-badge--warn">{t("billing.creditNote")}</span>
-                  ) : null}
-                </th>
-                <td>{`${row.periodFrom} 〜 ${row.periodTo}`}</td>
-                <td>{row.counterpartyName}</td>
-                <td>{`${formatYenAmount(row.totalAmount)} ${t("billing.unit.yen")}`}</td>
-                <td>{t(INVOICE_STATUS_LABEL[row.status])}</td>
-                <td>{row.dueDate}</td>
-                <td>{row.paidDate ?? "—"}</td>
-                <td>
-                  <a className="pk-button" href={`/app/billing/${row.id}`}>
-                    {t("billing.open")}
-                  </a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <section className="pk-panel">
+          <div className="pk-panel__head">
+            {t("billing.history.title")}
+            <span className="pk-panel__note">{t("billing.history.note")}</span>
+          </div>
+          <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+            <table className="pk-tbl">
+              <thead>
+                <tr>
+                  <th>{t("billing.column.documentNo")}</th>
+                  <th>{t("billing.column.period")}</th>
+                  <th>{t("billing.column.counterparty")}</th>
+                  <th className="pk-num">{t("billing.column.amount")}</th>
+                  <th>{t("billing.column.status")}</th>
+                  <th>{t("billing.column.dueDate")}</th>
+                  <th>{t("billing.column.paidDate")}</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((row) => (
+                  <tr key={row.id}>
+                    <th scope="row">
+                      {row.documentNo}
+                      {row.isCreditNote ? (
+                        <span className="pk-badge pk-badge--warn">{t("billing.creditNote")}</span>
+                      ) : null}
+                    </th>
+                    <td>{`${row.periodFrom} 〜 ${row.periodTo}`}</td>
+                    <td>{row.counterpartyName}</td>
+                    <td className="pk-num">{`${formatYenAmount(row.totalAmount)} ${t("billing.unit.yen")}`}</td>
+                    <td>
+                      <span className={`pk-badge ${STATUS_BADGE[row.status]}`}>
+                        {t(INVOICE_STATUS_LABEL[row.status])}
+                      </span>
+                    </td>
+                    <td>{row.dueDate}</td>
+                    <td>{row.paidDate ?? "—"}</td>
+                    <td>
+                      <a className="pk-button" href={`/app/billing/${row.id}`}>
+                        {t("billing.open")}
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* 入金の消込は明細で行う（冒頭の注記）。**一覧にボタンを並べない。** */}
+          <div className="pk-panel__foot">{t("billing.history.paymentNote")}</div>
+        </section>
       )}
     </section>
   );
 }
+
+/** 状態 → バッジの色。**入金済みだけを緑にする**（完了が一目で分かる）。 */
+const STATUS_BADGE: Record<InvoiceStatus, string> = {
+  DRAFT: "pk-badge--hidden",
+  CONFIRMED: "pk-badge--info",
+  SENT: "pk-badge--info",
+  VIEWED: "pk-badge--info",
+  PAID: "pk-badge--ok",
+  PARTIALLY_PAID: "pk-badge--warn",
+  OVERDUE: "pk-badge--warn",
+  VOIDED: "pk-badge--hidden",
+};

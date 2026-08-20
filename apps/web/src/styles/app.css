@@ -2018,3 +2018,265 @@ a.pk-nav:hover {
 .pk-room__number {
   font-variant-numeric: tabular-nums;
 }
+
+/* ──────────────────────────────────────────────────────────
+   登録・作成フォーム（DECISIONS #213）
+
+   **`.pk-filter` は絞り込みバー専用。** あれは「入力 1〜2 個 ＋ ボタン」を
+   1 行に寝かせる箱で、`align-items: flex-end` で下端を揃えている。
+   項目が増えると折り返しの位置が画面幅次第で変わり、`select[multiple]` の
+   ような背の高い欄があると同じ行の欄が下端合わせで浮く。
+   **項目が 3 つ以上ある登録フォームはこちらを使う。**
+   ────────────────────────────────────────────────────────── */
+
+/* カード（プロトタイプ D の `.card`）。見出し行＋本文の 2 段構造。
+   本文はフォーム・表・段落のどれでも載る。表を端まで敷くときは
+   `__body--flush` を使う。 */
+.pk-panel {
+  margin: 14px 0;
+  overflow: hidden;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  box-shadow: var(--sh);
+}
+
+/* 新規作成のカード（プロトタイプの `pk-propcard--new` と同じ意図）。 */
+.pk-panel--new {
+  border-style: dashed;
+}
+
+.pk-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 13px 16px;
+  font-size: 13px;
+  font-weight: 800;
+  border-bottom: 1px solid var(--line2);
+}
+
+/* 見出し行の右端の補足（対象期間・件数など）。 */
+.pk-panel__note {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pk-panel__body {
+  padding: 16px;
+}
+
+/* 表を端まで敷く。 */
+.pk-panel__body--flush {
+  padding: 0;
+}
+
+.pk-panel__foot {
+  padding: 12px 15px;
+  font-size: 11px;
+  color: var(--muted);
+  border-top: 1px solid var(--line2);
+}
+
+/* ── 2〜3 カラムのカード配置（プロトタイプ D の grid）───── */
+
+.pk-cols {
+  display: grid;
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.pk-cols > .pk-panel {
+  margin: 0;
+  /* grid の子は min-width:auto。中の表がカードを押し広げないようにする。 */
+  min-width: 0;
+}
+
+.pk-cols--2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.pk-cols--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.pk-cols--21 {
+  grid-template-columns: 2fr 1fr;
+}
+
+/* サイドバーぶんを引いた実効幅が狭いときは 1 列に落とす。 */
+@media (max-width: 1180px) {
+  .pk-cols--2,
+  .pk-cols--3,
+  .pk-cols--21 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── カード内の表（プロトタイプ D の `table`）──────────────
+   `.pk-grid` は独立した表（枠＋角丸＋影つき）。カードの中では枠が
+   二重になるため、こちらの端まで敷く表を使う。 */
+
+.pk-tbl {
+  width: 100%;
+  font-size: 12.5px;
+  border-collapse: collapse;
+}
+
+.pk-tbl thead th {
+  padding: 9px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink2);
+  text-align: left;
+  white-space: nowrap;
+  background: var(--surf3);
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-tbl tbody th,
+.pk-tbl tbody td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line2);
+}
+
+.pk-tbl tbody tr:last-child th,
+.pk-tbl tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.pk-tbl tbody tr:hover {
+  background: var(--surf2);
+}
+
+.pk-tbl tfoot td {
+  padding: 10px 12px;
+  font-weight: 800;
+  background: var(--surf3);
+  border-top: 1px solid var(--line);
+}
+
+/* 金額・数量の列。桁が揃わないと比較できない。 */
+.pk-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 横に長い表（権限の対応表など）はカードの中でスクロールさせる。 */
+.pk-scroll-x {
+  overflow-x: auto;
+}
+
+/* 権限の対応表の値。**色だけに頼らず文字も変える**（○/×/範囲名）。 */
+.pk-allow {
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.pk-deny {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* 表示専用の印（プロトタイプの 🔒 lock チップ）。 */
+.pk-lock {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  padding: 2px 7px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surf3);
+  border-radius: 5px;
+}
+
+/* ── バッジの追加色（請求の状態表示）────────────────────── */
+
+.pk-badge--ok {
+  color: var(--ok);
+  background: var(--okbg);
+}
+
+.pk-badge--info {
+  color: var(--info);
+  background: var(--infobg);
+}
+
+/* ── KPI カードの左縁色（プロトタイプ D の kpi.ok / if / wn）── */
+
+.pk-stats__item--accent-ok {
+  border-left: 3px solid var(--ok);
+}
+
+.pk-stats__item--accent-info {
+  border-left: 3px solid var(--info);
+}
+
+.pk-stats__item--accent-warn {
+  border-left: 3px solid var(--warn);
+}
+
+/* ── pagehead の 2 行目と右端の操作 ───────────────────────── */
+
+.pk-pagehead__sub {
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.pk-pagehead__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+
+/* 項目を等幅の列に並べる。**折り返しではなく列で決める。** */
+.pk-formgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px 16px;
+  /* 背の高い欄に他の欄が引きずられない（flex-end との違いはここ）。 */
+  align-items: start;
+  margin: 0;
+}
+
+/* grid の子は既定で min-width:auto。長い option 名で列が広がるのを止める。 */
+.pk-formgrid .pk-field {
+  min-width: 0;
+}
+
+.pk-formgrid .pk-input,
+.pk-formgrid .pk-select {
+  width: 100%;
+}
+
+/* 複数選択は 1 行 32px では読めない。行数ぶんの高さを持たせる。 */
+.pk-formgrid select[multiple] {
+  min-height: 82px;
+  padding: 6px 8px;
+}
+
+/* 操作は最後の行に単独で置く。**入力欄の列に混ぜない。** */
+.pk-formgrid__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  grid-column: 1 / -1;
+  padding-top: 12px;
+  border-top: 1px solid var(--line2);
+}
+
+/* 背の高い欄・長い欄は 2 列ぶんを占める（列が 2 つ以上あるときだけ）。 */
+@media (min-width: 760px) {
+  .pk-formgrid .pk-field--wide {
+    grid-column: span 2;
+  }
+}

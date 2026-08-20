@@ -285,12 +285,20 @@ export default function BillingDetail() {
 
   return (
     <section className="pk-page">
+      {/* プロトタイプ D-10 の pagehead。PDF はここから出す（本文に節を作らない）。 */}
       <div className="pk-pagehead">
-        <h1 className="pk-pagehead__title">{`${t("billing.title")} ${invoice.documentNo}`}</h1>
+        <div>
+          <h1 className="pk-pagehead__title">{`${t("billing.title")} ${invoice.documentNo}`}</h1>
+          <p className="pk-pagehead__sub">
+            {`${invoice.counterpartyName} · ${invoice.periodFrom} 〜 ${invoice.periodTo}`}
+          </p>
+        </div>
+        <div className="pk-pagehead__actions">
+          <a className="pk-button pk-button--primary" href={`/api/v1/invoices/${invoice.id}/download`}>
+            {t("billing.pdf.download")}
+          </a>
+        </div>
       </div>
-      <p className="pk-muted">
-        {`${invoice.counterpartyName} · ${invoice.periodFrom} 〜 ${invoice.periodTo}`}
-      </p>
 
       {result?.failure === "INVALID" ? (
         <p className="pk-notice pk-notice--warn">{t("billing.pay.invalidDate")}</p>
@@ -323,139 +331,149 @@ export default function BillingDetail() {
             <span className="pk-stats__unit">{t("billing.unit.yen")}</span>
           </dd>
         </div>
-        <div className="pk-stats__item">
+        <div className="pk-stats__item pk-stats__item--accent-info">
           <dt>{t("billing.kpi.dueDate")}</dt>
           <dd className="pk-stats__small">{invoice.dueDate}</dd>
         </div>
-        <div className="pk-stats__item">
+        <div
+          className={`pk-stats__item${invoice.status === "PAID" ? " pk-stats__item--accent-ok" : ""}`}
+        >
           <dt>{t("billing.kpi.status")}</dt>
           <dd className="pk-stats__small">{t(INVOICE_STATUS_LABEL[invoice.status])}</dd>
         </div>
       </dl>
       <p className="pk-muted">{t("billing.kpi.note")}</p>
 
-      {/* ── 内訳 ──────────────────────────────────────── */}
-      <h2 className="pk-section__title">{t("billing.lines.title")}</h2>
-      <table className="pk-grid">
-        <thead>
-          <tr>
-            <th>{t("billing.lines.description")}</th>
-            <th>{t("billing.lines.unitPrice")}</th>
-            <th>{t("billing.lines.quantity")}</th>
-            <th>{t("billing.lines.amount")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.lines.map((line) => (
-            <tr key={line.lineNo}>
-              <th scope="row">{line.description}</th>
-              <td>{`${formatYenAmount(line.unitPrice)} ${t("billing.unit.yen")}`}</td>
-              <td>{`${String(line.quantity)} ${line.unit}`}</td>
-              <td>{`${formatYenAmount(line.amount)} ${t("billing.unit.yen")}`}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr>
-            <th scope="row" colSpan={3}>
-              {t("billing.lines.subtotal")}
-            </th>
-            <td>{`${formatYenAmount(invoice.subtotalAmount)} ${t("billing.unit.yen")}`}</td>
-          </tr>
-          {data.taxes.map((tax) => (
-            <tr key={tax.taxRate}>
-              <th scope="row" colSpan={3}>
-                {`${t("billing.lines.tax")}（${String(tax.taxRate)}${t("billing.unit.percent")}）`}
-              </th>
-              <td>{`${formatYenAmount(tax.taxAmount)} ${t("billing.unit.yen")}`}</td>
-            </tr>
-          ))}
-          <tr>
-            <th scope="row" colSpan={3}>
-              {t("billing.lines.total")}
-            </th>
-            <td>{`${formatYenAmount(invoice.totalAmount)} ${t("billing.unit.yen")}`}</td>
-          </tr>
-        </tfoot>
-      </table>
-      {invoice.isQualifiedInvoice ? null : (
-        <p className="pk-muted">{t("billing.notQualified")}</p>
-      )}
-
-      {/* ── 契約の内容 ────────────────────────────────── */}
-      <h2 className="pk-section__title">{t("billing.contract.title")}</h2>
-      {data.counterparty === null ? (
-        <p className="pk-muted">{t("billing.contract.missing")}</p>
-      ) : (
-        <table className="pk-grid">
-          <tbody>
-            <tr>
-              <th scope="row">{t("billing.contract.counterparty")}</th>
-              <td>{data.counterparty.name}</td>
-            </tr>
-            <tr>
-              <th scope="row">{t("billing.contract.closingDay")}</th>
-              <td>{String(data.counterparty.closingDay)}</td>
-            </tr>
-            <tr>
-              <th scope="row">{t("billing.contract.paymentTermDays")}</th>
-              <td>{String(data.counterparty.paymentTermDays)}</td>
-            </tr>
-          </tbody>
-        </table>
-      )}
-
-      {data.prices.length === 0 ? null : (
-        <>
-          {/* 単価は表示専用（プロトタイプの確定事項）。変更は取引先と料金の画面で。 */}
-          <p className="pk-muted">{t("billing.contract.priceNote")}</p>
-          <table className="pk-grid">
-            <thead>
-              <tr>
-                <th>{t("billing.contract.item")}</th>
-                <th>{t("billing.contract.unitPrice")}</th>
-                <th>{t("billing.contract.validity")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.prices.map((price, index) => (
-                <tr key={`${price.itemCode}-${String(index)}`}>
-                  <th scope="row">{labelOfItemCode(price.itemCode)}</th>
-                  <td>{`${formatYenAmount(price.unitPrice)} ${t("billing.unit.yen")}`}</td>
-                  <td>{`${price.validFrom} 〜 ${price.validTo ?? ""}`}</td>
+      {/* 内訳と契約の内容を並置する（プロトタイプ D-10 の g21）。 */}
+      <div className="pk-cols pk-cols--21">
+        {/* ── 内訳 ────────────────────────────────────── */}
+        <section className="pk-panel">
+          <div className="pk-panel__head">
+            {t("billing.lines.title")}
+            <span className="pk-panel__note">{`${invoice.periodFrom} 〜 ${invoice.periodTo}`}</span>
+          </div>
+          <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+            <table className="pk-tbl">
+              <thead>
+                <tr>
+                  <th>{t("billing.lines.description")}</th>
+                  <th className="pk-num">{t("billing.lines.unitPrice")}</th>
+                  <th className="pk-num">{t("billing.lines.quantity")}</th>
+                  <th className="pk-num">{t("billing.lines.amount")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
+              </thead>
+              <tbody>
+                {data.lines.map((line) => (
+                  <tr key={line.lineNo}>
+                    <th scope="row">{line.description}</th>
+                    <td className="pk-num">{`${formatYenAmount(line.unitPrice)} ${t("billing.unit.yen")}`}</td>
+                    <td className="pk-num">{`${String(line.quantity)} ${line.unit}`}</td>
+                    <td className="pk-num">{`${formatYenAmount(line.amount)} ${t("billing.unit.yen")}`}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={3}>{t("billing.lines.subtotal")}</td>
+                  <td className="pk-num">{`${formatYenAmount(invoice.subtotalAmount)} ${t("billing.unit.yen")}`}</td>
+                </tr>
+                {data.taxes.map((tax) => (
+                  <tr key={tax.taxRate}>
+                    <td colSpan={3}>
+                      {`${t("billing.lines.tax")}（${String(tax.taxRate)}${t("billing.unit.percent")}）`}
+                    </td>
+                    <td className="pk-num">{`${formatYenAmount(tax.taxAmount)} ${t("billing.unit.yen")}`}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td colSpan={3}>{t("billing.lines.total")}</td>
+                  <td className="pk-num">{`${formatYenAmount(invoice.totalAmount)} ${t("billing.unit.yen")}`}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          {invoice.isQualifiedInvoice ? null : (
+            <div className="pk-panel__foot">{t("billing.notQualified")}</div>
+          )}
+        </section>
 
-      {/* ── 帳票 ──────────────────────────────────────── */}
-      <h2 className="pk-section__title">{t("billing.pdf.title")}</h2>
-      <p>
-        <a className="pk-button" href={`/api/v1/invoices/${invoice.id}/download`}>
-          {t("billing.pdf.download")}
-        </a>
-      </p>
+        {/* ── 契約の内容 ──────────────────────────────── */}
+        <section className="pk-panel">
+          <div className="pk-panel__head">
+            {t("billing.contract.title")}
+            <span className="pk-lock">{t("billing.contract.lock")}</span>
+          </div>
+          {data.counterparty === null ? (
+            <div className="pk-panel__body">
+              <p className="pk-muted">{t("billing.contract.missing")}</p>
+            </div>
+          ) : (
+            <div className="pk-panel__body pk-panel__body--flush">
+              <table className="pk-tbl">
+                <tbody>
+                  <tr>
+                    <td className="pk-muted">{t("billing.contract.counterparty")}</td>
+                    <td>{data.counterparty.name}</td>
+                  </tr>
+                  <tr>
+                    <td className="pk-muted">{t("billing.contract.closingDay")}</td>
+                    <td>{String(data.counterparty.closingDay)}</td>
+                  </tr>
+                  <tr>
+                    <td className="pk-muted">{t("billing.contract.paymentTermDays")}</td>
+                    <td>{String(data.counterparty.paymentTermDays)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+          {data.prices.length === 0 ? null : (
+            <div className="pk-panel__body">
+              {/* 単価は表示専用（プロトタイプの確定事項）。変更は取引先と料金の画面で。 */}
+              <table className="pk-tbl">
+                <thead>
+                  <tr>
+                    <th>{t("billing.contract.item")}</th>
+                    <th className="pk-num">{t("billing.contract.unitPrice")}</th>
+                    <th>{t("billing.contract.validity")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.prices.map((price, index) => (
+                    <tr key={`${price.itemCode}-${String(index)}`}>
+                      <th scope="row">{labelOfItemCode(price.itemCode)}</th>
+                      <td className="pk-num">{`${formatYenAmount(price.unitPrice)} ${t("billing.unit.yen")}`}</td>
+                      <td>{`${price.validFrom} 〜 ${price.validTo ?? ""}`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="pk-muted">{t("billing.contract.priceNote")}</p>
+            </div>
+          )}
+        </section>
+      </div>
 
       {/* ── 入金の記録（銀行振込）──────────────────────── */}
       {invoice.paidDate !== null ? (
         <p className="pk-notice">{`${t("billing.pay.paidOn")} ${invoice.paidDate}`}</p>
       ) : null}
       {data.canRecordPayment ? (
-        <>
-          <h2 className="pk-section__title">{t("billing.pay.title")}</h2>
-          <p className="pk-muted">{t("billing.pay.lede")}</p>
-          <Form method="post" className="pk-filter">
-            <label className="pk-field">
-              <span className="pk-field__label">{t("billing.pay.receivedDate")}</span>
-              <input className="pk-input" type="date" name="receivedDate" required />
-            </label>
-            <button className="pk-button" type="submit">
-              {t("billing.pay.submit")}
-            </button>
-          </Form>
-        </>
+        <section className="pk-panel">
+          <div className="pk-panel__head">{t("billing.pay.title")}</div>
+          <div className="pk-panel__body">
+            <p className="pk-muted">{t("billing.pay.lede")}</p>
+            <Form method="post" className="pk-filter">
+              <label className="pk-field">
+                <span className="pk-field__label">{t("billing.pay.receivedDate")}</span>
+                <input className="pk-input" type="date" name="receivedDate" required />
+              </label>
+              <button className="pk-button pk-button--primary" type="submit">
+                {t("billing.pay.submit")}
+              </button>
+            </Form>
+          </div>
+        </section>
       ) : null}
     </section>
   );
