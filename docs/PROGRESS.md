@@ -2007,14 +2007,17 @@ P8 へ送り、**監査ログの閲覧だけを P7-20 として起票した。**
       リポジトリは `staffLedger.ts` に分ける（表は同じでも読む相手が違う）。
       `staffPii.spec.ts` を新設し、住所・マイナンバー・口座・控除の列が
       無いことを走査する。
-- [~] P8-02 residencyRecord と期限アラート（ops 07 / 通知は 90 日・30 日の 2 段）
-      **土台まで。** 表・リポジトリ 4 関数・`residency.read`/`write`（INV-08 に
-      合わせて `ORG_ADMIN` だけ）・越境テスト・一覧の在留期限の列・免責文。
-      **記録の口まで入った**（Zod・`lib/staff/residency.ts`・`residency.updated`）。
+- [x] P8-02 residencyRecord と期限アラート（ops 07 / 通知は 90 日・30 日の 2 段）
+      土台（表・リポジトリ 4 関数・`residency.read`/`write` = INV-08 で
+      `ORG_ADMIN` だけ・越境テスト・一覧の在留期限の列・免責文）、
+      記録の口（Zod・`lib/staff/residency.ts`・`residency.updated`）、
+      通知（専用 cron `0 22 * * *` = 07:00 JST → `QUEUE_NOTIFICATION` に
+      `RESIDENCY_ALERT` で相乗り → **人数だけ**の 1 日 1 通 / 宛先は
+      `ORG_ADMIN` のみ・**`OWNER` に送らない**）、配分停止
+      （`assignmentBlock.ts` → `assign.ts` の自動・手動両方。
+      **担当を外す側は通す**）まで。
       書き込みは**画面から切り出してある** — `staff.tsx` は初期 PIN を運ぶので、
       `recordAudit()` を同居させると `tests/security/initialPin.spec.ts` が落ちる。
-      **残り 2 つ**: ①90/30 日の通知（Cron 07:00 JST）②期限切れを新規配分から
-      外す（`listExpiredResidencyStaffIds()` は用意済み）。
 - [ ] P8-03 shiftPlan とシフト・当日の割当（ops 02）
 - [ ] P8-04 スキルと言語を自動配分へ反映（P1-14 へ接続）
 - [ ] P8-10 研修と資格（ops 08 / 追加起票）

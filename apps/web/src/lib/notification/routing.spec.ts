@@ -41,12 +41,12 @@ function resolution(overrides: Partial<ChannelResolution> = {}): ChannelResoluti
   };
 }
 
-describe("NOTIFICATION_EVENTS — 12 イベントが定義されている", () => {
-  it("12 件ある（§5.1 の 10 件 + P7 の 2 件）", () => {
+describe("NOTIFICATION_EVENTS — 13 イベントが定義されている", () => {
+  it("13 件ある（§5.1 の 10 件 + P7 の 2 件 + P8 の 1 件）", () => {
     // **11 件目は §5.1 の表に無い**（DECISIONS #163 / OPEN_QUESTIONS #097）。
     // PK-SPEC-P7 §4.5 MUST が通知を要求しているのに、§5.1 が P7 を
     // 織り込んでいないため。仕様の版上げで §5.1 へ入れること。
-    expect(NOTIFICATION_EVENTS).toHaveLength(12);
+    expect(NOTIFICATION_EVENTS).toHaveLength(13);
   });
 
   it("`packages/db` の語彙と 1 対 1 で対応する", () => {
@@ -89,7 +89,7 @@ describe("canReceive — `CLEANER` の境界（§5.1 MUST / security.md §1）",
 
   it("**それ以外は 1 つも受け取らない**", () => {
     const others = NOTIFICATION_EVENT_CODES.filter((code) => code !== CLEANER_ALLOWED_EVENT);
-    expect(others).toHaveLength(11);
+    expect(others).toHaveLength(12);
     for (const code of others) {
       expect(canReceive("CLEANER", code), code).toBe(false);
     }
@@ -137,6 +137,15 @@ describe("canReceive — 表に無い相手へ送らない", () => {
 
   it("`PROPERTY_MANAGER` は連携の失敗を受け取らない（対象は `ORG_ADMIN`）", () => {
     expect(canReceive("PROPERTY_MANAGER", "integration.error")).toBe(false);
+  });
+
+  it("**`OWNER` は在留資格の通知を受け取らない**（INV-08 / P8-02）", () => {
+    // 「オーナー・プラットフォーム運営に公開しない」。写真の保持期限
+    // （`photo.retention_due`）は OWNER にも届くが、こちらは届かない。
+    expect(canReceive("OWNER", "residency.expiry_due")).toBe(false);
+    expect(canReceive("PROPERTY_MANAGER", "residency.expiry_due")).toBe(false);
+    expect(canReceive("VENDOR_ADMIN", "residency.expiry_due")).toBe(false);
+    expect(canReceive("ORG_ADMIN", "residency.expiry_due")).toBe(true);
   });
 
   it("**取引先はロールではない**（`period.review_requested`）", () => {

@@ -153,6 +153,20 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDefinition[] = [
     audience: ["OWNER", "ORG_ADMIN"],
     ignoresQuietHours: false,
   },
+  {
+    // P8-02。**§5.1 の 10 件に無い 13 件目**（P8-02 のアラート /
+    // PK-SPEC-P8 §1.4）。
+    //
+    // **宛先は `ORG_ADMIN` だけ。`OWNER` に送らない。** INV-08 が
+    // 「在留資格の情報は運営管理者のみ。現場責任者・オーナー・
+    // プラットフォーム運営に公開しない」と定める
+    // （OPEN_QUESTIONS #110 で仕様 §3 より実装契約を採った）。
+    // `photo.retention_due` と宛先が違うのは意図的。
+    code: "residency.expiry_due",
+    defaultChannels: ["IN_APP", "EMAIL"],
+    audience: ["ORG_ADMIN"],
+    ignoresQuietHours: false,
+  },
 ];
 
 /** コード → 定義。**同じコードを 2 度書いていないことを読み込み時に落とす。** */
