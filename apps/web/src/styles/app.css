@@ -2451,3 +2451,27 @@ a.pk-nav:hover {
   font-size: 11px;
   color: var(--muted);
 }
+
+/* ──────────────────────────────────────────────────────────
+   見出しの右端に置く操作（A01 §3.2 / DECISIONS #218）
+
+   絞り込みを本文の帯ではなく pagehead に置く画面（客室ボードなど）で、
+   セレクタとボタンの高さを揃える。**`.pk-select` の既定より少し大きい** —
+   見出しの行に載るので、詰まって見えないだけの余白を持たせる。
+   ────────────────────────────────────────────────────────── */
+
+.pk-pagehead__actions .pk-select,
+.pk-pagehead__actions .pk-input {
+  min-height: 36px;
+  padding: 8px 11px;
+  font-size: 13px;
+}
+
+.pk-pagehead__actions .pk-button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
