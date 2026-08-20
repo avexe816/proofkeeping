@@ -1286,7 +1286,9 @@ a.pk-nav:hover {
    信頼性 × の行はグレーで出す。**隠さない**（貯まっていない組み合わせが
    見えないと、P3-13 の蓄積判断ができない）。 */
 .pk-grid tr.pk-row--muted th,
-.pk-grid tr.pk-row--muted td {
+.pk-grid tr.pk-row--muted td,
+.pk-tbl tr.pk-row--muted th,
+.pk-tbl tr.pk-row--muted td {
   color: var(--muted);
 }
 

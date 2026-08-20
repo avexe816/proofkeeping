@@ -354,7 +354,7 @@ export default function RoomTypes() {
           </thead>
           <tbody>
             {data.rows.map((row) => (
-              <tr key={row.roomTypeId} className={row.isActive ? undefined : "pk-row--inactive"}>
+              <tr key={row.roomTypeId} className={row.isActive ? undefined : "pk-row--muted"}>
                 <th scope="row">
                   {row.code}
                   {row.isActive ? null : <span className="pk-badge">{t("roomType.inactive")}</span>}

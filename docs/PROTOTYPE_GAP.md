@@ -103,8 +103,18 @@ CLAUDE.md §4 と security.md に反するものは作らない。
 | `pk-m-screen`（`report.tsx` の 3 か所だけ）| **消した。** 他の 13 画面は fragment で `head` と `body` を返しており、この画面だけが余分な箱で包んでいた。箱が `.pk-m`（flex の列）と `.pk-m-body { flex: 1 }` の親子を切っていて、本文が縦に伸びていなかった |
 | `pk-m-group__toggle`（`today.tsx` の ▸ / ▾）| **CSS を足した。** 帯の右端に固定幅で置く（件数の桁数で位置がずれないように） |
 
-再発は `apps/web/src/styles/mobileClasses.spec.ts` が押さえる
-（未定義のクラスの検出と、`head` / `body` を余分な要素で包まないこと）。
+**2026-08-20 の点検（PC 画面 262 クラス）** — 同じ走査を `/app` と `/plat`
+にも掛けて 2 件直した。
+
+| 見つかったもの | 直し方 |
+|---|---|
+| `pk-row--inactive`（`roomTypes.tsx`）| **家の作法へ揃えた。** 無効化した行をグレーにするクラスは `pk-row--muted`（`counterparties` / `members` / `dataQuality` / `baselineSettings` が使っている）。綴りが違うだけで、無効化した客室タイプの行がグレーになっていなかった |
+| `.pk-row--muted` がカードの中の表で効かない | **`.pk-tbl` にも規則を足した。** 規則が `.pk-grid tr.pk-row--muted` だけに掛かっていたため、`pk-tbl` を使う `members` で無効化したメンバーの行がグレーにならなかった |
+
+再発は `apps/web/src/styles/classNames.spec.ts` が押さえる（モバイル・PC
+両方の未定義クラスの検出と、現場画面が `head` / `body` を余分な要素で
+包まないこと）。CSS を持たなくてよいクラスは、**理由つきの一覧**に
+書いたものだけを通す。
 
 ## 第2批 ホテル・オーナー PC（12 画面）
 
