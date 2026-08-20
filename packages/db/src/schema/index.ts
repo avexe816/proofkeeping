@@ -19,14 +19,7 @@ export {
   type OrgType,
 } from "./organization.js";
 
-export {
-  ROLES,
-  membership,
-  passwordHistory,
-  propertyAssignment,
-  user,
-  type Role,
-} from "./user.js";
+export { ROLES, membership, passwordHistory, propertyAssignment, user, type Role } from "./user.js";
 
 export {
   HOUSEKEEPING_STATUSES,

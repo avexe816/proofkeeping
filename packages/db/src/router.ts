@@ -47,6 +47,7 @@ import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 
 import type { Env } from "./env.js";
 import * as globalSchema from "./schema/global.js";
+import * as platformSchema from "./schema/platform.js";
 import * as tenantSchema from "./schema/index.js";
 import type { Role } from "./schema/user.js";
 
@@ -141,11 +142,7 @@ export function fnv1a32(input: string): number {
  * binding を引きに行って解決不能になる。NaN を作らせないためここで落とす。
  */
 function assertShardCount(shardCount: number, raw: string): void {
-  if (
-    !Number.isInteger(shardCount) ||
-    shardCount < 1 ||
-    shardCount > MAX_SHARD_COUNT
-  ) {
+  if (!Number.isInteger(shardCount) || shardCount < 1 || shardCount > MAX_SHARD_COUNT) {
     throw new Error(`SHARD_COUNT_INVALID:${raw}`);
   }
 }
@@ -317,4 +314,25 @@ export function getGlobalDb(env: Env): DrizzleD1Database<typeof globalSchema> {
   const db = env[key] as D1Database | undefined;
   if (!db) throw new Error(`SHARD_BINDING_MISSING:${key}`);
   return drizzle(db, { schema: globalSchema });
+}
+
+/**
+ * プラットフォーム運営（stek.ai 側）専用の DB を返す。**SHARD_00 に固定。**
+ *
+ * task: docs/tasks/PF-01.md / 決定: docs/DECISIONS.md #220
+ *
+ * **運営面はここだけを通る。** `getTenantDb()` を呼ばないことで、
+ * 「テナント横断の集計を書かない」（architecture.md §3）が
+ * **テナント面の性質として保たれる。**
+ *
+ * `getGlobalDb()` と同じく誤用を型で塞いである。返る DB のスキーマは
+ * `schema/platform.ts` だけなので、ここから `task` や `room` は引けない。
+ * 逆に `platform_*` はテナント面のスキーマに載っていないので、
+ * `getTenantDb()` からは引けない。**2 つの集合が交わらない。**
+ */
+export function getPlatformDb(env: Env): DrizzleD1Database<typeof platformSchema> {
+  const key = `SHARD_${String(GLOBAL_SHARD_INDEX).padStart(2, "0")}` as keyof Env;
+  const db = env[key] as D1Database | undefined;
+  if (!db) throw new Error(`SHARD_BINDING_MISSING:${key}`);
+  return drizzle(db, { schema: platformSchema });
 }
