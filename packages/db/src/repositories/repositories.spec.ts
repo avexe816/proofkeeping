@@ -59,6 +59,7 @@ import * as propertyRepo from "./property.js";
 import * as rollupRepo from "./rollup.js";
 import * as roomRepo from "./room.js";
 import * as residencyRepo from "./residency.js";
+import * as shiftRepo from "./shift.js";
 import * as roomPlanRepo from "./roomPlan.js";
 import * as standardTimeRepo from "./standardTime.js";
 import * as taskPhotoRepo from "./taskPhoto.js";
@@ -129,6 +130,8 @@ const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
   // P8-02 が登録した在留資格（同 §1.4 / INV-08）。
   // **件数だけを返す口を分けてある**（`PROPERTY_MANAGER` には件数のみ）。
   residency: residencyRepo,
+  // P8-03 が登録したシフト（同 §1.5）。**予定の表。打刻の関数が無い。**
+  shift: shiftRepo,
   user: userRepo,
 };
 
@@ -3377,6 +3380,63 @@ const INVOCATIONS: Invocation[] = [
       staffLedgerRepo.updateStaffLedger(env, ctx, {
         membershipId: OTHER_ID.membership,
         workStatus: "RESIGNED",
+      }),
+  },
+  // ── P8-03 シフト（PK-SPEC-P8 §1.5）───────────────────────
+  {
+    name: "shift.listShifts",
+    kind: "tenant",
+    run: (env, ctx) => shiftRepo.listShifts(env, ctx, { from: "2026-08-17", to: "2026-08-23" }),
+  },
+  {
+    name: "shift.upsertShift",
+    kind: "tenant",
+    run: (env, ctx) =>
+      shiftRepo.upsertShift(env, ctx, {
+        membershipId: OWN_ID.membership,
+        businessDate: "2026-08-20",
+        shiftType: "WORK",
+        propertyId: OWN_ID.property,
+        startAt: "09:00",
+        endAt: "17:00",
+        breakMinutes: 60,
+        note: null,
+      }),
+    // スタッフも施設も、別組織の ID を受け付けてはならない。
+    crossTenant: (env, ctx) =>
+      shiftRepo.upsertShift(env, ctx, {
+        membershipId: OTHER_ID.membership,
+        businessDate: "2026-08-20",
+        shiftType: "OFF",
+        propertyId: null,
+        startAt: null,
+        endAt: null,
+        breakMinutes: 60,
+        note: null,
+      }),
+  },
+  {
+    name: "shift.deleteShift",
+    kind: "tenant",
+    run: (env, ctx) =>
+      shiftRepo.deleteShift(env, ctx, {
+        membershipId: OWN_ID.membership,
+        businessDate: "2026-08-20",
+      }),
+    crossTenant: (env, ctx) =>
+      shiftRepo.deleteShift(env, ctx, {
+        membershipId: OTHER_ID.membership,
+        businessDate: "2026-08-20",
+      }),
+  },
+  {
+    name: "shift.copyShiftWeek",
+    kind: "tenant",
+    run: (env, ctx) =>
+      shiftRepo.copyShiftWeek(env, ctx, {
+        sourceFrom: "2026-08-10",
+        sourceTo: "2026-08-16",
+        targetFrom: "2026-08-17",
       }),
   },
   // ── P8-02 在留資格（同 §1.4 / INV-08）───────────────────

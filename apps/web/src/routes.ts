@@ -160,6 +160,8 @@ export default [
     // P7-02。現場スタッフの登録と、現場掲示用の案内（§2.3 Step 5 / §2.4 v1.1）。
     // **初期 PIN は `action` の戻り値としてだけ現れる**（DECISIONS #184）。
     route("app/settings/staff", "routes/app/staff.tsx"),
+    // P8-03 シフトと当日の割当（ops 02）。門は shift.manage（OWNER / ORG_ADMIN）。
+    route("app/shifts", "routes/app/shifts.tsx"),
     // W-11 施設設定（施設マスタの作成・編集 / OPEN_QUESTIONS #103 の残り半分）。
     route("app/settings/properties", "routes/app/propertySettings.tsx"),
     // W-12 権限と監査（権限側）。メンバー管理。門は user.write（組織全体）。

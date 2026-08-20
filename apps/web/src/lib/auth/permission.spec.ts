@@ -61,6 +61,9 @@ const EXPECTED: Record<PermissionAction, string> = {
   // `PROPERTY_MANAGER` の「件数のみ」は `countExpiringResidencies()` で表す。
   "residency.read": "-O------",
   "residency.write": "-O------",
+  // P8-03。仕様 §3 の表より狭い（OPEN_QUESTIONS #112）。プロトタイプ
+  // ops 02 が「担当者名は運営管理者のみ」と明記しているため。
+  "shift.manage": "OO------",
   "property.read": "OOAAAAOA",
   "property.write": "OOA-----",
   "finding.read": "OOA--AOA",

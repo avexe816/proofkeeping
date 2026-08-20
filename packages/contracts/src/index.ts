@@ -795,13 +795,18 @@ export {
 // （security.md §3）。就労可否も受け取らない（§1.4 MUST）。
 export {
   RESIDENCY_STATUS_TYPE_VALUES,
+  SHIFT_TYPE_VALUES,
   WORK_STATUS_VALUES,
   residencyStatusTypeSchema,
   residencyUpsertRequestSchema,
+  shiftTypeSchema,
+  shiftUpsertRequestSchema,
   staffLedgerUpdateRequestSchema,
   workStatusSchema,
   type ResidencyStatusTypeValue,
   type ResidencyUpsertRequest,
+  type ShiftTypeValue,
+  type ShiftUpsertRequest,
   type StaffLedgerUpdateRequest,
   type WorkStatusValue,
 } from "./workforce.js";

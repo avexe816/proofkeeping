@@ -73,6 +73,8 @@ describe("登録簿の不変条件", () => {
       "nav.tasks",
       // W-05（P1-04 の未達分）。
       "nav.plan",
+      // ops 02 シフトと割当（P8-03）。
+      "nav.shifts",
       // W-06 差異レポート一覧（P4-06）。「日次運用」の最後。
       "nav.findings",
       // W-07 差異の詳細への入口（2026-08-17）。「記録の確認」の 1 つめ。
@@ -201,6 +203,8 @@ describe("権限による非表示（security.md §1 の絶対境界）", () => 
     expect(keys).not.toContain("nav.permission");
     // P8-01。スタッフ管理も `user.write` の門（登録の口が同じ画面にある）。
     expect(keys).not.toContain("nav.staff");
+    // P8-03。シフトも書き込みの画面（shift.manage）。
+    expect(keys).not.toContain("nav.shifts");
     // 読取専用。設定の 4 画面はいずれも書き込みの操作を action に持つ。
     expect(keys).not.toContain("nav.rooms");
     expect(keys).not.toContain("nav.checklists");

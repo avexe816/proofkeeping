@@ -143,6 +143,8 @@ const TENANT_TABLES = [
   // 他社スタッフの在留期限が自社の画面に載る。** 読める相手を絞る
   // （`residency.read` は `ORG_ADMIN` のみ）のとは別に効く防御。
   "residency_record",
+  // P8-03。シフト（PK-SPEC-P8 §1.5）。誰がいつ働くかは雇用管理の個人情報。
+  "shift_plan",
 ] as const;
 
 /**

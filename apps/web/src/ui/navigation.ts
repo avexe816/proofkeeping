@@ -152,6 +152,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: `/app/p/${PROPERTY_ID_PLACEHOLDER}/plan`,
   },
+  // ops 02 シフトと割当（P8-03）。「日次運用」の進捗モニタの後。
+  // 門は shift.manage（OWNER / ORG_ADMIN のみ / OPEN_QUESTIONS #112）。
+  {
+    key: "nav.shifts",
+    icon: "🗓️",
+    section: "daily",
+    moduleCode: "PLATFORM",
+    action: "shift.manage",
+    scope: "ORGANIZATION",
+    status: "READY",
+    href: "/app/shifts",
+  },
   // W-06 差異レポート一覧（P4-06 / PK-SPEC-P4 §6.1）。
   // **`href` に `{propertyId}` を持たない。** §6.1 のフィルタは「全施設」を
   // 含み、施設は画面のセレクタで切り替える。`scope` を `PROPERTY` のままに

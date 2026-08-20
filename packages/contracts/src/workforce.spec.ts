@@ -11,7 +11,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { residencyUpsertRequestSchema, staffLedgerUpdateRequestSchema } from "./workforce.js";
+import {
+  residencyUpsertRequestSchema,
+  shiftUpsertRequestSchema,
+  staffLedgerUpdateRequestSchema,
+} from "./workforce.js";
 
 const STAFF = "a1b2c3__sppf_01JBXQ3ZK8N4P2VYR6ABCDEFGH";
 const MEMBER = "a1b2c3__mem_01JBXQ3ZK8N4P2VYR6ABCDEFGH";
@@ -137,5 +141,58 @@ describe("staffLedgerUpdateRequestSchema", () => {
       workStatus: "FIRED",
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe("shiftUpsertRequestSchema（P8-03）", () => {
+  const base = {
+    membershipId: MEMBER,
+    businessDate: "2026-08-20",
+    shiftType: "WORK",
+    propertyId: "a1b2c3__prop_01JBXQ3ZK8N4P2VYR6ABCDEFGH",
+  };
+
+  it("出勤（WORK）＋施設で通る", () => {
+    const parsed = shiftUpsertRequestSchema.safeParse(base);
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.breakMinutes).toBe(60);
+  });
+
+  it("休みは施設なしで通る", () => {
+    const parsed = shiftUpsertRequestSchema.safeParse({
+      ...base,
+      shiftType: "OFF",
+      propertyId: null,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  // ── 負例 ──────────────────────────────────────────────
+
+  it("**WORK に施設が無ければ弾く**（出勤者数が静かに狂う）", () => {
+    const parsed = shiftUpsertRequestSchema.safeParse({ ...base, propertyId: null });
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues[0]?.message).toBe("PROPERTY_REQUIRED");
+  });
+
+  it("**休みに施設が付いていれば弾く**", () => {
+    const parsed = shiftUpsertRequestSchema.safeParse({ ...base, shiftType: "OFF" });
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues[0]?.message).toBe("PROPERTY_NOT_ALLOWED");
+  });
+
+  it("知らない区分を通さない", () => {
+    const parsed = shiftUpsertRequestSchema.safeParse({ ...base, shiftType: "OVERTIME" });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("時刻の形（HH:MM）以外を通さない", () => {
+    const parsed = shiftUpsertRequestSchema.safeParse({ ...base, startAt: "9時" });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("打刻の項目（clockIn など）を受け取らない（DECISIONS #221）", () => {
+    const parsed = shiftUpsertRequestSchema.safeParse({ ...base, clockInAt: "09:02" });
+    expect(parsed.data).not.toHaveProperty("clockInAt");
   });
 });

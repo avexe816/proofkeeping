@@ -172,6 +172,8 @@ export const ENTITY_PREFIXES = [
   // **台帳（`staffProfile`）の接頭辞は増やしていない。** 台帳は
   // `staff_pay_profile` に列を足す形にしたため（DECISIONS #223）。
   "resd", // residencyRecord
+  // P8-03 が決めたもの。シフト（PK-SPEC-P8 §1.5）。
+  "shift", // shiftPlan
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

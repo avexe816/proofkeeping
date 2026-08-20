@@ -67,7 +67,7 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("75 テーブルを定義している", () => {
+  it("76 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       // P6-01。公開 API のキー（PK-SPEC-P6 §6.1）。**平文のキーを保存しない。**
       "apiKey",
@@ -184,6 +184,8 @@ describe("P0-06 スキーマ", () => {
       // P4-01。ルールの施設別設定（PK-SPEC-P4 §2.7）。
       "ruleConfig",
       // P5-18。スタッフの支払属性（同 §1.1）。**個人情報の列は無い。**
+      // P8-03。シフト（PK-SPEC-P8 §1.5）。**予定であって打刻ではない。**
+      "shiftPlan",
       "staffPayProfile",
       // P1-01 / P1-02。標準時間マスタ（客室タイプ × 清掃種別）。
       "standardTime",
