@@ -1041,7 +1041,6 @@ a.pk-nav:hover {
   border-left: 3px solid var(--line);
 }
 
-
 /* 盤面の上に置く 5 枚は本体が客室マスなので小さくする
    （プロトタイプは `padding:12px 14px` / 値 23px）。 */
 .pk-stats--board .pk-stats__item {
@@ -1230,25 +1229,9 @@ a.pk-nav:hover {
   border-radius: 7px;
 }
 
-.pk-table {
-  width: 100%;
-  margin: 12px 0;
-  font-size: 13px;
-  border-collapse: collapse;
-}
-
-.pk-table th,
-.pk-table td {
-  padding: 7px 10px;
-  text-align: left;
-  border-bottom: 1px solid var(--line2);
-}
-
-.pk-table th {
-  font-size: 12px;
-  color: var(--ink2);
-  background: var(--surf2);
-}
+/* `.pk-table` は削除した（2026-08-20）。独立した表は `.pk-grid`、
+   カードの中の表は `.pk-tbl` の 2 つに寄せる。同じ役割のクラスを
+   3 つ残さない（`.pk-page__title` を廃した #231 と同じ判断）。 */
 
 /* ハッシュと時刻。**桁がずれると突き合わせられない。** */
 .pk-mono {

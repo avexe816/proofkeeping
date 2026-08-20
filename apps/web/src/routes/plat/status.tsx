@@ -83,46 +83,60 @@ export default function PlatStatus() {
         {data.overall === "ok" ? t("plat.status.overall.ok") : t("plat.status.overall.degraded")}
       </p>
 
-      <div className="pk-card">
-        <h2 className="pk-card__title">{t("plat.status.components")}</h2>
-        <table className="pk-table">
-          <thead>
-            <tr>
-              <th scope="col">{t("plat.status.column.component")}</th>
-              <th scope="col">{t("plat.status.column.state")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.components.map((row) => (
-              <tr key={row.key}>
-                <td>
-                  {t(row.key)}
-                  {row.note === null ? null : <span className="pk-muted"> {row.note}</span>}
-                </td>
-                <td>
-                  <span
-                    className={
-                      row.state === "ok" ? "pk-tag pk-tag--ok" : "pk-tag pk-tag--warn"
-                    }
-                  >
-                    {row.state === "ok" ? t("plat.status.state.ok") : t("plat.status.state.degraded")}
-                  </span>
-                </td>
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            📡
+          </span>
+          {t("plat.status.components")}
+        </div>
+        <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+          <table className="pk-tbl">
+            <thead>
+              <tr>
+                <th scope="col">{t("plat.status.column.component")}</th>
+                <th scope="col">{t("plat.status.column.state")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.components.map((row) => (
+                <tr key={row.key}>
+                  <td>
+                    {t(row.key)}
+                    {row.note === null ? null : <span className="pk-muted"> {row.note}</span>}
+                  </td>
+                  <td>
+                    <span
+                      className={row.state === "ok" ? "pk-tag pk-tag--ok" : "pk-tag pk-tag--warn"}
+                    >
+                      {row.state === "ok"
+                        ? t("plat.status.state.ok")
+                        : t("plat.status.state.degraded")}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {/* **計測が無いことを画面に書く。** 空欄で察させない。 */}
-        <p className="pk-muted">{t("plat.status.metrics.pending")}</p>
-      </div>
+        <div className="pk-panel__foot">{t("plat.status.metrics.pending")}</div>
+      </section>
 
       {/* 逐語の注記 2 つ（PF-03「逐語で置く注記」）。**言い換えない。**
           新しい CSS を足さず、既存の `pk-muted` に載せる。 */}
-      <div className="pk-card">
-        <h2 className="pk-card__title">{t("plat.status.notes")}</h2>
-        <p className="pk-muted">{t("plat.status.note.conflict")}</p>
-        <p className="pk-muted">{t("plat.status.note.maintenance")}</p>
-      </div>
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            📋
+          </span>
+          {t("plat.status.notes")}
+        </div>
+        <div className="pk-panel__body">
+          <p className="pk-muted">{t("plat.status.note.conflict")}</p>
+          <p className="pk-muted">{t("plat.status.note.maintenance")}</p>
+        </div>
+      </section>
     </section>
   );
 }

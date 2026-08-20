@@ -234,7 +234,7 @@ export default function EvidenceDetailScreen(): React.ReactElement {
 
       {/* ⑤ 証跡ハッシュと「整合性を確認」。 */}
       <h2>{t("evidence.detail.snapshots")}</h2>
-      <table className="pk-table">
+      <table className="pk-grid">
         <thead>
           <tr>
             <th scope="col">{t("evidence.detail.type")}</th>

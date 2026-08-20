@@ -348,7 +348,7 @@ export default function IntegrationSettings() {
           {data.logs.length === 0 ? (
             <p className="pk-muted">{t("syncLog.none")}</p>
           ) : (
-            <table className="pk-table">
+            <table className="pk-grid">
               <thead>
                 <tr>
                   <th scope="col">{t("syncLog.startedAt")}</th>
