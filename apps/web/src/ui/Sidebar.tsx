@@ -5,17 +5,14 @@ import { Form, NavLink, useLocation } from "react-router";
 import { t } from "../lib/i18n.js";
 import {
   readClosedSections,
-  readOpenGroups,
   safeLocalStorage,
   toggleSection,
   writeClosedSections,
-  writeOpenGroups,
 } from "../lib/ui/sidebarSections.js";
 
 import {
   NAV_SECTION_LABEL,
-  groupNavItems,
-  type VisibleNavGroup,
+  isActivePrefix,
   type VisibleNavItem,
   type VisibleNavSection,
 } from "./navigation.js";
@@ -32,29 +29,20 @@ import {
  * 項目の 3 状態（権限が無い＝そもそも来ない / 未契約＝グレー＋案内 /
  * 未実装＝準備中）の意味は `navigation.ts` の冒頭を読むこと。
  *
- * ── 3 種類の「畳む」──────────────────────────────────────
- * | 畳むもの | 既定 | どこに残すか |
- * |---|---|---|
- * | レール（全体） | 開く | セッション。SSR が確定した幅で描く（ちらつき禁止） |
- * | セクション見出し | 開く | 端末（`localStorage`）。**閉じた**ものを残す |
- * | 親（束） | **閉じる** | 端末（`localStorage`）。**開いた**ものを残す |
- *
- * SSR はセクションを全展開・親を全閉で描き、端末の選択は hydration 後に
- * 反映する（`sidebarSections.ts` の注記）。
+ * ── 2 種類の「畳む」──────────────────────────────────────
+ * - レール（全体）: セッションに持つ。SSR が確定した幅で描く（ちらつき禁止）。
+ * - セクション開閉: 端末（`localStorage`）に持つ。SSR は常に全展開で描き、
+ *   閉じた選択だけを hydration 後に反映する（`sidebarSections.ts` の注記）。
  *
  * ── 畳む動きは「押した瞬間に始まる」──────────────────────
- * どの畳みも**サーバーの応答を待たない。** レールは `layout.tsx` が状態を
- * 持ち、書き込みは背景の `fetch`。セクションと親は元から端末の中だけ。
+ * どちらの畳みも**サーバーの応答を待たない。** レールは `layout.tsx` が
+ * 状態を持ち、書き込みは背景の `fetch`。セクションは元から端末の中だけ。
  * 見た目の移り変わりは CSS（`.pk-sidebar__items` の `grid-template-rows`、
  * `.pk-sidebar` の `width`）が 180〜220ms で繋ぐ。**JS でアニメーションを
  * 書かない**（`prefers-reduced-motion` の尊重が CSS 側で完結する）。
  *
- * 閉じた項目は DOM に残したまま高さ 0 へ畳む（動きを繋ぐため）。
+ * 閉じたセクションの項目は DOM に残したまま高さ 0 へ畳む（動きを繋ぐため）。
  * 見えない項目に Tab が止まらないよう `inert` を付ける。
- *
- * ── レール時は束ねない ──────────────────────────────────
- * 56px のレールでは見出しも ▸ も効かせず、**全項目をアイコンで縦に並べる。**
- * 束ねたまま閉じると、レールから到達できない画面ができる。
  */
 export function Sidebar(props: {
   navigation: readonly VisibleNavSection[];
@@ -73,24 +61,11 @@ export function Sidebar(props: {
   // 依存はセクションの構成だけ（権限・契約で増減する）。並びが同じなら読み直さない。
   const sectionsKey = props.navigation.map((group) => group.section).join("|");
   const [closedSections, setClosedSections] = useState<readonly string[]>([]);
-  const [openGroups, setOpenGroups] = useState<readonly string[]>([]);
-
-  const sections = props.navigation.map((group) => ({
-    section: group.section,
-    items: group.items,
-    groups: groupNavItems(group.items),
-  }));
-  const groupKeys = sections.flatMap((group) => group.groups.map((entry) => entry.key));
-  const groupsKey = groupKeys.join("|");
 
   // SSR とクライアント初回描画を一致させるため、保存値は effect で読む。
   useEffect(() => {
     setClosedSections(readClosedSections(safeLocalStorage(), sectionsKey.split("|")));
   }, [sectionsKey]);
-
-  useEffect(() => {
-    setOpenGroups(readOpenGroups(safeLocalStorage(), groupsKey.split("|")));
-  }, [groupsKey]);
 
   const onToggleSection = (section: string) => {
     const next = toggleSection(closedSections, section);
@@ -98,28 +73,12 @@ export function Sidebar(props: {
     writeClosedSections(safeLocalStorage(), next);
   };
 
-  const onToggleGroup = (key: string) => {
-    const next = toggleSection(openGroups, key);
-    setOpenGroups(next);
-    writeOpenGroups(safeLocalStorage(), next);
-  };
-
-  // **いま開いている画面を含む束は常に開く。** 閉じたままだと、
-  // 表示中の画面がサイドバーのどこにも出ていない状態になる。
-  const activeKey = sections
-    .flatMap((group) => group.groups)
-    .find((group) =>
-      [group.lead, ...group.children].some(
-        (entry) => entry !== null && isActivePath(entry.href, location.pathname),
-      ),
-    )?.key;
-
   return (
     <nav className="pk-sidebar">
       <div className="pk-sidebar__nav">
-        {sections.map((group) => {
-          // レール時は見出しも開閉も効かせない（閉じたセクションの項目が
-          // 消えると、レールの一覧性が壊れる）。
+        {props.navigation.map((group) => {
+          // レール時はアイコンだけを縦に並べる。見出しも開閉も効かせない
+          // （閉じたセクションの項目が消えると、レールの一覧性が壊れる）。
           const closed = !props.collapsed && closedSections.includes(group.section);
           return (
             <div
@@ -141,18 +100,9 @@ export function Sidebar(props: {
               {/* 高さを繋ぐための 2 枚。外が `0fr ↔ 1fr`、内が `overflow: hidden`。 */}
               <div className="pk-sidebar__items" inert={closed}>
                 <div className="pk-sidebar__itemsInner">
-                  {props.collapsed
-                    ? group.items.map((entry) => (
-                        <NavEntry collapsed entry={entry} key={entry.item.key} />
-                      ))
-                    : group.groups.map((entry) => (
-                        <NavGroup
-                          group={entry}
-                          key={entry.key}
-                          onToggle={onToggleGroup}
-                          open={openGroups.includes(entry.key) || entry.key === activeKey}
-                        />
-                      ))}
+                  {group.items.map((entry) => (
+                    <NavEntry collapsed={props.collapsed} entry={entry} key={entry.item.key} />
+                  ))}
                 </div>
               </div>
             </div>
@@ -196,87 +146,9 @@ export function Sidebar(props: {
   );
 }
 
-/** その項目が表示中の画面か。子画面（`/…/{id}`）も親の項目で開く。 */
-function isActivePath(href: string | null, pathname: string): boolean {
-  if (href === null) return false;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-/**
- * 親 1 つぶん。子を持たない束は平らな 1 行として描く（`groupNavItems()`）。
- *
- * 親の見え方は 2 種類（`navigation.ts` の `NAV_GROUPS` の注記）。
- * - 画面を持つ親: 行はリンク。右端の ▸ だけが開閉を担う
- * - 見出しだけの親: 行そのものが開閉のボタン。**リンクにしない**
- */
-function NavGroup(props: {
-  group: VisibleNavGroup;
-  open: boolean;
-  onToggle: (key: string) => void;
-}) {
-  const { group } = props;
-  if (group.children.length === 0 && group.lead !== null) {
-    return <NavEntry collapsed={false} entry={group.lead} />;
-  }
-
-  const label = t(group.label);
-  const icon = (
-    <span aria-hidden="true" className="pk-nav__icon">
-      {group.icon}
-    </span>
-  );
-
-  return (
-    <div className={props.open ? "pk-navGroup pk-navGroup--open" : "pk-navGroup"}>
-      {group.lead === null ? (
-        <button
-          aria-expanded={props.open}
-          className="pk-nav pk-nav--parent"
-          onClick={() => {
-            props.onToggle(group.key);
-          }}
-          type="button"
-        >
-          {icon}
-          <span className="pk-nav__label">{label}</span>
-        </button>
-      ) : (
-        <div className="pk-navGroup__row">
-          <NavEntry collapsed={false} entry={group.lead} />
-          <button
-            aria-expanded={props.open}
-            aria-label={label}
-            className="pk-navGroup__toggle"
-            onClick={() => {
-              props.onToggle(group.key);
-            }}
-            type="button"
-          />
-        </div>
-      )}
-      <div className="pk-sidebar__items" inert={!props.open}>
-        <div className="pk-sidebar__itemsInner">
-          {group.children.map((entry) => (
-            <NavEntry child collapsed={false} entry={entry} key={entry.item.key} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NavEntry({
-  child = false,
-  collapsed,
-  entry,
-}: {
-  /** 束の中の子か。左の余白だけが変わる。 */
-  child?: boolean;
-  collapsed: boolean;
-  entry: VisibleNavItem;
-}) {
+function NavEntry({ collapsed, entry }: { collapsed: boolean; entry: VisibleNavItem }) {
+  const { pathname } = useLocation();
   const label = t(entry.item.key);
-  const base = child ? "pk-nav pk-nav--child" : "pk-nav";
   // **`aria-hidden`。** 意味はラベルが持っており、読み上げに絵文字の
   // 名前（「グラフ」等）が混ざると項目名が二重になる。
   const icon = (
@@ -291,7 +163,7 @@ function NavEntry({
   // グレーの理由が分かるようにする。
   if (entry.locked) {
     return (
-      <span className={`${base} pk-nav--locked`} title={collapsed ? label : t("nav.locked.notice")}>
+      <span className="pk-nav pk-nav--locked" title={collapsed ? label : t("nav.locked.notice")}>
         {icon}
         <span className="pk-nav__label">{label}</span>
         <span className="pk-nav__note">{t("nav.locked")}</span>
@@ -303,7 +175,7 @@ function NavEntry({
   // `PLANNED` は到達先が無いので `null`（型ではなく値で判定する）。
   if (entry.item.status === "PLANNED" || entry.href === null) {
     return (
-      <span className={`${base} pk-nav--planned`} title={title}>
+      <span className="pk-nav pk-nav--planned" title={title}>
         {icon}
         <span className="pk-nav__label">{label}</span>
         <span className="pk-nav__note">{t("nav.planned")}</span>
@@ -311,9 +183,17 @@ function NavEntry({
     );
   }
 
+  // **設定は配下の画面を開いている間も選択状態にする**（人間の指示
+  // 2026-08-20）。`/app/training` のように `href` の下に無い URL も
+  // 含むので、`activeFor` を持つ項目だけ接頭辞で判定して上書きする。
+  const activeByPrefix =
+    entry.item.activeFor === undefined ? null : isActivePrefix(entry.item.activeFor, pathname);
+
   return (
     <NavLink
-      className={({ isActive }) => (isActive ? `${base} pk-nav--active` : base)}
+      className={({ isActive }) =>
+        (activeByPrefix ?? isActive) ? "pk-nav pk-nav--active" : "pk-nav"
+      }
       title={title}
       to={entry.href}
     >

@@ -181,6 +181,9 @@ export default [
     route("app/billing/:invoiceId", "routes/app/billingDetail.tsx"),
     // P5-19 請求確認（月次締めの双方合意）。発注元（CLIENT_VIEWER）も開く。
     route("app/billing-periods", "routes/app/billingPeriods.tsx"),
+    // 設定ハブ（人間の指示 2026-08-20）。**既存の設定画面への入口を 1 枚に
+    // 集めるだけ**で、各画面の URL と門はそのまま。
+    route("app/settings", "routes/app/settingsHub.tsx"),
     route("app/settings/rooms", "routes/app/rooms.tsx"),
     route("app/settings/room-types", "routes/app/roomTypes.tsx"),
     route("app/settings/checklists", "routes/app/checklists.tsx"),

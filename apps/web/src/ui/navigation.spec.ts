@@ -5,12 +5,16 @@ import { PERMISSION_ACTION_LIST } from "../lib/auth/permission.js";
 import { ja } from "../locales/index.js";
 
 import {
-  NAV_GROUPS,
   NAV_ITEMS,
   NAV_SECTIONS,
   NAV_SECTION_LABEL,
+  SETTINGS_ACTIVE_PREFIXES,
+  SETTINGS_CATEGORIES,
+  SETTINGS_HUB_PATH,
+  SETTINGS_ITEM_KEY,
   buildNavigation,
-  groupNavItems,
+  buildSettingsHub,
+  isActivePrefix,
 } from "./navigation.js";
 
 /**
@@ -25,16 +29,6 @@ const PROPERTY_ID = "o7k2m9__prop_01JBXQ3ZK8N4P2VYR60000";
 
 const ALL_MODULES: readonly ModuleCode[] = MODULE_CODES;
 
-const ALL_ROLES: readonly Role[] = [
-  "OWNER",
-  "ORG_ADMIN",
-  "PROPERTY_MANAGER",
-  "INSPECTOR",
-  "CLEANER",
-  "VENDOR_ADMIN",
-  "AUDITOR",
-];
-
 function ctxFor(role: Role, allowedPropertyIds: readonly string[] = [PROPERTY_ID]): TenantContext {
   return {
     organizationId: "org_test_alpha",
@@ -45,6 +39,13 @@ function ctxFor(role: Role, allowedPropertyIds: readonly string[] = [PROPERTY_ID
       role === "OWNER" || role === "ORG_ADMIN" || role === "AUDITOR" ? [] : allowedPropertyIds,
     now: new Date("2026-08-12T00:00:00.000Z"),
   };
+}
+
+/** 設定ハブに出るカードのキー（サイドバーから移した 16 画面）。 */
+function settingsKeysFor(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES): string[] {
+  return buildSettingsHub(ctxFor(role), { selectedPropertyId: PROPERTY_ID, enabledModules }).flatMap(
+    (category) => category.items.map((entry) => entry.item.key),
+  );
 }
 
 function keysFor(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES): string[] {
@@ -58,8 +59,19 @@ describe("登録簿の不変条件", () => {
   it("全項目の action が PERMISSION_ACTIONS にある", () => {
     // 存在しない操作を書くと権限判定が黙って通る（`can()` が引けない）。
     for (const item of NAV_ITEMS) {
+      if (item.action === undefined) continue;
       expect(PERMISSION_ACTION_LIST, item.key).toContain(item.action);
     }
+  });
+
+  /**
+   * **`action` を省略してよいのは設定ハブへの入口だけ**（`NavItemBase` の
+   * 注記）。省略が増えると、権限判定を通らない項目が黙って増える。
+   */
+  it("action を省略している項目は設定の入口だけ", () => {
+    expect(NAV_ITEMS.filter((item) => item.action === undefined).map((item) => item.key)).toEqual([
+      SETTINGS_ITEM_KEY,
+    ]);
   });
 
   it("全項目の文言キーが ja に存在する", () => {
@@ -83,50 +95,43 @@ describe("登録簿の不変条件", () => {
     // ここへ 1 行足す。** P0-14 はダッシュボードだけ、P1-14 / P1-15 が
     // タスク管理と客室ボードを足した。
     expect(NAV_ITEMS.filter((item) => item.status === "READY").map((item) => item.key)).toEqual([
-      // ── 日次運用 ──
       "nav.dashboard",
       "nav.board",
-      // W-05（P1-04 の未達分）。客室ボードの子（2026-08-20 の 2 段化）。
-      "nav.plan",
-      // 進捗モニタ（P7-19）。同じく客室ボードの子。
+      // 進捗モニタ（P7-19）。「日次運用」で客室ボードの直後。
       "nav.progress",
       "nav.tasks",
-      // ops 02 シフトと割当（P8-03）。「タスクとシフト」の子。
+      // W-05（P1-04 の未達分）。
+      "nav.plan",
+      // ops 02 シフトと割当（P8-03）。
       "nav.shifts",
-      // ── 記録の確認 ──
+      // W-06 差異レポート一覧（P4-06）。「日次運用」の最後。
+      "nav.findings",
+      // W-07 差異の詳細への入口（2026-08-17）。「記録の確認」の 1 つめ。
+      "nav.findingDetail",
       // W-06 証跡一覧（P2-09）。
       "nav.cleaningRecords",
-      // W-22 データ品質ダッシュボード（P3-12）。清掃記録の子へ移した
-      // （2026-08-20。それまでは「資材と分析」の 1 つめ）。
-      "nav.dataQuality",
-      // 検査キュー（P7-18）。
-      "nav.inspection",
       // W-09 忘れ物管理 / W-10 不具合管理（P7-22 / OQ #082 の残り半分）。
       "nav.lostItems",
       "nav.issues",
-      // W-06 差異レポート一覧（P4-06）。差異の詳細と束ねるため
-      // 「日次運用」から移した（2026-08-20）。
-      "nav.findings",
-      // W-07 差異の詳細への入口（2026-08-17）。稼働の差異の子。
-      "nav.findingDetail",
-      // ── 請求と分析 ──
+      // 検査キュー（P7-18）。「記録の確認」の不具合管理の直後。
+      "nav.inspection",
+      // W-22 データ品質ダッシュボード（P3-12）。「資材と分析」の 1 つめ。
+      "nav.dataQuality",
       // 月次レポート（owner 09 / docs/PROTOTYPE_GAP.md 第2批 09）。
       "nav.report",
-      // 「請求」の子 3 つ。請求確認（P5-19）は発注元にも出す。
+      // 請求確認（P5-19）。発注元にも出す唯一の請求系項目。
       "nav.billingPeriods",
       // 契約と請求（owner 10 / 人間の指示 2026-08-17）。
       "nav.billing",
       // §7.2 清掃会社プラン（P5-15）。
       "nav.vendorPlan",
-      // 支払集計（P5-18）。
+      // 支払集計（P5-18）。「資材と分析」の最後。
       "nav.payouts",
-      // ── 設定 ──
-      // 「施設と客室」の子 3 つ。施設設定（owner 11 / OQ #103 の残り半分）、
-      // 客室マスタ（P0-22）、W-25 客室タイプ管理（P1-24）。
-      "nav.propertySettings",
+      // `/app/settings/*` の 4 画面。客室マスタ（P0-22）と事業者税務（P0-16）は
+      // ルートが実在するのに**サイドバーに出ていなかった。**
       "nav.rooms",
+      // W-25 客室タイプ管理（P1-24）。客室マスタの直後。
       "nav.roomTypes",
-      // 「業務ルール」の子 5 つ。
       "nav.checklists",
       "nav.standardTimes",
       // P3-11 が足した W-20（観察項目の設定）。
@@ -135,19 +140,27 @@ describe("登録簿の不変条件", () => {
       "nav.rules",
       // P3-10 が足した W-21（ベースライン確認・上書き）。
       "nav.baseline",
-      // 「取引と料金」の子 3 つ。事業者税務（P0-16）、取引先（P5-02 /
-      // P5-03）、支払単価（P5-18）。
       "nav.taxProfile",
+      // 取引先と料金（P5-02 / P5-03）。事業者・税務設定の直後。
       "nav.counterparties",
+      // 支払単価（P5-18）。取引先の直後。
       "nav.payRules",
+      // 監査ログの閲覧（P7-20）。取引先の直後。
+      "nav.auditLogs",
+      // 施設設定（owner 11 / OPEN_QUESTIONS #103 の残り半分）。
+      "nav.propertySettings",
       // P8-01。ops 07 スタッフ管理（登録と台帳を 1 画面に持つ）。
       "nav.staff",
-      // P8-10。ops 08 研修と資格。スタッフ管理の子。
+      // P8-10。ops 08 研修と資格。
       "nav.training",
       // W-12 権限と監査の権限側（メンバー管理 / 2026-08-19）。
       "nav.permission",
-      // 監査ログの閲覧（P7-20）。権限と監査の子。
-      "nav.auditLogs",
+      // W-13 連携設定（P6-01）。**サイドバーには元から出ていなかった。**
+      // ハブができたので、ここから到達する（人間の指示 2026-08-20）。
+      "nav.integrations",
+      // 設定ハブへの入口（人間の指示 2026-08-20）。設定セクションで
+      // **サイドバーに出る唯一の項目。**
+      "nav.settings",
     ]);
   });
 
@@ -248,14 +261,16 @@ describe("権限による非表示（security.md §1 の絶対境界）", () => 
     expect(keysFor("PROPERTY_MANAGER")).toContain("nav.plan");
   });
 
+  // 設定はサイドバーに並ばなくなった（人間の指示 2026-08-20 / 案 2）。
+  // **境界そのものは変えていない**ので、ハブの中身で同じことを見る。
   it("PROPERTY_MANAGER に組織単位の設定 2 画面を出さない（§10.1 は ORG_ADMIN）", () => {
-    const keys = keysFor("PROPERTY_MANAGER");
+    const keys = settingsKeysFor("PROPERTY_MANAGER");
     expect(keys).not.toContain("nav.checklists");
     expect(keys).not.toContain("nav.standardTimes");
   });
 
   it("ORG_ADMIN に設定の 4 画面すべてを出す", () => {
-    const keys = keysFor("ORG_ADMIN");
+    const keys = settingsKeysFor("ORG_ADMIN");
     expect(keys).toContain("nav.rooms");
     expect(keys).toContain("nav.checklists");
     expect(keys).toContain("nav.standardTimes");
@@ -281,8 +296,11 @@ describe("権限による非表示（security.md §1 の絶対境界）", () => 
     expect(keys).not.toContain("nav.dashboard");
   });
 
-  it("OWNER には全項目が出る", () => {
-    expect(keysFor("OWNER")).toHaveLength(NAV_ITEMS.length);
+  it("OWNER にはサイドバーの全項目が出る", () => {
+    // 設定はハブへ移したので、サイドバーに並ぶのは
+    // `placement: "SETTINGS"` 以外（＝入口の「設定」を含む）。
+    const sidebarItems = NAV_ITEMS.filter((item) => item.placement !== "SETTINGS");
+    expect(keysFor("OWNER")).toHaveLength(sidebarItems.length);
   });
 
   it("CLIENT_VIEWER（発注元）は閲覧の 9 項目だけ（契約 §4 / P5-16 / P5-19）", () => {
@@ -338,7 +356,11 @@ describe("契約によるグレー表示", () => {
     }).flatMap((group) => group.items);
 
     expect(entries).not.toHaveLength(0);
-    expect(entries.every((entry) => entry.locked)).toBe(true);
+    // **設定の入口だけは灰色にしない。** 入口の先はハブで、契約の話は
+    // カード 1 枚ずつに付く（グレー＋案内）。入口を灰色にすると、
+    // 契約に関係の無い設定（施設・権限）まで閉じているように見える。
+    const gated = entries.filter((entry) => entry.item.key !== SETTINGS_ITEM_KEY);
+    expect(gated.every((entry) => entry.locked)).toBe(true);
   });
 
   it("権限が無い項目は、契約があっても現れない", () => {
@@ -353,7 +375,7 @@ describe("契約によるグレー表示", () => {
 });
 
 describe("セクション", () => {
-  it("プロトタイプの順序（日次運用 → 記録の確認 → 請求と分析 → 設定）を保つ", () => {
+  it("プロトタイプの順序（日次運用 → 記録の確認 → 資材と分析 → 設定）を保つ", () => {
     const sections = buildNavigation(ctxFor("OWNER"), {
       selectedPropertyId: PROPERTY_ID,
       enabledModules: ALL_MODULES,
@@ -375,97 +397,130 @@ describe("セクション", () => {
 });
 
 /**
- * 2 段のナビ（人間の指示 2026-08-20「メニューが長い・多い。纏められないか」）。
+ * 設定ハブ（人間の指示 2026-08-20 / 案 2）。
  *
- * **束ねただけで、画面は 1 つも消していない。** ここで固定するのは
- * 「消えていないこと」と「束が痩せたら平らに戻ること」の 2 つ。
+ * 守るのは 3 つ。**入口が 1 つだけであること**、**開ける設定が
+ * 1 つも無い相手に入口を出さないこと**、**ハブとサイドバーの
+ * 見え方がずれないこと**。
  */
-describe("束（親 → 子）", () => {
-  function groupsFor(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES) {
-    return buildNavigation(ctxFor(role), {
+describe("設定ハブ", () => {
+  function hubFor(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES) {
+    return buildSettingsHub(ctxFor(role), {
       selectedPropertyId: PROPERTY_ID,
       enabledModules,
-    }).map((section) => ({ section: section.section, groups: groupNavItems(section.items) }));
+    });
   }
 
-  it("束の構成員がすべて実在する項目キー", () => {
-    const keys = new Set(NAV_ITEMS.map((item) => item.key));
-    for (const def of NAV_GROUPS) {
-      if (def.lead !== undefined) expect(keys, def.key).toContain(def.lead);
-      for (const child of def.children) expect(keys, def.key).toContain(child);
+  function hubKeys(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES): string[] {
+    return hubFor(role, enabledModules).flatMap((category) =>
+      category.items.map((entry) => entry.item.key),
+    );
+  }
+
+  it("設定セクションでサイドバーに出るのは「設定」1 項目だけ", () => {
+    const settings = buildNavigation(ctxFor("OWNER"), {
+      selectedPropertyId: PROPERTY_ID,
+      enabledModules: ALL_MODULES,
+    }).find((group) => group.section === "settings");
+
+    expect(settings?.items.map((entry) => entry.item.key)).toEqual([SETTINGS_ITEM_KEY]);
+    expect(settings?.items[0]?.href).toBe(SETTINGS_HUB_PATH);
+  });
+
+  it("区分の項目キーがすべて実在し、重複しない", () => {
+    const known = new Set(NAV_ITEMS.map((item) => item.key));
+    const listed = SETTINGS_CATEGORIES.flatMap((category) => category.items);
+    for (const key of listed) expect(known, key).toContain(key);
+    expect(new Set(listed).size).toBe(listed.length);
+  });
+
+  /** ハブに載せ忘れた設定画面を作らない。**片方だけ増えるのを止める。** */
+  it("placement: SETTINGS の項目がすべてどこかの区分に載っている", () => {
+    const listed = new Set(SETTINGS_CATEGORIES.flatMap((category) => category.items));
+    for (const item of NAV_ITEMS) {
+      if (item.placement !== "SETTINGS") continue;
+      expect(listed, item.key).toContain(item.key);
     }
   });
 
-  it("1 つの項目が 2 つの束に属さない", () => {
-    const members = NAV_GROUPS.flatMap((def) => [
-      ...(def.lead === undefined ? [] : [def.lead]),
-      ...def.children,
-    ]);
-    expect(new Set(members).size).toBe(members.length);
-  });
-
-  it("束の構成員が同じセクションに属する", () => {
-    const sectionOf = new Map(NAV_ITEMS.map((item) => [item.key, item.section]));
-    for (const def of NAV_GROUPS) {
-      const sections = new Set(
-        [...(def.lead === undefined ? [] : [def.lead]), ...def.children].map((key) =>
-          sectionOf.get(key),
-        ),
-      );
-      expect(sections.size, def.key).toBe(1);
+  it("カードには必ず 1 行の説明が付く", () => {
+    for (const item of NAV_ITEMS) {
+      if (item.placement !== "SETTINGS") continue;
+      expect(item.note, item.key).toBeDefined();
+      expect(Object.keys(ja), item.key).toContain(item.note);
     }
   });
 
-  it("見出しだけの親は文言とアイコンを持ち、ja に文言がある", () => {
-    for (const def of NAV_GROUPS) {
-      if (def.lead !== undefined) continue;
-      expect(def.label, def.key).toBeDefined();
-      expect(def.icon, def.key).toBeTruthy();
-      expect(Object.keys(ja), def.key).toContain(def.label);
+  it("区分の見出しが ja に存在する", () => {
+    for (const category of SETTINGS_CATEGORIES) {
+      expect(Object.keys(ja), category.key).toContain(category.label);
     }
   });
 
-  /** 33 項目 37 行 → 16 親 20 行。**これが指示の中身。** */
-  it("OWNER の常時表示が 4 見出し + 16 親になる", () => {
-    const groups = groupsFor("OWNER");
-    expect(groups.map((entry) => entry.groups.length)).toEqual([3, 5, 3, 5]);
-  });
-
-  it("親を開けば全項目へ到達できる（束ねて消えた画面が無い）", () => {
-    for (const role of ["OWNER", "PROPERTY_MANAGER", "INSPECTOR", "CLEANER"] as const) {
-      const flat = buildNavigation(ctxFor(role), {
-        selectedPropertyId: PROPERTY_ID,
-        enabledModules: ALL_MODULES,
-      }).flatMap((section) => section.items.map((entry) => entry.item.key));
-      const grouped = groupsFor(role).flatMap((section) =>
-        section.groups.flatMap((group) => [
-          ...(group.lead === null ? [] : [group.lead.item.key]),
-          ...group.children.map((child) => child.item.key),
-        ]),
-      );
-      expect([...grouped].sort(), role).toEqual([...flat].sort());
-    }
+  it("OWNER は 16 枚すべてを開ける", () => {
+    expect(hubKeys("OWNER")).toHaveLength(16);
   });
 
   /**
-   * 権限・契約で構成員が減ると束ねる意味が無くなる。**▸ を押しても
-   * 1 行しか出ない親を作らない。** 検査担当は記録の状況を持たないので、
-   * 「清掃記録」は束ではなく平らな 1 行になる。
+   * **権限の無いカードは出さない**（security.md §1）。ここでの非表示は
+   * UX 上の措置で、各設定画面の `assertPermission()` は別に効いている。
    */
-  it("構成員が 1 つになった束は平らな 1 行に戻る", () => {
-    const records = groupsFor("INSPECTOR").find((entry) => entry.section === "records");
-    const evidence = records?.groups.find((group) => group.key === "nav.cleaningRecords");
-    expect(evidence?.children).toEqual([]);
-    expect(evidence?.lead?.item.key).toBe("nav.cleaningRecords");
+  it("CLEANER / INSPECTOR には 1 枚も出さない（入口ごと消える）", () => {
+    for (const role of ["CLEANER", "INSPECTOR"] as const) {
+      expect(hubFor(role), role).toEqual([]);
+      const sections = buildNavigation(ctxFor(role), {
+        selectedPropertyId: PROPERTY_ID,
+        enabledModules: ALL_MODULES,
+      });
+      expect(
+        sections.flatMap((group) => group.items.map((entry) => entry.item.key)),
+        role,
+      ).not.toContain(SETTINGS_ITEM_KEY);
+    }
   });
 
-  it("子を持たない親は必ず到達先を持つ（押せない行を作らない）", () => {
-    for (const role of ALL_ROLES) {
-      for (const section of groupsFor(role)) {
-        for (const group of section.groups) {
-          if (group.children.length === 0) expect(group.lead, `${role}/${group.key}`).not.toBeNull();
-        }
-      }
+  it("PROPERTY_MANAGER には施設まわりだけが出る（取引・権限は出ない）", () => {
+    const keys = hubKeys("PROPERTY_MANAGER");
+    expect(keys).toContain("nav.propertySettings");
+    expect(keys).not.toContain("nav.taxProfile");
+    expect(keys).not.toContain("nav.permission");
+  });
+
+  it("AUDITOR は書き込みの設定を開けない", () => {
+    const keys = hubKeys("AUDITOR");
+    expect(keys).not.toContain("nav.staff");
+    expect(keys).not.toContain("nav.permission");
+  });
+
+  it("1 枚も無い区分は落ちる（空の見出しを出さない）", () => {
+    for (const category of hubFor("PROPERTY_MANAGER")) {
+      expect(category.items.length, category.key).toBeGreaterThan(0);
+    }
+  });
+
+  it("未契約のカードは残るがグレーになる（402 の世界）", () => {
+    const hub = hubFor("OWNER", []);
+    const entries = hub.flatMap((category) => category.items);
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.every((entry) => entry.locked)).toBe(true);
+  });
+
+  /** 配下の設定画面を開いている間もサイドバーの「設定」を選択状態にする。 */
+  it("設定の選択状態は配下の URL でも続く", () => {
+    for (const pathname of [
+      "/app/settings",
+      "/app/settings/rooms",
+      "/app/settings/integrations/int_1/mappings",
+      "/app/training",
+      "/app/audit/logs",
+    ]) {
+      expect(isActivePrefix(SETTINGS_ACTIVE_PREFIXES, pathname), pathname).toBe(true);
+    }
+  });
+
+  it("設定と無関係の URL では選択状態にしない", () => {
+    for (const pathname of ["/app/dashboard", "/app/audit/findings", "/app/shifts"]) {
+      expect(isActivePrefix(SETTINGS_ACTIVE_PREFIXES, pathname), pathname).toBe(false);
     }
   });
 });

@@ -156,12 +156,15 @@ describe("§6.4 全画面が権限判定を通る", () => {
       // （`orgDashboard.tsx`）。判定そのものは呼んだ lib が行っている。
       // **4 つ目の形**: `resolveListScope()`（P7-18 / `lib/property/listScope.ts`）。
       // 施設横断の一覧の scope 判定で、中で `assertPermission()` を呼ぶ。
+      // **5 つ目の形**: `buildSettingsHub()`（設定ハブ / `ui/navigation.ts`）。
+      // 1 枚ずつ `can()` で漉し、0 枚なら画面が `NotFoundError` を投げる。
       // **委任先が本当に判定していることは下のテストが固定する。**
       const guarded =
         source.includes("assertPermission(") ||
         source.includes("can(") ||
         source.includes("ScopeForbiddenError") ||
-        source.includes("resolveListScope(");
+        source.includes("resolveListScope(") ||
+        source.includes("buildSettingsHub(");
       expect(guarded, name).toBe(true);
     },
   );
@@ -171,6 +174,12 @@ describe("§6.4 全画面が権限判定を通る", () => {
     expect(
       code(join(ROOT, "apps", "web", "src", "lib", "property", "listScope.ts")),
     ).toContain("assertPermission(");
+  });
+
+  // 5 つ目の形の裏付け。**入口を並べる画面が門を素通りするのを防ぐ。**
+  it("buildSettingsHub() が can() を呼び、ハブが 0 枚で 404 にする", () => {
+    expect(code(join(ROOT, "apps", "web", "src", "ui", "navigation.ts"))).toContain("can(");
+    expect(code(join(APP_DIR, "settingsHub.tsx"))).toContain("NotFoundError");
   });
 
   it("**免除に理由が書いてある**", () => {
