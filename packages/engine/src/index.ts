@@ -160,6 +160,7 @@ export {
   NEW_STAFF_DAYS,
   decideInspection,
   isNewStaff,
+  isNewStaffByTraining,
   policyFromLegacyFlag,
   type InspectionDecision,
   type InspectionDecisionInput,

@@ -523,6 +523,22 @@ export {
   type UpsertShiftInput,
 } from "./shift.js";
 
+// 研修と資格（P8-10 / プロトタイプ ops 08）。**成績・点数・順位の関数が無い**
+// （security.md §5。研修は「修了したか」だけを記録する）。
+export {
+  createCertification,
+  createTrainingProgram,
+  deleteCertification,
+  listCertifications,
+  listTrainingPrograms,
+  listTrainingRecords,
+  summarizeTrainingProgress,
+  upsertTrainingRecord,
+  type CertificationRow,
+  type TrainingProgramRow,
+  type TrainingRecordRow,
+} from "./training.js";
+
 // 在留資格（P8-02 / PK-SPEC-P8 §1.4）。**件数だけを返す口を分けてある**
 // （`PROPERTY_MANAGER` には件数のみ / INV-08）。
 export {

@@ -174,6 +174,10 @@ export const ENTITY_PREFIXES = [
   "resd", // residencyRecord
   // P8-03 が決めたもの。シフト（PK-SPEC-P8 §1.5）。
   "shift", // shiftPlan
+  // P8-10 が決めたもの。研修と資格（プロトタイプ ops 08）。
+  "trpg", // trainingProgram
+  "trrc", // trainingRecord
+  "cert", // certificationRecord
 ] as const;
 
 /** `ENTITY_PREFIXES` に載っている接頭辞だけを許す型。 */

@@ -292,8 +292,11 @@ export {
 export {
   RESIDENCY_STATUS_TYPES,
   SHIFT_TYPES,
+  certificationRecord,
   residencyRecord,
   shiftPlan,
+  trainingProgram,
+  trainingRecord,
   type ResidencyStatusType,
   type ShiftType,
 } from "./workforce.js";

@@ -122,6 +122,8 @@ describe("登録簿の不変条件", () => {
       "nav.propertySettings",
       // P8-01。ops 07 スタッフ管理（登録と台帳を 1 画面に持つ）。
       "nav.staff",
+      // P8-10。ops 08 研修と資格。
+      "nav.training",
       // W-12 権限と監査の権限側（メンバー管理 / 2026-08-19）。
       "nav.permission",
     ]);
@@ -205,6 +207,8 @@ describe("権限による非表示（security.md §1 の絶対境界）", () => 
     expect(keys).not.toContain("nav.staff");
     // P8-03。シフトも書き込みの画面（shift.manage）。
     expect(keys).not.toContain("nav.shifts");
+    // P8-10。研修と資格も記録の口を持つ（user.write）。
+    expect(keys).not.toContain("nav.training");
     // 読取専用。設定の 4 画面はいずれも書き込みの操作を action に持つ。
     expect(keys).not.toContain("nav.rooms");
     expect(keys).not.toContain("nav.checklists");

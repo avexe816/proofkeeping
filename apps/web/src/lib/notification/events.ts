@@ -167,6 +167,14 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDefinition[] = [
     audience: ["ORG_ADMIN"],
     ignoresQuietHours: false,
   },
+  {
+    // P8-10。資格・講習の期限（ops 08「期限60日前に運営管理者へ通知」）。
+    // 在留資格と違い INV-08 の縛りは無いが、通知の宛先は同じ運営管理者。
+    code: "certification.expiry_due",
+    defaultChannels: ["IN_APP", "EMAIL"],
+    audience: ["ORG_ADMIN"],
+    ignoresQuietHours: false,
+  },
 ];
 
 /** コード → 定義。**同じコードを 2 度書いていないことを読み込み時に落とす。** */

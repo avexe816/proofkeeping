@@ -29,7 +29,7 @@
  * なくなっている。数え続けると、退職処理のたびにアラートが残る。
  */
 
-import type { ResidencyRow, StaffLedgerRow } from "@pk/db";
+import type { CertificationRow, ResidencyRow, StaffLedgerRow } from "@pk/db";
 
 import { daysUntil } from "./ledger.js";
 
@@ -90,4 +90,32 @@ export function countResidencyAlerts(input: ResidencyAlertInput): ResidencyAlert
   }
 
   return { firstNotice, dueSoon, total: firstNotice + dueSoon };
+}
+
+/** 資格・講習の通知の日数（プロトタイプ ops 08「期限60日前に…通知します」）。 */
+export const CERTIFICATION_NOTICE_DAYS = 60;
+
+/**
+ * 資格・講習で通知に載せる件数（P8-10）。**ちょうど 60 日前の日だけ。**
+ *
+ * 在留資格（90/30 の 2 段・毎日再通知）と違い、講習は 1 回の案内で足りる
+ * （プロトタイプに再通知の文言が無い）。**件数だけ。名前を返さない。**
+ * 退職者の資格は数えない（在留資格と同じ理由）。
+ */
+export function countCertificationAlerts(input: {
+  ledger: readonly StaffLedgerRow[];
+  certifications: readonly CertificationRow[];
+  businessDate: string;
+}): number {
+  const statusByMembership = new Map(input.ledger.map((row) => [row.membershipId, row.workStatus]));
+
+  let count = 0;
+  for (const certification of input.certifications) {
+    if (certification.expiresOn === null) continue;
+    if (statusByMembership.get(certification.membershipId) === "RESIGNED") continue;
+    if (daysUntil(input.businessDate, certification.expiresOn) === CERTIFICATION_NOTICE_DAYS) {
+      count += 1;
+    }
+  }
+  return count;
 }

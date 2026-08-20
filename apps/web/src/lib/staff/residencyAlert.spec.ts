@@ -10,10 +10,14 @@
  *   4. 退職者・期限なし・台帳に無い行の残骸を数えない
  */
 
-import type { ResidencyRow, StaffLedgerRow } from "@pk/db";
+import type { CertificationRow, ResidencyRow, StaffLedgerRow } from "@pk/db";
 import { describe, expect, it } from "vitest";
 
-import { RESIDENCY_ALERT_CRON, countResidencyAlerts } from "./residencyAlert.js";
+import {
+  RESIDENCY_ALERT_CRON,
+  countCertificationAlerts,
+  countResidencyAlerts,
+} from "./residencyAlert.js";
 
 const ORG = "a1b2c3";
 const TODAY = "2026-08-20";
@@ -181,5 +185,71 @@ describe("countResidencyAlerts — 合算", () => {
     const staff = ledgerRow();
     const result = count([staff], [residencyRow(staff.id, { expiresOn: "2026-09-01" })]);
     expect(Object.keys(result).sort()).toEqual(["dueSoon", "firstNotice", "total"]);
+  });
+});
+
+describe("countCertificationAlerts — 60 日前に 1 回（P8-10）", () => {
+  /** `TODAY` の 60 日後。 */
+  const IN_60_DAYS = "2026-10-19";
+
+  function cert(membershipId: string, expiresOn: string | null): CertificationRow {
+    return {
+      id: `${ORG}__cert_0001`,
+      membershipId,
+      name: "衛生管理者講習",
+      expiresOn,
+      note: null,
+    };
+  }
+
+  it("ちょうど 60 日前なら数える", () => {
+    const staff = ledgerRow();
+    const count = countCertificationAlerts({
+      ledger: [staff],
+      certifications: [cert(staff.membershipId, IN_60_DAYS)],
+      businessDate: TODAY,
+    });
+    expect(count).toBe(1);
+  });
+
+  it("59 日前・61 日前は数えない（**1 回だけの案内**）", () => {
+    const staff = ledgerRow();
+    for (const expiresOn of ["2026-10-18", "2026-10-20"]) {
+      const count = countCertificationAlerts({
+        ledger: [staff],
+        certifications: [cert(staff.membershipId, expiresOn)],
+        businessDate: TODAY,
+      });
+      expect(count, expiresOn).toBe(0);
+    }
+  });
+
+  it("期限の無い資格を数えない", () => {
+    const staff = ledgerRow();
+    const count = countCertificationAlerts({
+      ledger: [staff],
+      certifications: [cert(staff.membershipId, null)],
+      businessDate: TODAY,
+    });
+    expect(count).toBe(0);
+  });
+
+  it("退職者の資格を数えない", () => {
+    const staff = ledgerRow({ workStatus: "RESIGNED" });
+    const count = countCertificationAlerts({
+      ledger: [staff],
+      certifications: [cert(staff.membershipId, IN_60_DAYS)],
+      businessDate: TODAY,
+    });
+    expect(count).toBe(0);
+  });
+
+  it("台帳に無い人の資格は数える（**退職と確認できないものを黙って落とさない**）", () => {
+    const count = countCertificationAlerts({
+      ledger: [],
+      certifications: [cert(`${ORG}__mem_GONE`, IN_60_DAYS)],
+      businessDate: TODAY,
+    });
+    expect(count).toBe(1);
   });
 });

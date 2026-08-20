@@ -67,7 +67,7 @@ describe("P0-06 スキーマ", () => {
     }
   });
 
-  it("76 テーブルを定義している", () => {
+  it("79 テーブルを定義している", () => {
     expect(tenantTables().map(([name]) => name).sort()).toEqual([
       // P6-01。公開 API のキー（PK-SPEC-P6 §6.1）。**平文のキーを保存しない。**
       "apiKey",
@@ -89,6 +89,8 @@ describe("P0-06 スキーマ", () => {
       "billingPeriodReview",
       "building",
       // P1-01。チェックリストの定義と実施結果（PK-SPEC-P1 §2.1 / §6）。
+      // P8-10。資格・講習（プロトタイプ ops 08）。在留資格とは別物。
+      "certificationRecord",
       "checklistItem",
       "checklistTemplate",
       "cleaningTask",
@@ -196,6 +198,9 @@ describe("P0-06 スキーマ", () => {
       "taskChecklistResult",
       "taskPhoto",
       "taskTimeLog",
+      // P8-10。研修プログラムと修了記録（プロトタイプ ops 08）。成績の列は無い。
+      "trainingProgram",
+      "trainingRecord",
       "user",
     ]);
   });

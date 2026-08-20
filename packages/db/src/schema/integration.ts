@@ -150,6 +150,10 @@ export const NOTIFICATION_EVENT_CODES = [
   // **§5.1 の 10 件に無い 13 件目**（P6 の仕様が P8 を織り込んでいない。
   // photo.retention_due と同じ扱い / OPEN_QUESTIONS #097）。
   "residency.expiry_due",
+  // P8-10。資格・講習の期限が 60 日後に来る（プロトタイプ ops 08
+  // 「期限60日前に運営管理者へ通知します」）。**在留資格の 90/30 とは
+  // 別の刻み**なので別イベント。
+  "certification.expiry_due",
 ] as const;
 
 export type NotificationEventCode = (typeof NOTIFICATION_EVENT_CODES)[number];
