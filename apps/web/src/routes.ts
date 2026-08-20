@@ -129,7 +129,10 @@ export default [
   // P5-17。確認依頼のメールリンク（認証不要・署名で守る）。layout の外。
   route("r/billing/:billingPeriodId", "routes/review/billingReview.tsx"),
   // PF-01。運営面のシェル。PF-03〜PF-14 がここへ 11 本足す。
-  layout("routes/plat/layout.tsx", [route("plat/status", "routes/plat/status.tsx")]),
+  layout("routes/plat/layout.tsx", [
+    route("plat/status", "routes/plat/status.tsx"),
+    route("plat/tenants", "routes/plat/tenants.tsx"),
+  ]),
   layout("routes/m/layout.tsx", [
     route("m/today", "routes/m/today.tsx"),
     route("m/select-property", "routes/m/selectProperty.tsx"),

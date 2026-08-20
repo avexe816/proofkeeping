@@ -23,7 +23,7 @@
  * 「認証の失敗応答を一律にする」）。判断は `lib/platform/login.ts`。
  */
 
-import { eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { getPlatformDb } from "../router.js";
@@ -382,4 +382,19 @@ export async function listTenantSnapshots(
     .from(platformTenantSnapshot)
     .where(eq(platformTenantSnapshot.businessDate, businessDate))
     .orderBy(platformTenantSnapshot.name);
+}
+
+/**
+ * スナップショットが在る最新の業務日（PF-04 / PF-05）。無ければ `null`。
+ *
+ * 画面が「今日」を決め打ちで引くと、**夜間バッチがまだ回っていない朝に
+ * 空の一覧が出る。** 在る中でいちばん新しい日を使い、その日付を画面に出す。
+ */
+export async function findLatestSnapshotDate(env: Env): Promise<string | null> {
+  const rows = await getPlatformDb(env)
+    .select({ businessDate: platformTenantSnapshot.businessDate })
+    .from(platformTenantSnapshot)
+    .orderBy(desc(platformTenantSnapshot.businessDate))
+    .limit(1);
+  return rows[0]?.businessDate ?? null;
 }
