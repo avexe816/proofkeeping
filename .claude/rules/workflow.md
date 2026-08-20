@@ -79,6 +79,10 @@ Phase 全体が context に収まるなら、分割しない。
 
 ## 4. PR の作成とマージ
 
+**PR 作成 → CI 確認 → マージまでを毎回自分で回す**（人間の指示 2026-08-20
+「これからずっと自動的に PR → CI → merge」）。人間の確認を待つのは
+下の「自動マージの対象外」に当たるときだけ。
+
 実装完了・`pnpm check` 通過後、**自分で PR を作成する**。
 
 ```bash
@@ -86,6 +90,40 @@ gh pr create --base main --title "<Phase>-<NN>〜<NN> <日本語の要約>" --bo
 ```
 
 本文は `.github/pull_request_template.md` に従う。
+
+### `gh` が無い環境（Claude Code on the web / 2026-08-20）
+
+**web セッションのコンテナに `gh` は入っていない。** 以下の `gh` コマンドは
+そのままでは動かないので、**GitHub MCP ツール**（`mcp__github__*`）か
+`curl` ＋ `$GITHUB_TOKEN` に読み替える。やることは同じ。
+
+| したいこと | 代わりに使うもの |
+|---|---|
+| PR を作る | `mcp__github__create_pull_request` |
+| CI を見る | `mcp__github__pull_request_read`（`get_check_runs`）または `curl .../commits/<sha>/check-runs` |
+| マージする | `mcp__github__merge_pull_request`（`merge_method: "squash"`） |
+| ログを読む | `mcp__github__get_job_logs`（`failed_only: true`） |
+
+**ポーリングは前景の `sleep` でやらない**（ハーネスが拒否する）。
+`run_in_background: true` の bash で `for` ループを回し、完了通知を待つ。
+
+**ブランチの削除は 403 になることがある。** web セッションのトークンは
+`git/refs` の DELETE を持たないことがあり、`git push origin --delete` も
+落ちる。**その場合は残したまま次へ進んでよい**（同じブランチ名で続ける
+指示が出ている場合はむしろ好都合。main から `git checkout -B` で作り直す）。
+
+### PR を作っただけでは CI が走らないことがある
+
+2026-08-20 に確認: **アプリのトークンで作成した PR の `opened` イベントでは
+GitHub Actions のワークフローが起動しなかった**（45 分待って check-suite は
+Claude アプリのぶんだけ。同時刻に他ブランチの CI は正常に走っていた）。
+**PR を開いたあとに実コミットを 1 つ push した時点で起動した**（`synchronize`）。
+
+- CI が 5 分待っても現れないときは、`commits/<sha>/check-suites` を見て
+  **`github-actions` のスイートがあるか**を確かめる。無ければ起動していない。
+- **空コミットで CI を蹴らないこと。** 実際の変更（main の取り込み・
+  レビュー指摘の修正など）を push したときに走る。
+- 押し出す変更が無いのに CI が走らないときは、止まって人間に報告する。
 
 ### CI の監視
 
