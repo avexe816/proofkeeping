@@ -162,7 +162,9 @@ export { schemaVersion } from "./schema/meta.js";
 export {
   PLATFORM_OPERATOR_STATUSES,
   platformAuditLog,
+  platformOperationSetting,
   platformOperator,
+  platformTenantSnapshot,
   type PlatformOperatorStatus,
 } from "./schema/platform.js";
 

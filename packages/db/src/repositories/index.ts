@@ -313,6 +313,7 @@ export {
 // **消す関数が無い。** 訂正は `amendObservation()`（旧値を履歴へ積む / §2.2）。
 export {
   amendObservation,
+  countSkippedObservations,
   findObservationById,
   findObservationByTaskId,
   findObservationConfig,
@@ -324,6 +325,7 @@ export {
   listObservationRevisions,
   listObservations,
   skipObservation,
+  summarizeObservationInput,
   upsertLinenRecords,
   upsertObservation,
   upsertObservationConfig,
@@ -332,6 +334,7 @@ export {
   type LinenRangeFilter,
   type ObservationCountsInput,
   type ObservationFilter,
+  type ObservationInputSummary,
   type UpsertLinenRecordsInput,
   type UpsertObservationConfigInput,
   type UpsertObservationInput,
@@ -656,13 +659,21 @@ export {
 // プラットフォーム運営（PF-01 / DECISIONS #220）。**SHARD_00 のみ・テナントの表と交わらない。**
 // `platform_audit_log` に更新・削除の関数は無い（INV-30 と同じ扱い）。
 export {
+  PLATFORM_OPERATION_DEFAULTS,
+  PLATFORM_SETTING_ID,
   createPlatformOperator,
   findPlatformOperatorByEmail,
   findPlatformOperatorById,
+  listTenantSnapshots,
+  readPlatformOperationSettings,
   recordPlatformAudit,
   recordPlatformLoginAttempt,
+  upsertTenantSnapshot,
   type CreatePlatformOperatorInput,
   type PlatformAuditInput,
   type PlatformLoginAttemptInput,
+  type PlatformOperationSettings,
   type PlatformOperatorRow,
+  type TenantSnapshotInput,
+  type TenantSnapshotRow,
 } from "./platform.js";

@@ -18,6 +18,10 @@ import {
 } from "./consumers/archiveRestore.js";
 import { handlePhotoRetentionBatch, isPhotoRetentionMessage } from "./consumers/photoRetention.js";
 import { handleRollupUpdateBatch } from "./consumers/rollup.js";
+import {
+  handleTenantSnapshotBatch,
+  isTenantSnapshotMessage,
+} from "./consumers/tenantSnapshot.js";
 import { handleSignalIngestBatch, isSignalIngestMessage } from "./consumers/signalIngest.js";
 import {
   missingSecretNames,
@@ -26,6 +30,7 @@ import {
 import { cloudflareContext } from "./lib/ui/cloudflare.js";
 import { dispatchArchiveExport, isArchiveDispatchMoment } from "./lib/archive/dispatch.js";
 import { dispatchPhotoRetention } from "./lib/photo/retentionDispatch.js";
+import { dispatchTenantSnapshots } from "./lib/platform/snapshotDispatch.js";
 import { RESIDENCY_ALERT_CRON } from "./lib/staff/residencyAlert.js";
 import { dispatchResidencyAlerts } from "./lib/staff/residencyAlertDispatch.js";
 import {
@@ -401,8 +406,22 @@ export default {
       return;
     }
     // 日次集計の更新（P5-14 / PK-SPEC-P0 §19.6）。**再計算方式。**
+    //
+    // **このキューも 2 種類のメッセージを運ぶ。** PF-02 のテナント
+    // スナップショット（`TENANT_SNAPSHOT`）を相乗りさせている
+    // （DECISIONS #140 / #160 と同じ判断 — 8 本目のキューを作らない）。
+    // どちらも「数え直して上書きする」再計算方式で、性質が揃っている。
     if (batch.queue.startsWith("pk-rollup-update")) {
-      await handleRollupUpdateBatch(env, batch);
+      const snapshots = batch.messages.filter((message) =>
+        isTenantSnapshotMessage(message.body),
+      );
+      const rest = batch.messages.filter((message) => !isTenantSnapshotMessage(message.body));
+      if (snapshots.length > 0) {
+        await handleTenantSnapshotBatch(env, { ...batch, messages: snapshots });
+      }
+      if (rest.length > 0) {
+        await handleRollupUpdateBatch(env, { ...batch, messages: rest });
+      }
       return;
     }
     // R2 のライフサイクル 3 種（P7-08 / P7-09 / P7-10）。**`kind` で分ける。**
@@ -541,6 +560,15 @@ export default {
         `skippedNoPlan=${String(retention.skippedNoPlan)} ` +
         `expiredRestores=${String(retention.expiredRestores)} ` +
         `failed=${String(retention.failedOrganizations)}`,
+    );
+
+    // テナントのスナップショット（PF-02 / DECISIONS #220 の 2）。**同じ cron に
+    // 相乗り**（新しい cron 式を足さない）。運営画面の数字はここでしか作られない。
+    const snapshots = await dispatchTenantSnapshots(env, now);
+    console.log(
+      `tenant-snapshot-dispatch organizations=${String(snapshots.organizations)} ` +
+        `queued=${String(snapshots.queued)} ` +
+        `failed=${String(snapshots.failedOrganizations)}`,
     );
   },
 } satisfies ExportedHandler<Env>;

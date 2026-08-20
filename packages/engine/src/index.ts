@@ -517,3 +517,16 @@ export {
   type SuppressionReason,
   type TaskFact,
 } from "./reconciliation/types.js";
+
+// テナントの記録の品質（PF-02 / プロトタイプ 03 の「要支援」判定）。
+// **閾値は持ち込まない**（PF-14 の「運用（変更可）」から渡す）。
+export {
+  COMPLETENESS_THRESHOLD_PERCENT,
+  SUPPORT_SIGNAL_COUNT,
+  judgeTenantQuality,
+  medianDurationMs,
+  type TenantQualityCounts,
+  type TenantQualitySignals,
+  type TenantQualityThresholds,
+  type TenantQualityVerdict,
+} from "./tenantQuality.js";
