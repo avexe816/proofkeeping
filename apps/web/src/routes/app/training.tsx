@@ -56,10 +56,7 @@ interface TrainingData {
 }
 
 type TrainingActionResult =
-  | { recorded: true }
-  | { certified: true }
-  | { seeded: number }
-  | { invalid: true };
+  { recorded: true } | { certified: true } | { seeded: number } | { invalid: true };
 
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<TrainingData> {
   const env = getEnv(context);
@@ -231,76 +228,110 @@ export default function Training() {
         <li>{`${t("training.kpi.needsRenewal")} ${String(data.page.summary.needsRenewal)}`}</li>
       </ul>
 
-      {/* 研修中は同行作業のみ（プロトタイプ 08 / **逐語**）。 */}
-      <p className="pk-muted">{t("training.trainee.note")}</p>
-
-      <h2 className="pk-section__title">{t("training.trainee.title")}</h2>
-      {data.page.trainees.length === 0 ? (
-        <p className="pk-muted">{t("training.trainee.empty")}</p>
-      ) : (
-        <table className="pk-grid">
-          <thead>
-            <tr>
-              <th>{t("training.trainee.name")}</th>
-              <th>{t("training.trainee.progress")}</th>
-              <th>{t("training.trainee.mentor")}</th>
-              <th>{t("training.trainee.status")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.page.trainees.map((row) => (
-              <tr key={row.membershipId}>
-                <th scope="row">{row.displayName}</th>
-                <td>{`${String(row.completed)} / ${String(row.total)}`}</td>
-                <td>{row.mentorName ?? "—"}</td>
-                <td>{t("training.trainee.accompanied")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <h2 className="pk-section__title">{t("training.program.title")}</h2>
-      {data.programs.length === 0 ? (
-        <Form method="post">
-          <input type="hidden" name="intent" value="seed-programs" />
-          <p className="pk-muted">{t("training.program.empty")}</p>
-          <button className="pk-button" type="submit">
-            {t("training.program.seed")}
-          </button>
-        </Form>
-      ) : (
-        <>
-          <table className="pk-grid">
-            <thead>
-              <tr>
-                <th>{t("training.program.name")}</th>
-                <th>{t("training.program.minutes")}</th>
-                <th>{t("training.program.languages")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.programs.map((program) => (
-                <tr key={program.id}>
-                  <th scope="row">{program.name}</th>
-                  <td>{`${String(program.expectedMinutes)}${t("training.program.minutesUnit")}`}</td>
-                  <td>{`${String(program.languages.length)}${t("training.program.languagesUnit")}`}</td>
+      {/* プロトタイプ ops 08「🎓 研修中のスタッフ」。 */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            🎓
+          </span>
+          {t("training.trainee.title")}
+        </div>
+        {data.page.trainees.length === 0 ? (
+          <div className="pk-panel__body">
+            <p className="pk-muted">{t("training.trainee.empty")}</p>
+          </div>
+        ) : (
+          <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+            <table className="pk-tbl">
+              <thead>
+                <tr>
+                  <th>{t("training.trainee.name")}</th>
+                  <th>{t("training.trainee.progress")}</th>
+                  <th>{t("training.trainee.mentor")}</th>
+                  <th>{t("training.trainee.status")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {/* 研修資料は 7 言語（プロトタイプ 08 / **逐語**）。 */}
-          <p className="pk-muted">{t("training.program.note")}</p>
-        </>
-      )}
+              </thead>
+              <tbody>
+                {data.page.trainees.map((row) => (
+                  <tr key={row.membershipId}>
+                    <th scope="row">{row.displayName}</th>
+                    <td>{`${String(row.completed)} / ${String(row.total)}`}</td>
+                    <td>{row.mentorName ?? "—"}</td>
+                    <td>{t("training.trainee.accompanied")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {/* 研修中は同行作業のみ（プロトタイプ 08 / **逐語**）。 */}
+        <div className="pk-panel__foot">{t("training.trainee.note")}</div>
+      </section>
+
+      {/* プロトタイプ ops 08「📚 研修プログラム」。 */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            📚
+          </span>
+          {t("training.program.title")}
+        </div>
+        {data.programs.length === 0 ? (
+          <div className="pk-panel__body">
+            <Form method="post">
+              <input type="hidden" name="intent" value="seed-programs" />
+              <p className="pk-muted">{t("training.program.empty")}</p>
+              <button className="pk-button" type="submit">
+                {t("training.program.seed")}
+              </button>
+            </Form>
+          </div>
+        ) : (
+          <>
+            <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+              <table className="pk-tbl">
+                <thead>
+                  <tr>
+                    <th>{t("training.program.name")}</th>
+                    <th>{t("training.program.minutes")}</th>
+                    <th>{t("training.program.languages")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.programs.map((program) => (
+                    <tr key={program.id}>
+                      <th scope="row">{program.name}</th>
+                      <td>{`${String(program.expectedMinutes)}${t("training.program.minutesUnit")}`}</td>
+                      <td>{`${String(program.languages.length)}${t("training.program.languagesUnit")}`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* 研修資料は 7 言語（プロトタイプ 08 / **逐語**）。 */}
+            <div className="pk-panel__foot">{t("training.program.note")}</div>
+          </>
+        )}
+      </section>
 
       <h2 className="pk-section__title">{t("training.record.title")}</h2>
       <Form method="post" className="pk-form">
         <input type="hidden" name="intent" value="record-training" />
         <label htmlFor="training-member">{t("training.record.staff")}</label>
-        <StaffSelect id="training-member" name="membershipId" options={data.staffOptions} required />
+        <StaffSelect
+          id="training-member"
+          name="membershipId"
+          options={data.staffOptions}
+          required
+        />
         <label htmlFor="training-program">{t("training.record.program")}</label>
-        <select className="pk-select" id="training-program" name="programId" required defaultValue="">
+        <select
+          className="pk-select"
+          id="training-program"
+          name="programId"
+          required
+          defaultValue=""
+        >
           <option value="">—</option>
           {data.programs.map((program) => (
             <option key={program.id} value={program.id}>
@@ -322,35 +353,49 @@ export default function Training() {
         </button>
       </Form>
 
-      <h2 className="pk-section__title">{t("training.cert.title")}</h2>
-      {data.page.certifications.length === 0 ? (
-        <p className="pk-muted">{t("training.cert.empty")}</p>
-      ) : (
-        <table className="pk-grid">
-          <thead>
-            <tr>
-              <th>{t("training.cert.name")}</th>
-              <th>{t("training.cert.course")}</th>
-              <th>{t("training.cert.expiresOn")}</th>
-              <th>{t("training.cert.status")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.page.certifications.map((row) => (
-              <tr key={row.id}>
-                <th scope="row">{row.displayName}</th>
-                <td>{row.name}</td>
-                <td className={row.needsRenewal ? "pk-expiry pk-expiry--near" : "pk-expiry"}>
-                  {row.expiresOn ?? "—"}
-                </td>
-                <td>{row.needsRenewal ? t("training.cert.renew") : t("training.cert.valid")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {/* 期限 60 日前の通知（プロトタイプ 08 の注記）。 */}
-      <p className="pk-muted">{t("training.cert.note")}</p>
+      {/* プロトタイプ ops 08「📅 資格・講習の更新」。 */}
+      <section className="pk-panel">
+        <div className="pk-panel__head">
+          <span className="pk-panel__icon" aria-hidden="true">
+            📅
+          </span>
+          {t("training.cert.title")}
+        </div>
+        {data.page.certifications.length === 0 ? (
+          <div className="pk-panel__body">
+            <p className="pk-muted">{t("training.cert.empty")}</p>
+          </div>
+        ) : (
+          <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+            <table className="pk-tbl">
+              <thead>
+                <tr>
+                  <th>{t("training.cert.name")}</th>
+                  <th>{t("training.cert.course")}</th>
+                  <th>{t("training.cert.expiresOn")}</th>
+                  <th>{t("training.cert.status")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.page.certifications.map((row) => (
+                  <tr key={row.id}>
+                    <th scope="row">{row.displayName}</th>
+                    <td>{row.name}</td>
+                    <td className={row.needsRenewal ? "pk-expiry pk-expiry--near" : "pk-expiry"}>
+                      {row.expiresOn ?? "—"}
+                    </td>
+                    <td>
+                      {row.needsRenewal ? t("training.cert.renew") : t("training.cert.valid")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {/* 期限 60 日前の通知（プロトタイプ 08 の注記）。 */}
+        <div className="pk-panel__foot">{t("training.cert.note")}</div>
+      </section>
 
       <Form method="post" className="pk-form">
         <input type="hidden" name="intent" value="record-certification" />
