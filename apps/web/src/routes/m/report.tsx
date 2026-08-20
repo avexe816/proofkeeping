@@ -203,7 +203,7 @@ export default function ReportScreen(): React.ReactElement {
   // ── ① 2 択（§11.5）──────────────────────────────────
   if (phase === "CHOOSE") {
     return (
-      <section className="pk-m-screen">
+      <>
         <header className="pk-m-head">
           <h1 className="pk-m-head__title">{t("m.report.title")}</h1>
           <p className="pk-m-head__sub">{data.roomNumber}</p>
@@ -240,13 +240,13 @@ export default function ReportScreen(): React.ReactElement {
             {t("m.report.back")}
           </button>
         </main>
-      </section>
+      </>
     );
   }
 
   if (phase === "DONE") {
     return (
-      <section className="pk-m-screen">
+      <>
         <main className="pk-m-body">
           <p className="pk-m-alert" role="status">
             {t("m.report.done")}
@@ -260,7 +260,7 @@ export default function ReportScreen(): React.ReactElement {
             {t("m.report.backToTask")}
           </button>
         </main>
-      </section>
+      </>
     );
   }
 
@@ -270,7 +270,7 @@ export default function ReportScreen(): React.ReactElement {
 
   // ── ② 区分 → ③ 写真 → 説明（冒頭の「3 タップ」）──────
   return (
-    <section className="pk-m-screen">
+    <>
       <header className="pk-m-head">
         <h1 className="pk-m-head__title">
           {isLost ? t("m.report.choice.lost") : t("m.report.choice.issue")}
@@ -422,6 +422,6 @@ export default function ReportScreen(): React.ReactElement {
           {t("m.report.back")}
         </button>
       </main>
-    </section>
+    </>
   );
 }

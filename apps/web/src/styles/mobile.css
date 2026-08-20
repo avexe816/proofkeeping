@@ -194,6 +194,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 開閉の三角（▸ / ▾）。**帯の右端に固定幅で置く** — 件数の桁数が
+   変わっても位置がずれないように、文字幅ではなく箱で場所を取る。 */
+.pk-m-group__toggle {
+  flex: 0 0 16px;
+  font-size: 14px;
+  line-height: 1;
+  text-align: right;
+  opacity: 0.85;
+}
+
 .pk-m-group__planned {
   margin: -4px 4px 0;
   font-size: 13px;
