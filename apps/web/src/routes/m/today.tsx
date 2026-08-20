@@ -283,6 +283,43 @@ export default function TodayRoute(): React.ReactElement {
         ) : null}
       </header>
 
+      {/* 5 段カウンタ（§19.6 の summary / プロトタイプ pk-02）。
+          **絞り込みで変わらない**（summary は day 由来で filter を通らない）。
+          値の色はプロトタイプの `.pg` と同じ対応。**超過の意味の赤ではない**
+          （INV-05 が禁じるのは経過時間の赤。ここは状態の色分け）。 */}
+      <div className="pk-m-counts">
+        <div className="pk-m-counts__cell">
+          <div className="pk-m-counts__value pk-m-counts__value--todo">
+            {String(day.summary.todo)}
+          </div>
+          <div className="pk-m-counts__label">{t("m.today.count.TODO")}</div>
+        </div>
+        <div className="pk-m-counts__cell">
+          <div className="pk-m-counts__value pk-m-counts__value--running">
+            {String(day.summary.inProgress)}
+          </div>
+          <div className="pk-m-counts__label">{t("m.today.count.IN_PROGRESS")}</div>
+        </div>
+        <div className="pk-m-counts__cell">
+          <div className="pk-m-counts__value pk-m-counts__value--rework">
+            {String(day.summary.rework)}
+          </div>
+          <div className="pk-m-counts__label">{t("m.today.count.REWORK")}</div>
+        </div>
+        <div className="pk-m-counts__cell">
+          <div className="pk-m-counts__value pk-m-counts__value--blocked">
+            {String(day.summary.blocked)}
+          </div>
+          <div className="pk-m-counts__label">{t("m.today.count.BLOCKED")}</div>
+        </div>
+        <div className="pk-m-counts__cell">
+          <div className="pk-m-counts__value pk-m-counts__value--done">
+            {String(day.summary.done)}
+          </div>
+          <div className="pk-m-counts__label">{t("m.today.count.DONE")}</div>
+        </div>
+      </div>
+
       {/* フィルタは全施設をまたいで適用する（§19.3 MUST）。
           件数は絞る前の値を出す。押した結果でボタンの数字が動かない。 */}
       <div className="pk-m-filters" role="group">

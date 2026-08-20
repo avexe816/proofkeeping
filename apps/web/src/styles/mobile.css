@@ -406,6 +406,29 @@
   color: var(--ink2);
 }
 
+/* 値の色（プロトタイプ pk-02 の .pg と同じ対応）。**状態の色分け**であって
+   超過の警告ではない（INV-05 の対象外。判断は today.tsx の注記）。 */
+.pk-m-counts__value--todo {
+  color: var(--dirty);
+}
+
+.pk-m-counts__value--running {
+  color: var(--warn);
+}
+
+.pk-m-counts__value--rework {
+  color: var(--danger);
+}
+
+.pk-m-counts__value--blocked {
+  color: var(--dirty);
+  opacity: 0.7;
+}
+
+.pk-m-counts__value--done {
+  color: var(--ok);
+}
+
 /* ── タスク一覧 ───────────────────────────────────────── */
 
 .pk-m-list {
