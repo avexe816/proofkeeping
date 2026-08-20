@@ -84,6 +84,7 @@ interface MigrationEntry {
 interface EnvSection {
   name?: string;
   assets?: { directory?: string };
+  triggers?: { crons?: string[] };
   vars?: Record<string, string>;
   d1_databases?: D1Entry[];
   r2_buckets?: R2Entry[];
@@ -205,6 +206,21 @@ describe("P0-02 wrangler.toml の構成", () => {
       for (const secret of SECRET_NAMES) {
         expect(Object.keys(section.vars ?? {}), secret).not.toContain(secret);
       }
+    });
+
+    it("Cron Trigger 5 本が 4 環境で一致する", () => {
+      // [env.*] は top-level を継承しない。1 環境だけ欠けると、その環境の
+      // バッチ（タスク生成・日報・ベースライン・月次締め・在留資格）が
+      // 黙って止まる。**式は index.ts の scheduled() の分岐と対**なので、
+      // 足すときは両方を同時に変えること（P8-02 が 5 本目を足した）。
+      expect(section.triggers?.crons, label).toEqual([
+        "0 17 * * *",
+        "*/10 * * * *",
+        "0 18 * * 6",
+        "0 19 28-31 * *",
+        // 在留資格の期限アラート（P8-02 / 07:00 JST）。
+        "0 22 * * *",
+      ]);
     });
   });
 

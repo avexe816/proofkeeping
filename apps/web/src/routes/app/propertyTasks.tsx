@@ -135,6 +135,8 @@ interface TasksActionResult {
   applied?: number;
   /** 作業中のため見送った（§4.2 の警告）。確認して送り直す。 */
   activeTaskIds?: readonly string[];
+  /** 期限切れのスタッフ宛てのため見送った（P8-02）。**送り直せない。** */
+  blockedTaskIds?: readonly string[];
   /** 見送ったぶんの送り先。**再送のときに取り違えないための持ち回り。** */
   pendingMembershipId?: string;
   generated?: { created: number; updated: number; cancelled: number; revived: number };
@@ -188,7 +190,11 @@ export async function action({
       confirmActive: false,
       ip,
     });
-    return { applied: result.applied, activeTaskIds: result.activeTaskIds };
+    return {
+      applied: result.applied,
+      activeTaskIds: result.activeTaskIds,
+      blockedTaskIds: result.blockedTaskIds,
+    };
   }
 
   if (intent === "assign") {
@@ -208,6 +214,7 @@ export async function action({
     return {
       applied: result.applied,
       activeTaskIds: result.activeTaskIds,
+      blockedTaskIds: result.blockedTaskIds,
       pendingMembershipId: raw,
     };
   }
@@ -302,6 +309,15 @@ export default function PropertyTasks(): React.ReactElement {
       )}
       {result?.applied === undefined ? null : (
         <p className="pk-notice">{`${t("tasks.applied")}: ${String(result.applied)}`}</p>
+      )}
+
+      {/* 期限切れのスタッフ宛ては配れない（P8-02 / PK-SPEC-P8 §1.4 MUST）。
+          **確認ボタンを付けない** — 送り直しても通らない。解除は在留期限の
+          更新だけで、この画面に解除の口を作らない。 */}
+      {result?.blockedTaskIds === undefined || result.blockedTaskIds.length === 0 ? null : (
+        <p className="pk-notice pk-notice--warn">
+          {`${t("tasks.residencyBlocked")}: ${String(result.blockedTaskIds.length)}`}
+        </p>
       )}
 
       {/* §4.2 の「作業中の担当変更は警告を出す」。確認して送り直す。 */}

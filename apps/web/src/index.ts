@@ -9,6 +9,10 @@ import { handleEvidenceExportBatch } from "./consumers/evidenceExport.js";
 import { handleNotificationBatch } from "./consumers/notification.js";
 import { handleReconciliationBatch } from "./consumers/reconciliation.js";
 import {
+  handleResidencyAlertBatch,
+  isResidencyAlertMessage,
+} from "./consumers/residencyAlert.js";
+import {
   handleArchiveRestoreBatch,
   isArchiveRestoreMessage,
 } from "./consumers/archiveRestore.js";
@@ -22,6 +26,8 @@ import {
 import { cloudflareContext } from "./lib/ui/cloudflare.js";
 import { dispatchArchiveExport, isArchiveDispatchMoment } from "./lib/archive/dispatch.js";
 import { dispatchPhotoRetention } from "./lib/photo/retentionDispatch.js";
+import { RESIDENCY_ALERT_CRON } from "./lib/staff/residencyAlert.js";
+import { dispatchResidencyAlerts } from "./lib/staff/residencyAlertDispatch.js";
 import {
   apiErrorHandler,
   apiNotFoundHandler,
@@ -376,8 +382,22 @@ export default {
       return;
     }
     // 帳票の送付（P5-07 / PK-SPEC-P5 §4.1 の ⑩〜⑫）。
+    //
+    // **このキューは 2 種類のメッセージを運ぶ。** P8-02 の在留資格
+    // アラート判定（`RESIDENCY_ALERT`）を相乗りさせている
+    // （8 本目のキューを作らない / DECISIONS #140 の判断を踏襲）。
+    // **`kind` で分ける**（pk-reconciliation と同じ形）。
     if (batch.queue.startsWith("pk-notification")) {
-      await handleNotificationBatch(env, batch);
+      const residencyAlerts = batch.messages.filter((message) =>
+        isResidencyAlertMessage(message.body),
+      );
+      const rest = batch.messages.filter((message) => !isResidencyAlertMessage(message.body));
+      if (residencyAlerts.length > 0) {
+        await handleResidencyAlertBatch(env, { ...batch, messages: residencyAlerts });
+      }
+      if (rest.length > 0) {
+        await handleNotificationBatch(env, { ...batch, messages: rest });
+      }
       return;
     }
     // 日次集計の更新（P5-14 / PK-SPEC-P0 §19.6）。**再計算方式。**
@@ -433,6 +453,7 @@ export default {
    *                                  当日の稼働照合（P4-05 / §5.1）
    *   `*&#47;10 * * * *`  10 分ごと      日締め + 10 分の施設の日報（P2-14）
    *   `0 18 * * 6`    日曜 03:00 JST ベースライン週次バッチ（P3-09）
+   *   `0 22 * * *`    07:00 JST      在留資格の期限アラート（P8-02）
    *
    * **返す Promise を `await` する。** Cron の実行は `scheduled()` の返した
    * Promise が解決するまで続く。結果は件数だけをログに出す
@@ -445,6 +466,18 @@ export default {
       const result = await dispatchBaselineLearning(env, now);
       console.log(
         `baseline-learning-dispatch organizations=${String(result.organizations)} ` +
+          `queued=${String(result.queued)} failed=${String(result.failedOrganizations)}`,
+      );
+      return;
+    }
+
+    // 在留資格の期限アラート（P8-02 / PK-SPEC-P8 §1.4「毎日 07:00 JST」）。
+    // **fallthrough より前に置くこと。** 最後の分岐は「それ以外の cron」を
+    // 02:00 の回として扱うので、ここを忘れると 07:00 にタスク生成が走る。
+    if (controller.cron === RESIDENCY_ALERT_CRON) {
+      const result = await dispatchResidencyAlerts(env, now);
+      console.log(
+        `residency-alert-dispatch organizations=${String(result.organizations)} ` +
           `queued=${String(result.queued)} failed=${String(result.failedOrganizations)}`,
       );
       return;
