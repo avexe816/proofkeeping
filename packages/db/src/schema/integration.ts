@@ -146,6 +146,10 @@ export const NOTIFICATION_EVENT_CODES = [
   // 「完了をメール通知」）。**§5.1 の 10 件に無い 12 件目**
   // （docs/DECISIONS.md #166）。
   "archive.restore_ready",
+  // P8-02。在留資格の期限が近い（PK-SPEC-P8 §1.4 のアラート）。
+  // **§5.1 の 10 件に無い 13 件目**（P6 の仕様が P8 を織り込んでいない。
+  // photo.retention_due と同じ扱い / OPEN_QUESTIONS #097）。
+  "residency.expiry_due",
 ] as const;
 
 export type NotificationEventCode = (typeof NOTIFICATION_EVENT_CODES)[number];

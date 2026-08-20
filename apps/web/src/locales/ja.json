@@ -45,6 +45,7 @@
   "tasks.generated": "作成",
   "tasks.cancelled": "取消",
   "tasks.applied": "反映しました",
+  "tasks.residencyBlocked": "在留期限の確認が必要なため、割り当てなかった件数",
   "tasks.invalid": "入力の形式をご確認ください。",
   "tasks.unassigned": "未割当",
   "tasks.overLimit": "上限を超えています",
