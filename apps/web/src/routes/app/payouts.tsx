@@ -93,13 +93,14 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   const monthRaw = url.searchParams.get("month");
   // 既定は今日（業務日）の月。
   const month =
-    monthRaw !== null && MONTH_PATTERN.test(monthRaw)
-      ? monthRaw
-      : businessDateOf(now).slice(0, 7);
+    monthRaw !== null && MONTH_PATTERN.test(monthRaw) ? monthRaw : businessDateOf(now).slice(0, 7);
   const range = payoutMonthRange(month);
 
   const [periods, members] = await Promise.all([
-    listPayoutPeriods(env, tenant, { periodToFrom: range.periodTo, periodFromTo: range.periodFrom }),
+    listPayoutPeriods(env, tenant, {
+      periodToFrom: range.periodTo,
+      periodFromTo: range.periodFrom,
+    }),
     listOrgMembers(env, tenant),
   ]);
   const memberOf = new Map(members.map((member) => [member.membershipId, member]));
@@ -259,6 +260,15 @@ export default function Payouts() {
     <section className="pk-page">
       <div className="pk-pagehead">
         <h1 className="pk-pagehead__title">{t("payouts.title")}</h1>
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("payouts.field.month")}</span>
+            <input className="pk-input" name="month" type="month" defaultValue={data.month} />
+          </label>
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("payouts.show")}
+          </button>
+        </Form>
       </div>
       <p className="pk-muted">{t("payouts.lede")}</p>
       {/* security.md §5。支払の根拠であって評価の道具ではない。 */}
@@ -267,21 +277,13 @@ export default function Payouts() {
       {result?.failure !== undefined ? (
         <p className="pk-notice pk-notice--warn">{t(FAILURE_MESSAGE[result.failure])}</p>
       ) : null}
-      {result?.aggregated !== undefined ? <p className="pk-notice">{t("payouts.aggregated")}</p> : null}
+      {result?.aggregated !== undefined ? (
+        <p className="pk-notice">{t("payouts.aggregated")}</p>
+      ) : null}
       {result?.adjusted === true ? <p className="pk-notice">{t("payouts.adjusted")}</p> : null}
       {result?.confirmed !== undefined ? (
         <p className="pk-notice">{`${t("payouts.confirmedNotice")}（${result.confirmed}）`}</p>
       ) : null}
-
-      <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("payouts.field.month")}</span>
-          <input className="pk-input" name="month" type="month" defaultValue={data.month} />
-        </label>
-        <button className="pk-button" type="submit">
-          {t("payouts.show")}
-        </button>
-      </Form>
 
       <Form method="post" className="pk-inlineform">
         <input type="hidden" name="intent" value="aggregate" />
@@ -386,7 +388,13 @@ export default function Payouts() {
               </label>
               <label className="pk-field">
                 <span className="pk-field__label">{t("payouts.adjust.amount")}</span>
-                <input className="pk-input" name="amount" required inputMode="numeric" pattern="-?[0-9]+" />
+                <input
+                  className="pk-input"
+                  name="amount"
+                  required
+                  inputMode="numeric"
+                  pattern="-?[0-9]+"
+                />
               </label>
               <label className="pk-field">
                 <span className="pk-field__label">{t("payouts.adjust.reason")}</span>

@@ -105,23 +105,22 @@ export default function AuditLogs() {
     <section className="pk-page">
       <div className="pk-pagehead">
         <h1 className="pk-pagehead__title">{t("auditLogs.title")}</h1>
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("auditLogs.filter.from")}</span>
+            <input className="pk-input" type="date" name="from" defaultValue={data.from} />
+          </label>
+          <label className="pk-field">
+            <span className="pk-field__label">{t("auditLogs.filter.to")}</span>
+            <input className="pk-input" type="date" name="to" defaultValue={data.to} />
+          </label>
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("auditLogs.filter.apply")}
+          </button>
+        </Form>
       </div>
 
       <p className="pk-muted">{t("auditLogs.intro")}</p>
-
-      <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("auditLogs.filter.from")}</span>
-          <input className="pk-input" type="date" name="from" defaultValue={data.from} />
-        </label>
-        <label className="pk-field">
-          <span className="pk-field__label">{t("auditLogs.filter.to")}</span>
-          <input className="pk-input" type="date" name="to" defaultValue={data.to} />
-        </label>
-        <button className="pk-button" type="submit">
-          {t("auditLogs.filter.apply")}
-        </button>
-      </Form>
 
       {data.rows.length === 0 ? (
         <p className="pk-muted">{t("auditLogs.empty")}</p>

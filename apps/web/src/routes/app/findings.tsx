@@ -206,12 +206,16 @@ export async function loader({
     });
 
     const current = trend[trend.length - 1];
-    roomsEvaluated = current === undefined || current.roomsEvaluated === 0 ? null : current.roomsEvaluated;
+    roomsEvaluated =
+      current === undefined || current.roomsEvaluated === 0 ? null : current.roomsEvaluated;
     ratePermille = current?.ratePermille ?? null;
   }
 
   // ── ルール別の発生件数（状態の絞りの外）──────────────────────────
-  const byRule = new Map<string, { count: number; severities: FindingSeverity[]; confidenceSum: number }>();
+  const byRule = new Map<
+    string,
+    { count: number; severities: FindingSeverity[]; confidenceSum: number }
+  >();
   for (const row of list.data) {
     const bucket = byRule.get(row.ruleCode) ?? { count: 0, severities: [], confidenceSum: 0 };
     bucket.count += 1;
@@ -297,7 +301,6 @@ function meterClassOf(severity: FindingSeverity): string {
   return `pk-meterbar__fill pk-meterbar__fill--${severity}`;
 }
 
-
 /** 重要度 → タグの色（プロトタイプ 04 の `tag dg / wn / if`）。 */
 const SEVERITY_TAG: Record<FindingSeverity, string> = {
   HIGH: "pk-tag pk-tag--danger",
@@ -331,34 +334,32 @@ export default function Findings() {
           <p className="pk-pagehead__sub">{`${t("finding.lede")} · ${data.month}`}</p>
         </div>
         {/* プロトタイプは期間セレクタと CSV を見出しの右端に置く。 */}
-        <div className="pk-pagehead__actions">
-          <Form method="get" className="pk-filter">
-            <label className="pk-field">
-              <span className="pk-field__label">{t("finding.filter.month")}</span>
-              <input className="pk-input" type="month" name="month" defaultValue={data.month} />
-            </label>
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("finding.filter.month")}</span>
+            <input className="pk-input" type="month" name="month" defaultValue={data.month} />
+          </label>
 
-            <label className="pk-field">
-              <span className="pk-field__label">{t("finding.filter.status")}</span>
-              <select className="pk-select" name="status" defaultValue={data.status ?? ""}>
-                <option value="">{t("finding.filter.allStatuses")}</option>
-                {FINDING_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {t(STATUS_LABEL[status])}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <label className="pk-field">
+            <span className="pk-field__label">{t("finding.filter.status")}</span>
+            <select className="pk-select" name="status" defaultValue={data.status ?? ""}>
+              <option value="">{t("finding.filter.allStatuses")}</option>
+              {FINDING_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {t(STATUS_LABEL[status])}
+                </option>
+              ))}
+            </select>
+          </label>
 
-            <button className="pk-button pk-button--primary" type="submit">
-              {t("finding.filter.apply")}
-            </button>
-            {/* CSV は同じ絞り込みで出力する（データエクスポートとして監査ログに残る）。 */}
-            <button className="pk-button" type="submit" name="format" value="csv">
-              {t("finding.exportCsv")}
-            </button>
-          </Form>
-        </div>
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("finding.filter.apply")}
+          </button>
+          {/* CSV は同じ絞り込みで出力する（データエクスポートとして監査ログに残る）。 */}
+          <button className="pk-button" type="submit" name="format" value="csv">
+            {t("finding.exportCsv")}
+          </button>
+        </Form>
       </div>
 
       {/* §1.1。**免責をデータより上に置く**（プロトタイプの確定事項）。
@@ -509,7 +510,9 @@ export default function Findings() {
                     <div
                       key={point.month}
                       className={
-                        point.month === data.month ? "pk-bars__col pk-bars__col--on" : "pk-bars__col"
+                        point.month === data.month
+                          ? "pk-bars__col pk-bars__col--on"
+                          : "pk-bars__col"
                       }
                     >
                       <span className="pk-bars__value">
@@ -619,7 +622,9 @@ export default function Findings() {
             しない）。プロトタイプは持たないが、絞りを掛けた画面で全体の
             件数が読めなくなるため残す。 */}
         <div className="pk-panel__foot">
-          {`${t("finding.counts.title")}: ${(["OPEN", "REVIEWING", "RESOLVED", "FALSE_POSITIVE"] as const)
+          {`${t("finding.counts.title")}: ${(
+            ["OPEN", "REVIEWING", "RESOLVED", "FALSE_POSITIVE"] as const
+          )
             .map((status) => `${t(STATUS_LABEL[status])} ${String(data.counts[status])}`)
             .join(" / ")}`}
         </div>

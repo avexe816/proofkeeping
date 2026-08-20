@@ -220,14 +220,7 @@ export async function action({
       });
     }
 
-    const applied = await upsertRoomPlans(
-      env,
-      tenant,
-      propertyId,
-      businessDate,
-      entries,
-      "CSV",
-    );
+    const applied = await upsertRoomPlans(env, tenant, propertyId, businessDate, entries, "CSV");
     return { applied, skippedLines: parsed.skippedLines, unknownRoomNumbers };
   }
 
@@ -270,8 +263,29 @@ export default function PropertyPlan() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("plan.title")}</h1>
-      <p className="pk-muted">{data.businessDate}</p>
+      <div className="pk-pagehead">
+        <div>
+          <h1 className="pk-pagehead__title">{t("plan.title")}</h1>
+          <p className="pk-pagehead__sub">{data.businessDate}</p>
+        </div>
+        {/* 業務日の切替。**カレンダー日ではなく業務日**（architecture.md §7）。
+            見出しの右端に置く（A01 §3.2 / DECISIONS #227）。 */}
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("plan.businessDate")}</span>
+            <input
+              className="pk-input"
+              id="date"
+              name="date"
+              type="date"
+              defaultValue={data.businessDate}
+            />
+          </label>
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("plan.businessDate.show")}
+          </button>
+        </Form>
+      </div>
 
       {result?.invalid === true ? <p className="pk-notice">{t("plan.invalid")}</p> : null}
       {result?.csvMissing === true ? (
@@ -305,15 +319,6 @@ export default function PropertyPlan() {
         <p className="pk-notice">{`${t("plan.unfilled")}: ${String(data.grid.unfilled)}`}</p>
       )}
 
-      {/* 業務日の切替。**カレンダー日ではなく業務日**（architecture.md §7）。 */}
-      <Form method="get" className="pk-toolbar">
-        <label htmlFor="date">{t("plan.businessDate")}</label>
-        <input id="date" name="date" type="date" defaultValue={data.businessDate} />
-        <button className="pk-button" type="submit">
-          {t("plan.businessDate.show")}
-        </button>
-      </Form>
-
       {data.canWrite ? (
         <div className="pk-toolbar">
           {/* §3.4 MUST の逃げ道。確認を挟んでから効く。 */}
@@ -346,7 +351,12 @@ export default function PropertyPlan() {
           <h2>{t("plan.csv.title")}</h2>
           {/* ファイルが主経路。貼り付けは逃げ道として残す（DECISIONS #211）。 */}
           <label htmlFor="csvFile">{t("plan.csv.file")}</label>
-          <input id="csvFile" name="csvFile" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" />
+          <input
+            id="csvFile"
+            name="csvFile"
+            type="file"
+            accept=".csv,.tsv,text/csv,text/tab-separated-values"
+          />
           <p className="pk-hint">{t("plan.csv.file.hint")}</p>
           <label htmlFor="csv">{t("plan.csv.paste")}</label>
           <textarea id="csv" name="csv" rows={6} />

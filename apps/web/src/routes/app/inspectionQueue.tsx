@@ -171,26 +171,25 @@ export default function InspectionQueue() {
     <section className="pk-page">
       <div className="pk-pagehead">
         <h1 className="pk-pagehead__title">{t("inspectionQueue.title")}</h1>
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("inspectionQueue.filter.businessDate")}</span>
+            <input
+              className="pk-input"
+              type="date"
+              name="businessDate"
+              defaultValue={data.businessDate}
+            />
+          </label>
+
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("inspectionQueue.filter.apply")}
+          </button>
+        </Form>
       </div>
 
       {/* INV-09。**この文は消さないこと。** 順序の説明であって、隠す話ではない。 */}
       <p className="pk-notice">{t("inspectionQueue.intro")}</p>
-
-      <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("inspectionQueue.filter.businessDate")}</span>
-          <input
-            className="pk-input"
-            type="date"
-            name="businessDate"
-            defaultValue={data.businessDate}
-          />
-        </label>
-
-        <button className="pk-button" type="submit">
-          {t("inspectionQueue.filter.apply")}
-        </button>
-      </Form>
 
       {/*
         **「お急ぎ」は出さない**（冒頭の注記 / OPEN_QUESTIONS #045）。

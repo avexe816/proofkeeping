@@ -144,14 +144,11 @@ export async function loader({
     .filter((roomType) => roomTypeIds.has(roomType.id))
     .map((roomType) => ({ id: roomType.id, name: roomType.name }));
 
-  const selectedRoomTypeId =
-    url.searchParams.get("roomTypeId") ?? roomTypeOptions[0]?.id ?? null;
+  const selectedRoomTypeId = url.searchParams.get("roomTypeId") ?? roomTypeOptions[0]?.id ?? null;
 
   const guestCounts = [
     ...new Set(
-      all
-        .filter((row) => row.roomTypeId === selectedRoomTypeId)
-        .map((row) => row.guestCount),
+      all.filter((row) => row.roomTypeId === selectedRoomTypeId).map((row) => row.guestCount),
     ),
   ].sort((a, b) => a - b);
 
@@ -262,8 +259,55 @@ export default function BaselineSettings() {
 
   return (
     <section className="pk-page">
-      <h1 className="pk-page__title">{t("baseline.title")}</h1>
-      <p className="pk-muted">{data.propertyName}</p>
+      <div className="pk-pagehead">
+        <div>
+          <h1 className="pk-pagehead__title">{t("baseline.title")}</h1>
+          <p className="pk-pagehead__sub">{data.propertyName}</p>
+        </div>
+        <Form method="get" className="pk-pagehead__actions">
+          <label className="pk-field">
+            <span className="pk-field__label">{t("baseline.roomType")}</span>
+            <select
+              className="pk-select"
+              name="roomTypeId"
+              defaultValue={data.selected.roomTypeId ?? ""}
+            >
+              {data.roomTypes.map((roomType) => (
+                <option key={roomType.id} value={roomType.id}>
+                  {roomType.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="pk-field">
+            <span className="pk-field__label">{t("baseline.guestCount")}</span>
+            <select
+              className="pk-select"
+              name="guestCount"
+              defaultValue={String(data.selected.guestCount ?? "")}
+            >
+              {data.guestCounts.map((guestCount) => (
+                <option key={guestCount} value={String(guestCount)}>
+                  {String(guestCount)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="pk-field">
+            <span className="pk-field__label">{t("baseline.taskType")}</span>
+            <select className="pk-select" name="taskType" defaultValue={data.selected.taskType}>
+              {TASK_TYPES.map((taskType) => (
+                <option key={taskType} value={taskType}>
+                  {t(`m.taskType.${taskType}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="pk-button pk-button--primary" type="submit">
+            {t("baseline.apply")}
+          </button>
+        </Form>
+      </div>
 
       {data.computedFrom === null ? null : (
         <p className="pk-muted">
@@ -279,50 +323,6 @@ export default function BaselineSettings() {
 
       {/* §5.1。値は週次バッチが置き換える。人が直せるのは p90 だけ。 */}
       <p className="pk-notice">{t("baseline.weeklyNote")}</p>
-
-      <Form method="get" className="pk-filter">
-        <label className="pk-field">
-          <span className="pk-field__label">{t("baseline.roomType")}</span>
-          <select
-            className="pk-select"
-            name="roomTypeId"
-            defaultValue={data.selected.roomTypeId ?? ""}
-          >
-            {data.roomTypes.map((roomType) => (
-              <option key={roomType.id} value={roomType.id}>
-                {roomType.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="pk-field">
-          <span className="pk-field__label">{t("baseline.guestCount")}</span>
-          <select
-            className="pk-select"
-            name="guestCount"
-            defaultValue={String(data.selected.guestCount ?? "")}
-          >
-            {data.guestCounts.map((guestCount) => (
-              <option key={guestCount} value={String(guestCount)}>
-                {String(guestCount)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="pk-field">
-          <span className="pk-field__label">{t("baseline.taskType")}</span>
-          <select className="pk-select" name="taskType" defaultValue={data.selected.taskType}>
-            {TASK_TYPES.map((taskType) => (
-              <option key={taskType} value={taskType}>
-                {t(`m.taskType.${taskType}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="pk-button" type="submit">
-          {t("baseline.apply")}
-        </button>
-      </Form>
 
       {data.rows.length === 0 ? (
         <p className="pk-notice">{t("baseline.empty")}</p>
