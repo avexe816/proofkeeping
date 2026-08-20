@@ -83,11 +83,18 @@ export function RoomBoard({
       </p>
 
       {sections.map((section) => (
-        <section key={section.floorName ?? (section.isNonSellable ? "_ns" : "_none")} className="pk-board__floor">
+        <section
+          key={section.floorName ?? (section.isNonSellable ? "_ns" : "_none")}
+          className="pk-board__floor"
+        >
+          {/* プロトタイプの `.fl`。**室数を併記する**（「4F · 15室」）。
+              フロアを絞ったときに「いま何室見ているか」が読める。 */}
           <h2 className="pk-board__floorName">
-            {section.isNonSellable
-              ? t("board.nonSellable")
-              : (section.floorName ?? t("board.noFloor"))}
+            {`${
+              section.isNonSellable
+                ? t("board.nonSellable")
+                : (section.floorName ?? t("board.noFloor"))
+            } · ${String(section.rooms.length)}${t("board.unit.rooms")}`}
           </h2>
           <div className="pk-board__grid">
             {section.rooms.map((cell) => {
