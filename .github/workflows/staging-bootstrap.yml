@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       phase:
-        description: "check = 読むだけ / resources = 資源を作り ID の PR を出す / reset-db = staging の D1 を空にする（復旧用） / migrate = 未適用の migration だけを流す / secrets-and-seed = migration・秘密・シード"
+        description: "check = 読むだけ / resources = 資源を作り ID の PR を出す / reset-db = staging の D1 を空にする（復旧用） / migrate = 未適用の migration だけを流す / secrets-and-seed = migration・秘密・シード / secret-2fa = TWO_FACTOR_ENCRYPTION_KEY だけを新規登録（既存の秘密は触らない）"
         required: true
         type: choice
         options:
@@ -37,6 +37,7 @@ on:
           - resources
           - reset-db
           - secrets-and-seed
+          - secret-2fa
       confirm:
         description: "CREATE と入力すると実行する（phase=check では不要 / reset-db は RESET-STAGING-DB）"
         required: false
@@ -543,3 +544,40 @@ jobs:
             echo ""
             echo "**テストデータのみ。** 公開 URL なので、常用するなら管理画面でパスワードを変えること。"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── ③-3 TWO_FACTOR_ENCRYPTION_KEY だけを登録する（PF-17 / DECISIONS #244）──
+      #
+      # secrets-and-seed とは別 phase。**あちらを再実行すると SESSION_SECRET が
+      # 回ってしまう**（人間の決定 2026-08-21「SESSION_SECRET を回転しない」）ため、
+      # 後から足す秘密は 1 つずつ入れる口を持つ。**値を出力しない。**
+      # 鍵は base64url の 32 バイト（`lib/platform/totpSecretBox.ts` の要求）。
+      - name: TWO_FACTOR_ENCRYPTION_KEY を登録する
+        if: inputs.phase == 'secret-2fa'
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          # **既にあれば上書きしない。** 回すと登録済みの TOTP secret が
+          # 全担当者ぶん復号できなくなる。回す判断は人間が明示的に行うこと。
+          if pnpm exec wrangler secret list --env "$CF_ENV" | grep -q '"TWO_FACTOR_ENCRYPTION_KEY"'; then
+            echo "TWO_FACTOR_ENCRYPTION_KEY は登録済みです。上書きしません（回す場合は手動で）。"
+            exit 0
+          fi
+
+          two_factor_key=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
+          printf '%s' "$two_factor_key" | pnpm exec wrangler secret put TWO_FACTOR_ENCRYPTION_KEY --env "$CF_ENV"
+
+          echo "登録済みの secret（名前だけ）:"
+          pnpm exec wrangler secret list --env "$CF_ENV"
+
+          # 秘密を入れた直後は再デプロイが要る（実行中の版は古い env を持つ）。
+          CLOUDFLARE_ENV="$CF_ENV" pnpm build
+          name=$(jq -r .name build/server/wrangler.json)
+          if [ "$name" != "$WORKER_NAME" ]; then
+            echo "焼き込まれた環境が staging ではありません（name=$name）。中止します。"
+            exit 1
+          fi
+          pnpm exec wrangler deploy

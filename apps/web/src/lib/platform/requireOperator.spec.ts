@@ -37,7 +37,8 @@ function operatorRow(overrides: Record<string, unknown> = {}): Record<string, un
     status: "ACTIVE",
     failedAttempts: 0,
     lockedUntil: null,
-    twoFactorSecret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+    // 封筒のスタブ（このテストは復号しない）。DB には平文を置かない（#244）。
+    twoFactorSecret: "pk2fa$v1$stub$stub",
     twoFactorConfirmedAt: new Date("2026-08-01T00:00:00.000Z"),
     twoFactorFailedAttempts: 0,
     twoFactorLockedUntil: null,

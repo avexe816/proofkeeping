@@ -10,10 +10,11 @@
  * 復旧コードの平文が**一切含まれない**ことを毎ケース確かめる。
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const confirmPlatformTwoFactor = vi.fn();
 const consumePlatformRecoveryCode = vi.fn();
+const consumePlatformTotpStep = vi.fn();
 const listActivePlatformRecoveryCodes = vi.fn();
 const recordPlatformAudit = vi.fn();
 const recordPlatformTwoFactorAttempt = vi.fn();
@@ -24,6 +25,7 @@ vi.mock("@pk/db", () => ({
   confirmPlatformTwoFactor: (...args: unknown[]) => confirmPlatformTwoFactor(...args) as unknown,
   consumePlatformRecoveryCode: (...args: unknown[]) =>
     consumePlatformRecoveryCode(...args) as unknown,
+  consumePlatformTotpStep: (...args: unknown[]) => consumePlatformTotpStep(...args) as unknown,
   listActivePlatformRecoveryCodes: (...args: unknown[]) =>
     listActivePlatformRecoveryCodes(...args) as unknown,
   recordPlatformAudit: (...args: unknown[]) => recordPlatformAudit(...args) as unknown,
@@ -37,6 +39,7 @@ vi.mock("@pk/db", () => ({
 
 const { computeTotpCode, totpStep } = await import("../auth/totp.js");
 const { sha256HexOfText } = await import("../evidence/hash.js");
+const { sealTotpSecret } = await import("./totpSecretBox.js");
 const {
   beginTotpEnrollment,
   confirmTotpEnrollment,
@@ -52,11 +55,15 @@ type Env = import("@pk/db").Env;
 type PlatformOperatorRow = import("@pk/db").PlatformOperatorRow;
 
 const OPERATOR_ID = "plat_op_01JBXQ3ZK8N4P2VYR60000";
-/** RFC 6238 のテスト秘密。 */
+/** RFC 6238 のテスト秘密（Appendix B の公開テストベクタ / 本物ではない）。 */
 const SECRET = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
 const NOW = new Date("2026-08-21T09:00:00.000Z");
+/** 暗号化鍵（テスト用 / 32 バイト）。credentials.spec.ts と同じ既知の代役。 */
+const ENC_KEY = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY";
 
 let env: Env;
+/** DB 側に入っている想定の封筒（`SECRET` を `ENC_KEY` で封をしたもの）。 */
+let sealedSecret: string;
 
 function operatorRow(overrides: Partial<PlatformOperatorRow> = {}): PlatformOperatorRow {
   return {
@@ -67,7 +74,7 @@ function operatorRow(overrides: Partial<PlatformOperatorRow> = {}): PlatformOper
     status: "ACTIVE",
     failedAttempts: 0,
     lockedUntil: null,
-    twoFactorSecret: SECRET,
+    twoFactorSecret: sealedSecret,
     twoFactorConfirmedAt: new Date("2026-08-01T00:00:00.000Z"),
     twoFactorFailedAttempts: 0,
     twoFactorLockedUntil: null,
@@ -94,11 +101,21 @@ function auditActions(): string[] {
   );
 }
 
+beforeAll(async () => {
+  const sealEnv = { TWO_FACTOR_ENCRYPTION_KEY: ENC_KEY } as unknown as Env;
+  sealedSecret = await sealTotpSecret(sealEnv, OPERATOR_ID, SECRET);
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
-  env = { SESSION: createFakeKv().namespace, SESSION_SECRET: "test-secret" } as unknown as Env;
-  confirmPlatformTwoFactor.mockResolvedValue(undefined);
+  env = {
+    SESSION: createFakeKv().namespace,
+    SESSION_SECRET: "test-secret",
+    TWO_FACTOR_ENCRYPTION_KEY: ENC_KEY,
+  } as unknown as Env;
+  confirmPlatformTwoFactor.mockResolvedValue(true);
   consumePlatformRecoveryCode.mockResolvedValue(true);
+  consumePlatformTotpStep.mockResolvedValue(true);
   listActivePlatformRecoveryCodes.mockResolvedValue([]);
   recordPlatformAudit.mockResolvedValue(undefined);
   recordPlatformTwoFactorAttempt.mockResolvedValue(undefined);
@@ -122,19 +139,38 @@ describe("登録の開始（beginTotpEnrollment）", () => {
     expect(result).not.toBeNull();
     expect(result?.secret).toMatch(/^[A-Z2-7]{32}$/);
     expect(result?.otpauthUri).toContain("otpauth://totp/");
-    expect(savePlatformTwoFactorSecret).toHaveBeenCalledWith(
-      env,
-      expect.objectContaining({ operatorId: OPERATOR_ID, secret: result?.secret }),
+    // **DB へ渡るのは封筒だけ**（DECISIONS #244）。平文は含まれない。
+    const saved = savePlatformTwoFactorSecret.mock.calls[0]?.[1] as {
+      operatorId: string;
+      sealedSecret: string;
+    };
+    expect(saved.operatorId).toBe(OPERATOR_ID);
+    expect(saved.sealedSecret).toMatch(/^pk2fa\$v1\$/);
+    expect(JSON.stringify(savePlatformTwoFactorSecret.mock.calls)).not.toContain(
+      result?.secret ?? "",
     );
   });
 
-  it("未確認の秘密が残っていればそれを使い回す（QR を無効にしない）", async () => {
+  it("未確認の封筒が残っていれば開けて使い回す（QR を無効にしない）", async () => {
     const result = await beginTotpEnrollment(env, {
-      operator: operatorRow({ twoFactorSecret: SECRET, twoFactorConfirmedAt: null }),
+      operator: operatorRow({ twoFactorConfirmedAt: null }),
       now: NOW,
     });
     expect(result?.secret).toBe(SECRET);
     expect(savePlatformTwoFactorSecret).not.toHaveBeenCalled();
+  });
+
+  it("開封できない封筒（鍵違いなど）は捨てて、新しい秘密を作る", async () => {
+    const result = await beginTotpEnrollment(env, {
+      operator: operatorRow({
+        twoFactorSecret: "pk2fa$v1$AAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        twoFactorConfirmedAt: null,
+      }),
+      now: NOW,
+    });
+    expect(result?.secret).toMatch(/^[A-Z2-7]{32}$/);
+    expect(result?.secret).not.toBe(SECRET);
+    expect(savePlatformTwoFactorSecret).toHaveBeenCalled();
   });
 
   it("**登録済みには秘密を作らない**（パスワードだけで 2FA を掛け替えさせない）", async () => {
@@ -267,6 +303,19 @@ describe("登録の確認（confirmTotpEnrollment）", () => {
     expect(result).toEqual({ ok: false });
     expect(confirmPlatformTwoFactor).not.toHaveBeenCalled();
   });
+
+  it("**同時確認の負け側（changes = 0）は失敗し、コードも札も出ない**", async () => {
+    confirmPlatformTwoFactor.mockResolvedValue(false);
+    const result = await confirmTotpEnrollment(env, {
+      operator: enrolling(),
+      code: await currentCode(),
+      now: NOW,
+    });
+    expect(result).toEqual({ ok: false });
+    // 負けた側は復旧コードを発行せず、ログインも成立しない。
+    expect(replacePlatformRecoveryCodes).not.toHaveBeenCalled();
+    expect(auditActions()).toEqual(["platform.2fa.failed"]);
+  });
 });
 
 describe("ログインの第 2 要素（verifySecondFactor / TOTP）", () => {
@@ -281,13 +330,21 @@ describe("ログインの第 2 要素（verifySecondFactor / TOTP）", () => {
     expect(result.method).toBe("TOTP");
     expect(result.session.record.state).toBe("COMPLETE");
     expect(auditActions()).toEqual(["platform.2fa.verified", "platform.login"]);
-    expect(recordPlatformTwoFactorAttempt).toHaveBeenCalledWith(
+    // 受理は**原子的な消費**で行う（条件付き UPDATE / DECISIONS #244）。
+    expect(consumePlatformTotpStep).toHaveBeenCalledWith(
       env,
-      expect.objectContaining({ success: true, lastStep: totpStep(NOW.getTime()) }),
+      expect.objectContaining({
+        operatorId: OPERATOR_ID,
+        matchedStep: totpStep(NOW.getTime()),
+      }),
     );
   });
 
-  it("**同じステップのコードは 2 回使えない**（RFC 6238 §5.2）", async () => {
+  it("**同じステップのコードは 2 回使えない**（RFC 6238 §5.2 / 消費に負けた側）", async () => {
+    // 受理済みステップ以下は `consumePlatformTotpStep()` の条件付き UPDATE が
+    // changes = 0 で拒む（platform.spec.ts が SQL と changes の契約を固定）。
+    // ここでは**負けた側がセッションも `platform.login` も得ない**ことを見る。
+    consumePlatformTotpStep.mockResolvedValue(false);
     const result = await verifySecondFactor(env, {
       operator: operatorRow({ twoFactorLastStep: totpStep(NOW.getTime()) }),
       code: await currentCode(),
@@ -295,6 +352,41 @@ describe("ログインの第 2 要素（verifySecondFactor / TOTP）", () => {
     });
     expect(result).toEqual({ ok: false });
     expect(auditActions()).toEqual(["platform.2fa.failed"]);
+  });
+
+  it("**並行 2 リクエストで成功は 1 件だけ**（platform.login も 1 件）", async () => {
+    // 1 本目だけ changes = 1（本物の D1 の挙動を consume の戻り値で再現）。
+    consumePlatformTotpStep.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const code = await currentCode();
+    const [first, second] = await Promise.all([
+      verifySecondFactor(env, { operator: operatorRow(), code, now: NOW }),
+      verifySecondFactor(env, { operator: operatorRow(), code, now: NOW }),
+    ]);
+    expect([first.ok, second.ok].filter(Boolean)).toHaveLength(1);
+    // ログインの成立（platform.login）も 1 件だけ。
+    expect(auditActions().filter((action) => action === "platform.login")).toHaveLength(1);
+  });
+
+  it("**開封できない封筒は認証失敗**（秘密の状態を応答に出さない）", async () => {
+    const result = await verifySecondFactor(env, {
+      operator: operatorRow({
+        twoFactorSecret: "pk2fa$v1$AAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      }),
+      code: await currentCode(),
+      now: NOW,
+    });
+    expect(result).toEqual({ ok: false });
+    expect(consumePlatformTotpStep).not.toHaveBeenCalled();
+  });
+
+  it("暗号化鍵が未設定でも応答は同じ失敗 1 種類", async () => {
+    (env as unknown as Record<string, unknown>)["TWO_FACTOR_ENCRYPTION_KEY"] = undefined;
+    const result = await verifySecondFactor(env, {
+      operator: operatorRow(),
+      code: await currentCode(),
+      now: NOW,
+    });
+    expect(result).toEqual({ ok: false });
   });
 
   it("コードが違うと失敗として数える", async () => {
@@ -474,5 +566,17 @@ describe("復旧コードの再発行（regenerateRecoveryCodes）", () => {
     });
     expect(result).toEqual({ ok: false });
     expect(replacePlatformRecoveryCodes).not.toHaveBeenCalled();
+  });
+
+  it("**ステップの消費に負けたら再発行されない**（同じコードの並行 2 回目）", async () => {
+    consumePlatformTotpStep.mockResolvedValue(false);
+    const result = await regenerateRecoveryCodes(env, {
+      operator: operatorRow(),
+      code: await currentCode(),
+      now: NOW,
+    });
+    expect(result).toEqual({ ok: false });
+    expect(replacePlatformRecoveryCodes).not.toHaveBeenCalled();
+    expect(auditActions()).toEqual(["platform.2fa.failed"]);
   });
 });

@@ -27,11 +27,23 @@
  * ── 秘密・コードを持ち出さない ──────────────────────────
  * TOTP secret・復旧コード・OTP を**ログにも監査ログの `detail` にも
  * 入れない**（PF-17 の完了条件）。`detail` に入れてよいのは方式名と本数だけ。
+ *
+ * ── secret は暗号化して保存する（DECISIONS #244）────────
+ * DB にあるのは `totpSecretBox.ts` の封筒（AES-256-GCM）。開封するのは
+ * 検証の直前と登録画面の表示だけで、**開封できなければ認証失敗**へ倒す
+ * （秘密の状態を応答に出さない）。
+ *
+ * ── ステップの消費は DB の条件付き UPDATE ───────────────
+ * 「受理済みステップ以下を拒む」比較をアプリ側でやると、同じコードを
+ * 載せた並行リクエストが両方通る。`consumePlatformTotpStep()` /
+ * `confirmPlatformTwoFactor()` の **changes = 1 を取れた 1 本だけ**が
+ * 成功し、そのときだけセッション発行と `platform.login` を行う。
  */
 
 import {
   confirmPlatformTwoFactor,
   consumePlatformRecoveryCode,
+  consumePlatformTotpStep,
   listActivePlatformRecoveryCodes,
   recordPlatformTwoFactorAttempt,
   replacePlatformRecoveryCodes,
@@ -47,6 +59,7 @@ import { sha256HexOfText } from "../evidence/hash.js";
 
 import { auditQuietly, platformAuditId } from "./audit.js";
 import { createPlatformSession, type CreatedPlatformSession } from "./session.js";
+import { openTotpSecret, sealTotpSecret } from "./totpSecretBox.js";
 
 /** 第 2 要素のロック方針。PIN と同じ（security.md §2）。**設定項目にしない。** */
 export const PLATFORM_TWO_FACTOR_LOCK_POLICY = {
@@ -154,12 +167,19 @@ export async function beginTotpEnrollment(
 ): Promise<{ secret: string; otpauthUri: string } | null> {
   if (input.operator.twoFactorConfirmedAt !== null) return null;
 
-  let secret = input.operator.twoFactorSecret;
+  const randomBytes = input.randomBytes ?? defaultRandomBytes;
+  // 未確認の封筒が残っていれば開けて使い回す。**開封できない封筒
+  // （鍵の交代・破損）は捨てて作り直す** — 未確認なので失うものが無い。
+  let secret =
+    input.operator.twoFactorSecret === null
+      ? null
+      : await openTotpSecret(env, input.operator.id, input.operator.twoFactorSecret);
   if (secret === null) {
-    secret = generateTotpSecret(input.randomBytes ?? defaultRandomBytes);
+    secret = generateTotpSecret(randomBytes);
     await savePlatformTwoFactorSecret(env, {
       operatorId: input.operator.id,
-      secret,
+      // **平文を DB へ渡さない。** 封をしてから保存する（DECISIONS #244）。
+      sealedSecret: await sealTotpSecret(env, input.operator.id, secret, randomBytes),
       now: input.now,
     });
   }
@@ -229,8 +249,12 @@ export async function confirmTotpEnrollment(
   if (operator.twoFactorConfirmedAt !== null) return FAILED;
   if (operator.twoFactorSecret === null) return FAILED;
 
+  // **開封できない封筒は認証失敗**（鍵未設定・改竄・鍵違いを区別しない）。
+  const secret = await openTotpSecret(env, operator.id, operator.twoFactorSecret);
+  if (secret === null) return FAILED;
+
   // **ロック中でも検証は行う**（即返すと応答時間で状態が読める）。
-  const matchedStep = await verifyTotpCode(operator.twoFactorSecret, input.code, now.getTime());
+  const matchedStep = await verifyTotpCode(secret, input.code, now.getTime());
   if (isLocked(operator, now) || operator.status !== "ACTIVE") return FAILED;
 
   if (matchedStep === null) {
@@ -238,7 +262,18 @@ export async function confirmTotpEnrollment(
     return FAILED;
   }
 
-  await confirmPlatformTwoFactor(env, { operatorId: operator.id, lastStep: matchedStep, now });
+  // 条件付き UPDATE（`confirmed_at IS NULL`）。**changes = 1 を取れた
+  // 1 本だけ**が先へ進む — 同じコードで同時に確認しても、復旧コードと
+  // セッションが二重に出ることはない。
+  const confirmed = await confirmPlatformTwoFactor(env, {
+    operatorId: operator.id,
+    lastStep: matchedStep,
+    now,
+  });
+  if (!confirmed) {
+    await recordFailure(env, input, "enroll");
+    return FAILED;
+  }
 
   const randomBytes = input.randomBytes ?? defaultRandomBytes;
   const issued = await issueRecoveryCodes(now, randomBytes);
@@ -272,29 +307,30 @@ export async function verifySecondFactor(
   if (operator.twoFactorConfirmedAt === null || operator.twoFactorSecret === null) return FAILED;
 
   if (/^\d{6}$/.test(input.code.trim())) {
-    const matchedStep = await verifyTotpCode(
-      operator.twoFactorSecret,
-      input.code.trim(),
-      now.getTime(),
-    );
+    // **開封できない封筒は認証失敗**（鍵未設定・改竄・鍵違いを区別しない）。
+    const secret = await openTotpSecret(env, operator.id, operator.twoFactorSecret);
+    if (secret === null) return FAILED;
+
+    const matchedStep = await verifyTotpCode(secret, input.code.trim(), now.getTime());
     if (isLocked(operator, now)) return FAILED;
-    // **受理済みステップ以下は拒む**（同じコードの 2 回目 / RFC 6238 §5.2）。
-    if (
-      matchedStep === null ||
-      (operator.twoFactorLastStep !== null && matchedStep <= operator.twoFactorLastStep)
-    ) {
+    if (matchedStep === null) {
       await recordFailure(env, input, "login");
       return FAILED;
     }
 
-    await recordPlatformTwoFactorAttempt(env, {
+    // **受理済みステップ以下は DB の条件付き UPDATE が拒む**（RFC 6238 §5.2）。
+    // アプリ側で行の値と比べない — 読みが交差した並行リクエストが
+    // 両方通る。changes = 1 を取れた 1 本だけが成功する。
+    const consumed = await consumePlatformTotpStep(env, {
       operatorId: operator.id,
-      success: true,
+      matchedStep,
       now,
-      maxAttempts: PLATFORM_TWO_FACTOR_LOCK_POLICY.maxFailures,
-      lockMs: PLATFORM_TWO_FACTOR_LOCK_POLICY.lockSeconds * 1000,
-      lastStep: matchedStep,
     });
+    if (!consumed) {
+      await recordFailure(env, input, "login");
+      return FAILED;
+    }
+
     await auditQuietly(env, {
       id: platformAuditId(now, input.randomBytes),
       operatorId: operator.id,
@@ -378,28 +414,28 @@ export async function regenerateRecoveryCodes(
   if (operator.status !== "ACTIVE") return FAILED;
   if (operator.twoFactorConfirmedAt === null || operator.twoFactorSecret === null) return FAILED;
 
-  const matchedStep = await verifyTotpCode(
-    operator.twoFactorSecret,
-    input.code.trim(),
-    now.getTime(),
-  );
+  // **開封できない封筒は認証失敗**（鍵未設定・改竄・鍵違いを区別しない）。
+  const secret = await openTotpSecret(env, operator.id, operator.twoFactorSecret);
+  if (secret === null) return FAILED;
+
+  const matchedStep = await verifyTotpCode(secret, input.code.trim(), now.getTime());
   if (isLocked(operator, now)) return FAILED;
-  if (
-    matchedStep === null ||
-    (operator.twoFactorLastStep !== null && matchedStep <= operator.twoFactorLastStep)
-  ) {
+  if (matchedStep === null) {
     await recordFailure(env, input, "regenerate");
     return FAILED;
   }
 
-  await recordPlatformTwoFactorAttempt(env, {
+  // ログインの検証と同じく、ステップの消費は条件付き UPDATE（changes = 1 の
+  // 1 本だけが通る）。同じコードの 2 回目・並行の 2 本目はここで落ちる。
+  const consumed = await consumePlatformTotpStep(env, {
     operatorId: operator.id,
-    success: true,
+    matchedStep,
     now,
-    maxAttempts: PLATFORM_TWO_FACTOR_LOCK_POLICY.maxFailures,
-    lockMs: PLATFORM_TWO_FACTOR_LOCK_POLICY.lockSeconds * 1000,
-    lastStep: matchedStep,
   });
+  if (!consumed) {
+    await recordFailure(env, input, "regenerate");
+    return FAILED;
+  }
 
   const randomBytes = input.randomBytes ?? defaultRandomBytes;
   const issued = await issueRecoveryCodes(now, randomBytes);

@@ -23,7 +23,7 @@
  * 「認証の失敗応答を一律にする」）。判断は `lib/platform/login.ts`。
  */
 
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { getPlatformDb } from "../router.js";
@@ -48,7 +48,7 @@ export interface PlatformOperatorRow {
   status: PlatformOperatorStatus;
   failedAttempts: number;
   lockedUntil: Date | null;
-  /** TOTP の共有秘密（base32）。`null` は登録が始まっていない。 */
+  /** TOTP の共有秘密の封筒（`pk2fa$…`）。`null` は登録が始まっていない。 */
   twoFactorSecret: string | null;
   /** TOTP の登録が確認できた時刻。**`null` は未登録**（PF-17）。 */
   twoFactorConfirmedAt: Date | null;
@@ -151,21 +151,25 @@ export async function recordPlatformLoginAttempt(
 }
 
 /**
- * TOTP の登録を始める（PF-17）。秘密を書き、**未確認の状態に戻す。**
+ * TOTP の登録を始める（PF-17）。**封筒（暗号文）**を書き、未確認の状態に戻す。
+ *
+ * 受け取るのは `sealTotpSecret()`（`lib/platform/totpSecretBox.ts`）が
+ * 封をした自己記述文字列だけ。**base32 の平文をこの関数に渡さないこと**
+ * （DECISIONS #244 — D1 に平文を置かない）。
  *
  * `twoFactorConfirmedAt` を消すのは、確認前に離脱して再開したときに
  * 「新しい秘密＋確認済み」という嘘の状態を作らないため。**確認済みの
- * 担当者には呼ばないこと**（呼び出し側 `lib/platform/twoFactor.ts` が
- * 未登録のときだけ通す — 盗んだパスワードだけで 2FA を掛け替えさせない）。
+ * 担当者には効かない**（WHERE の `IS NULL` 条件 — 盗んだパスワードだけで
+ * 2FA を掛け替えさせない）。
  */
 export async function savePlatformTwoFactorSecret(
   env: Env,
-  input: { operatorId: string; secret: string; now: Date },
+  input: { operatorId: string; sealedSecret: string; now: Date },
 ): Promise<void> {
   await getPlatformDb(env)
     .update(platformOperator)
     .set({
-      twoFactorSecret: input.secret,
+      twoFactorSecret: input.sealedSecret,
       twoFactorConfirmedAt: null,
       twoFactorLastStep: null,
       updatedAt: input.now,
@@ -174,16 +178,19 @@ export async function savePlatformTwoFactorSecret(
 }
 
 /**
- * TOTP の登録を確認済みにする（PF-17）。
+ * TOTP の登録を確認済みにする（PF-17）。**通ったかどうかを返す。**
  *
- * 検証に通った試行のタイムステップを同時に書き、**登録に使ったコードの
- * 再利用をここで塞ぐ。**
+ * `two_factor_confirmed_at IS NULL` を条件に含めた UPDATE で、同じ担当者への
+ * 同時確認は**片方だけ**が `true` を得る。負けた側は登録済みへの再確認 =
+ * 失敗として扱うこと（復旧コードとセッションを二重に発行させない）。
+ * 検証に通った試行のタイムステップも同時に書き、登録に使ったコードの
+ * 再利用をここで塞ぐ。
  */
 export async function confirmPlatformTwoFactor(
   env: Env,
   input: { operatorId: string; lastStep: number; now: Date },
-): Promise<void> {
-  await getPlatformDb(env)
+): Promise<boolean> {
+  const result = await getPlatformDb(env)
     .update(platformOperator)
     .set({
       twoFactorConfirmedAt: input.now,
@@ -192,7 +199,46 @@ export async function confirmPlatformTwoFactor(
       twoFactorLastStep: input.lastStep,
       updatedAt: input.now,
     })
-    .where(eq(platformOperator.id, input.operatorId));
+    .where(
+      and(eq(platformOperator.id, input.operatorId), isNull(platformOperator.twoFactorConfirmedAt)),
+    );
+  return result.meta.changes > 0;
+}
+
+/**
+ * 受理する TOTP のタイムステップを**原子的に**消費する（PF-17）。
+ *
+ * `two_factor_last_step IS NULL OR two_factor_last_step < ?` を条件に含めた
+ * UPDATE で、**同じコードを載せた並行リクエストは片方だけ**が `true` を得る。
+ * アプリ側で読んで比べてから書くと、読みが交差した 2 本が両方通る
+ * （それを塞ぐのがこの関数。呼び出し側は `false` を「同一または過去
+ * ステップの再利用」= 認証失敗として扱い、**`true` のときだけ**セッションを
+ * 発行し `platform.login` を書くこと）。
+ *
+ * 成功は第 2 要素の成功でもあるので、失敗回数とロックもここで消す。
+ */
+export async function consumePlatformTotpStep(
+  env: Env,
+  input: { operatorId: string; matchedStep: number; now: Date },
+): Promise<boolean> {
+  const result = await getPlatformDb(env)
+    .update(platformOperator)
+    .set({
+      twoFactorLastStep: input.matchedStep,
+      twoFactorFailedAttempts: 0,
+      twoFactorLockedUntil: null,
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        eq(platformOperator.id, input.operatorId),
+        or(
+          isNull(platformOperator.twoFactorLastStep),
+          lt(platformOperator.twoFactorLastStep, input.matchedStep),
+        ),
+      ),
+    );
+  return result.meta.changes > 0;
 }
 
 /** `recordPlatformTwoFactorAttempt()` の入力。 */
@@ -204,8 +250,6 @@ export interface PlatformTwoFactorAttemptInput {
   maxAttempts: number;
   /** ロックの長さ（ミリ秒）。PIN と同じ 15 分。 */
   lockMs: number;
-  /** 成功時に記録する受理済みタイムステップ。復旧コードの成功は `null`。 */
-  lastStep?: number | null | undefined;
 }
 
 /**
@@ -214,6 +258,10 @@ export interface PlatformTwoFactorAttemptInput {
  * 成功で失敗回数とロックを消し、失敗で 1 加算する。加算は SQL 側
  * （読んで足して書くと同時試行を取りこぼす）。上限に達した試行でだけ
  * ロック時刻を書く。
+ *
+ * **タイムステップはここでは書かない。** TOTP の成功は
+ * `consumePlatformTotpStep()` / `confirmPlatformTwoFactor()` が条件付き
+ * UPDATE で消費する（この関数の成功経路を使うのは復旧コードだけ）。
  */
 export async function recordPlatformTwoFactorAttempt(
   env: Env,
@@ -226,9 +274,6 @@ export async function recordPlatformTwoFactorAttempt(
       .set({
         twoFactorFailedAttempts: 0,
         twoFactorLockedUntil: null,
-        ...(input.lastStep === undefined || input.lastStep === null
-          ? {}
-          : { twoFactorLastStep: input.lastStep }),
         updatedAt: input.now,
       })
       .where(eq(platformOperator.id, input.operatorId));

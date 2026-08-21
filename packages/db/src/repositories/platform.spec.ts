@@ -27,7 +27,9 @@ import {
 import { createFakeD1, createFakeEnv } from "../test-support/fake-d1.js";
 
 import {
+  confirmPlatformTwoFactor,
   consumePlatformRecoveryCode,
+  consumePlatformTotpStep,
   recordPlatformTwoFactorAttempt,
   replacePlatformRecoveryCodes,
   PLATFORM_OPERATION_DEFAULTS,
@@ -299,7 +301,7 @@ describe("第 2 要素の試行記録（PF-17）", () => {
     expect(update?.sql).toContain("CASE WHEN");
   });
 
-  it("成功は失敗回数とロックを消し、受理ステップを書く", async () => {
+  it("成功は失敗回数とロックを消す（ステップはここでは書かない）", async () => {
     const fake = createFakeD1();
     await recordPlatformTwoFactorAttempt(createFakeEnv(fake), {
       operatorId: "plat_op_x",
@@ -307,11 +309,92 @@ describe("第 2 要素の試行記録（PF-17）", () => {
       now: NOW,
       maxAttempts: 5,
       lockMs: 15 * 60 * 1000,
-      lastStep: 12345,
     });
     const update = fake.queries.find((query) => query.sql.startsWith("update"));
     expect(update?.sql).toContain('"two_factor_failed_attempts"');
-    expect(update?.sql).toContain('"two_factor_last_step"');
-    expect(update?.params).toContain(12345);
+    // タイムステップの消費は consumePlatformTotpStep() / confirm の担当。
+    expect(update?.sql).not.toContain('"two_factor_last_step"');
+  });
+});
+
+describe("TOTP ステップの原子的な消費（PF-17 / 再利用の拒否）", () => {
+  const NOW = new Date("2026-08-21T09:00:00.000Z");
+
+  it("**条件付き UPDATE で消費する**（IS NULL / 未満のときだけ書ける）", async () => {
+    const fake = createFakeD1();
+    const consumed = await consumePlatformTotpStep(createFakeEnv(fake), {
+      operatorId: "plat_op_x",
+      matchedStep: 59_576_760,
+      now: NOW,
+    });
+    expect(consumed).toBe(true);
+    const update = fake.queries.find((query) => query.sql.startsWith("update"));
+    expect(update?.sql).toContain('"platform_operator"');
+    // 受理は WHERE で守る。**アプリ側の読んで比べる方式に戻さないこと**
+    // （読みが交差した並行リクエストが両方通る）。
+    expect(update?.sql).toMatch(
+      /\("platform_operator"\."two_factor_last_step" is null or "platform_operator"\."two_factor_last_step" < \?\)/,
+    );
+    expect(update?.params).toContain(59_576_760);
+    // 成功は第 2 要素の成功でもある。失敗回数とロックを同時に消す。
+    expect(update?.sql).toContain('"two_factor_failed_attempts"');
+    expect(update?.sql).toContain('"two_factor_locked_until"');
+  });
+
+  it("**同じコードの並行 2 リクエストは片方だけ成功する**（changes の契約）", async () => {
+    // 本物の D1 では同じステップの 2 本のうち後勝ちの UPDATE が
+    // WHERE（last_step < ?）に弾かれて changes = 0 になる。代役は SQL を
+    // 評価しないので、**D1 が返す changes の並び（1 → 0）をそのまま
+    // 再現**し、戻り値の契約（true / false）を固定する。
+    const fake = createFakeD1();
+    fake.enqueueChanges(1);
+    fake.enqueueChanges(0);
+    const env = createFakeEnv(fake);
+    const step = 59_576_760;
+    const [first, second] = await Promise.all([
+      consumePlatformTotpStep(env, { operatorId: "plat_op_x", matchedStep: step, now: NOW }),
+      consumePlatformTotpStep(env, { operatorId: "plat_op_x", matchedStep: step, now: NOW }),
+    ]);
+    expect([first, second].filter(Boolean)).toHaveLength(1);
+    // 2 本とも**同じ条件付き UPDATE** を発行している（片方だけ素通り、が無い）。
+    const updates = fake.queries.filter((query) => query.sql.startsWith("update"));
+    expect(updates).toHaveLength(2);
+    for (const update of updates) {
+      expect(update.sql).toContain('"two_factor_last_step" is null or');
+    }
+  });
+
+  it("過去ステップの再利用（changes = 0）は false", async () => {
+    const fake = createFakeD1();
+    fake.enqueueChanges(0);
+    const consumed = await consumePlatformTotpStep(createFakeEnv(fake), {
+      operatorId: "plat_op_x",
+      matchedStep: 100,
+      now: NOW,
+    });
+    expect(consumed).toBe(false);
+  });
+
+  it("登録の確認も条件付き UPDATE（confirmed_at IS NULL の 1 本だけ通る）", async () => {
+    const fake = createFakeD1();
+    const confirmed = await confirmPlatformTwoFactor(createFakeEnv(fake), {
+      operatorId: "plat_op_x",
+      lastStep: 100,
+      now: NOW,
+    });
+    expect(confirmed).toBe(true);
+    const update = fake.queries.find((query) => query.sql.startsWith("update"));
+    expect(update?.sql).toContain('"two_factor_confirmed_at" is null');
+  });
+
+  it("登録の確認の負け側（changes = 0）は false", async () => {
+    const fake = createFakeD1();
+    fake.enqueueChanges(0);
+    const confirmed = await confirmPlatformTwoFactor(createFakeEnv(fake), {
+      operatorId: "plat_op_x",
+      lastStep: 100,
+      now: NOW,
+    });
+    expect(confirmed).toBe(false);
   });
 });

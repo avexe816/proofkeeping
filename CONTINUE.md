@@ -32,6 +32,12 @@
   `platform_recovery_code` 新設）。**staging へは未適用。**
   PF-16 の開通より前に当てること（このセッションは staging / production への
   dispatch 禁止の指示により実行していない）。
+- **`TWO_FACTOR_ENCRYPTION_KEY`（TOTP secret の暗号化鍵）も staging 未登録。**
+  `staging-bootstrap.yml` の新 phase **`secret-2fa`**（confirm: CREATE）が
+  この鍵 1 つだけを登録して再デプロイする（**`secrets-and-seed` を再実行
+  しないこと** — SESSION_SECRET が回る）。**0034 と併せて PF-16 開通の前提。**
+  レビュー反映の詳細（原子的なステップ消費・secret の AES-GCM 暗号化）は
+  DECISIONS #244。
 - 運営セッションはレコード v2（`PASSWORD_ONLY` 10 分 / `COMPLETE` 12 時間）。
   **v1 の札は無効。** 現時点で影響する利用者は居ない（上記 1）。
 - シードで作る operator は TOTP 未登録のまま。**初回ログインで登録を通るのが正**

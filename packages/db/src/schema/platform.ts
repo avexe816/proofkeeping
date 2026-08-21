@@ -59,11 +59,14 @@ export const platformOperator = sqliteTable(
     /** ロック解除の時刻。`null` はロックされていない。 */
     lockedUntil: integer("locked_until", { mode: "timestamp_ms" }),
     /**
-     * TOTP の共有秘密（base32 / DECISIONS #241）。
+     * TOTP の共有秘密の**封筒**（DECISIONS #241 / #244）。
      *
+     * `pk2fa$v1$...` — `TWO_FACTOR_ENCRYPTION_KEY`（専用 Worker Secret）で
+     * AES-256-GCM 暗号化した自己記述文字列。**base32 の平文を入れない**
+     * （D1 のダンプ 1 本で第 2 要素を複製できる形にしない）。封と開封は
+     * `apps/web/src/lib/platform/totpSecretBox.ts` だけが行う。
      * 登録開始で書き、`twoFactorConfirmedAt` が入るまでは**未確認**。
-     * 検証に使うため平文で持つが、**ログ・監査ログ・API 応答へ出さない**
-     * （PF-17 の完了条件）。読み書きは `repositories/platform.ts` だけ。
+     * **ログ・監査ログ・API 応答へ出さない**（PF-17 の完了条件）。
      */
     twoFactorSecret: text("two_factor_secret"),
     /**

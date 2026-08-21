@@ -5884,3 +5884,51 @@
   `platform_recovery_code`（新設）/ `apps/web/src/lib/auth/totp.ts` /
   `lib/platform/twoFactor.ts`・`session.ts`・`requireOperator.ts`・`login.ts` /
   `/plat/2fa`・`/plat/2fa/setup`・`/plat/2fa/recovery`。
+
+## #244 TOTP secret は暗号化保存・ステップの受理は条件付き UPDATE（PF-17 レビュー反映）
+
+- 日付: 2026-08-21
+- task: `docs/tasks/PF-17.md`（PR #162 のレビュー指摘 2 件）
+- 由来: **人間のレビュー指摘。** 初版は (a) `two_factor_secret` を base32 の
+  平文で D1 に置き、(b) 受理済みステップの比較をアプリ側で行ってから別の
+  UPDATE で保存していた（読みが交差した並行リクエストで同じ TOTP が 2 回通る）。
+- 決定 A（**ステップの受理を原子化する**）:
+  1. `consumePlatformTotpStep()` — `two_factor_last_step IS NULL OR
+     two_factor_last_step < ?` を WHERE に含めた UPDATE で受理を消費し、
+     **`meta.changes = 1` を取れた 1 本だけ**を認証成功とする。
+     `changes = 0` は同一・過去ステップの再利用として失敗。
+  2. **成功した 1 本だけ**が `COMPLETE` セッションを発行し
+     `platform.login` を記録する（通常ログイン・登録確認・再発行の
+     TOTP 再認証の 3 経路すべて）。
+  3. 登録確認も `confirmPlatformTwoFactor()` を
+     `two_factor_confirmed_at IS NULL` 条件付きにし、同時確認の負け側に
+     復旧コードとセッションを二重発行しない。
+- 決定 B（**secret を平文で保存しない**）:
+  1. `two_factor_secret` には `pk2fa$v1$<iv>$<ciphertext+tag>` の封筒だけを
+     置く。**AES-256-GCM**（WebCrypto）、IV は毎回 CSPRNG の 96bit、
+     AAD は `plat2fa:{operatorId}`（暗号文の載せ替え対策）。
+     実装は `apps/web/src/lib/platform/totpSecretBox.ts`。
+  2. 鍵は**専用の Worker Secret `TWO_FACTOR_ENCRYPTION_KEY`**
+     （base64url の 32 バイト）。**`SESSION_SECRET` を流用しない** —
+     鍵は用途ごとに分け、回転・流出の影響を閉じる。
+  3. **復号失敗は認証失敗へ倒す**（鍵未設定・改竄・鍵違いを区別せず、
+     秘密の状態を応答に出さない）。封（暗号化）側だけは設定漏れを
+     明示的に投げる（credentials.ts の `importKey()` と同じ方針）。
+  4. local / test も同じ暗号経路を通す（`.dev.vars.example` に開発用の
+     鍵を置いた。値は ASCII `dev-only-2fa-totp-key-32-bytes!!` の base64url）。
+  5. `REQUIRED_SECRETS` には**入れない** — 無くて壊れるのは運営面の 2FA
+     だけで、テナントの普通の操作は落ちない。前倒しで必須にすると、
+     鍵を登録するまで staging の全リクエストが 503 になる。
+  6. staging / production への登録は `staging-bootstrap.yml` の新 phase
+     **`secret-2fa`**（この鍵 1 つだけを登録して再デプロイ。既存の秘密は
+     触らない — `secrets-and-seed` を再実行すると SESSION_SECRET が回る
+     ため、後から足す秘密は 1 つずつ入れる）。**登録済みなら上書きしない。**
+- 付随: CI の `gitleaks` が RFC 6238 Appendix B の公開テストベクタ
+  （base32 で ASCII `12345678901234567890`）を `generic-api-key` として
+  検出していた。**RFC に印刷されている値で秘密ではない**ため
+  `.gitleaks.toml` の allowlist へ追加（履歴にも効く）。
+- 影響: `packages/db/src/env.ts`（EnvSecrets）/ `repositories/platform.ts` /
+  `lib/platform/totpSecretBox.ts`・`twoFactor.ts` / `.dev.vars.example` /
+  `.github/workflows/staging-bootstrap.yml` / `docs/runbook/deploy.md`。
+  マイグレーションは不要（列の型は text のまま。平文で保存された行は
+  どの環境にも存在しない — staging は operator 未作成、local は作り直せる）。

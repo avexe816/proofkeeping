@@ -665,6 +665,7 @@ export {
   PLATFORM_SETTING_ID,
   confirmPlatformTwoFactor,
   consumePlatformRecoveryCode,
+  consumePlatformTotpStep,
   createPlatformOperator,
   findPlatformOperatorByEmail,
   findPlatformOperatorById,

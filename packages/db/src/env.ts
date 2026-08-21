@@ -150,6 +150,14 @@ export interface EnvSecrets {
   RESEND_WEBHOOK_SECRET: string;
   /** CREDENTIALS KV に置く資格情報の暗号化鍵。 */
   CREDENTIAL_ENCRYPTION_KEY: string;
+  /**
+   * 運営担当者の TOTP secret の暗号化鍵（PF-17 / DECISIONS #244）。
+   *
+   * base64url の 32 バイト（AES-256-GCM）。**SESSION_SECRET を流用しない** —
+   * 鍵は用途ごとに分け、片方の交代・流出がもう片方を巻き込まない形にする。
+   * 使うのは `apps/web/src/lib/platform/totpSecretBox.ts` だけ。
+   */
+  TWO_FACTOR_ENCRYPTION_KEY: string;
   /** Sentry の DSN。採用可否は PK-SPEC-P0 §20 で未決。 */
   SENTRY_DSN: string;
   /**
