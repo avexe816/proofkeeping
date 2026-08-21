@@ -19,10 +19,17 @@ import { fileURLToPath } from "node:url";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 
-import { platformOperationSetting, platformTenantSnapshot } from "../schema/platform.js";
+import {
+  platformOperationSetting,
+  platformRecoveryCode,
+  platformTenantSnapshot,
+} from "../schema/platform.js";
 import { createFakeD1, createFakeEnv } from "../test-support/fake-d1.js";
 
 import {
+  consumePlatformRecoveryCode,
+  recordPlatformTwoFactorAttempt,
+  replacePlatformRecoveryCodes,
   PLATFORM_OPERATION_DEFAULTS,
   readPlatformOperationSettings,
   upsertTenantSnapshot,
@@ -77,6 +84,7 @@ describe("運営面とテナント面を交わらせない（DECISIONS #220）",
         file !== "platform.ts" &&
         (/platformOperator\b/.test(code) ||
           /platformAuditLog\b/.test(code) ||
+          /platformRecoveryCode\b/.test(code) ||
           /getPlatformDb\s*\(/.test(code)),
     );
     expect(offenders.map(({ file }) => file)).toEqual([]);
@@ -210,5 +218,100 @@ describe("運用設定（PF-14 の「運用（変更可）」/ PF-02 が読む�
       "maintenance_end_jst",
       "updated_at",
     ]);
+  });
+});
+
+describe("復旧コード（PF-17）", () => {
+  const NOW = new Date("2026-08-21T09:00:00.000Z");
+
+  it("**平文の列が無い**（ハッシュだけ / 完了条件の走査）", () => {
+    const names = getTableConfig(platformRecoveryCode).columns.map((column) => column.name);
+    expect(names).toEqual([
+      "id",
+      "operator_id",
+      "code_hash",
+      "created_at",
+      "used_at",
+      "revoked_at",
+    ]);
+    // 「code」そのものを持つ列名が紛れ込んでいないこと。
+    expect(names).not.toContain("code");
+    expect(names).not.toContain("code_plain");
+  });
+
+  it("消費は `used_at is null` を条件に含む UPDATE（1 本 1 回）", async () => {
+    const fake = createFakeD1();
+    const consumed = await consumePlatformRecoveryCode(createFakeEnv(fake), {
+      id: "plat_rc_x",
+      operatorId: "plat_op_x",
+      now: NOW,
+    });
+    expect(consumed).toBe(true);
+    const update = fake.queries.find((query) => query.sql.startsWith("update"));
+    expect(update?.sql).toContain('"platform_recovery_code"');
+    expect(update?.sql).toContain('"used_at" is null');
+    expect(update?.sql).toContain('"revoked_at" is null');
+  });
+
+  it("既に使われていた（changes = 0）なら false（同時消費は片方だけ通る）", async () => {
+    const fake = createFakeD1();
+    fake.enqueueChanges(0);
+    const consumed = await consumePlatformRecoveryCode(createFakeEnv(fake), {
+      id: "plat_rc_x",
+      operatorId: "plat_op_x",
+      now: NOW,
+    });
+    expect(consumed).toBe(false);
+  });
+
+  it("入れ替えは**失効（revoked_at）で行い、行を消さない**", async () => {
+    const fake = createFakeD1();
+    await replacePlatformRecoveryCodes(createFakeEnv(fake), {
+      operatorId: "plat_op_x",
+      codes: [{ id: "plat_rc_a", codeHash: "a".repeat(64) }],
+      now: NOW,
+    });
+    expect(fake.queries.some((query) => query.sql.startsWith("delete"))).toBe(false);
+    const revoke = fake.queries.find((query) => query.sql.startsWith("update"));
+    expect(revoke?.sql).toContain('"revoked_at"');
+  });
+
+  it("platform_recovery_code を DELETE するリポジトリ関数が無い（走査）", () => {
+    expect(SOURCE).not.toMatch(/\.delete\(\s*platformRecoveryCode/);
+  });
+});
+
+describe("第 2 要素の試行記録（PF-17）", () => {
+  const NOW = new Date("2026-08-21T09:00:00.000Z");
+
+  it("失敗の加算は SQL 側で行う（同時試行を取りこぼさない）", async () => {
+    const fake = createFakeD1();
+    await recordPlatformTwoFactorAttempt(createFakeEnv(fake), {
+      operatorId: "plat_op_x",
+      success: false,
+      now: NOW,
+      maxAttempts: 5,
+      lockMs: 15 * 60 * 1000,
+    });
+    const update = fake.queries.find((query) => query.sql.startsWith("update"));
+    expect(update?.sql).toContain('"two_factor_failed_attempts" + 1');
+    // 上限に達した試行でだけロックする（CASE 式）。
+    expect(update?.sql).toContain("CASE WHEN");
+  });
+
+  it("成功は失敗回数とロックを消し、受理ステップを書く", async () => {
+    const fake = createFakeD1();
+    await recordPlatformTwoFactorAttempt(createFakeEnv(fake), {
+      operatorId: "plat_op_x",
+      success: true,
+      now: NOW,
+      maxAttempts: 5,
+      lockMs: 15 * 60 * 1000,
+      lastStep: 12345,
+    });
+    const update = fake.queries.find((query) => query.sql.startsWith("update"));
+    expect(update?.sql).toContain('"two_factor_failed_attempts"');
+    expect(update?.sql).toContain('"two_factor_last_step"');
+    expect(update?.params).toContain(12345);
   });
 });

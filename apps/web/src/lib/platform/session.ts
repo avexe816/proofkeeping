@@ -35,17 +35,40 @@ export const PLATFORM_SESSION_COOKIE_NAME = "pk_plat_session";
  */
 export const PLATFORM_SESSION_TTL_SECONDS = 12 * 60 * 60;
 
+/**
+ * パスワードだけ通った段階（第 2 要素の入力待ち）の期限。**10 分。**
+ *
+ * TOTP の入力・初回登録に足りる長さだけ持たせる。12 時間にすると
+ * 「パスワードだけで半日生きる札」ができ、2FA を必須にした意味が薄れる。
+ */
+export const PLATFORM_PENDING_TTL_SECONDS = 10 * 60;
+
 /** KV のキー接頭辞。テナントの `sess:` と衝突しない。 */
 const KEY_PREFIX = "plat:";
 
 /** セッション ID の長さ（バイト）。base64url で 43 文字になる。 */
 const SESSION_ID_BYTES = 32;
 
+/**
+ * セッションの段階（PF-17）。
+ *
+ * `PASSWORD_ONLY` はパスワードだけ通った状態で、**第 2 要素の画面
+ * （`/plat/2fa` と `/plat/2fa/setup`）にしか入れない。** ログイン後の
+ * 画面は `COMPLETE` だけが通る（`requirePlatformOperator()`）。
+ */
+export const PLATFORM_SESSION_STATES = ["PASSWORD_ONLY", "COMPLETE"] as const;
+export type PlatformSessionState = (typeof PLATFORM_SESSION_STATES)[number];
+
 /** KV に置くレコード。**ここに表示名や権限を足さないこと。** */
 export interface PlatformSessionRecord {
-  /** 形式の版。読み出し時に照合し、違えば無効として扱う。 */
-  v: 1;
+  /**
+   * 形式の版。読み出し時に照合し、違えば無効として扱う。
+   * **v1（PF-01 / `state` 無し）は読まない** — 2FA を経ていない札を
+   * 生かしたまま必須化はできない。版上げで全員ログインし直しになるのは意図。
+   */
+  v: 2;
   operatorId: string;
+  state: PlatformSessionState;
   /** epoch ミリ秒。 */
   issuedAt: number;
   /** epoch ミリ秒。絶対期限。 */
@@ -77,26 +100,29 @@ function toBase64Url(bytes: Uint8Array): string {
  */
 export async function createPlatformSession(
   env: Env,
-  input: { operatorId: string; now: Date },
+  input: { operatorId: string; state: PlatformSessionState; now: Date },
   randomBytes: RandomBytes = defaultRandomBytes,
 ): Promise<CreatedPlatformSession> {
+  const ttlSeconds =
+    input.state === "COMPLETE" ? PLATFORM_SESSION_TTL_SECONDS : PLATFORM_PENDING_TTL_SECONDS;
   const issuedAt = input.now.getTime();
   const record: PlatformSessionRecord = {
-    v: 1,
+    v: 2,
     operatorId: input.operatorId,
+    state: input.state,
     issuedAt,
-    expiresAt: issuedAt + PLATFORM_SESSION_TTL_SECONDS * 1000,
+    expiresAt: issuedAt + ttlSeconds * 1000,
   };
 
   const sessionId = toBase64Url(randomBytes(SESSION_ID_BYTES));
   await env.SESSION.put(KEY_PREFIX + sessionId, JSON.stringify(record), {
-    expirationTtl: PLATFORM_SESSION_TTL_SECONDS,
+    expirationTtl: ttlSeconds,
   });
 
   return {
     record,
     cookieValue: await signSessionId(sessionId, env.SESSION_SECRET),
-    maxAgeSeconds: PLATFORM_SESSION_TTL_SECONDS,
+    maxAgeSeconds: ttlSeconds,
   };
 }
 
@@ -126,8 +152,14 @@ export async function readPlatformSession(
   }
   if (typeof parsed !== "object" || parsed === null) return null;
   const record = parsed as Partial<PlatformSessionRecord>;
-  if (record.v !== 1) return null;
+  if (record.v !== 2) return null;
   if (typeof record.operatorId !== "string") return null;
+  if (
+    typeof record.state !== "string" ||
+    !(PLATFORM_SESSION_STATES as readonly string[]).includes(record.state)
+  ) {
+    return null;
+  }
   if (typeof record.expiresAt !== "number" || record.expiresAt <= now.getTime()) return null;
 
   return record as PlatformSessionRecord;

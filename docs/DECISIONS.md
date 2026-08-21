@@ -5848,3 +5848,39 @@
   `lib/platform/usagePage.ts` / `routes/plat/usage.tsx` / `ja.json`。
   **`platform_tenant_snapshot` の他の列はこの扱いにしない** — PF-02 の
   時点から数えており、未計測の期間が無い。
+
+## #243 PF-17 の実装パラメータ（TOTP は RFC 既定・復旧コードは SHA-256）
+
+- 日付: 2026-08-21
+- task: `docs/tasks/PF-17.md`
+- 由来: PF-17 の実装で決めた（方式そのものは #241 のオーナー判断）。
+- 決定:
+  1. TOTP は RFC 6238 の既定: **HMAC-SHA1・6 桁・30 秒刻み・検証窓 ±1。**
+     主要な認証アプリが確実に読めるのがこの組み合わせだけ。HMAC の中の
+     SHA-1 は衝突攻撃の影響を受けない（RFC 6194 §2）。設定項目にしない。
+  2. **受理したタイムステップを保存し、同じコードの 2 回目を拒む**
+     （RFC 6238 §5.2 / 列 `two_factor_last_step`）。窓の間の再送で
+     第 2 要素が 1 要素に落ちるのを防ぐ。
+  3. 第 2 要素の試行回数制限は **PIN と同じ 5 回失敗で 15 分ロック**
+     （security.md §2 の考え方 — 6 桁は候補 100 万通りで KDF の強度は
+     効かず、実際に守るのはロックとレート制限）。IP のレート制限は
+     `/plat/login` と同じ `login` バケツに相乗り（専用バケツを増やさない）。
+  4. 復旧コードは **10 本 × 10 文字（base32 / 50 bit）**、保存は
+     **SHA-256 のみ**（公開 API キーと同じ扱い / security.md §7。
+     高エントロピーの乱数なので KDF は要らない）。表示は発行時の 1 回だけ。
+     使用は `used_at`・再発行による失効は `revoked_at` で表し、**行を消さない。**
+  5. 運営セッションを 2 段階にした（レコード v2）: パスワードだけの札
+     `PASSWORD_ONLY`（**10 分**）と、第 2 要素を通った `COMPLETE`（12 時間）。
+     ログイン後の画面（`requirePlatformOperator()`）は `COMPLETE` だけを通す。
+     **v1 の札は読まない** — 2FA を経ていない札を必須化の後に生かさない
+     （既存セッションは全員ログインし直し。現時点で影響する環境は無い）。
+  6. 監査の `platform.login` は**第 2 要素を通った時点**で書く。パスワード
+     段階では書かない（2FA を通れなかった試行が「ログイン成功」に見える）。
+     失敗は `platform.2fa.failed` を毎回残す（`platform.login.failed` と同じ理由）。
+  7. 復旧コードの再発行画面は `/plat/2fa/recovery`（ログイン後の領域）。
+     再発行には**現在の TOTP コード**を要求する（札を盗んだだけの相手に
+     刷り直させない）。復旧コードでログインした直後はこの画面へ着地する。
+- 影響: migration 0034 / `platform_operator` の 2FA 4 列 /
+  `platform_recovery_code`（新設）/ `apps/web/src/lib/auth/totp.ts` /
+  `lib/platform/twoFactor.ts`・`session.ts`・`requireOperator.ts`・`login.ts` /
+  `/plat/2fa`・`/plat/2fa/setup`・`/plat/2fa/recovery`。

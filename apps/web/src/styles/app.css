@@ -2909,7 +2909,8 @@ a.pk-tile:hover {
    プラットフォーム運営（PF-01 / /plat/*）
 
    運営面はテナントのシェルと**同じトークン・同じ部品**で描く。
-   ここに置くのは運営面にしか無い 2 つだけ。増やさない。
+   ここに置くのは運営面にしか無いものだけ（バッジ・静的見出し、
+   そして PF-17 の 2 段階認証まわり）。それ以外を増やさない。
    ────────────────────────────────────────────────────────── */
 
 /* ブランド脇のバッジ「PLATFORM ADMIN」（プロトタイプの並び）。 */
@@ -2931,4 +2932,54 @@ a.pk-tile:hover {
 
 .pk-sidebar__heading--static::after {
   content: none;
+}
+
+/* ── 2 段階認証（PF-17 / /plat/2fa*）─────────────────────
+   登録の QR・手入力キー・復旧コードの表示。運営面にしか無い。 */
+
+/* otpauth URI の QR。`.pk-card__qr` と同じく余白は padding で取る。 */
+.pk-totp-qr {
+  display: block;
+  width: 176px;
+  height: 176px;
+  padding: 8px;
+  margin: 8px auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  shape-rendering: crispEdges;
+}
+
+/* 手入力用の base32 キー。読み間違えないよう等幅・字間を広く。 */
+.pk-totp-secret {
+  padding: 8px 10px;
+  margin: 4px 0 12px;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  user-select: all;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* 復旧コードの一覧（1 回だけの表示）。印刷して保管する前提の見た目。 */
+.pk-recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  list-style: none;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.pk-recovery-codes__item {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 14px;
+  letter-spacing: 0.06em;
 }

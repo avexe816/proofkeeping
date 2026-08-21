@@ -48,6 +48,12 @@ function operatorRow(overrides: Record<string, unknown> = {}): Record<string, un
     status: "ACTIVE",
     failedAttempts: 0,
     lockedUntil: null,
+    // PF-17。既定は TOTP 登録済みの担当者。
+    twoFactorSecret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+    twoFactorConfirmedAt: new Date("2026-08-01T00:00:00.000Z"),
+    twoFactorFailedAttempts: 0,
+    twoFactorLockedUntil: null,
+    twoFactorLastStep: null,
     ...overrides,
   };
 }
@@ -94,12 +100,31 @@ describe("成功", () => {
     );
   });
 
-  it("成功も記録に残る", async () => {
+  it("**`platform.login` はまだ書かない**（成立は第 2 要素 / PF-17）", async () => {
     await platformLogin(env, { email: EMAIL, password: PASSWORD, now: NOW, ip: "203.0.113.9" });
-    expect(recordPlatformAudit).toHaveBeenCalledWith(
+    expect(recordPlatformAudit).not.toHaveBeenCalledWith(
       env,
-      expect.objectContaining({ action: "platform.login", ip: "203.0.113.9" }),
+      expect.objectContaining({ action: "platform.login" }),
     );
+  });
+
+  it("発行されるのはパスワード段階の札（PASSWORD_ONLY / PF-17）", async () => {
+    const result = await platformLogin(env, { email: EMAIL, password: PASSWORD, now: NOW });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.session.record.state).toBe("PASSWORD_ONLY");
+    // TOTP 登録済みなので登録画面へは送らない。
+    expect(result.requiresEnrollment).toBe(false);
+  });
+
+  it("TOTP 未登録なら requiresEnrollment が立つ（PF-17）", async () => {
+    findPlatformOperatorByEmail.mockResolvedValue(
+      operatorRow({ twoFactorSecret: null, twoFactorConfirmedAt: null }),
+    );
+    const result = await platformLogin(env, { email: EMAIL, password: PASSWORD, now: NOW });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.requiresEnrollment).toBe(true);
   });
 });
 

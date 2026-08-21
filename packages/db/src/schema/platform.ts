@@ -59,14 +59,59 @@ export const platformOperator = sqliteTable(
     /** ロック解除の時刻。`null` はロックされていない。 */
     lockedUntil: integer("locked_until", { mode: "timestamp_ms" }),
     /**
-     * 2 要素認証の秘密。**列だけ置く。** 方式は未決
-     * （OPEN_QUESTIONS #109）で、PF-01 では読み書きしない。
+     * TOTP の共有秘密（base32 / DECISIONS #241）。
+     *
+     * 登録開始で書き、`twoFactorConfirmedAt` が入るまでは**未確認**。
+     * 検証に使うため平文で持つが、**ログ・監査ログ・API 応答へ出さない**
+     * （PF-17 の完了条件）。読み書きは `repositories/platform.ts` だけ。
      */
     twoFactorSecret: text("two_factor_secret"),
+    /**
+     * TOTP の登録が確認できた時刻。**`null` は未登録**（PF-17）。
+     * 未登録の運営担当者はログイン後の画面へ到達できない。
+     */
+    twoFactorConfirmedAt: integer("two_factor_confirmed_at", { mode: "timestamp_ms" }),
+    /** 第 2 要素の連続失敗回数。5 回で 15 分ロック（PIN と同じ / security.md §2）。 */
+    twoFactorFailedAttempts: integer("two_factor_failed_attempts").notNull().default(0),
+    /** 第 2 要素のロック解除時刻。`null` はロックされていない。 */
+    twoFactorLockedUntil: integer("two_factor_locked_until", { mode: "timestamp_ms" }),
+    /**
+     * 直前に受理した TOTP のタイムステップ。**同じコードの 2 回目を拒む**
+     * （RFC 6238 §5.2。窓の間の再送で第 2 要素が 1 要素に落ちるのを防ぐ）。
+     */
+    twoFactorLastStep: integer("two_factor_last_step"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [index("idx_platform_operator_status").on(t.status)],
+);
+
+/**
+ * 復旧コード（PF-17 / DECISIONS #241）。
+ *
+ * **ハッシュだけを置く。** 平文は発行の応答で 1 回だけ見せ、どこにも
+ * 保存しない（公開 API キーと同じ扱い / security.md §7）。再表示できる
+ * 実装にしないこと。
+ *
+ * **行は消さない。** 使用は `usedAt`、再発行による失効は `revokedAt` で
+ * 表す（`platform_operator` の SUSPENDED と同じ向き — 監査の追跡のため）。
+ * 有効なコードは `usedAt` と `revokedAt` がともに `null` の行だけ。
+ */
+export const platformRecoveryCode = sqliteTable(
+  "platform_recovery_code",
+  {
+    id: text("id").primaryKey(),
+    /** `platform_operator.id`。 */
+    operatorId: text("operator_id").notNull(),
+    /** SHA-256（小文字 16 進 64 桁）。**平文の列を作らない。** */
+    codeHash: text("code_hash").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    /** 消費した時刻。**1 本 1 回**（PF-17 の完了条件）。 */
+    usedAt: integer("used_at", { mode: "timestamp_ms" }),
+    /** 再発行で失効した時刻。 */
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [index("idx_platform_recovery_operator").on(t.operatorId)],
 );
 
 /**

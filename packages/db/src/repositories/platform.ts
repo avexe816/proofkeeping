@@ -23,7 +23,7 @@
  * 「認証の失敗応答を一律にする」）。判断は `lib/platform/login.ts`。
  */
 
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { getPlatformDb } from "../router.js";
@@ -31,11 +31,15 @@ import {
   platformAuditLog,
   platformOperationSetting,
   platformOperator,
+  platformRecoveryCode,
   platformTenantSnapshot,
   type PlatformOperatorStatus,
 } from "../schema/platform.js";
 
-/** 運営担当者の 1 行。**`passwordHash` を呼び出し側の外へ出さないこと。** */
+/**
+ * 運営担当者の 1 行。**`passwordHash` を呼び出し側の外へ出さないこと。**
+ * **`twoFactorSecret` も同じ扱い**（PF-17。ログ・応答・監査ログへ出さない）。
+ */
 export interface PlatformOperatorRow {
   id: string;
   email: string;
@@ -44,6 +48,14 @@ export interface PlatformOperatorRow {
   status: PlatformOperatorStatus;
   failedAttempts: number;
   lockedUntil: Date | null;
+  /** TOTP の共有秘密（base32）。`null` は登録が始まっていない。 */
+  twoFactorSecret: string | null;
+  /** TOTP の登録が確認できた時刻。**`null` は未登録**（PF-17）。 */
+  twoFactorConfirmedAt: Date | null;
+  twoFactorFailedAttempts: number;
+  twoFactorLockedUntil: Date | null;
+  /** 直前に受理した TOTP のタイムステップ。再利用の拒否に使う。 */
+  twoFactorLastStep: number | null;
 }
 
 /**
@@ -57,15 +69,7 @@ export async function findPlatformOperatorByEmail(
   email: string,
 ): Promise<PlatformOperatorRow | null> {
   const rows = await getPlatformDb(env)
-    .select({
-      id: platformOperator.id,
-      email: platformOperator.email,
-      displayName: platformOperator.displayName,
-      passwordHash: platformOperator.passwordHash,
-      status: platformOperator.status,
-      failedAttempts: platformOperator.failedAttempts,
-      lockedUntil: platformOperator.lockedUntil,
-    })
+    .select(OPERATOR_COLUMNS)
     .from(platformOperator)
     .where(eq(platformOperator.email, email))
     .limit(1);
@@ -78,20 +82,28 @@ export async function findPlatformOperatorById(
   id: string,
 ): Promise<PlatformOperatorRow | null> {
   const rows = await getPlatformDb(env)
-    .select({
-      id: platformOperator.id,
-      email: platformOperator.email,
-      displayName: platformOperator.displayName,
-      passwordHash: platformOperator.passwordHash,
-      status: platformOperator.status,
-      failedAttempts: platformOperator.failedAttempts,
-      lockedUntil: platformOperator.lockedUntil,
-    })
+    .select(OPERATOR_COLUMNS)
     .from(platformOperator)
     .where(eq(platformOperator.id, id))
     .limit(1);
   return rows[0] ?? null;
 }
+
+/** 2 つの find が同じ列を返すための共通指定。 */
+const OPERATOR_COLUMNS = {
+  id: platformOperator.id,
+  email: platformOperator.email,
+  displayName: platformOperator.displayName,
+  passwordHash: platformOperator.passwordHash,
+  status: platformOperator.status,
+  failedAttempts: platformOperator.failedAttempts,
+  lockedUntil: platformOperator.lockedUntil,
+  twoFactorSecret: platformOperator.twoFactorSecret,
+  twoFactorConfirmedAt: platformOperator.twoFactorConfirmedAt,
+  twoFactorFailedAttempts: platformOperator.twoFactorFailedAttempts,
+  twoFactorLockedUntil: platformOperator.twoFactorLockedUntil,
+  twoFactorLastStep: platformOperator.twoFactorLastStep,
+} as const;
 
 /** `recordPlatformLoginAttempt()` の入力。 */
 export interface PlatformLoginAttemptInput {
@@ -136,6 +148,185 @@ export async function recordPlatformLoginAttempt(
       updatedAt: input.now,
     })
     .where(eq(platformOperator.id, input.operatorId));
+}
+
+/**
+ * TOTP の登録を始める（PF-17）。秘密を書き、**未確認の状態に戻す。**
+ *
+ * `twoFactorConfirmedAt` を消すのは、確認前に離脱して再開したときに
+ * 「新しい秘密＋確認済み」という嘘の状態を作らないため。**確認済みの
+ * 担当者には呼ばないこと**（呼び出し側 `lib/platform/twoFactor.ts` が
+ * 未登録のときだけ通す — 盗んだパスワードだけで 2FA を掛け替えさせない）。
+ */
+export async function savePlatformTwoFactorSecret(
+  env: Env,
+  input: { operatorId: string; secret: string; now: Date },
+): Promise<void> {
+  await getPlatformDb(env)
+    .update(platformOperator)
+    .set({
+      twoFactorSecret: input.secret,
+      twoFactorConfirmedAt: null,
+      twoFactorLastStep: null,
+      updatedAt: input.now,
+    })
+    .where(and(eq(platformOperator.id, input.operatorId), isNull(platformOperator.twoFactorConfirmedAt)));
+}
+
+/**
+ * TOTP の登録を確認済みにする（PF-17）。
+ *
+ * 検証に通った試行のタイムステップを同時に書き、**登録に使ったコードの
+ * 再利用をここで塞ぐ。**
+ */
+export async function confirmPlatformTwoFactor(
+  env: Env,
+  input: { operatorId: string; lastStep: number; now: Date },
+): Promise<void> {
+  await getPlatformDb(env)
+    .update(platformOperator)
+    .set({
+      twoFactorConfirmedAt: input.now,
+      twoFactorFailedAttempts: 0,
+      twoFactorLockedUntil: null,
+      twoFactorLastStep: input.lastStep,
+      updatedAt: input.now,
+    })
+    .where(eq(platformOperator.id, input.operatorId));
+}
+
+/** `recordPlatformTwoFactorAttempt()` の入力。 */
+export interface PlatformTwoFactorAttemptInput {
+  operatorId: string;
+  success: boolean;
+  now: Date;
+  /** ロックまでの失敗回数（PIN と同じ 5 回 / security.md §2）。 */
+  maxAttempts: number;
+  /** ロックの長さ（ミリ秒）。PIN と同じ 15 分。 */
+  lockMs: number;
+  /** 成功時に記録する受理済みタイムステップ。復旧コードの成功は `null`。 */
+  lastStep?: number | null | undefined;
+}
+
+/**
+ * 第 2 要素の成否を記録する。**数え方は `recordPlatformLoginAttempt()` と同じ。**
+ *
+ * 成功で失敗回数とロックを消し、失敗で 1 加算する。加算は SQL 側
+ * （読んで足して書くと同時試行を取りこぼす）。上限に達した試行でだけ
+ * ロック時刻を書く。
+ */
+export async function recordPlatformTwoFactorAttempt(
+  env: Env,
+  input: PlatformTwoFactorAttemptInput,
+): Promise<void> {
+  const db = getPlatformDb(env);
+  if (input.success) {
+    await db
+      .update(platformOperator)
+      .set({
+        twoFactorFailedAttempts: 0,
+        twoFactorLockedUntil: null,
+        ...(input.lastStep === undefined || input.lastStep === null
+          ? {}
+          : { twoFactorLastStep: input.lastStep }),
+        updatedAt: input.now,
+      })
+      .where(eq(platformOperator.id, input.operatorId));
+    return;
+  }
+
+  await db
+    .update(platformOperator)
+    .set({
+      twoFactorFailedAttempts: sql`${platformOperator.twoFactorFailedAttempts} + 1`,
+      twoFactorLockedUntil: sql`CASE WHEN ${platformOperator.twoFactorFailedAttempts} + 1 >= ${input.maxAttempts}
+        THEN ${input.now.getTime() + input.lockMs} ELSE ${platformOperator.twoFactorLockedUntil} END`,
+      updatedAt: input.now,
+    })
+    .where(eq(platformOperator.id, input.operatorId));
+}
+
+/** 復旧コード 1 本（ハッシュのみ）。**平文を受け取る型を作らない。** */
+export interface PlatformRecoveryCodeInput {
+  /** `plat_rc_{…}`。呼び出し側が決める（監査と突き合わせるため）。 */
+  id: string;
+  /** SHA-256（小文字 16 進 64 桁）。 */
+  codeHash: string;
+}
+
+/**
+ * 復旧コードを一式入れ替える（発行・再発行 / PF-17）。
+ *
+ * 未使用の既存コードを `revokedAt` で失効させてから新しいハッシュを入れる。
+ * **行は消さない**（使用済み・失効済みの痕跡を監査で追えるようにする）。
+ */
+export async function replacePlatformRecoveryCodes(
+  env: Env,
+  input: { operatorId: string; codes: readonly PlatformRecoveryCodeInput[]; now: Date },
+): Promise<void> {
+  const db = getPlatformDb(env);
+  await db
+    .update(platformRecoveryCode)
+    .set({ revokedAt: input.now })
+    .where(
+      and(
+        eq(platformRecoveryCode.operatorId, input.operatorId),
+        isNull(platformRecoveryCode.usedAt),
+        isNull(platformRecoveryCode.revokedAt),
+      ),
+    );
+  if (input.codes.length === 0) return;
+  await db.insert(platformRecoveryCode).values(
+    input.codes.map((code) => ({
+      id: code.id,
+      operatorId: input.operatorId,
+      codeHash: code.codeHash,
+      createdAt: input.now,
+      usedAt: null,
+      revokedAt: null,
+    })),
+  );
+}
+
+/** 有効な復旧コード（未使用・未失効）のハッシュを引く。 */
+export async function listActivePlatformRecoveryCodes(
+  env: Env,
+  operatorId: string,
+): Promise<{ id: string; codeHash: string }[]> {
+  return getPlatformDb(env)
+    .select({ id: platformRecoveryCode.id, codeHash: platformRecoveryCode.codeHash })
+    .from(platformRecoveryCode)
+    .where(
+      and(
+        eq(platformRecoveryCode.operatorId, operatorId),
+        isNull(platformRecoveryCode.usedAt),
+        isNull(platformRecoveryCode.revokedAt),
+      ),
+    );
+}
+
+/**
+ * 復旧コードを 1 本消費する。**1 本 1 回**（PF-17 の完了条件）。
+ *
+ * `usedAt IS NULL` を条件に含めた UPDATE で、同じ行への同時消費は
+ * 片方だけが `true` を得る。`false` は「既に使われていた」。
+ */
+export async function consumePlatformRecoveryCode(
+  env: Env,
+  input: { id: string; operatorId: string; now: Date },
+): Promise<boolean> {
+  const result = await getPlatformDb(env)
+    .update(platformRecoveryCode)
+    .set({ usedAt: input.now })
+    .where(
+      and(
+        eq(platformRecoveryCode.id, input.id),
+        eq(platformRecoveryCode.operatorId, input.operatorId),
+        isNull(platformRecoveryCode.usedAt),
+        isNull(platformRecoveryCode.revokedAt),
+      ),
+    );
+  return result.meta.changes > 0;
 }
 
 /** `recordPlatformAudit()` の入力。**個人情報を `detail` に入れない。** */
@@ -209,6 +400,11 @@ export async function createPlatformOperator(
       failedAttempts: 0,
       lockedUntil: null,
       twoFactorSecret: null,
+      // **未登録で作る。** 初回ログインで TOTP の登録を通る（PF-17）。
+      twoFactorConfirmedAt: null,
+      twoFactorFailedAttempts: 0,
+      twoFactorLockedUntil: null,
+      twoFactorLastStep: null,
       createdAt: input.now,
       updatedAt: input.now,
     })
