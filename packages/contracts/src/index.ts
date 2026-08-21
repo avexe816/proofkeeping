@@ -810,3 +810,16 @@ export {
   type StaffLedgerUpdateRequest,
   type WorkStatusValue,
 } from "./workforce.js";
+
+// プラットフォーム運営の初期開通（PF-16 / DECISIONS #240・#245）。
+// **1 人目だけ。** 応答に開通 token を含めない（受け渡しはメール 1 通）。
+export {
+  PLATFORM_BOOTSTRAP_ERROR_CODES,
+  platformBootstrapErrorSchema,
+  platformBootstrapRequestSchema,
+  platformBootstrapResponseSchema,
+  type PlatformBootstrapError,
+  type PlatformBootstrapErrorCode,
+  type PlatformBootstrapRequest,
+  type PlatformBootstrapResponse,
+} from "./platform.js";

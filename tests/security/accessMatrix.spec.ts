@@ -49,6 +49,9 @@ const API_EXEMPTIONS: Readonly<Record<string, string>> = {
   "auth.ts": "セッションを作る経路。まだロールが無い",
   "session.ts": "セッションを作る経路。まだロールが無い",
   "dev.ts": "本番では 404（シード投入）",
+  "platformBootstrap.ts":
+    "運営担当者の初期開通（PF-16）。**この時点で運営担当者は 1 人も居ない**ので " +
+    "判定する主体が無い。守っているのは管理鍵（鍵が無ければ 404）＋『既に居れば拒否』",
   "webhooks.ts": "署名で守る（security.md §7）",
   "integrationWebhooks.ts": "署名で守る（security.md §7）",
   "public.ts": "API キーのスコープで守る（DECISIONS #151）",

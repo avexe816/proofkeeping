@@ -23,12 +23,13 @@
  * 「認証の失敗応答を一律にする」）。判断は `lib/platform/login.ts`。
  */
 
-import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { getPlatformDb } from "../router.js";
 import {
   platformAuditLog,
+  platformBootstrapToken,
   platformOperationSetting,
   platformOperator,
   platformRecoveryCode,
@@ -454,6 +455,178 @@ export async function createPlatformOperator(
       updatedAt: input.now,
     })
     .onConflictDoNothing();
+}
+
+/**
+ * 運営担当者を**最初の 1 名としてだけ**作る（PF-16 / DECISIONS #245）。
+ *
+ * **これが「1 人目だけ」の保証そのもの。** 呼び出し側が件数を数えてから
+ * INSERT すると、数えた後・書く前に交差した 2 本が両方通る（そのときに
+ * 出来上がるのは「2 人の 1 人目」で、あとから消す口も無い）。
+ *
+ * `INSERT ... SELECT ... WHERE NOT EXISTS (SELECT 1 FROM platform_operator)` は
+ * D1（SQLite）で 1 文＝1 トランザクションとして走るので、**存在検査と挿入の
+ * 間に他の書き込みが入れない。** 同時に走った 2 本のうち `changes = 1` を
+ * 取れるのは 1 本だけで、負けた側は `false` を受け取る。
+ *
+ * 戻り値が `false` のときは**既に運営担当者が居る**。呼び出し側は開通を
+ * 失敗として扱うこと（券は既に消費済みでよい — 巻き戻すと、負けた側が
+ * 券を持ったまま再試行できてしまう）。
+ *
+ * **パスワードは呼び出し側がハッシュ化して渡す。** 平文をこの層へ入れない。
+ * 2FA は未登録で作る（初回ログインで登録を通る / PF-17）。
+ */
+export async function createFirstPlatformOperator(
+  env: Env,
+  input: {
+    id: string;
+    email: string;
+    displayName: string;
+    /** PBKDF2-SHA256 の自己記述文字列（security.md §2）。**平文を渡さない。** */
+    passwordHash: string;
+    now: Date;
+  },
+): Promise<boolean> {
+  const at = input.now.getTime();
+  const result = await getPlatformDb(env).run(sql`
+    INSERT INTO ${platformOperator}
+      (${sql.raw(platformOperator.id.name)}, ${sql.raw(platformOperator.email.name)},
+       ${sql.raw(platformOperator.displayName.name)}, ${sql.raw(platformOperator.passwordHash.name)},
+       ${sql.raw(platformOperator.status.name)}, ${sql.raw(platformOperator.failedAttempts.name)},
+       ${sql.raw(platformOperator.twoFactorFailedAttempts.name)},
+       ${sql.raw(platformOperator.createdAt.name)}, ${sql.raw(platformOperator.updatedAt.name)})
+    SELECT ${input.id}, ${input.email}, ${input.displayName}, ${input.passwordHash},
+           'ACTIVE', 0, 0, ${at}, ${at}
+    WHERE NOT EXISTS (SELECT 1 FROM ${platformOperator})
+  `);
+  return result.meta.changes > 0;
+}
+
+/**
+ * 運営担当者が 1 名でも居るか（PF-16 の要件 7）。
+ *
+ * **これは早い段階で断るための検査であって、保証ではない。** 保証は
+ * `createFirstPlatformOperator()` の条件付き INSERT が持つ。ここで見るのは
+ * 「券を出す前に、明らかに要らないと分かる場合を断る」ため。
+ */
+export async function platformOperatorExists(env: Env): Promise<boolean> {
+  const rows = await getPlatformDb(env)
+    .select({ id: platformOperator.id })
+    .from(platformOperator)
+    .limit(1);
+  return rows.length > 0;
+}
+
+/** 初期開通の券 1 枚（PF-16）。**平文の token を持つ型を作らない。** */
+export interface PlatformBootstrapTokenRow {
+  id: string;
+  email: string;
+  displayName: string;
+  expiresAt: Date;
+}
+
+/**
+ * 券を 1 枚作る（PF-16）。**受け取るのはハッシュだけ。**
+ *
+ * 平文の token をこの層へ渡さないこと（`lib/platform/bootstrap.ts` が
+ * 作ってメール 1 通に載せ、以後どこにも残さない）。
+ */
+export async function createPlatformBootstrapToken(
+  env: Env,
+  input: {
+    id: string;
+    email: string;
+    displayName: string;
+    /** SHA-256（小文字 16 進 64 桁）。 */
+    tokenHash: string;
+    expiresAt: Date;
+    now: Date;
+  },
+): Promise<void> {
+  await getPlatformDb(env).insert(platformBootstrapToken).values({
+    id: input.id,
+    email: input.email,
+    displayName: input.displayName,
+    tokenHash: input.tokenHash,
+    createdAt: input.now,
+    expiresAt: input.expiresAt,
+    usedAt: null,
+    revokedAt: null,
+  });
+}
+
+/**
+ * 有効な券をハッシュで 1 枚引く（PF-16）。**未使用・未失効・期限内だけ。**
+ *
+ * 見つからない理由（無い・使用済み・失効・期限切れ）を**区別して返さない。**
+ * 呼び出し側が応答を分けられない形にしておく（要件「期限切れ、使用済み、
+ * 不正 token は同じ失敗応答にする」）。
+ */
+export async function findActivePlatformBootstrapToken(
+  env: Env,
+  input: { tokenHash: string; now: Date },
+): Promise<PlatformBootstrapTokenRow | null> {
+  const rows = await getPlatformDb(env)
+    .select({
+      id: platformBootstrapToken.id,
+      email: platformBootstrapToken.email,
+      displayName: platformBootstrapToken.displayName,
+      expiresAt: platformBootstrapToken.expiresAt,
+    })
+    .from(platformBootstrapToken)
+    .where(
+      and(
+        eq(platformBootstrapToken.tokenHash, input.tokenHash),
+        isNull(platformBootstrapToken.usedAt),
+        isNull(platformBootstrapToken.revokedAt),
+        gt(platformBootstrapToken.expiresAt, input.now),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * 券を**原子的に**1 回だけ消費する（PF-16）。
+ *
+ * 有効条件（未使用・未失効・期限内）を WHERE に畳み込んだ UPDATE で、
+ * **同じ券を載せた並行リクエストは片方だけ**が `true` を得る。
+ * `consumePlatformRecoveryCode()` と同じ形 — 引いて確かめてから書くと、
+ * 読みが交差した 2 本が両方通る。
+ *
+ * `false` は「無い・使用済み・失効・期限切れ」のいずれか。**区別しない。**
+ */
+export async function consumePlatformBootstrapToken(
+  env: Env,
+  input: { tokenHash: string; now: Date },
+): Promise<boolean> {
+  const result = await getPlatformDb(env)
+    .update(platformBootstrapToken)
+    .set({ usedAt: input.now })
+    .where(
+      and(
+        eq(platformBootstrapToken.tokenHash, input.tokenHash),
+        isNull(platformBootstrapToken.usedAt),
+        isNull(platformBootstrapToken.revokedAt),
+        gt(platformBootstrapToken.expiresAt, input.now),
+      ),
+    );
+  return result.meta.changes > 0;
+}
+
+/**
+ * 未使用の券をすべて失効させる（PF-16）。**行は消さない。**
+ *
+ * 再発行の前と、送信に失敗した券の後始末に使う。**古い券を生かしたまま
+ * 刷り増さない** — 有効な開通リンクが同時に 2 本ある状態を作らない。
+ */
+export async function revokePlatformBootstrapTokens(env: Env, now: Date): Promise<void> {
+  await getPlatformDb(env)
+    .update(platformBootstrapToken)
+    .set({ revokedAt: now })
+    .where(
+      and(isNull(platformBootstrapToken.usedAt), isNull(platformBootstrapToken.revokedAt)),
+    );
 }
 
 /**

@@ -29,3 +29,10 @@ SENTRY_DSN=""
 # staging へは `wrangler secret put STAGING_SEED_TOKEN --env staging` で入れる。
 # 置かなければ staging でも 404 のまま。production / preview は常に 404。
 STAGING_SEED_TOKEN=""
+
+# 運営担当者の初期開通（PF-16 / POST /api/v1/platform/bootstrap）を開ける管理鍵。
+# **ローカルで開通の流れを通したいときだけ置く。** 空なら 404 のまま。
+# staging / production へは workflow（.github/workflows/platform-bootstrap.yml）が
+# 実行のたびに作って登録し、**終わったら消す。** 手で置いた場合も、
+# 開通を確かめたら消すこと（docs/runbook/platform-bootstrap.md §6）。
+PLATFORM_BOOTSTRAP_TOKEN=""

@@ -32,6 +32,23 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 - 決める人: PK-SPEC-P8 §3 の版上げ。現場責任者に開くなら
   「名前を出さずに組む」画面設計が先に要る。
 
+### #116 `staging-bootstrap.yml` の `db-status` が「表の数」を両 shard で 0 と出す
+- 提起: 2026-08-21 / PF-16 着手時（**PF-16 では直さない。別 task**）
+- 内容: `phase=db-status` の出力で、shard-00 / shard-01 とも
+  **「表の数」が 0** と表示される。実際には表は在り（`/api/health` は ok、
+  `schemaVersionConsistent=true`、0000〜0034 の 35 本が両 shard で一致）、
+  **数え方の側の不具合**と見られる。数える SQL か、その結果の取り出し
+  （`jq` の経路）のどちらかが噛み合っていない。
+- 影響: `staging-bootstrap.yml` の `db-status` phase だけ。**読み取り専用の
+  phase**なので、誤った数字が出る以外の実害は無い。ただし
+  「表が無い」と読み違えると、要らない `reset-db` や `mark-applied` を
+  押しかねない（どちらも合言葉が別なので即座には起きない）。
+- 暫定対応: **PF-16 のスコープに入れない**（人間の指示 2026-08-21）。
+  表の有無は `/api/health` の `schemaVersionConsistent` と
+  `pnpm db:migrate --env staging --check` で確かめる。
+- 決める人: 不要。**`db-status` の数え方を直す別 task**を起票すればよい
+  （PF-16 の PR には含めない）。
+
 ### #114 運営画面 01「サービス稼働」の指標を採る仕組みが 1 つも無い
 - 提起: 2026-08-20 / PF-03 実装中
 - 内容: プロトタイプ 01 の KPI 5 つと表の 3 列は、**どれも出す元が無い。**

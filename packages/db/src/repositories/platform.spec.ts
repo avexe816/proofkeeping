@@ -20,6 +20,7 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 
 import {
+  platformBootstrapToken,
   platformOperationSetting,
   platformRecoveryCode,
   platformTenantSnapshot,
@@ -28,8 +29,11 @@ import { createFakeD1, createFakeEnv } from "../test-support/fake-d1.js";
 
 import {
   confirmPlatformTwoFactor,
+  consumePlatformBootstrapToken,
   consumePlatformRecoveryCode,
   consumePlatformTotpStep,
+  createFirstPlatformOperator,
+  findActivePlatformBootstrapToken,
   recordPlatformTwoFactorAttempt,
   replacePlatformRecoveryCodes,
   PLATFORM_OPERATION_DEFAULTS,
@@ -396,5 +400,100 @@ describe("TOTP ステップの原子的な消費（PF-17 / 再利用の拒否）
       now: NOW,
     });
     expect(confirmed).toBe(false);
+  });
+});
+
+describe("初期開通の原子性（PF-16 / 1 人目だけ・1 回だけ）", () => {
+  const NOW = new Date("2026-08-21T09:00:00.000Z");
+
+  it("**1 人目の作成は条件付き INSERT**（WHERE NOT EXISTS）", async () => {
+    const fake = createFakeD1();
+    const created = await createFirstPlatformOperator(createFakeEnv(fake), {
+      id: "plat_op_first",
+      email: "ops@stek.ai",
+      displayName: "運営 太郎",
+      passwordHash: "pbkdf2$sha256$5000$x$y",
+      now: NOW,
+    });
+
+    expect(created).toBe(true);
+    const insert = fake.queries.find((query) => query.sql.toLowerCase().includes("insert into"));
+    // **数えてから書く形に戻さないこと。** 検査と挿入が 1 文の中で終わる
+    // ことだけが「2 人の 1 人目」を防いでいる（要件 8）。
+    expect(insert?.sql.toLowerCase()).toContain("where not exists");
+    expect(insert?.sql).toContain("platform_operator");
+    // **平文のパスワードを渡す口が無い**（受け取るのはハッシュだけ）。
+    expect(insert?.sql).toContain("password_hash");
+  });
+
+  it("負け側（changes = 0）は false（既に運営担当者が居る）", async () => {
+    const fake = createFakeD1();
+    fake.enqueueChanges(0);
+    const created = await createFirstPlatformOperator(createFakeEnv(fake), {
+      id: "plat_op_second",
+      email: "other@stek.ai",
+      displayName: "運営 次郎",
+      passwordHash: "pbkdf2$sha256$5000$x$y",
+      now: NOW,
+    });
+    expect(created).toBe(false);
+  });
+
+  it("**券の消費は条件付き UPDATE**（未使用・未失効・期限内だけ書ける）", async () => {
+    const fake = createFakeD1();
+    const consumed = await consumePlatformBootstrapToken(createFakeEnv(fake), {
+      tokenHash: "a".repeat(64),
+      now: NOW,
+    });
+
+    expect(consumed).toBe(true);
+    const update = fake.queries.find((query) => query.sql.startsWith("update"));
+    expect(update?.sql).toContain('"platform_bootstrap_token"');
+    expect(update?.sql).toContain('"used_at" is null');
+    expect(update?.sql).toContain('"revoked_at" is null');
+    expect(update?.sql).toContain('"expires_at" >');
+  });
+
+  it("同じ券の並行 2 リクエストは片方だけ成功する（changes の契約）", async () => {
+    const fake = createFakeD1();
+    fake.enqueueChanges(1);
+    fake.enqueueChanges(0);
+    const env = createFakeEnv(fake);
+    const tokenHash = "b".repeat(64);
+
+    const [first, second] = await Promise.all([
+      consumePlatformBootstrapToken(env, { tokenHash, now: NOW }),
+      consumePlatformBootstrapToken(env, { tokenHash, now: NOW }),
+    ]);
+
+    expect([first, second].filter(Boolean)).toHaveLength(1);
+    const updates = fake.queries.filter((query) => query.sql.startsWith("update"));
+    expect(updates).toHaveLength(2);
+    for (const update of updates) expect(update.sql).toContain('"used_at" is null');
+  });
+
+  it("引き当ても有効条件を SQL 側で絞る（理由を持ち出さない）", async () => {
+    const fake = createFakeD1();
+    await findActivePlatformBootstrapToken(createFakeEnv(fake), {
+      tokenHash: "c".repeat(64),
+      now: NOW,
+    });
+    const select = fake.queries.find((query) => query.sql.startsWith("select"));
+    expect(select?.sql).toContain('"used_at" is null');
+    expect(select?.sql).toContain('"revoked_at" is null');
+    expect(select?.sql).toContain('"expires_at" >');
+  });
+
+  it("券の表に平文の token を書く列が無い（ハッシュだけ）", () => {
+    const columns = getTableConfig(platformBootstrapToken).columns.map((column) => column.name);
+    expect(columns).toContain("token_hash");
+    expect(columns.filter((name) => name === "token" || name === "plain_token")).toEqual([]);
+  });
+
+  it("失効はまとめて書けるが、行を消す関数は無い", () => {
+    expect(SOURCE).toMatch(/revokePlatformBootstrapTokens/);
+    // `platform_bootstrap_token` からの DELETE を作らない
+    // （発行して使われなかった券があったこと自体が監査の材料）。
+    expect(SOURCE).not.toMatch(/delete\s*\(\s*platformBootstrapToken/);
   });
 });

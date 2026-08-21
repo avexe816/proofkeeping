@@ -171,6 +171,21 @@ export interface EnvSecrets {
    * 「開くつもりで置いた」ことが後から読めなくなる。
    */
   STAGING_SEED_TOKEN: string;
+  /**
+   * 運営担当者の初期開通を開ける管理鍵（PF-16 / DECISIONS #245）。
+   *
+   * **これが置かれている環境だけが `POST /api/v1/platform/bootstrap` を
+   * 受ける。** 置かなければ 404 のままで、**既定は閉じている。**
+   *
+   * `STAGING_SEED_TOKEN` と違い、**production にも置いてよい** —
+   * 本番の 1 人目を作るための経路だから。ただし置きっぱなしにしない:
+   * `platform-bootstrap.yml` が実行のたびに作って登録し、**終わったら消す。**
+   * 手で登録した場合も、開通を確かめたら消すこと（runbook §6）。
+   *
+   * **`REQUIRED_SECRETS` に入れない。** 無くて閉じるのが正しい状態で、
+   * 必須にすると鍵を置くまで全リクエストが 503 になる。
+   */
+  PLATFORM_BOOTSTRAP_TOKEN: string;
 }
 
 /** Worker が受け取る env の全体。 */

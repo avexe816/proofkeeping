@@ -162,6 +162,7 @@ export { schemaVersion } from "./schema/meta.js";
 export {
   PLATFORM_OPERATOR_STATUSES,
   platformAuditLog,
+  platformBootstrapToken,
   platformOperationSetting,
   platformOperator,
   platformRecoveryCode,
