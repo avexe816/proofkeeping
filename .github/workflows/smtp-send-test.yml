@@ -1,0 +1,188 @@
+# 送信経路の確認（P5-23 / **固定の文面を 1 通だけ送る**）
+#
+# task:   docs/tasks/P5-23.md
+# 決定:   docs/DECISIONS.md #249
+# 手順書: docs/runbook/smtp.md §3
+#
+# ── 何のためか ──────────────────────────────────────────
+# `smtp-probe.yml` で確かめられるのは **AUTH が広告されているか**まで。
+# 認証が通るか・受理されるかは、実際に 1 通送るまで分からない。
+#
+# ── platform-bootstrap.yml を使わない ───────────────────
+# あちらは**1 人目専用で押し直せない**。認証が確かめられていない段階で
+# 使うと、失敗したときに券だけが消える。**押し直してよい経路**をここに置く。
+#
+# ── 出してはいけないもの ────────────────────────────────
+#   * **宛先** — `::add-mask::` でログから伏せる。応答にも含めない設計
+#     （`routes/api/v1/smtpSendTest.ts`）。
+#     ただし **workflow_dispatch の入力そのものは GitHub が実行の記録に
+#     残す**（リポジトリを見られる人には見える）。伏せられるのはログだけ。
+#   * **SMTP のパスワード** — この workflow は触らない（登録は人が行う）。
+#   * **ホスト名・利用者名・サーバーの応答全文** — 応答に含めない設計。
+#   * **管理鍵（SMTP_SEND_TEST_TOKEN）** — 生成した値を echo しない。
+#
+# **`set -x` を足さないこと。** 鍵と宛先が展開されて残る。
+name: smtp-send-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "対象の環境"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      to:
+        description: "確認メールの宛先（1 件だけ）"
+        required: true
+        type: string
+      confirm:
+        description: "SENDTEST と入力すると実行する"
+        required: true
+        type: string
+
+# **書き込みの権限を持たせない。**
+permissions:
+  contents: read
+
+jobs:
+  send-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 実行確認
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.confirm }}" != "SENDTEST" ]; then
+            echo "confirm に SENDTEST と入力されていません。何もせずに終了します。"
+            exit 1
+          fi
+          echo "対象環境: ${{ inputs.environment }}"
+          echo "宛先は伏せて実行します。"
+
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      - name: アカウント ID を正規化する
+        id: account
+        run: |
+          set -euo pipefail
+          raw='${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'
+          clean=$(printf '%s' "$raw" | tr -d '[:space:]"'"'"'')
+          echo "::add-mask::$clean"
+          echo "value=$clean" >> "$GITHUB_OUTPUT"
+
+      # ── 対象を確かめる（`smtp-probe.yml` と同じ形）──
+      - name: 対象を確かめる
+        id: target
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          CLOUDFLARE_ENV="${{ inputs.environment }}" pnpm build >/dev/null
+          name=$(jq -r .name build/server/wrangler.json)
+          base=$(jq -r '.vars.APP_BASE_URL' build/server/wrangler.json)
+          env_var=$(jq -r '.vars.ENVIRONMENT' build/server/wrangler.json)
+
+          echo "Worker 名: $name"
+          echo "APP_BASE_URL: $base"
+          echo "ENVIRONMENT: $env_var"
+
+          if [ "$env_var" != "${{ inputs.environment }}" ]; then
+            echo "焼き込まれた環境が選んだものと違います。中止します。"
+            exit 1
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+      # ── 鍵を登録して 1 回だけ叩く ───────────────────────
+      #
+      # **応答は成否・段階名・3 桁コードだけ**（口の側でそう作ってある）。
+      # ここでも `jq` で 3 つの値だけを読み、丸ごとは出さない。
+      - name: 確認メールを 1 通送る
+        id: send
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+          TARGET_BASE: ${{ steps.target.outputs.base }}
+          RECIPIENT: ${{ inputs.to }}
+        run: |
+          set -euo pipefail
+
+          # **宛先をログから伏せる。** 以後 $RECIPIENT は *** で置き換わる。
+          echo "::add-mask::$RECIPIENT"
+
+          # 1 回きりの管理鍵。**echo しない。**
+          send_token=$(openssl rand -hex 32)
+          echo "::add-mask::$send_token"
+
+          printf '%s' "$send_token" \
+            | pnpm exec wrangler secret put SMTP_SEND_TEST_TOKEN --env "${{ inputs.environment }}"
+
+          # 秘密を入れた直後は再デプロイが要る（実行中の版は古い env を持つ）。
+          CLOUDFLARE_ENV="${{ inputs.environment }}" pnpm build >/dev/null
+          pnpm exec wrangler deploy
+
+          # **宛先を引数に置かない**（`ps` に出る）。標準入力から渡す。
+          payload=$(jq -nc --arg to "$RECIPIENT" '{to: $to}')
+          code=$(printf '%s' "$payload" | curl -s -o /tmp/send-test.json -w "%{http_code}" \
+            -X POST "$TARGET_BASE/api/v1/dev/smtp-send-test" \
+            -H "content-type: application/json" \
+            -H "x-pk-smtp-send-test-token: $send_token" \
+            --data-binary @-)
+
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "確認の口へ到達できませんでした（鍵の登録か再デプロイ、宛先の形を確かめてください）。"
+            exit 1
+          fi
+
+          # **3 つの値だけを読む。** 応答を丸ごと出さない。
+          accepted=$(jq -r '.accepted' /tmp/send-test.json)
+          failed=$(jq -r '.failedAt // "none"' /tmp/send-test.json)
+          smtp_code=$(jq -r '.code // "none"' /tmp/send-test.json)
+          echo "accepted: $accepted"
+          echo "failedAt: $failed"
+          echo "code: $smtp_code"
+
+          if [ "$accepted" != "true" ]; then
+            echo "送信は受理されませんでした。**設定を推測で変えないでください。**"
+            echo "失敗した段階: $failed / 応答コード: $smtp_code"
+            echo "DISABLED なら SMTP_PASSWORD が未登録です（docs/runbook/smtp.md §3）。"
+            exit 1
+          fi
+          echo "SMTP が受理しました（DATA まで通りました）。"
+          echo "**配信・開封・バウンスはこれでは分かりません**（OPEN_QUESTIONS #118）。"
+
+      # ── 鍵を必ず消す（#247 の形）────────────────────────
+      #
+      # `--force` を付けない・`|| true` を付けない・**消えたことを名前で
+      # 確かめる。** 残っていれば赤にする。
+      - name: 管理鍵を削除する
+        if: always()
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          pnpm exec wrangler secret delete SMTP_SEND_TEST_TOKEN \
+            --env "${{ inputs.environment }}"
+
+          CLOUDFLARE_ENV="${{ inputs.environment }}" pnpm build >/dev/null
+          pnpm exec wrangler deploy
+
+          echo "登録済みの secret（名前だけ）:"
+          pnpm exec wrangler secret list --env "${{ inputs.environment }}" \
+            | tee /tmp/secret-names.json
+
+          if grep -q 'SMTP_SEND_TEST_TOKEN' /tmp/secret-names.json; then
+            echo "管理鍵が残っています。確認の口が開いたままです。"
+            echo "docs/runbook/smtp.md §5 の手順で手で消してください。"
+            exit 1
+          fi
+          echo "管理鍵は削除されています（名前が一覧にありません）。"

@@ -50,6 +50,15 @@ export interface SendMailResult {
   accepted: boolean;
   /** 失敗した段階。成功なら `null`。**応答の全文は持たない。** */
   failedAt: SmtpStage | "DISABLED" | "MIME" | null;
+  /**
+   * SMTP の応答コード（3 桁）。読めなければ `null`。
+   *
+   * **持つのは数字だけ。** 応答の文言は載せない — 拒否のとき宛先が
+   * そのまま echo されるため（`550 <someone@example.com> unknown mailbox`）。
+   * 送れないときに「認証で断られた（535）」と「宛先が無い（550）」を
+   * 運用者が区別できるだけの手掛かりに留める（P5-23）。
+   */
+  code: number | null;
 }
 
 /** SMTP の設定が揃っているか。**password が無ければ送らない。** */
@@ -87,7 +96,7 @@ export async function sendMail(
   input: SendMailInput,
   connect?: SocketConnect,
 ): Promise<SendMailResult> {
-  if (!canSendMail(env)) return { accepted: false, failedAt: "DISABLED" };
+  if (!canSendMail(env)) return { accepted: false, failedAt: "DISABLED", code: null };
 
   const from = env.MAIL_FROM;
   const cc = (input.cc ?? []).map((value) => value.trim()).filter((value) => value !== "");
@@ -101,7 +110,7 @@ export async function sendMail(
     messageIdLocalPart: input.messageIdLocalPart ?? randomLocalPart(),
   });
   // **組み立てに失敗したら送らない**（ヘッダに改行が混ざっていた等）。
-  if (!built.ok) return { accepted: false, failedAt: "MIME" };
+  if (!built.ok) return { accepted: false, failedAt: "MIME", code: null };
 
   const envelopeFrom = extractAddress(from);
   const outcome: SmtpOutcome = await sendViaSmtp(
@@ -118,5 +127,5 @@ export async function sendMail(
     connect,
   );
 
-  return { accepted: outcome.ok, failedAt: outcome.ok ? null : outcome.failedAt };
+  return { accepted: outcome.ok, failedAt: outcome.ok ? null : outcome.failedAt, code: outcome.code };
 }

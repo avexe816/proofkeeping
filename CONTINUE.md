@@ -1,6 +1,46 @@
 # CONTINUE
 
-## 2026-08-21 の追記 その 4（**この節が最新**）
+## 2026-08-21 の追記 その 5（**この節が最新**）
+
+### 送信経路の確認を PF-16 から切り離した（P5-23）
+
+**PR を出して止めてある**（人間の指示「merge・dispatch・実送信は行わない」）。
+
+| 事実 | 状態 |
+|---|---|
+| P5-21（Lark SMTP 移行） | **main へ squash merge 済み**（`80e94dc`）。main CI 3 本と staging デプロイとも緑 |
+| staging の疎通確認 | **通った**（`smtp-probe` / `CONNECT`・`TLS`・`GREETING`・`EHLO`・`AUTH` の広告まで） |
+| `SMTP_PROBE_TOKEN` | 実行後に削除済み（名前で確認） |
+| `SMTP_PASSWORD` | **未登録**（人間が `wrangler secret put` で入れる） |
+| 認証・実送信 | **未検証。** `AUTH LOGIN` は疎通確認では実行していない |
+| 新しい確認の口 | `POST /api/v1/dev/smtp-send-test` + `smtp-send-test.yml`（合言葉 `SENDTEST`） |
+
+**開通（PF-16）を実送信の確認に使わない**（DECISIONS #249）。あちらは
+1 人目専用で押し直せず、認証が未検証のまま押すと券だけが消える。
+
+### 次にやること（**この順**）
+
+1. **P5-23 の PR をレビューして merge**
+2. **`SMTP_PASSWORD` を staging へ登録**（人間 / `wrangler secret put`）
+3. **`smtp-send-test.yml` を staging で実行**（合言葉 `SENDTEST` / 宛先は
+   運用者自身のアドレス）。`accepted: true` になるまで PF-16 を押さない。
+   手順は `docs/runbook/smtp.md` §3
+4. 受理されたら **PF-16 の開通をもう一度**（宛先は人間が指定）
+5. 実送信が安定したら `RESEND_*` の削除を判断（**まだ消さない**）
+
+### 申し送り
+
+- **宛先は `workflow_dispatch` の入力そのものに残る。** ログでは
+  `::add-mask::` で伏せるが、GitHub の実行記録は伏せられない
+  （DECISIONS #249 決定 E）。確認には運用者自身のアドレスを使う
+- `sendMail()` の戻り値に **`code`（SMTP の 3 桁）が増えた。** 応答の
+  文言は載せていない（拒否のとき宛先が echo されるため）
+- **OPEN_QUESTIONS #118 / `docs/tasks/P5-22.md`**（配達・開封・バウンス）と
+  **PF-18**（`db-status` の「表の数」0 表示 / #116）は未着手のまま
+
+---
+
+## 2026-08-21 の追記 その 4（この節は古い）
 
 ### メールを Resend から Lark Mail SMTP へ移した（P5-21）
 

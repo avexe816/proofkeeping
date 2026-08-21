@@ -55,6 +55,10 @@ const API_EXEMPTIONS: Readonly<Record<string, string>> = {
   "smtpProbe.ts":
     "SMTP の疎通確認（P5-21）。**メールを送らず、テナントのデータに一切触れない**ので " +
     "判定する対象が無い。守っているのは管理鍵（鍵が無ければ 404）。返すのは真偽値だけ",
+  "smtpSendTest.ts":
+    "送信経路の確認（P5-23）。**固定の文面を送るだけで、テナントのデータに " +
+    "一切触れない**ので判定する対象が無い。守っているのは管理鍵（鍵が無ければ 404）。" +
+    "返すのは成否・段階名・3 桁コードだけ",
   "webhooks.ts": "署名で守る（security.md §7）",
   "integrationWebhooks.ts": "署名で守る（security.md §7）",
   "public.ts": "API キーのスコープで守る（DECISIONS #151）",

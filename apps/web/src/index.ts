@@ -57,6 +57,7 @@ import baselines from "./routes/api/v1/baselines.js";
 import dev from "./routes/api/v1/dev.js";
 import platformBootstrap from "./routes/api/v1/platformBootstrap.js";
 import smtpProbe from "./routes/api/v1/smtpProbe.js";
+import smtpSendTest from "./routes/api/v1/smtpSendTest.js";
 import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
 import dataQuality from "./routes/api/v1/dataQuality.js";
 import evidence from "./routes/api/v1/evidence.js";
@@ -171,6 +172,10 @@ app.route("/api/v1/platform", platformBootstrap);
 // SMTP の疎通確認（P5-21）。**鍵が無ければ 404。メールは送らない。**
 // 鍵は workflow が実行のたびに作って消す（`.github/workflows/smtp-probe.yml`）。
 app.route("/api/v1/dev", smtpProbe);
+
+// 送信経路の確認（P5-23）。**固定の文面を 1 通だけ送る。鍵が無ければ 404。**
+// 宛先は実行のたびに人が指定する（`.github/workflows/smtp-send-test.yml`）。
+app.route("/api/v1/dev", smtpSendTest);
 
 // Webhook（P5-10 / PK-SPEC-P5 §2.7）。**セッションを持たない経路。**
 // 守っているのは署名（security.md §7）。認証 middleware の前段に置く。

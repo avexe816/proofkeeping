@@ -189,6 +189,17 @@ export interface EnvSecrets {
    */
   SMTP_PROBE_TOKEN: string;
   /**
+   * 送信経路の確認（`POST /api/v1/dev/smtp-send-test`）を開ける鍵（P5-23）。
+   *
+   * **置かなければ 404。** workflow（`.github/workflows/smtp-send-test.yml`）が
+   * 実行のたびに作って登録し、**終わったら消す**（#247 の形）。
+   *
+   * `SMTP_PROBE_TOKEN` と分けてあるのは、**片方が開いたままでも
+   * もう片方は開かない**ようにするため。疎通確認はメールを送らないが、
+   * こちらは実際に 1 通送る。
+   */
+  SMTP_SEND_TEST_TOKEN: string;
+  /**
    * Resend の webhook 署名鍵（P5-10 / security.md §7）。
    *
    * Svix 形式（`whsec_` + base64）。**署名の検証を必須にする**ので、

@@ -169,7 +169,7 @@ jobs:
 
           if grep -q 'SMTP_PROBE_TOKEN' /tmp/secret-names.json; then
             echo "管理鍵が残っています。疎通確認の口が開いたままです。"
-            echo "docs/runbook/smtp.md §4 の手順で手で消してください。"
+            echo "docs/runbook/smtp.md §5 の手順で手で消してください。"
             exit 1
           fi
           echo "管理鍵は削除されています（名前が一覧にありません）。"

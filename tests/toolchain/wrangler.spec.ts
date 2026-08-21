@@ -50,6 +50,8 @@ const SECRET_NAMES = [
   // P5-21。**メール送信の秘密はこれ 1 本**（host / port / username は vars）。
   "SMTP_PASSWORD",
   "SMTP_PROBE_TOKEN",
+  // P5-23。送信経路の確認を開ける鍵（疎通確認とは別の鍵）。
+  "SMTP_SEND_TEST_TOKEN",
 ] as const;
 
 interface D1Entry {

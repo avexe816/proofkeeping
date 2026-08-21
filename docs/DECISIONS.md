@@ -6131,3 +6131,48 @@
   `packages/db/src/env.ts`・`wrangler.toml` 4 環境・`.dev.vars.example`。
   **`RESEND_API_KEY` / `RESEND_FROM_ADDRESS` / `RESEND_WEBHOOK_SECRET` は
   削除しない**（移行の完了と staging の実送信確認まで残す / 人間の指示）。
+
+## #249 送信の確認は開通（PF-16）で試さず、押し直してよい経路を別に置く
+
+- 日付: 2026-08-21
+- task: 新規 `docs/tasks/P5-23.md`
+- 由来: **オーナー判断。** P5-21 の staging 疎通確認（`smtp-probe`）は
+  `CONNECT` から `AUTH` の広告まで通った。次は実送信だが、**PF-16 の
+  開通を実送信テストに使わない**という指示。
+- 問題: `smtp-probe` は `AUTH LOGIN` を実行しないので、**認証が通るかは
+  未検証のまま。** ここで `platform-bootstrap.yml` を押すと、
+  1 人目専用で押し直せない操作を未検証の経路で消費することになる。
+- 決定 A（**確認専用の経路を分ける**）:
+  1. `POST /api/v1/dev/smtp-send-test` を足す。**鍵が無ければ 404**
+     （`dev.ts` のシード経路・`smtpProbe.ts` と同じ形 / #189・#245・#248）。
+  2. 鍵は **`SMTP_SEND_TEST_TOKEN`**。疎通確認の `SMTP_PROBE_TOKEN` と
+     **別にする** — 片方が開いたままでも、もう片方は開かない。
+  3. workflow は `.github/workflows/smtp-send-test.yml`、合言葉は
+     **`SENDTEST`**（`PROBE` / `BOOTSTRAP` と別。惰性で押せないように）。
+- 決定 B（**送る内容を入力で変えられなくする**）:
+  1. 件名・本文は `lib/mail/sendTest.ts` の定数。**リンクも token も
+     顧客のデータも帳票も含めない。** 走査で固定する。
+  2. **宛先だけ**が入力。コードに既定値を持たせない — 既定があると
+     押し間違いで意図しない相手へ送れる。
+- 決定 C（**SMTP の実装を分岐・複製しない**）:
+  `runSmtpSendTest()` は `sendMail()` をそのまま呼ぶだけにする。
+  **確認で通った道と本番で通る道が違っては、確認の意味が無い。**
+  走査で `sendViaSmtp` / `cloudflare:sockets` を書かせない。
+- 決定 D（**返すのは 3 つだけ**）:
+  `accepted` / `failedAt` / `code`。宛先・本文・SMTP の応答文字列は
+  返さない（拒否のとき宛先が echo されるため / #248 決定 F と同じ理由）。
+  そのために `SendMailResult` に **`code`（3 桁）を足した** —
+  「認証で断られた（535）」と「宛先が無い（550）」を運用者が区別できないと、
+  設定を推測で変える動きを誘発する。**応答の文言は載せない。**
+- 決定 E（**宛先はログでは伏せるが、隠せない場所がある**）:
+  workflow は `::add-mask::` で宛先をログから伏せ、`ps` に出ないよう
+  標準入力から渡す。ただし **`workflow_dispatch` の入力そのものは GitHub が
+  実行の記録に残す。** 伏せられるのはログだけなので、runbook に
+  「**確認には運用者自身のアドレスを使う**」と書いた。
+  隠せないものを隠せると書かない。
+- 決定 F（**Zod スキーマを contracts に置かない**）:
+  この経路は運用者だけが押す確認の口で、入力は `to` 1 つ。
+  `dev.ts` のシード経路と同じく、**契約に載せずルート内で検証する**
+  （契約は業務 API の型のためのもので、運用の口を載せると増える一方になる）。
+- 影響: `sendMail()` の戻り値に `code` が増える（既存の呼び出し側は
+  `accepted` / `failedAt` しか見ないので挙動は変わらない）。
