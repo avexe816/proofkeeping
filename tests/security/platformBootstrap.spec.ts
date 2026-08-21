@@ -193,7 +193,15 @@ describe("bootstrap の workflow（要件: ログ・summary・artifact へ出さ
   });
 
   it("パスワードも復旧コードも受け取らない（本人がブラウザで決める）", () => {
-    expect(steps).not.toMatch(/password/i);
+    // **名前が運用者向けの案内に出るのは構わない**（`DELIVERY_REJECTED` の
+    // ときに「`SMTP_PASSWORD` が登録されているか」を確かめさせる）。
+    // **扱ったら落とす** — 入力で受け取る・Actions secret から読む・
+    // 環境変数へ展開する・登録や削除をする、のいずれも許さない。
+    expect(steps).not.toMatch(/^\s*(password|pass|pin|recovery_code):/im);
+    expect(steps).not.toMatch(/secrets\.[A-Z_]*(PASSWORD|PIN)/);
+    expect(steps).not.toMatch(/\$\{?[A-Z_]*PASSWORD/);
+    expect(steps).not.toMatch(/secret (put|delete) [A-Z_]*PASSWORD/);
+    // 復旧コードと TOTP は名前ごと出さない（案内に要る場面が無い）。
     expect(steps).not.toMatch(/recovery/i);
     expect(steps).not.toMatch(/totp/i);
   });

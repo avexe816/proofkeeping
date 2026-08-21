@@ -61,7 +61,7 @@ ProofKeeping は、宿泊施設の清掃業務の記録を残し、
       ├ pdfSha256 を計算
       └ R2（DOCUMENTS バケット）へ保存
       ↓
-⑥ 送付（Queue: notification → Resend）
+⑥ 送付（Queue: notification → Lark Mail SMTP）
       └ DocumentDelivery に送付先・時刻・結果を記録
       ↓
 ⑦ status = SENT／AuditLog へ記録
