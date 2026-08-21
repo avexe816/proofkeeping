@@ -30,7 +30,8 @@ import { getEnv } from "../../lib/ui/cloudflare.js";
  * ── メール＋パスワード（PK-IMPL-CONTRACT §3.5）────────────
  * テナントの 3 フィールド（orgShortId＋スタッフ番号）を使わない —
  * 運営担当者はどの組織にも属さず、組織を解決できない。
- * 2FA は方式が仕様に無いのでまだ無い（OPEN_QUESTIONS #109）。
+ * パスワードが通っても発行されるのは `PASSWORD_ONLY` の札で、
+ * **第 2 要素（TOTP / PF-17・DECISIONS #241）を通って初めて入れる。**
  *
  * ── レート制限はテナントのログインと同じバケツ ───────────
  * `consumeRateLimit(env, "login", ip)`（10 req/分/IP / security.md §8）。
@@ -56,11 +57,13 @@ const FAILURE_MESSAGE: Record<LoginFailure, Parameters<typeof t>[0]> = {
 };
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
-  // すでに入っているなら入り口に留めない。
+  // すでに入っているなら入り口に留めない。第 2 要素の途中なら 2FA へ（PF-17）。
   const env = getEnv(context);
   const cookieValue = readPlatformSessionCookie(request.headers.get("Cookie"));
   const session = await readPlatformSession(env, cookieValue, new Date());
-  if (session !== null) throw redirect("/plat/status");
+  if (session !== null) {
+    throw redirect(session.state === "COMPLETE" ? "/plat/status" : "/plat/2fa");
+  }
   return null;
 }
 
@@ -86,7 +89,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const result = await platformLogin(env, { email: trimmedEmail, password, now, ip });
   if (!result.ok) return { failure: "REJECTED" } satisfies ActionData;
 
-  return redirect("/plat/status", {
+  // パスワードだけではまだ入れない（PF-17）。第 2 要素へ。
+  // 未登録なら登録から（TOTP は必須 — 任意にしない / DECISIONS #241）。
+  return redirect(result.requiresEnrollment ? "/plat/2fa/setup" : "/plat/2fa", {
     headers: {
       "Set-Cookie": buildPlatformSessionCookie(
         result.session.cookieValue,

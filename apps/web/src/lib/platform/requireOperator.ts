@@ -20,7 +20,7 @@
  * 無効化（`SUSPENDED`）は最長 12 時間待たずに効く。
  */
 
-import { findPlatformOperatorById, type Env } from "@pk/db";
+import { findPlatformOperatorById, type Env, type PlatformOperatorRow } from "@pk/db";
 
 import { readPlatformSession, readPlatformSessionCookie } from "./session.js";
 
@@ -49,13 +49,46 @@ export async function requirePlatformOperator(
   const cookieValue = readPlatformSessionCookie(request.headers.get("Cookie"));
   const session = await readPlatformSession(env, cookieValue, now);
   if (session === null) throw notFound();
+  // **第 2 要素を通っていない札を通さない**（PF-17 の完了条件）。
+  // パスワードだけの段階が入れるのは `/plat/2fa` と `/plat/2fa/setup` だけで、
+  // そちらは `requirePlatformSecondFactorStage()` を使う。
+  if (session.state !== "COMPLETE") throw notFound();
 
   const operator = await findPlatformOperatorById(env, session.operatorId);
   if (operator === null || operator.status !== "ACTIVE") throw notFound();
+  // COMPLETE は登録済みでしか発行されないが、**状態の巻き戻りに備えて
+  // 毎リクエスト引き直した行でも確かめる**（#020 と同じ向き）。
+  if (operator.twoFactorConfirmedAt === null) throw notFound();
 
   return {
     operatorId: operator.id,
     displayName: operator.displayName,
     email: operator.email,
   };
+}
+
+/**
+ * 第 2 要素の画面（`/plat/2fa` / `/plat/2fa/setup`）の門。
+ *
+ * パスワードだけ通った段階の札を要求する。無ければ **404**
+ * （`requirePlatformOperator()` と同じ — 理由を返さない）。
+ * `COMPLETE` の札で来たら `null` を返す（呼び出し側がログイン後の画面へ
+ * 送り返す。もう入り終わっている相手に第 2 要素を聞き直さない）。
+ *
+ * @throws {Response} 404（セッションが無い・切れた・担当者が無効）
+ */
+export async function requirePlatformSecondFactorStage(
+  env: Env,
+  request: Request,
+  now: Date,
+): Promise<{ operator: PlatformOperatorRow; cookieValue: string } | null> {
+  const cookieValue = readPlatformSessionCookie(request.headers.get("Cookie"));
+  const session = await readPlatformSession(env, cookieValue, now);
+  if (session === null || cookieValue === null) throw notFound();
+  if (session.state === "COMPLETE") return null;
+
+  const operator = await findPlatformOperatorById(env, session.operatorId);
+  if (operator === null || operator.status !== "ACTIVE") throw notFound();
+
+  return { operator, cookieValue };
 }

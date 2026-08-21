@@ -167,6 +167,11 @@ wrangler secret put VAPID_PUBLIC_KEY --env production
 wrangler secret put VAPID_PRIVATE_KEY --env production
 wrangler secret put VAPID_SUBJECT --env production
 
+# 運営担当者の TOTP secret の暗号化鍵（PF-17 / DECISIONS #244）。
+# base64url の 32 バイト。**SESSION_SECRET を流用しない。**
+# 生成: openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
+wrangler secret put TWO_FACTOR_ENCRYPTION_KEY --env production
+
 cd "$(git rev-parse --show-toplevel)"   # ルートへ戻る
 ```
 
@@ -239,6 +244,7 @@ cd apps/web
 wrangler secret put SESSION_SECRET --env staging        # 必須。無いと 503
 wrangler secret put STAGING_SEED_TOKEN --env staging    # シード投入の鍵
 wrangler secret put CREDENTIAL_ENCRYPTION_KEY --env staging
+wrangler secret put TWO_FACTOR_ENCRYPTION_KEY --env staging  # PF-17。運営の 2FA に必須
 wrangler secret put VAPID_PUBLIC_KEY --env staging
 wrangler secret put VAPID_PRIVATE_KEY --env staging
 wrangler secret put VAPID_SUBJECT --env staging

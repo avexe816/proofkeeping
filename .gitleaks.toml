@@ -43,4 +43,14 @@ regexes = [
   # observations.spec.ts の `Idempotency-Key`。**そもそも秘密ではない。**
   # 冪等性の鍵で、クライアントが採番して平文で送る（CLAUDE.md §5）。
   '''8f0f0d5e-0d2e-4a9f-9a04-0c5d1a7d2b31''',
+
+  # totp.spec.ts / twoFactor.spec.ts の TOTP テスト秘密（PF-17）。
+  # base32 を戻すと ASCII の `12345678901234567890`。
+  # **RFC 6238 Appendix B に印刷されている公開テストベクタ**で、本物ではない。
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',
+
+  # .dev.vars.example の TWO_FACTOR_ENCRYPTION_KEY のひな形（PF-17）。
+  # base64url を戻すと ASCII の `dev-only-2fa-totp-key-32-bytes!!`。
+  # **32 バイトであることだけが要件**のローカル開発用の値。
+  '''ZGV2LW9ubHktMmZhLXRvdHAta2V5LTMyLWJ5dGVzISE''',
 ]

@@ -1,6 +1,52 @@
 # CONTINUE
 
-## 2026-08-20 の追記 その 3（**この節が最新**）
+## 2026-08-21 の追記（**この節が最新**）
+
+### 実装順の決定（人間の指示 2026-08-21）
+
+**PF-17 → PF-16 → staging で最初の operator を開通 →
+/plat/usage を含む既存 /plat 画面の目視確認 → PF-06。**
+あわせて以下を**行わない**と決定済み:
+`secrets-and-seed` の再実行 / `SESSION_SECRET` の回転 / 暫定 operator の作成。
+
+### 事実の訂正（下の節の記載を上書きする）
+
+1. **staging の `platform_operator` は、既存の workflow 実行履歴上、
+   未作成と判断**（2026-08-21）。`secrets-and-seed` の最終実行は
+   運営担当者シードの実装より前で、以後シードは流れていない。
+   **DB を直接照会した結果ではない**（そのための口が無い — 次項）。
+2. **件数を直接確認する既存の読み取り専用 phase は無い。**
+   `staging-bootstrap.yml` の `check` / `db-status` / `smoke` は
+   `platform_operator` の件数を出さない。
+3. 下の「PF-01 の申し送り」に、`operator@seed.invalid` が**現在 staging に
+   存在するように読める記載**があったが、存在は確認されていない
+   （1 のとおり「実行履歴上、未作成と判断」が正。該当行は訂正済み）。
+4. **`/plat/usage` の未ログイン 404 は確認済み。**
+5. **ログイン後の「未計測」表示と既存 /plat 画面の目視確認は
+   PF-16 完了後に行う**（staging に operator が居ないため、先に開通が要る）。
+6. **運営面のログイン・bootstrap の runbook は PF-16 で追加する。**
+
+### PF-17 の申し送り
+
+- migration **0034**（`platform_operator` の 2FA 4 列 /
+  `platform_recovery_code` 新設）。**staging へは未適用。**
+  PF-16 の開通より前に当てること（このセッションは staging / production への
+  dispatch 禁止の指示により実行していない）。
+- **`TWO_FACTOR_ENCRYPTION_KEY`（TOTP secret の暗号化鍵）も staging 未登録。**
+  `staging-bootstrap.yml` の新 phase **`secret-2fa`**（confirm: CREATE）が
+  この鍵 1 つだけを登録して再デプロイする（**`secrets-and-seed` を再実行
+  しないこと** — SESSION_SECRET が回る）。**0034 と併せて PF-16 開通の前提。**
+  レビュー反映の詳細（原子的なステップ消費・secret の AES-GCM 暗号化）は
+  DECISIONS #244。
+- 運営セッションはレコード v2（`PASSWORD_ONLY` 10 分 / `COMPLETE` 12 時間）。
+  **v1 の札は無効。** 現時点で影響する利用者は居ない（上記 1）。
+- シードで作る operator は TOTP 未登録のまま。**初回ログインで登録を通るのが正**
+  （PF-16 の完了条件とも整合）。
+- 実装パラメータの判断は DECISIONS #243、作業ログは `docs/tasks/PF-17.md`。
+
+---
+
+## 2026-08-20 の追記 その 3（この節は古い）
 
 ### 最終状態
 
@@ -87,7 +133,7 @@
 
 ---
 
-## 2026-08-20 の追記 その 2（**この節が最新**）
+## 2026-08-20 の追記 その 2（この節は古い）
 
 ### 最終状態
 
@@ -182,9 +228,11 @@ git fetch origin && git checkout main && git pull
 
 ### PF-01 の申し送り
 
-- **運営担当者を作る画面がまだ無い。** 増員はシード（local / staging の
-  `POST /api/v1/dev/seed` が `operator@seed.invalid` を 1 名作る。パスワードは
-  管理者と同じ）か PF-14 待ち。**本番の 1 人目をどう作るかは未定。**
+- **運営担当者を作る画面がまだ無い。** シードのコードは local / staging の
+  `POST /api/v1/dev/seed` で `operator@seed.invalid` を 1 名**作れる**が、
+  **staging では既存の workflow 実行履歴上、未作成と判断**（2026-08-21 訂正。
+  シード実装より前の実行しか無い。DB の直接照会結果ではない）。
+  本番の 1 人目は bootstrap（PF-16 / DECISIONS #240）で作る。
 - 2FA は列だけ（OPEN_QUESTIONS #109）。方式が決まったら
   `lib/platform/login.ts` と `routes/plat/login.tsx` の 2 か所に入る。
 - ナビ 12 項目のうちルートが在るのは `/plat/status` だけ。**残り 11 本は

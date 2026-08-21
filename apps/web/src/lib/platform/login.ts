@@ -23,11 +23,15 @@
  * ── HTTP を知らない ─────────────────────────────────────
  * ステータスコードもヘッダも扱わない。写像は `routes/plat/login.tsx`。
  * レート制限も呼び出し側（IP を知っているのはハンドラだけ）。
+ *
+ * ── ここで終わらない（PF-17）────────────────────────────
+ * パスワードが通っても発行するのは **`PASSWORD_ONLY` の札**で、
+ * ログインは第 2 要素（TOTP / 復旧コード）を通って初めて成立する。
+ * 第 2 要素は `lib/platform/twoFactor.ts`。
  */
 
 import {
   findPlatformOperatorByEmail,
-  recordPlatformAudit,
   recordPlatformLoginAttempt,
   type Env,
   type RandomBytes,
@@ -35,6 +39,7 @@ import {
 
 import { verifyPassword } from "../auth/password.js";
 
+import { auditQuietly, platformAuditId } from "./audit.js";
 import { createPlatformSession, type CreatedPlatformSession } from "./session.js";
 
 /** アカウントロックの方針（security.md §2）。**設定項目にしない。** */
@@ -55,9 +60,21 @@ export const PLATFORM_LOCK_POLICY = {
 const DUMMY_PASSWORD_HASH =
   "pbkdf2$sha256$5000$Rr7wMbHbxvvhcJdJQyvOsw$0kPq2y6cRA2wYbqjZ2SLQWtbfvNJd5B3XmiT5jSjxxE";
 
-/** ログインの結果。**失敗の内訳を持たせない。** */
+/**
+ * ログインの結果。**失敗の内訳を持たせない。**
+ *
+ * 成功はパスワード段階の札（`PASSWORD_ONLY`）で、まだログイン後の画面には
+ * 入れない（PF-17）。`requiresEnrollment` が true なら `/plat/2fa/setup` へ、
+ * false なら `/plat/2fa` へ送る。判断は呼び出し側（ルート）。
+ */
 export type PlatformLoginResult =
-  | { ok: true; session: CreatedPlatformSession; operatorId: string }
+  | {
+      ok: true;
+      session: CreatedPlatformSession;
+      operatorId: string;
+      /** TOTP が未登録（初回）。登録画面へ送ること。 */
+      requiresEnrollment: boolean;
+    }
   | { ok: false; reason: "AUTH_FAILED" };
 
 const FAILED: PlatformLoginResult = { ok: false, reason: "AUTH_FAILED" };
@@ -71,15 +88,6 @@ export interface PlatformLoginInput {
   ip?: string | undefined;
   /** 監査ログの ID を作る。テスト以外では既定を使う。 */
   randomBytes?: RandomBytes | undefined;
-}
-
-function auditId(now: Date, randomBytes: RandomBytes | undefined): string {
-  const bytes = (randomBytes ?? ((size: number) => crypto.getRandomValues(new Uint8Array(size))))(
-    12,
-  );
-  let suffix = "";
-  for (const byte of bytes) suffix += byte.toString(16).padStart(2, "0");
-  return `plat_audit_${String(now.getTime())}_${suffix}`;
 }
 
 /**
@@ -123,7 +131,7 @@ export async function platformLogin(
     // 残らないと総当たりに気づけない（テナント面は 5 回目だけ記録するが、
     // こちらは母数が桁違いに小さいので毎回残す）。
     await auditQuietly(env, {
-      id: auditId(input.now, input.randomBytes),
+      id: platformAuditId(input.now, input.randomBytes),
       operatorId: operator.id,
       action: "platform.login.failed",
       now: input.now,
@@ -139,31 +147,19 @@ export async function platformLogin(
     maxAttempts: PLATFORM_LOCK_POLICY.maxFailures,
     lockMs: PLATFORM_LOCK_POLICY.lockSeconds * 1000,
   });
-  await auditQuietly(env, {
-    id: auditId(input.now, input.randomBytes),
+
+  // **`platform.login` はここでは書かない。** ログインが成立するのは
+  // 第 2 要素を通ったとき（`lib/platform/twoFactor.ts`）。パスワード段階で
+  // 書くと、2FA を通れなかった試行が監査上「ログイン成功」に見える。
+  const session = await createPlatformSession(env, {
     operatorId: operator.id,
-    action: "platform.login",
+    state: "PASSWORD_ONLY",
     now: input.now,
-    ...(input.ip === undefined ? {} : { ip: input.ip }),
   });
-
-  const session = await createPlatformSession(env, { operatorId: operator.id, now: input.now });
-  return { ok: true, session, operatorId: operator.id };
-}
-
-/**
- * 監査の失敗で認証を壊さない。
- *
- * ここで投げると、記録できないときだけ応答が 500 になり、**失敗の理由が
- * 応答から読める**（`AUTH_FAILED` 一本の原則が崩れる）。
- */
-async function auditQuietly(
-  env: Env,
-  input: Parameters<typeof recordPlatformAudit>[1],
-): Promise<void> {
-  try {
-    await recordPlatformAudit(env, input);
-  } catch {
-    // 握りつぶす（上の注記）。
-  }
+  return {
+    ok: true,
+    session,
+    operatorId: operator.id,
+    requiresEnrollment: operator.twoFactorConfirmedAt === null,
+  };
 }

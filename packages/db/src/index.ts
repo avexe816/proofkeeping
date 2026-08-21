@@ -164,6 +164,7 @@ export {
   platformAuditLog,
   platformOperationSetting,
   platformOperator,
+  platformRecoveryCode,
   platformTenantSnapshot,
   type PlatformOperatorStatus,
 } from "./schema/platform.js";

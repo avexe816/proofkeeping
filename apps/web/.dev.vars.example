@@ -15,6 +15,12 @@ RESEND_API_KEY="dev-only-resend-key"
 # CREDENTIALS KV に置く外部連携の資格情報を暗号化する鍵（security.md §7）。
 CREDENTIAL_ENCRYPTION_KEY="dev-only-credential-encryption-key"
 
+# 運営担当者の TOTP secret の暗号化鍵（PF-17）。base64url の 32 バイト。
+# この値は ASCII `dev-only-2fa-totp-key-32-bytes!!` の base64url（ローカル専用）。
+# staging / production へは `openssl rand -base64 32 | tr '+/' '-_' | tr -d '='` で
+# 生成し、`wrangler secret put TWO_FACTOR_ENCRYPTION_KEY --env <env>` で入れる。
+TWO_FACTOR_ENCRYPTION_KEY="ZGV2LW9ubHktMmZhLXRvdHAta2V5LTMyLWJ5dGVzISE"
+
 # Sentry の DSN。空でよい（採用可否は PK-SPEC-P0 §20 で未決）。
 SENTRY_DSN=""
 

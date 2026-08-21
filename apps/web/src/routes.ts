@@ -126,6 +126,9 @@ export default [
   // PF-01。運営面の入口。**シェルの外**（門を通すと 404 で入れない）。
   route("plat/login", "routes/plat/login.tsx"),
   route("plat/logout", "routes/plat/logout.ts"),
+  // PF-17。第 2 要素（TOTP）。パスワード段階の札で入るので**シェルの外**。
+  route("plat/2fa", "routes/plat/twoFactor.tsx"),
+  route("plat/2fa/setup", "routes/plat/twoFactorSetup.tsx"),
   // P5-17。確認依頼のメールリンク（認証不要・署名で守る）。layout の外。
   route("r/billing/:billingPeriodId", "routes/review/billingReview.tsx"),
   // PF-01。運営面のシェル。PF-03〜PF-14 がここへ 11 本足す。
@@ -133,6 +136,8 @@ export default [
     route("plat/status", "routes/plat/status.tsx"),
     route("plat/tenants", "routes/plat/tenants.tsx"),
     route("plat/usage", "routes/plat/usage.tsx"),
+    // PF-17。復旧コードの残数と再発行。**ログイン後の領域**（門の内側）。
+    route("plat/2fa/recovery", "routes/plat/recoveryCodes.tsx"),
   ]),
   layout("routes/m/layout.tsx", [
     route("m/today", "routes/m/today.tsx"),
