@@ -6029,3 +6029,35 @@
   `.github/workflows/platform-bootstrap.yml` /
   `docs/runbook/platform-bootstrap.md` §1・§8 / 対応するテスト。
   **DB とマイグレーションは変わらない。**
+
+
+## #247 cleanup の失敗を握りつぶさない・消えたことを名前で確かめる
+
+- 日付: 2026-08-21
+- task: `docs/tasks/PF-16.md`（staging の実行で発覚）
+- 由来: **実際に起きた事故。** `platform-bootstrap.yml` の cleanup が
+  `wrangler secret delete PLATFORM_BOOTSTRAP_TOKEN --env <env> --force || true`
+  だった。`secret delete` に `--force` は無く（wrangler 4.123.0 が
+  `Unknown argument: force`）、**削除は 1 度も走らないままステップは緑になり、
+  管理鍵が staging に残った。** 削除後に出していた一覧にも名前が写っていたが、
+  緑だったので見落としやすい状態だった（人間が Dashboard から手で削除して復旧）。
+- 決定:
+  1. **`--force` を外す。** runbook §9 に書いてある形（引数なし）が正しい。
+  2. **`|| true` を外す。** 消せなかったことを success にしない。
+     握りつぶした先が「開いたままの扉」である以上、赤で止めるほうがよい。
+  3. **終了コードだけを信じない。** 再デプロイのあとに
+     `wrangler secret list --env <environment>` を取り、
+     **名前が消えていることまで見て**初めて cleanup 成功とする。
+     残っていれば `exit 1` し、runbook §9 の手順を案内する。
+  4. 環境は `inputs.environment` をそのまま使う。**片方だけ固定値にしない** —
+     staging / production のどちらでも同じ検査が働くこと。
+  5. `if: always()` は**そのまま**（発行が落ちても鍵は消す）。
+     `set -x` も入れない（鍵が展開されて残る）。
+  6. 出すのは名前と型だけ。**secret の値は 1 つも出力しない。**
+- 影響: `.github/workflows/platform-bootstrap.yml` の cleanup ステップと、
+  `tests/security/platformBootstrap.spec.ts` の 4 件（`--force` の不在 /
+  `|| true` の不在 / 名前の不在確認 / 環境を焼き込まない）。
+  **bootstrap のロジックそのものは変えていない。**
+- 付随: この実行は開通そのものも `DELIVERY_REJECTED` で失敗している。
+  原因の候補は staging の `RESEND_FROM_ADDRESS` が実在しないこと
+  （OPEN_QUESTIONS #117）。**この PR では推測して変更しない。**

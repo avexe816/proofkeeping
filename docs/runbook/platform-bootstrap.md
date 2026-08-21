@@ -203,8 +203,15 @@ cd apps/web
 wrangler secret list --env <env> | grep PLATFORM_BOOTSTRAP_TOKEN
 ```
 
-workflow は `if: always()` で削除するが、**runner が落ちた場合は残る。**
-名前が出たら手で消し、再デプロイする。
+workflow は `if: always()` で削除し、**削除したあとに名前が消えたことまで
+確かめて赤／緑を決める**（DECISIONS #247）。それでも **runner が落ちた場合は
+残る。** 名前が出たら手で消し、再デプロイする。
+
+**2026-08-21 に実際に残した。** 当時の cleanup は
+`wrangler secret delete … --force || true` で、`--force` が
+`Unknown argument: force` で弾かれ、**削除が走らないままステップが緑**に
+なっていた。いまは `--force` も `|| true` も無く、名前が残っていれば
+cleanup が `exit 1` する。**下のコマンドが正**（引数は付けない）。
 
 ```bash
 wrangler secret delete PLATFORM_BOOTSTRAP_TOKEN --env <env>
