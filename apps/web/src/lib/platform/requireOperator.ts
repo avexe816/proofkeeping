@@ -15,6 +15,11 @@
  * 見に行かない**のは #220 の分離そのもの（見た時点で運営面がテナント面の
  * 名前を知ることになる）。
  *
+ * ── 第 2 要素は環境で切り替わる（PF-19）──────────────────
+ * `PLATFORM_2FA_REQUIRED="false"`（production 以外）のときは、TOTP の
+ * 登録済みかどうかを見ない。**門そのもの（`COMPLETE` の札を要求すること）は
+ * 変わらない。** 判定は `twoFactorPolicy.ts` の 1 か所。
+ *
  * ── 毎リクエスト状態を引き直す ──────────────────────────
  * セッションに表示名も状態も焼き込まない（#020 と同じ向き）。
  * 無効化（`SUSPENDED`）は最長 12 時間待たずに効く。
@@ -23,6 +28,7 @@
 import { findPlatformOperatorById, type Env, type PlatformOperatorRow } from "@pk/db";
 
 import { readPlatformSession, readPlatformSessionCookie } from "./session.js";
+import { isPlatformTwoFactorRequired } from "./twoFactorPolicy.js";
 
 /** 画面に渡す運営担当者。**`passwordHash` を含めない。** */
 export interface PlatformContext {
@@ -58,7 +64,13 @@ export async function requirePlatformOperator(
   if (operator === null || operator.status !== "ACTIVE") throw notFound();
   // COMPLETE は登録済みでしか発行されないが、**状態の巻き戻りに備えて
   // 毎リクエスト引き直した行でも確かめる**（#020 と同じ向き）。
-  if (operator.twoFactorConfirmedAt === null) throw notFound();
+  //
+  // **第 2 要素を要求しない環境では、この 1 行だけを外す**（PF-19 / #250）。
+  // 上の `state !== "COMPLETE"` は外さない — 切り替え前に発行された
+  // `PASSWORD_ONLY` の札を通さないため。
+  if (isPlatformTwoFactorRequired(env) && operator.twoFactorConfirmedAt === null) {
+    throw notFound();
+  }
 
   return {
     operatorId: operator.id,

@@ -6176,3 +6176,50 @@
   （契約は業務 API の型のためのもので、運用の口を載せると増える一方になる）。
 - 影響: `sendMail()` の戻り値に `code` が増える（既存の呼び出し側は
   `accepted` / `failedAt` しか見ないので挙動は変わらない）。
+
+## #250 運営面の 2FA は消さず、要求するかどうかを環境で切り替える
+
+- 日付: 2026-08-21
+- task: 新規 `docs/tasks/PF-19.md`
+- 由来: **オーナー判断。** staging で PF-17 の TOTP 登録が繰り返し通らず、
+  開通した運営担当者が `/plat/*` へ入れないままになった。運用を進めたいが、
+  **実装を消すのではなく無効化できるスイッチを入れる**という指示。
+- なぜ消さないか（指示の理由をそのまま採る）:
+  1. 削除には破壊的 migration が要り、戻すのが高くつく
+  2. セッションを 2 段階から 1 段階へ畳むと権限判定に穴が出やすい
+  3. 将来また有効化したい
+- 決定 A（**切るのは「誰に `COMPLETE` を出すか」だけ**）:
+  1. `PLATFORM_2FA_REQUIRED`（vars）を足す。**既定は `"true"`。**
+  2. 判定は `lib/platform/twoFactorPolicy.ts` の
+     `isPlatformTwoFactorRequired()` **1 か所**。読む場所は 5 つ
+     （`login.ts` / `bootstrap.ts` / `requireOperator.ts` と、
+     `routes/plat/login.tsx` / `routes/plat/bootstrap.tsx`）。
+  3. **`requirePlatformOperator()` の `state !== "COMPLETE"` は外さない。**
+     外すのは `twoFactorConfirmedAt === null` の 1 行だけ。
+     **切替前に発行された `PASSWORD_ONLY` の札は `false` でも通らない。**
+  4. 寿命は `state` が決めるので、`COMPLETE` は 12 時間のまま。
+     **無効化のために別の長さを作らない。**
+- 決定 B（**片方だけ通る状態を作らない**）:
+  `false` のときは `twoFactorConfirmedAt` を**見ない。** 登録済みの
+  運営担当者にも TOTP を要求しない。「登録済みの人だけ要求する」形にすると、
+  同じ環境で 2 通りの入り方が並び、どちらが正か分からなくなる。
+- 決定 C（**production は var を読まない**）:
+  `ENVIRONMENT === "production"` なら値を見ずに `true`。
+  wrangler.toml と runbook への明記（指示の要件 7）に加えて**コードでも
+  固定する** — 設定ファイルの取り違え 1 回で本番の 2FA が外れる形を残さない。
+  読めない値（空・未設定・`"FALSE"`・`"off"`）も**すべて要求する側へ倒す。**
+- 決定 D（**記録する**）:
+  `false` のときのログイン成立点で `platform.login` を書き、
+  `detail: { secondFactor: "NONE", twoFactorRequired: false }` を残す。
+  **secret・TOTP・復旧コードは入れない**（security.md §6）。
+  成立点が `twoFactor.ts` から `login.ts` / `bootstrap.ts` へ移るので、
+  「2FA を通れなかった試行が成功に見える」問題（#241 の理由）は起きない。
+- 消していないもの: `lib/platform/twoFactor.ts` / `totpSecretBox.ts` /
+  `lib/auth/totp.ts` / `platform_recovery_code` /
+  `platform_operator` の 2FA 4 列 / migration 0034 / `/plat/2fa*` の画面。
+  **新しい migration も作っていない**（vars の追加だけ）。
+- 検査: `twoFactorPolicy.spec.ts`（5）と、`requireOperator.spec.ts` に
+  **`false` でも落ち続ける 7 通り**（セッション無し・テナントの Cookie・
+  期限切れ・`PASSWORD_ONLY`・`SUSPENDED`・行が無い・署名破損）。
+  門を弱めると ④ が落ちることを確認済み。
+  `tests/toolchain/wrangler.spec.ts` が **`"false"` は staging だけ**を固定する。

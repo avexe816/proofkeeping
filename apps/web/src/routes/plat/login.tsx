@@ -91,7 +91,16 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   // パスワードだけではまだ入れない（PF-17）。第 2 要素へ。
   // 未登録なら登録から（TOTP は必須 — 任意にしない / DECISIONS #241）。
-  return redirect(result.requiresEnrollment ? "/plat/2fa/setup" : "/plat/2fa", {
+  //
+  // **第 2 要素を要求しない環境ではログイン後の画面へ**（PF-19 / #250）。
+  // そのとき札は既に `COMPLETE`。`requiresEnrollment` は見ない
+  // （登録済みでも未登録でも同じ扱い — 片方だけ通る状態を作らない）。
+  const next = result.secondFactorRequired
+    ? result.requiresEnrollment
+      ? "/plat/2fa/setup"
+      : "/plat/2fa"
+    : "/plat/status";
+  return redirect(next, {
     headers: {
       "Set-Cookie": buildPlatformSessionCookie(
         result.session.cookieValue,

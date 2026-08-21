@@ -41,6 +41,7 @@ import { verifyPassword } from "../auth/password.js";
 
 import { auditQuietly, platformAuditId } from "./audit.js";
 import { createPlatformSession, type CreatedPlatformSession } from "./session.js";
+import { isPlatformTwoFactorRequired } from "./twoFactorPolicy.js";
 
 /** アカウントロックの方針（security.md §2）。**設定項目にしない。** */
 export const PLATFORM_LOCK_POLICY = {
@@ -66,6 +67,9 @@ const DUMMY_PASSWORD_HASH =
  * 成功はパスワード段階の札（`PASSWORD_ONLY`）で、まだログイン後の画面には
  * 入れない（PF-17）。`requiresEnrollment` が true なら `/plat/2fa/setup` へ、
  * false なら `/plat/2fa` へ送る。判断は呼び出し側（ルート）。
+ *
+ * **第 2 要素を要求しない環境では `secondFactorRequired` が false** で、
+ * 札は `COMPLETE`。呼び出し側はログイン後の画面へ送る（PF-19 / #250）。
  */
 export type PlatformLoginResult =
   | {
@@ -74,6 +78,13 @@ export type PlatformLoginResult =
       operatorId: string;
       /** TOTP が未登録（初回）。登録画面へ送ること。 */
       requiresEnrollment: boolean;
+      /**
+       * 第 2 要素をこの先で要求するか（PF-19）。
+       *
+       * false なら `session` は既に `COMPLETE` で、`requiresEnrollment` は
+       * **見ない**（登録済みでも未登録でも同じ扱い / #250 決定 B）。
+       */
+      secondFactorRequired: boolean;
     }
   | { ok: false; reason: "AUTH_FAILED" };
 
@@ -151,9 +162,29 @@ export async function platformLogin(
   // **`platform.login` はここでは書かない。** ログインが成立するのは
   // 第 2 要素を通ったとき（`lib/platform/twoFactor.ts`）。パスワード段階で
   // 書くと、2FA を通れなかった試行が監査上「ログイン成功」に見える。
+  //
+  // **ただし第 2 要素を要求しない環境では、ここが成立点**（PF-19）。
+  // その場合だけ `COMPLETE` を出し、`platform.login` もここで書く。
+  const secondFactorRequired = isPlatformTwoFactorRequired(env);
+
+  if (!secondFactorRequired) {
+    // **detail に入れてよいのは「要求しなかった」ことだけ。** secret も
+    // TOTP も復旧コードも入れない（security.md §6 / 要件 6）。
+    await auditQuietly(env, {
+      id: platformAuditId(input.now, input.randomBytes),
+      operatorId: operator.id,
+      action: "platform.login",
+      detail: { secondFactor: "NONE", twoFactorRequired: false },
+      now: input.now,
+      ...(input.ip === undefined ? {} : { ip: input.ip }),
+    });
+  }
+
   const session = await createPlatformSession(env, {
     operatorId: operator.id,
-    state: "PASSWORD_ONLY",
+    // **寿命は state が決める。** `COMPLETE` は 12 時間で、2FA を通った
+    // ときと同じ（`session.ts`）。ここで別の長さを作らない。
+    state: secondFactorRequired ? "PASSWORD_ONLY" : "COMPLETE",
     now: input.now,
   });
   return {
@@ -161,5 +192,6 @@ export async function platformLogin(
     session,
     operatorId: operator.id,
     requiresEnrollment: operator.twoFactorConfirmedAt === null,
+    secondFactorRequired,
   };
 }

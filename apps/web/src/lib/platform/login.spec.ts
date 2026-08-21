@@ -23,7 +23,8 @@ vi.mock("@pk/db", () => ({
 
 const { hashPassword } = await import("../auth/password.js");
 const { PLATFORM_LOCK_POLICY, platformLogin } = await import("./login.js");
-const { PLATFORM_SESSION_COOKIE_NAME, readPlatformSession } = await import("./session.js");
+const { PLATFORM_SESSION_COOKIE_NAME, PLATFORM_SESSION_TTL_SECONDS, readPlatformSession } =
+  await import("./session.js");
 const { createFakeKv } = await import("../auth/test-support/fake-kv.js");
 
 type Env = import("@pk/db").Env;
@@ -227,5 +228,86 @@ describe("失敗の記録", () => {
 describe("Cookie 名", () => {
   it("テナントの `pk_session` と別名（DECISIONS #220 の 3）", () => {
     expect(PLATFORM_SESSION_COOKIE_NAME).toBe("pk_plat_session");
+  });
+});
+
+/**
+ * 第 2 要素を要求しない環境（PF-19 / DECISIONS #250）。
+ *
+ * **ここがログインの成立点になる。** 札は `COMPLETE`、寿命は 2FA を
+ * 通ったときと同じ 12 時間、監査は `platform.login` を 1 本。
+ */
+describe("PLATFORM_2FA_REQUIRED=false（staging）", () => {
+  beforeEach(() => {
+    env = {
+      SESSION: kv.namespace,
+      SESSION_SECRET: "test-secret",
+      ENVIRONMENT: "staging",
+      PLATFORM_2FA_REQUIRED: "false",
+    } as unknown as Env;
+  });
+
+  it("**`COMPLETE` の札を出す**（第 2 要素へ送らない）", async () => {
+    const result = await platformLogin(env, { email: EMAIL, password: PASSWORD, now: NOW });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.session.record.state).toBe("COMPLETE");
+    expect(result.secondFactorRequired).toBe(false);
+  });
+
+  it("**寿命は既存の `COMPLETE` と同じ 12 時間**（別の長さを作らない）", async () => {
+    const result = await platformLogin(env, { email: EMAIL, password: PASSWORD, now: NOW });
+    if (!result.ok) return;
+    expect(result.session.maxAgeSeconds).toBe(PLATFORM_SESSION_TTL_SECONDS);
+  });
+
+  it("**TOTP 未登録でも `COMPLETE`**（登録済みと同じ扱い / 要件 5）", async () => {
+    findPlatformOperatorByEmail.mockResolvedValue(
+      operatorRow({ twoFactorSecret: null, twoFactorConfirmedAt: null }),
+    );
+    const result = await platformLogin(env, { email: EMAIL, password: PASSWORD, now: NOW });
+    if (!result.ok) return;
+    expect(result.session.record.state).toBe("COMPLETE");
+  });
+
+  it("**`platform.login` を書き、要求しなかったことを残す**（要件 6）", async () => {
+    await platformLogin(env, { email: EMAIL, password: PASSWORD, now: NOW, ip: "203.0.113.9" });
+    expect(recordPlatformAudit).toHaveBeenCalledWith(
+      env,
+      expect.objectContaining({
+        action: "platform.login",
+        detail: { secondFactor: "NONE", twoFactorRequired: false },
+      }),
+    );
+  });
+
+  it("**監査に secret も TOTP も復旧コードも入れない**", async () => {
+    await platformLogin(env, { email: EMAIL, password: PASSWORD, now: NOW });
+    const written = JSON.stringify(
+      recordPlatformAudit.mock.calls.map((call) => call[1] as unknown),
+    );
+    expect(written).not.toContain("pk2fa$");
+    expect(written).not.toContain(PASSWORD);
+    for (const key of ["twoFactorSecret", "recoveryCode", "totp", "secretKey"]) {
+      expect(written).not.toContain(key);
+    }
+  });
+
+  it("パスワードが違えば通らない（要求しない ≠ 認証しない）", async () => {
+    const result = await platformLogin(env, { email: EMAIL, password: "wrong-password", now: NOW });
+    expect(result).toEqual({ ok: false, reason: "AUTH_FAILED" });
+  });
+
+  it("**production では `false` を書いても `PASSWORD_ONLY`**", async () => {
+    env = {
+      SESSION: kv.namespace,
+      SESSION_SECRET: "test-secret",
+      ENVIRONMENT: "production",
+      PLATFORM_2FA_REQUIRED: "false",
+    } as unknown as Env;
+    const result = await platformLogin(env, { email: EMAIL, password: PASSWORD, now: NOW });
+    if (!result.ok) return;
+    expect(result.session.record.state).toBe("PASSWORD_ONLY");
+    expect(result.secondFactorRequired).toBe(true);
   });
 });

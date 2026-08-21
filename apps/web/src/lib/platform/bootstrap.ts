@@ -51,6 +51,7 @@ import { canSendMail } from "../mail/send.js";
 import { auditQuietly, platformAuditId } from "./audit.js";
 import { sendBootstrapLink } from "./bootstrapMail.js";
 import { createPlatformSession, type CreatedPlatformSession } from "./session.js";
+import { isPlatformTwoFactorRequired } from "./twoFactorPolicy.js";
 
 /**
  * 開通リンクの有効期間。**30 分**（#240 の 4「短時間だけ有効」）。
@@ -249,7 +250,18 @@ export async function findBootstrapInvitation(
  * 既に運営担当者が居る）。`POLICY_VIOLATION` はパスワードの規約違反だけ。
  */
 export type ActivateBootstrapResult =
-  | { ok: true; session: CreatedPlatformSession; operatorId: string }
+  | {
+      ok: true;
+      session: CreatedPlatformSession;
+      operatorId: string;
+      /**
+       * この先で第 2 要素を要求するか（PF-19 / #250）。
+       *
+       * false なら `session` は既に `COMPLETE` で、呼び出し側は
+       * `/plat/2fa/setup` ではなくログイン後の画面へ送る。
+       */
+      secondFactorRequired: boolean;
+    }
   | { ok: false; reason: "REJECTED" | "POLICY_VIOLATION" };
 
 const REJECTED: ActivateBootstrapResult = { ok: false, reason: "REJECTED" };
@@ -335,12 +347,26 @@ export async function activatePlatformBootstrap(
   // 5. **パスワードだけの札**（10 分）。ログイン後の画面へはまだ入れない —
   //    `/plat/2fa/setup` で TOTP を登録し復旧コードを控えるまで、
   //    `requirePlatformOperator()` が 404 を返す（PF-17）。
+  //
+  //    **第 2 要素を要求しない環境ではここで `COMPLETE`**（PF-19）。
+  //    寿命は `state` が決めるので、2FA を通ったときと同じ 12 時間になる。
+  const secondFactorRequired = isPlatformTwoFactorRequired(env);
+  if (!secondFactorRequired) {
+    // 開通がそのままログインの成立点になる。**detail は「要求しなかった」
+    // ことだけ**（secret も TOTP も復旧コードも入れない / 要件 6）。
+    await audit("platform.login", operatorId, {
+      secondFactor: "NONE",
+      twoFactorRequired: false,
+    });
+  }
+
   return {
     ok: true,
     operatorId,
+    secondFactorRequired,
     session: await createPlatformSession(
       env,
-      { operatorId, state: "PASSWORD_ONLY", now: input.now },
+      { operatorId, state: secondFactorRequired ? "PASSWORD_ONLY" : "COMPLETE", now: input.now },
       randomBytes,
     ),
   };

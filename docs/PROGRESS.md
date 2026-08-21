@@ -2104,6 +2104,12 @@ P8 へ送り、**監査ログの閲覧だけを P7-20 として起票した。**
       固定の文面を 1 通だけ送る `POST /api/v1/dev/smtp-send-test` と
       `smtp-send-test.yml`（合言葉 `SENDTEST`）。**PF-16 の開通を実送信の
       確認に使わない**ため。**実送信は未実施**（`SMTP_PASSWORD` の登録後に人が実行）
+- [x] PF-19 運営面の 2 段階認証を切り替え可能にする（追加起票 2026-08-21 /
+      **オーナー指示** DECISIONS #250）
+      `PLATFORM_2FA_REQUIRED`（vars）。**staging だけ `false`**。
+      2FA の実装・表・列・migration は 1 つも消していない。
+      production は値を読まず常に要求する。
+      **staging で運営画面へ入れることの確認は人が実施**
 - [ ] P5-22 配信状態（配達・開封・バウンス）を取り戻す（OPEN_QUESTIONS #118 /
       **P5-21 で webhook が無くなったぶん**。P5-10 の完了条件 2 つを移送）
 

@@ -223,3 +223,61 @@ cd "$(git rev-parse --show-toplevel)"
 
 **鍵が残っている間、開通の口は開いたまま。** 運営担当者が既に居れば
 `OPERATOR_EXISTS` で拒否されるが、**開通前なら誰でも押せる状態**になる。
+
+## 10. 運営面の 2 段階認証を切り替える（PF-19）
+
+**staging は現在 2FA を要求していない**（`PLATFORM_2FA_REQUIRED = "false"`）。
+TOTP の登録が繰り返し通らず運営画面へ入れなくなったための措置で、
+**2FA の実装・表・列は 1 つも消していない**（DECISIONS #250）。
+
+| 環境 | 値 | 実際の挙動 |
+|---|---|---|
+| local / preview | `"true"` | 要求する |
+| **staging** | **`"false"`** | **要求しない** |
+| **production** | `"true"` | **常に要求する。`"false"` にしても効かない** |
+
+**production は値を読まない。** `lib/platform/twoFactorPolicy.ts` が
+`ENVIRONMENT === "production"` を先に見て `true` を返す。設定ファイルの
+取り違え 1 回で本番の 2FA が外れる形にしないため。
+
+### `false` のときに変わること・変わらないこと
+
+| | |
+|---|---|
+| 変わる | パスワードが通った時点で **`COMPLETE` の札**が出る（`/plat/2fa` へ送らない） |
+| 変わる | TOTP 登録済みかどうかを門で見ない（**登録済みでも要求しない**） |
+| 変わらない | 門そのもの。`COMPLETE` **以外の札は 404**（切替前に出た `PASSWORD_ONLY` は通らない） |
+| 変わらない | セッションの寿命（12 時間）。無効化された担当者は 404 |
+| 変わらない | パスワードの検証・ロック（10 回 / 30 分） |
+
+監査ログには `platform.login` が `detail: { secondFactor: "NONE",
+twoFactorRequired: false }` で残る。**secret・TOTP・復旧コードは入らない。**
+
+### 再有効化の手順
+
+```bash
+# 1. wrangler.toml の [env.staging.vars] を "true" に戻す
+#    （tests/toolchain/wrangler.spec.ts が値を見ているので、テストも直す）
+# 2. デプロイ
+cd apps/web
+CLOUDFLARE_ENV=staging pnpm build
+wrangler deploy
+```
+
+**発行済みの `COMPLETE` の札はそのまま生きる**（最長 12 時間）。
+即座に全員を締め出したい場合は `SESSION` KV の `plat:` を消す。
+戻したあと、運営担当者は次のログインで `/plat/2fa/setup` へ送られ、
+TOTP を登録し直すことになる（**登録済みの secret は残っているので、
+`/plat/2fa` で認証できる**）。
+
+### 登録に失敗するときに確かめる順序
+
+1. **端末の時刻同期。** TOTP は時刻ベースで、ずれていれば必ず落ちる
+   （iOS / Android の「日付と時刻」を自動に）
+2. **パスワード段階の札は 10 分**（`PLATFORM_PENDING_TTL_SECONDS`）。
+   QR を読んでから手間取ると切れる。切れたらログインからやり直す
+3. **開通リンクは 30 分・1 回限り**（`BOOTSTRAP_TOKEN_TTL_SECONDS`）。
+   切れていれば `platform-bootstrap` の再実行が要る
+4. **5 回失敗で 15 分ロック**（`PLATFORM_TWO_FACTOR_LOCK_POLICY`）。
+   ロック中は正しいコードでも通らない。15 分待つ
+5. パスワード自体のロックは別枠で **10 回 / 30 分**（`PLATFORM_LOCK_POLICY`）
