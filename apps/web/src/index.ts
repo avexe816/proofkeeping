@@ -55,6 +55,7 @@ import health from "./routes/api/health.js";
 import auth from "./routes/api/v1/auth.js";
 import baselines from "./routes/api/v1/baselines.js";
 import dev from "./routes/api/v1/dev.js";
+import platformBootstrap from "./routes/api/v1/platformBootstrap.js";
 import checklistTemplates from "./routes/api/v1/checklistTemplates.js";
 import dataQuality from "./routes/api/v1/dataQuality.js";
 import evidence from "./routes/api/v1/evidence.js";
@@ -159,6 +160,12 @@ app.route("/api/health", health);
 // 認証不要の dev 経路（シード投入）。本番では 404。
 // **`app` 側（認証 middleware の前）に置く。** 初期データが無いとログインできないため。
 app.route("/api/v1/dev", dev);
+
+// 運営担当者の初期開通（PF-16）。**1 人目だけ・人が押したときだけ。**
+// セッションを持たない経路で、守っているのは `PLATFORM_BOOTSTRAP_TOKEN`
+// （鍵が無ければ 404）。**`dev` と違い production でも開く** — 本番の
+// 1 人目を作るための経路だから（`platformBootstrap.ts` の冒頭）。
+app.route("/api/v1/platform", platformBootstrap);
 
 // Webhook（P5-10 / PK-SPEC-P5 §2.7）。**セッションを持たない経路。**
 // 守っているのは署名（security.md §7）。認証 middleware の前段に置く。

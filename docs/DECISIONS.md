@@ -5932,3 +5932,67 @@
   `.github/workflows/staging-bootstrap.yml` / `docs/runbook/deploy.md`。
   マイグレーションは不要（列の型は text のまま。平文で保存された行は
   どの環境にも存在しない — staging は operator 未作成、local は作り直せる）。
+
+## #245 初期開通は「鍵で開く口 × メール 1 通 × 条件付き 1 文」（PF-16 の実装）
+
+- 日付: 2026-08-21
+- task: `docs/tasks/PF-16.md`
+- 由来: 方式そのものは #240 のオーナー判断。ここは**実装の選択**。
+- 決定 A（**実行方式**）:
+  1. 人が押すのは `.github/workflows/platform-bootstrap.yml`
+     （`workflow_dispatch` のみ / 合言葉 `BOOTSTRAP`）。**管理用 CLI を作らない**
+     — 手元に Cloudflare の資格情報を要求しない形に揃える（`staging-bootstrap.yml`
+     と同じ理由 / DECISIONS #192 の周辺）。
+  2. 実体は `POST /api/v1/platform/bootstrap`。**`PLATFORM_BOOTSTRAP_TOKEN` が
+     登録されているときだけ開き、無ければ 404**（`dev/seed` と同じ形 / #189）。
+     workflow が実行のたびに鍵を作って登録し、**`if: always()` で必ず消す。**
+     扉が開いているのは人が押している数分だけ。
+  3. **環境で分岐しない。** `dev/seed` と違い production でも開く
+     （本番の 1 人目を作るための経路）。守りは鍵 1 本と「既に居れば拒否」。
+- 決定 B（**開通リンクの受け渡し**）:
+  1. **メール 1 通だけ**（Resend / `lib/platform/bootstrapMail.ts`）。
+     新しい受け渡しの仕組みを増やさない。
+  2. **送れない環境では券を作らずに断る**（`DELIVERY_UNAVAILABLE`）。
+     「送れなかったので代わりにログへ」は採らない（PF-16 の要件）。
+  3. 採らなかった案: workflow のログ・summary・artifact へ出す
+     （リポジトリの読み取り権限を持つ全員が読め、保存も残る）/
+     `workflow_dispatch` の入力でパスワードを受ける（入力はマスクされない）/
+     HTTP 応答で runner へ返す（シェルに載る）。
+  4. 送信に失敗したら**券を失効させる**。届いていないリンクを 30 分生かさない。
+- 決定 C（**token**）:
+  1. 32 バイト CSPRNG → base64url。DB は **SHA-256 のみ**（列は `token_hash`。
+     平文の列を作らない / 復旧コード・公開 API キーと同じ扱い）。
+  2. 有効期限 **30 分**。**設定項目にしない**（PK-IMPL-CONTRACT §11.4）。
+  3. 消費は `consumePlatformBootstrapToken()` — 有効条件（未使用・未失効・
+     期限内）を WHERE に畳み込んだ **条件付き UPDATE**。`changes = 1` を
+     取れた 1 本だけが通る。
+  4. **GET では消費しない**（メールのリンクはプレビュー・スキャナで開かれる）。
+     消費は POST の中で 1 回だけ。
+  5. **無い・使用済み・失効・期限切れをすべて同じ失敗にする。** 画面は 404
+     （`/plat/*` の既定と同じ / #230）。「期限が切れています」と出すと、
+     **その token が実在したことを教える。**
+  6. 再発行は未使用の券をすべて失効させてから出す（有効なリンクは常に 1 本以下）。
+- 決定 D（**1 人目であることの保証**）:
+  1. 券の段階では `platform_operator` の行を**作らない。** 作るなら
+     `password_hash` を何かで埋めることになり、**既定パスワードを作らない**
+     （#240 の 3）を型で満たせない。行が生えるのは本人がパスワードを
+     決めた瞬間だけ。
+  2. 保証は `createFirstPlatformOperator()` の
+     `INSERT ... SELECT ... WHERE NOT EXISTS (SELECT 1 FROM platform_operator)`。
+     **D1（SQLite）で 1 文＝1 トランザクション**なので、存在検査と挿入の間に
+     他の書き込みが入れない。発行時の件数検査は早く断るためだけのもので、
+     **保証ではない。**
+  3. 負けた側に券を戻さない。戻すと同じ券で再試行できてしまう。
+- 決定 E（**開通の後**）:
+  1. 出すのは `PASSWORD_ONLY` の札（10 分 / #243）。`/plat/2fa/setup` へ送る。
+  2. **2FA の登録と復旧コードの保管が終わるまで `/plat/*` は 404。**
+     判定は PF-17 の `requirePlatformOperator()` がそのまま持つ
+     （`COMPLETE` の札 かつ `two_factor_confirmed_at IS NOT NULL`）。
+- 影響: migration **0035**（`platform_bootstrap_token` 新設）/
+  `packages/db/src/schema/platform.ts`・`repositories/platform.ts`・`env.ts` /
+  `packages/contracts/src/platform.ts` /
+  `apps/web/src/lib/platform/bootstrap.ts`・`bootstrapMail.ts` /
+  `routes/api/v1/platformBootstrap.ts`・`routes/plat/bootstrap.tsx` /
+  `.github/workflows/platform-bootstrap.yml` /
+  `docs/runbook/platform-bootstrap.md` / `tests/security/platformBootstrap.spec.ts`。
+  **`seed.ts` は触っていない**（運営担当者の作成は local / staging のまま）。

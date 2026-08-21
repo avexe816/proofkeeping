@@ -1,0 +1,190 @@
+# 運営担当者の初期開通（PF-16 / **1 人目だけ**・手動実行）
+#
+# task:    docs/tasks/PF-16.md
+# 決定:    docs/DECISIONS.md #240（オーナー判断）・#245（この実装）
+# 手順書:  docs/runbook/platform-bootstrap.md
+#
+# ── これが「人が明示実行する」の実体 ────────────────────
+# `workflow_dispatch` のみ。**push でも schedule でも走らない。**
+# 2 人目以降はここから作れない（PF-14 の招待が持つ）。
+#
+# ── 開くのは押している数分だけ ──────────────────────────
+# 開通の口（`POST /api/v1/platform/bootstrap`）は
+# `PLATFORM_BOOTSTRAP_TOKEN` が登録されているときだけ開く。この workflow が
+#   ① 実行のたびに鍵を作って登録し
+#   ② 1 回だけ叩き
+#   ③ **必ず消す**（`if: always()`）
+# ので、扉が開いているのはこのジョブの実行中だけになる。
+#
+# ── 出してはいけないもの ────────────────────────────────
+#   * **開通リンク・token** — ログにも summary にも artifact にも出さない。
+#     受け渡しはメール 1 通だけ（`lib/platform/bootstrapMail.ts`）。
+#   * **管理鍵（PLATFORM_BOOTSTRAP_TOKEN）** — 生成した値を echo しない。
+#   * **パスワード・TOTP secret・復旧コード** — この workflow は触らない
+#     （どれも本人がブラウザで決める / PF-17）。
+#
+# **`set -x` を足さないこと。** 鍵が展開されて残る。
+name: platform-bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "対象の環境。**production は本番に運営担当者を作る。**"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      email:
+        description: "最初の運営担当者のメールアドレス（開通リンクの宛先）"
+        required: true
+        type: string
+      display_name:
+        description: "表示名（運営コンソールに出る）"
+        required: true
+        type: string
+      confirm:
+        description: "BOOTSTRAP と入力すると実行する"
+        required: true
+        type: string
+
+# **書き込みの権限を持たせない。** この workflow はコミットも PR も作らない。
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 実行確認
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.confirm }}" != "BOOTSTRAP" ]; then
+            echo "confirm に BOOTSTRAP と入力されていません。何もせずに終了します。"
+            exit 1
+          fi
+          echo "対象環境: ${{ inputs.environment }}"
+
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      # ── アカウント ID を正規化する（staging-bootstrap.yml と同じ）──
+      #
+      # 登録されている `CLOUDFLARE_ACCOUNT_ID` に空白か引用符が混ざっている
+      # ことがある。値そのものは出力しない。
+      - name: アカウント ID を正規化する
+        id: account
+        run: |
+          set -euo pipefail
+          raw='${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'
+          clean=$(printf '%s' "$raw" | tr -d '[:space:]"'"'"'')
+          echo "::add-mask::$clean"
+          echo "value=$clean" >> "$GITHUB_OUTPUT"
+
+      # ── 対象の Worker と URL を確かめる ─────────────────
+      #
+      # **`--env` の取り違えで別の環境に運営担当者を作らないため**、
+      # 実際に焼き込まれた `name` と `APP_BASE_URL` を先に読み上げる。
+      # ここで出るのは秘密ではない（wrangler.toml に載っている値）。
+      - name: 対象を確かめる
+        id: target
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          CLOUDFLARE_ENV="${{ inputs.environment }}" pnpm build >/dev/null
+          name=$(jq -r .name build/server/wrangler.json)
+          base=$(jq -r '.vars.APP_BASE_URL' build/server/wrangler.json)
+          env_var=$(jq -r '.vars.ENVIRONMENT' build/server/wrangler.json)
+
+          echo "Worker 名: $name"
+          echo "APP_BASE_URL: $base"
+          echo "ENVIRONMENT: $env_var"
+
+          if [ "$env_var" != "${{ inputs.environment }}" ]; then
+            echo "焼き込まれた環境が選んだものと違います。中止します。"
+            exit 1
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+      # ── 鍵を登録して 1 回だけ叩く ───────────────────────
+      #
+      # **応答を丸ごと出さない。** 出すのは HTTP の状態と、失敗したときの
+      # `error` の値だけ（`OPERATOR_EXISTS` など。秘密を含まない）。
+      # 成功しても**開通リンクは応答に入っていない**（含めない設計 / #245）。
+      - name: 開通リンクを発行する
+        id: issue
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+          TARGET_BASE: ${{ steps.target.outputs.base }}
+          TARGET_EMAIL: ${{ inputs.email }}
+          TARGET_NAME: ${{ inputs.display_name }}
+        run: |
+          set -euo pipefail
+
+          # 1 回きりの管理鍵。**echo しない。**
+          bootstrap_token=$(openssl rand -hex 32)
+          echo "::add-mask::$bootstrap_token"
+
+          printf '%s' "$bootstrap_token" \
+            | pnpm exec wrangler secret put PLATFORM_BOOTSTRAP_TOKEN --env "${{ inputs.environment }}"
+
+          # 秘密を入れた直後は再デプロイが要る（実行中の版は古い env を持つ）。
+          CLOUDFLARE_ENV="${{ inputs.environment }}" pnpm build >/dev/null
+          pnpm exec wrangler deploy
+
+          body=$(jq -nc --arg email "$TARGET_EMAIL" --arg name "$TARGET_NAME" \
+            '{email: $email, displayName: $name}')
+
+          code=$(curl -s -o /tmp/bootstrap.json -w "%{http_code}" \
+            -X POST "$TARGET_BASE/api/v1/platform/bootstrap" \
+            -H "content-type: application/json" \
+            -H "x-pk-bootstrap-token: $bootstrap_token" \
+            -d "$body")
+
+          echo "HTTP $code"
+          if [ "$code" = "200" ]; then
+            # **`expiresAt` だけを読む。** 応答に token は入っていないが、
+            # 丸ごと出す形にしておくと、将来足された項目まで一緒に出る。
+            echo "開通リンクを $TARGET_EMAIL 宛に送信しました。"
+            echo "有効期限: $(jq -r '.expiresAt' /tmp/bootstrap.json)"
+            exit 0
+          fi
+
+          echo "発行できませんでした: $(jq -r '.error // "UNKNOWN"' /tmp/bootstrap.json)"
+          case "$(jq -r '.error // ""' /tmp/bootstrap.json)" in
+            OPERATOR_EXISTS)
+              echo "運営担当者が既に居ます。**2 人目以降はここから作れません**（PF-14 の招待）。" ;;
+            DELIVERY_UNAVAILABLE)
+              echo "メールを送れません。RESEND_API_KEY が未登録です。**券は作られていません。**" ;;
+            DELIVERY_FAILED)
+              echo "送信に失敗しました。**券は失効させました。** 宛先と Resend の設定を確かめて、もう一度実行してください。" ;;
+            INVALID_REQUEST)
+              echo "メールアドレスか表示名の形式を確かめてください。" ;;
+          esac
+          exit 1
+
+      # ── 鍵を必ず消す ────────────────────────────────────
+      #
+      # **`if: always()`。** 上が落ちても消す。消し忘れると、開通の口が
+      # 開いたままの環境が残る。削除も再デプロイまでが 1 組。
+      - name: 管理鍵を削除する
+        if: always()
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          set -euo pipefail
+          pnpm exec wrangler secret delete PLATFORM_BOOTSTRAP_TOKEN \
+            --env "${{ inputs.environment }}" --force || true
+          CLOUDFLARE_ENV="${{ inputs.environment }}" pnpm build >/dev/null
+          pnpm exec wrangler deploy
+
+          echo "登録済みの secret（名前だけ）:"
+          pnpm exec wrangler secret list --env "${{ inputs.environment }}"

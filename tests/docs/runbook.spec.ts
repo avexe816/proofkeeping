@@ -42,6 +42,17 @@ const DOCUMENTS = [
   { file: "oncall.md", title: "オンコール体制" },
 ] as const;
 
+/**
+ * §7.2 の 7 文書には無いが、`docs/runbook` に置く手順書。
+ *
+ * **7 文書の枠を増やさない。** §7.2 が数えているのは「GA の完了条件と
+ * しての 7 文書」で、後から生えた個別の手順をそこへ混ぜると、
+ * 完了条件が実装の都合で動く。索引と禁止語の検査は同じように当てる。
+ */
+const EXTRA_DOCUMENTS = [
+  { file: "platform-bootstrap.md", title: "運営担当者の初期開通" },
+] as const;
+
 describe("§7.2 の 7 文書", () => {
   it("7 件ある", () => {
     expect(DOCUMENTS).toHaveLength(7);
@@ -63,7 +74,29 @@ describe("§7.2 の 7 文書", () => {
 
   it("docs/runbook に索引されていない文書を置いていない", () => {
     const placed = readdirSync(RUNBOOK).sort();
-    expect(placed).toEqual(["README.md", ...DOCUMENTS.map((d) => d.file)].sort());
+    expect(placed).toEqual(
+      [
+        "README.md",
+        ...DOCUMENTS.map((d) => d.file),
+        ...EXTRA_DOCUMENTS.map((d) => d.file),
+      ].sort(),
+    );
+  });
+});
+
+describe("§7.2 の枠外の手順書（索引と検査は同じに当てる）", () => {
+  it("すべて実在し、中身が空でない", () => {
+    for (const { file } of EXTRA_DOCUMENTS) {
+      expect(read(file).trim().length).toBeGreaterThan(500);
+    }
+  });
+
+  it("索引（README）が指している", () => {
+    const index = read("README.md");
+    for (const { file, title } of EXTRA_DOCUMENTS) {
+      expect(index).toContain(`(${file})`);
+      expect(index).toContain(title);
+    }
   });
 });
 

@@ -126,6 +126,9 @@ export default [
   // PF-01。運営面の入口。**シェルの外**（門を通すと 404 で入れない）。
   route("plat/login", "routes/plat/login.tsx"),
   route("plat/logout", "routes/plat/logout.ts"),
+  // PF-16。初期開通（1 人目だけ）。**券が門になる**ので、これもシェルの外。
+  // 券が無い・使用済み・期限切れは**すべて 404**（DECISIONS #245）。
+  route("plat/bootstrap/:token", "routes/plat/bootstrap.tsx"),
   // PF-17。第 2 要素（TOTP）。パスワード段階の札で入るので**シェルの外**。
   route("plat/2fa", "routes/plat/twoFactor.tsx"),
   route("plat/2fa/setup", "routes/plat/twoFactorSetup.tsx"),

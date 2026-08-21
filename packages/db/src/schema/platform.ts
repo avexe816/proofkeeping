@@ -118,6 +118,49 @@ export const platformRecoveryCode = sqliteTable(
 );
 
 /**
+ * 初期開通の引換券（PF-16 / DECISIONS #240・#245）。**1 人目だけ。**
+ *
+ * ── 運営担当者の行をここでは作らない ────────────────────
+ * 券を出す時点では `platform_operator` に行を作らない。作るなら
+ * `password_hash` を空か既定値で埋めることになり、**「既定パスワードを
+ * 作らない」（#240 の 3）を型で満たせなくなる。** 行が生えるのは、
+ * 本人がパスワードを決めた瞬間だけ（`createFirstPlatformOperator()`）。
+ *
+ * ── 平文を置かない ──────────────────────────────────────
+ * `token_hash` は SHA-256（小文字 16 進 64 桁）。復旧コード・公開 API キーと
+ * 同じ扱いで、**平文はメール 1 通に載せて以後どこにも残さない**
+ * （security.md §7）。DB のダンプ 1 本で開通リンクを再構成できる形にしない。
+ *
+ * ── 行を消さない ────────────────────────────────────────
+ * 使用は `used_at`、再発行による失効は `revoked_at`。`platform_recovery_code`
+ * と同じ向き（発行して使われなかった券があったこと自体が監査の材料）。
+ * 有効な券は `used_at` と `revoked_at` がともに `null` で、かつ
+ * `expires_at` が未来のものだけ。
+ */
+export const platformBootstrapToken = sqliteTable(
+  "platform_bootstrap_token",
+  {
+    id: text("id").primaryKey(),
+    /** 開通後に運営担当者となるメール。**券の段階では認証情報を持たない。** */
+    email: text("email").notNull(),
+    displayName: text("display_name").notNull(),
+    /**
+     * SHA-256（小文字 16 進 64 桁）。**平文の列を作らない。**
+     * 引き当ては必ずこの列で行う（一意 — 同じ券が 2 行に割れない）。
+     */
+    tokenHash: text("token_hash").notNull().unique(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    /** **短い期限**（#240 の 4）。値は `lib/platform/bootstrap.ts` の定数。 */
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    /** 消費した時刻。**1 枚 1 回**（条件付き UPDATE で消費する）。 */
+    usedAt: integer("used_at", { mode: "timestamp_ms" }),
+    /** 再発行で失効した時刻。**古い券を生かしたまま刷り増さない。** */
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [index("idx_platform_bootstrap_expires").on(t.expiresAt)],
+);
+
+/**
  * 運営面の操作記録。
  *
  * **UPDATE / DELETE の口を作らない**（INV-30 と同じ扱い）。訂正は

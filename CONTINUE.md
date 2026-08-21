@@ -1,6 +1,73 @@
 # CONTINUE
 
-## 2026-08-21 の追記（**この節が最新**）
+## 2026-08-21 の追記 その 2（**この節が最新**）
+
+### いまどこ
+
+**PF-17 → PF-16 まで実装した。** PF-16 は PR を出して止めてある
+（人間の指示「merge はしない」）。
+
+| 事実 | 状態 |
+|---|---|
+| PR #162（PF-17） | **main へ squash merge 済み** |
+| migration **0034** | **staging の両 shard に適用済み** |
+| `TWO_FACTOR_ENCRYPTION_KEY` | **staging に登録済み** |
+| `schema_version` | 両 shard で 0000〜0034 の 35 本一致 |
+| `/api/health` | ok / `schemaVersionConsistent = true` |
+| `secrets-and-seed` | **再実行していない**（`SESSION_SECRET` は回していない） |
+| PF-16 | **実装済み・PR 作成済み・未マージ** |
+| migration **0035**（PF-16） | **staging 未適用**（マージ後に当てる） |
+| staging の運営担当者 | **まだ 0 名**（この PR では作っていない） |
+
+### PF-16 のマージ後にやること（**この順で**）
+
+```
+1. staging へ migration 0035 を当てる
+   staging-bootstrap.yml / phase=migrate / confirm=CREATE
+   （--check で 0035 だけが未適用であることを先に見る）
+2. RESEND_API_KEY が staging に登録済みかを確かめる
+   （wrangler secret list の名前だけ。**無いと開通そのものが断られる**）
+3. platform-bootstrap.yml を実行して 1 人目を開通する
+   environment=staging / email / display_name / confirm=BOOTSTRAP
+   → 本人のメールにリンク（30 分・1 回限り）
+   → パスワード設定 → TOTP 登録 → 復旧コード保管 → /plat/status
+4. /plat/usage を含む既存 /plat 画面を目視確認する
+   （CONTINUE の前の節「ログイン後の『未計測』表示」がここで見られる）
+5. PF-06 へ進む
+```
+
+**手順の全文は `docs/runbook/platform-bootstrap.md`。**
+§8 に「失敗したときに再実行の前に確かめること」がある。
+
+**やらないこと**（前の節の決定を引き継ぐ）:
+`secrets-and-seed` の再実行 / `SESSION_SECRET` の回転 / 暫定 operator の作成。
+
+### PF-16 の申し送り
+
+- **開通の口は既定で閉じている。** `PLATFORM_BOOTSTRAP_TOKEN` が
+  登録されているときだけ開き、workflow が実行のたびに作って**必ず消す**。
+  実行後に `wrangler secret list` へ名前が残っていたら手で消すこと
+  （runbook §9）。
+- **開通リンクはメール 1 通だけ。** 応答にも監査ログにもログにも出ない。
+  `RESEND_API_KEY` の無い環境では**券すら作らずに断る**（`DELIVERY_UNAVAILABLE`）。
+- **1 人目の保証は DB 側。** `INSERT ... WHERE NOT EXISTS` の 1 文。
+  発行時の件数検査は早く断るためだけで、保証ではない。
+- **2 人目以降はこの経路から作れない。** PF-14 の招待待ち（未実装）。
+- 実装の判断は **DECISIONS #245**、作業ログは `docs/tasks/PF-16.md`。
+
+### 未解決事項（**この区間で足したもの**）
+
+- **OPEN_QUESTIONS #116 — `staging-bootstrap.yml` の `db-status` が
+  「表の数」を両 shard で 0 と出す。** 表は実在する（`/api/health` は ok、
+  `schemaVersionConsistent=true`、35 本一致）ので**数え方の側の不具合**。
+  **PF-16 には含めていない**（人間の指示）。**別 task として
+  `docs/tasks/PF-18.md` を起票済み。** 読み取り専用の phase なので実害は無いが、
+  「表が無い」と読み違えて `reset-db` を押さないこと。
+  直るまで、表の有無は `pnpm db:migrate --env staging --check` で確かめる。
+
+---
+
+## 2026-08-21 の追記（この節は古い）
 
 ### 実装順の決定（人間の指示 2026-08-21）
 
