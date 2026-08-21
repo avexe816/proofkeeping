@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const MAIL = join(ROOT, "apps", "web", "src", "lib", "mail");
 const WORKFLOW = join(ROOT, ".github", "workflows", "smtp-probe.yml");
+const SEND_TEST_WORKFLOW = join(ROOT, ".github", "workflows", "smtp-send-test.yml");
 
 function code(path: string): string {
   return readFileSync(path, "utf8");
@@ -44,7 +45,7 @@ function withoutComments(yaml: string): string {
 }
 
 describe("メールの層は何も出力しない", () => {
-  const files = ["smtp.ts", "mime.ts", "send.ts", "probe.ts"] as const;
+  const files = ["smtp.ts", "mime.ts", "send.ts", "probe.ts", "sendTest.ts"] as const;
 
   it.each(files)("%s が `console` を呼ばない", (file) => {
     expect(code(join(MAIL, file))).not.toMatch(/console\s*\./);
@@ -110,6 +111,120 @@ describe("疎通確認の応答（真偽値と段階名だけ）", () => {
     expect(report).toContain("authAdvertised:");
     expect(report).toContain("failedAt:");
     expect(report).not.toMatch(/host|username|response|text/i);
+  });
+});
+
+describe("送信経路の確認（P5-23）", () => {
+  const lib = code(join(MAIL, "sendTest.ts"));
+  const route = code(join(ROOT, "apps", "web", "src", "routes", "api", "v1", "smtpSendTest.ts"));
+
+  it("**SMTP の手順を複製しない**（`sendMail()` をそのまま呼ぶ）", () => {
+    expect(withoutTsComments(lib)).toContain("sendMail(");
+    // 自前で socket を開いたり SMTP のコマンドを書いたりしない。
+    expect(withoutTsComments(lib)).not.toContain("sendViaSmtp");
+    expect(withoutTsComments(lib)).not.toContain("cloudflare:sockets");
+    expect(withoutTsComments(lib)).not.toContain("MAIL FROM");
+  });
+
+  it("**本文にリンクも token も置かない**（開通リンクと取り違えさせない）", () => {
+    const body = /export const SMTP_TEST_BODY = \[([\s\S]*?)\]\.join/.exec(lib)?.[1] ?? "";
+    expect(body).not.toBe("");
+    expect(body).not.toMatch(/https?:\/\//);
+    expect(body).not.toMatch(/\$\{/); // 差し込みが無い（固定の文面）
+    expect(body).not.toMatch(/[A-Za-z0-9_-]{24,}/);
+  });
+
+  it("応答は成否・段階名・3 桁コードだけ（宛先も応答文も返さない）", () => {
+    const report = /export interface SmtpSendTestReport \{([\s\S]*?)\n\}/.exec(lib)?.[1] ?? "";
+    expect(report).toContain("accepted:");
+    expect(report).toContain("failedAt:");
+    expect(report).toContain("code:");
+    expect(report).not.toMatch(/\bto\s*:|\bmessage\s*:|\bresponse\s*:|host|username/i);
+  });
+
+  it("**鍵が無ければ 404**（疎通確認と同じ形・別の鍵）", () => {
+    expect(withoutTsComments(route)).toContain("SMTP_SEND_TEST_TOKEN");
+    expect(withoutTsComments(route)).toContain('c.json({ error: "Not Found" }, 404)');
+    // 疎通確認の鍵では開かない。
+    expect(withoutTsComments(route)).not.toContain("SMTP_PROBE_TOKEN");
+  });
+
+  it("**password を読まない**（送信の口が読む / 経路は触らない）", () => {
+    expect(withoutTsComments(route)).not.toContain("SMTP_PASSWORD");
+    expect(withoutTsComments(lib)).not.toContain("SMTP_PASSWORD");
+  });
+
+  it("**宛先をコードに埋めない**（既定値を持たない）", () => {
+    expect(withoutTsComments(route)).not.toMatch(/@(stek\.ai|gmail|yahoo)/);
+    expect(withoutTsComments(lib)).not.toMatch(/@(stek\.ai|gmail|yahoo)/);
+  });
+
+  it("宛先を応答へ echo しない（形が違うことだけ伝える）", () => {
+    expect(withoutTsComments(route)).toContain('c.json({ error: "INVALID_RECIPIENT" }, 400)');
+  });
+});
+
+describe("送信経路の確認の workflow（P5-23）", () => {
+  const yaml = withoutComments(readFileSync(SEND_TEST_WORKFLOW, "utf8"));
+
+  it("**`workflow_dispatch` だけ**で走る", () => {
+    expect(yaml).toContain("workflow_dispatch:");
+    expect(yaml).not.toMatch(/^\s{2}(push|pull_request|schedule|repository_dispatch):/m);
+  });
+
+  it("**合言葉は SENDTEST**（PROBE と別。惰性で押せない）", () => {
+    expect(yaml).toContain('!= "SENDTEST"');
+    expect(yaml).not.toContain('!= "PROBE"');
+    expect(yaml).not.toContain('!= "BOOTSTRAP"');
+  });
+
+  it("**`SMTP_PASSWORD` を触らない**（登録も削除も参照もしない / 登録は人が行う）", () => {
+    // 案内の文言に名前が出るのは構わない。**扱ったら落とす。**
+    expect(yaml).not.toMatch(/secret (put|delete) SMTP_PASSWORD/);
+    expect(yaml).not.toMatch(/secrets\.SMTP_PASSWORD/);
+    expect(yaml).not.toMatch(/\$\{?SMTP_PASSWORD/);
+    expect(yaml).not.toMatch(/^\s*SMTP_PASSWORD:/m);
+  });
+
+  it("**宛先をマスクする**（ログに残さない）", () => {
+    expect(yaml).toContain("::add-mask::$RECIPIENT");
+    expect(yaml).not.toMatch(/echo\s+"?\$RECIPIENT/);
+    // 引数に置かない（`ps` に出る）。標準入力から渡す。
+    expect(yaml).toContain("--data-binary @-");
+  });
+
+  it("`set -x` を置かない / summary・artifact に書かない", () => {
+    expect(yaml).not.toMatch(/set\s+-[a-z]*x/);
+    expect(yaml).not.toContain("GITHUB_STEP_SUMMARY");
+    expect(yaml).not.toContain("upload-artifact");
+  });
+
+  it("応答を丸ごと出さない（`cat` / `jq .` を置かない）", () => {
+    expect(yaml).not.toMatch(/cat\s+\/tmp\/send-test\.json/);
+    expect(yaml).not.toMatch(/jq\s+-r?\s*'\.'/);
+  });
+
+  it("管理鍵をマスクし、値を echo しない", () => {
+    expect(yaml).toContain("::add-mask::$send_token");
+    expect(yaml).not.toMatch(/echo\s+"?\$send_token/);
+    expect(yaml).toContain("printf '%s' \"$send_token\" \\");
+  });
+
+  it("鍵を必ず消し、**消えたことを名前で確かめる**（#247 の形）", () => {
+    expect(yaml).toContain("wrangler secret delete SMTP_SEND_TEST_TOKEN");
+    expect(yaml).toContain("if: always()");
+    expect(yaml).not.toMatch(/secret delete[\s\S]{0,120}--force/);
+    expect(yaml).not.toMatch(/secret delete[\s\S]{0,120}\|\| true/);
+    expect(yaml).toMatch(/grep -q 'SMTP_SEND_TEST_TOKEN'[\s\S]{0,200}exit 1/);
+  });
+
+  it("書き込みの権限を持たない", () => {
+    expect(yaml).toMatch(/permissions:\s*\n\s*contents: read\s*\n/);
+  });
+
+  it("**開通（PF-16）に混ざっていない**", () => {
+    expect(yaml).not.toContain("platform-bootstrap");
+    expect(yaml).not.toContain("PLATFORM_BOOTSTRAP_TOKEN");
   });
 });
 

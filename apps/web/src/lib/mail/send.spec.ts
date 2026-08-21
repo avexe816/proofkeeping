@@ -96,7 +96,7 @@ describe("sendMail", () => {
       { to: "a@b.co", subject: "x", text: "y", now: NOW },
       connect,
     );
-    expect(result).toEqual({ accepted: false, failedAt: "DISABLED" });
+    expect(result).toEqual({ accepted: false, failedAt: "DISABLED", code: null });
     expect(connect).not.toHaveBeenCalled();
   });
 
@@ -107,7 +107,7 @@ describe("sendMail", () => {
       { to: "ops@example.invalid", subject: "件名", text: "本文", now: NOW },
       connect,
     );
-    expect(result).toEqual({ accepted: true, failedAt: null });
+    expect(result).toEqual({ accepted: true, failedAt: null, code: null });
   });
 
   it("エンベロープの差出人は表示名を含まない", async () => {
@@ -124,7 +124,7 @@ describe("sendMail", () => {
       { to: "a@b.co\r\nBcc: attacker@evil.invalid", subject: "x", text: "y", now: NOW },
       connect,
     );
-    expect(result).toEqual({ accepted: false, failedAt: "MIME" });
+    expect(result).toEqual({ accepted: false, failedAt: "MIME", code: null });
     expect(connect).not.toHaveBeenCalled();
   });
 
@@ -161,7 +161,7 @@ describe("sendMail", () => {
     expect(json).not.toContain("secret@example.invalid");
     expect(json).not.toContain("秘密の本文");
     expect(json).not.toContain("bad credentials");
-    expect(result).toEqual({ accepted: false, failedAt: "AUTH" });
+    expect(result).toEqual({ accepted: false, failedAt: "AUTH", code: 535 });
   });
 
   it("`SMTP_PORT` が読めなければ 465 を使う", async () => {

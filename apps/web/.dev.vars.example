@@ -23,6 +23,10 @@ SMTP_PASSWORD=""
 # 終わったら消す（.github/workflows/smtp-probe.yml）。
 SMTP_PROBE_TOKEN=""
 
+# 送信経路の確認（POST /api/v1/dev/smtp-send-test）を開ける鍵。
+# 置かなければ 404。workflow が実行のたびに作って消す（P5-23）。
+SMTP_SEND_TEST_TOKEN=""
+
 # CREDENTIALS KV に置く外部連携の資格情報を暗号化する鍵（security.md §7）。
 CREDENTIAL_ENCRYPTION_KEY="dev-only-credential-encryption-key"
 
