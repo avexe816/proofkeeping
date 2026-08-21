@@ -129,7 +129,8 @@ export async function action({ params, request, context }: ActionFunctionArgs) {
   }
 
   // 次は 2 要素認証の登録（PF-17）。**飛ばす経路は無い。**
-  return redirect("/plat/2fa/setup", {
+  // ただし第 2 要素を要求しない環境ではログイン後の画面へ（PF-19 / #250）。
+  return redirect(result.secondFactorRequired ? "/plat/2fa/setup" : "/plat/status", {
     headers: {
       "Set-Cookie": buildPlatformSessionCookie(
         result.session.cookieValue,

@@ -1,6 +1,47 @@
 # CONTINUE
 
-## 2026-08-21 の追記 その 5（**この節が最新**）
+## 2026-08-21 の追記 その 6（**この節が最新**）
+
+### staging では運営面の 2FA を無効化している（PF-19）
+
+**`PLATFORM_2FA_REQUIRED = "false"`（staging のみ）。** TOTP の登録が
+繰り返し通らず運営画面へ入れなくなったための措置（DECISIONS #250）。
+**PR を出して止めてある**（merge・デプロイは未実施）。
+
+| 事実 | 状態 |
+|---|---|
+| staging の運営担当者 | **開通済み**（PF-16 / 2026-08-21 16:08 / `su_pk@stek.ai`） |
+| メール送信 | **Lark SMTP で実送信の受信まで確認済み**（P5-21 / P5-23） |
+| staging の 2FA | **要求しない。** パスワードだけで `COMPLETE` の札が出る |
+| production の 2FA | **常に要求する。** `false` を書いても効かない（コードで固定） |
+| 2FA の実装・表・列 | **1 つも消していない。** 新しい migration も無い |
+
+### 消していないもの（再有効化のために要る）
+
+`lib/platform/twoFactor.ts` / `totpSecretBox.ts` / `lib/auth/totp.ts` /
+`platform_recovery_code` / `platform_operator` の 2FA 4 列 / migration 0034 /
+`/plat/2fa` と `/plat/2fa/setup` の画面。
+
+### 再有効化
+
+`wrangler.toml` の `[env.staging.vars]` を `"true"` へ戻して deploy。
+手順と、登録に失敗するときの確認順序（**端末の時刻同期・パスワード段階の札は
+10 分・開通リンクは 30 分・5 回 15 分ロック**）は
+`docs/runbook/platform-bootstrap.md` **§10**。
+
+### 申し送り
+
+- **門は畳んでいない。** `requirePlatformOperator()` は `COMPLETE` 以外の札を
+  引き続き 404 にする。外したのは「TOTP 登録済みか」の 1 行だけ
+- `platform-bootstrap.yml` の `DELIVERY_REJECTED` の案内と
+  `docs/runbook/platform-bootstrap.md` §8 が **まだ `RESEND_API_KEY` を
+  指したまま**（P5-21 の追随漏れ）。**別 PR で直す**とオーナー合意済み
+- **OPEN_QUESTIONS #118 / `docs/tasks/P5-22.md`**（配達・開封・バウンス）と
+  **PF-18**（`db-status` の「表の数」0 表示 / #116）は未着手のまま
+
+---
+
+## 2026-08-21 の追記 その 5（この節は古い）
 
 ### 送信経路の確認を PF-16 から切り離した（P5-23）
 

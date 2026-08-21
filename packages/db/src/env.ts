@@ -122,6 +122,18 @@ export interface EnvVars {
   SHARD_COUNT: string;
   APP_BASE_URL: string;
   /**
+   * 運営面（`/plat/*`）で第 2 要素を要求するか（PF-19 / DECISIONS #250）。
+   *
+   * **既定は要求する。** `"false"` にできるのは production 以外だけで、
+   * production は値を読まずに常に要求する（`lib/platform/twoFactorPolicy.ts`）。
+   * 空・未設定・綴り違いはすべて「要求する」に倒れる。
+   *
+   * **2FA の実装・表・列は消していない。** 切っているのは
+   * 「誰に `COMPLETE` の札を出すか」だけで、門（`COMPLETE` を要求すること）は
+   * そのまま。再有効化の手順は `docs/runbook/platform-bootstrap.md` §10。
+   */
+  PLATFORM_2FA_REQUIRED: string;
+  /**
    * 帳票メールの差出人（P5-07 / PK-SPEC-P5 §4.1 の ⑩）。
    *
    * **秘密ではないので `[vars]`。** Resend で検証済みのドメインの

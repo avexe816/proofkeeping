@@ -370,12 +370,36 @@ describe("開通（activatePlatformBootstrap）", () => {
     expect(auditActions()).toContain("platform.bootstrap.completed");
   });
 
+  it("**2FA を要求しない環境では `COMPLETE` の札**（PF-19 / #250）", async () => {
+    env = { ...env, ENVIRONMENT: "staging", PLATFORM_2FA_REQUIRED: "false" } as unknown as Env;
+    const token = await issueAndCaptureToken();
+
+    const result = await activatePlatformBootstrap(env, { token, password: PASSWORD, now: NOW });
+
+    expect(result.ok && result.session.record.state).toBe("COMPLETE");
+    expect(result.ok && result.secondFactorRequired).toBe(false);
+    // 開通がそのままログインの成立点になる。**内訳は「要求しなかった」だけ。**
+    expect(auditActions()).toContain("platform.login");
+    expect(auditInputJson()).toContain('"twoFactorRequired":false');
+  });
+
+  it("**production では `false` を書いても `PASSWORD_ONLY`**（PF-19）", async () => {
+    env = { ...env, ENVIRONMENT: "production", PLATFORM_2FA_REQUIRED: "false" } as unknown as Env;
+    const token = await issueAndCaptureToken();
+
+    const result = await activatePlatformBootstrap(env, { token, password: PASSWORD, now: NOW });
+
+    expect(result.ok && result.session.record.state).toBe("PASSWORD_ONLY");
+    expect(auditActions()).not.toContain("platform.login");
+  });
+
   it("発行するのはパスワード段階の札（2FA を通るまで運営画面へ入れない）", async () => {
     const token = await issueAndCaptureToken();
 
     const result = await activatePlatformBootstrap(env, { token, password: PASSWORD, now: NOW });
 
     expect(result.ok && result.session.record.state).toBe("PASSWORD_ONLY");
+    expect(result.ok && result.secondFactorRequired).toBe(true);
     // 10 分（`PLATFORM_PENDING_TTL_SECONDS`）。12 時間の札を出さない。
     expect(result.ok && result.session.maxAgeSeconds).toBe(10 * 60);
   });

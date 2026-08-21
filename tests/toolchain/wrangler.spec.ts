@@ -165,6 +165,19 @@ describe("P0-02 wrangler.toml の構成", () => {
       }
     });
 
+    /**
+     * 運営面の第 2 要素（PF-19 / DECISIONS #250）。
+     *
+     * **`false` を書いてよいのは staging だけ。** production に `false` が
+     * 紛れ込んでも `twoFactorPolicy.ts` が読まないが、**設定の側でも
+     * 見つかるようにする**（気づくのが早いほど直しやすい）。
+     */
+    it("vars に PLATFORM_2FA_REQUIRED があり、false は staging だけ", () => {
+      const value = section.vars?.["PLATFORM_2FA_REQUIRED"];
+      expect(value, label).toBeTypeOf("string");
+      expect(value, label).toBe(label === "staging" ? "false" : "true");
+    });
+
     it("vars に ENVIRONMENT と APP_BASE_URL がある", () => {
       expect(section.vars?.["ENVIRONMENT"]).toBe(label);
       expect(section.vars?.["APP_BASE_URL"]).toBeTypeOf("string");

@@ -149,3 +149,104 @@ describe("requirePlatformSecondFactorStage（第 2 要素の画面の門）", ()
     ).toBe(404);
   });
 });
+
+/**
+ * 第 2 要素を要求しない環境（PF-19 / DECISIONS #250）。
+ *
+ * **穴が出ないことの検査。** `false` で外れるのは「TOTP を登録済みか」の
+ * 1 点だけで、門そのもの（`COMPLETE` の札を要求すること・担当者が生きて
+ * いること）は変わらない。**落ち続ける 7 通り**をここで固定する。
+ */
+describe("PLATFORM_2FA_REQUIRED=false（staging）", () => {
+  beforeEach(() => {
+    env = {
+      SESSION: kv.namespace,
+      SESSION_SECRET: "test-secret",
+      ENVIRONMENT: "staging",
+      PLATFORM_2FA_REQUIRED: "false",
+    } as unknown as Env;
+  });
+
+  it("**TOTP 未登録でも COMPLETE の札なら通る**（要件 2）", async () => {
+    findPlatformOperatorById.mockResolvedValue(operatorRow({ twoFactorConfirmedAt: null }));
+    const context = await requirePlatformOperator(env, await requestWith("COMPLETE"), NOW);
+    expect(context.operatorId).toBe(OPERATOR_ID);
+  });
+
+  it("**登録済みでも同じ**（片方だけ通る状態を作らない / 要件 5）", async () => {
+    const context = await requirePlatformOperator(env, await requestWith("COMPLETE"), NOW);
+    expect(context.operatorId).toBe(OPERATOR_ID);
+  });
+
+  // ── ここから下は「`false` でも落ち続ける」ことの検査 ──────
+
+  it("① セッションが無ければ 404", async () => {
+    const request = new Request("https://example.com/plat/status");
+    expect(await statusOf(requirePlatformOperator(env, request, NOW))).toBe(404);
+  });
+
+  it("② **テナントの `pk_session` しか持たない相手は 404**（#220 の分離）", async () => {
+    const session = await createPlatformSession(env, {
+      operatorId: OPERATOR_ID,
+      state: "COMPLETE",
+      now: NOW,
+    });
+    const request = new Request("https://example.com/plat/status", {
+      headers: { Cookie: `pk_session=${session.cookieValue}` },
+    });
+    expect(await statusOf(requirePlatformOperator(env, request, NOW))).toBe(404);
+  });
+
+  it("③ 切れた札は 404（`COMPLETE` の 12 時間を過ぎている）", async () => {
+    const request = await requestWith("COMPLETE");
+    const later = new Date(NOW.getTime() + 13 * 60 * 60 * 1000);
+    expect(await statusOf(requirePlatformOperator(env, request, later))).toBe(404);
+  });
+
+  it("④ **切替前に出た `PASSWORD_ONLY` の札は 404**（門は畳んでいない）", async () => {
+    expect(
+      await statusOf(requirePlatformOperator(env, await requestWith("PASSWORD_ONLY"), NOW)),
+    ).toBe(404);
+  });
+
+  it("⑤ 無効化された担当者は 404", async () => {
+    findPlatformOperatorById.mockResolvedValue(operatorRow({ status: "SUSPENDED" }));
+    expect(await statusOf(requirePlatformOperator(env, await requestWith("COMPLETE"), NOW))).toBe(
+      404,
+    );
+  });
+
+  it("⑥ 担当者の行が消えていれば 404", async () => {
+    findPlatformOperatorById.mockResolvedValue(null);
+    expect(await statusOf(requirePlatformOperator(env, await requestWith("COMPLETE"), NOW))).toBe(
+      404,
+    );
+  });
+
+  it("⑦ 署名が壊れた Cookie は 404", async () => {
+    const session = await createPlatformSession(env, {
+      operatorId: OPERATOR_ID,
+      state: "COMPLETE",
+      now: NOW,
+    });
+    const request = new Request("https://example.com/plat/status", {
+      headers: {
+        Cookie: `${PLATFORM_SESSION_COOKIE_NAME}=${session.cookieValue.slice(0, -3)}xxx`,
+      },
+    });
+    expect(await statusOf(requirePlatformOperator(env, request, NOW))).toBe(404);
+  });
+
+  it("**production では `false` を書いても要求する**（設定の取り違えを効かせない）", async () => {
+    env = {
+      SESSION: kv.namespace,
+      SESSION_SECRET: "test-secret",
+      ENVIRONMENT: "production",
+      PLATFORM_2FA_REQUIRED: "false",
+    } as unknown as Env;
+    findPlatformOperatorById.mockResolvedValue(operatorRow({ twoFactorConfirmedAt: null }));
+    expect(await statusOf(requirePlatformOperator(env, await requestWith("COMPLETE"), NOW))).toBe(
+      404,
+    );
+  });
+});
