@@ -106,6 +106,15 @@ ENVIRONMENT = "local"
 SHARD_COUNT = "1"
 APP_BASE_URL = "http://localhost:8787"
 RESEND_FROM_ADDRESS = "billing@example.invalid"
+# メール送信（Lark Mail SMTP / P5-21・DECISIONS #248）。
+# **秘密は SMTP_PASSWORD だけ**で、それは `wrangler secret put` で入れる。
+# 465 = implicit TLS が第一候補。使えないと分かったときだけ
+# SMTP_SECURE="starttls" + SMTP_PORT="587" へ倒す（**25 番は使わない**）。
+SMTP_HOST = "smtp.larksuite.com"
+SMTP_PORT = "465"
+SMTP_SECURE = "implicit"
+SMTP_USERNAME = "noreply@stek.ai"
+MAIL_FROM = "ProofKeeping <noreply@stek.ai>"
 
 # --- D1 ---------------------------------------------------------------------
 [[d1_databases]]
@@ -349,6 +358,15 @@ ENVIRONMENT = "preview"
 SHARD_COUNT = "1"
 APP_BASE_URL = "https://pk-preview.example.workers.dev"
 RESEND_FROM_ADDRESS = "billing@example.invalid"
+# メール送信（Lark Mail SMTP / P5-21・DECISIONS #248）。
+# **秘密は SMTP_PASSWORD だけ**で、それは `wrangler secret put` で入れる。
+# 465 = implicit TLS が第一候補。使えないと分かったときだけ
+# SMTP_SECURE="starttls" + SMTP_PORT="587" へ倒す（**25 番は使わない**）。
+SMTP_HOST = "smtp.larksuite.com"
+SMTP_PORT = "465"
+SMTP_SECURE = "implicit"
+SMTP_USERNAME = "noreply@stek.ai"
+MAIL_FROM = "ProofKeeping <noreply@stek.ai>"
 
 [[env.preview.d1_databases]]
 binding = "SHARD_00"
@@ -555,6 +573,15 @@ SHARD_COUNT = "2"
 # `pk-staging` は固定名なので URL も固定。**サブドメインはアカウント固有。**
 APP_BASE_URL = "https://pk-staging.ukh816-account.workers.dev"
 RESEND_FROM_ADDRESS = "billing@example.invalid"
+# メール送信（Lark Mail SMTP / P5-21・DECISIONS #248）。
+# **秘密は SMTP_PASSWORD だけ**で、それは `wrangler secret put` で入れる。
+# 465 = implicit TLS が第一候補。使えないと分かったときだけ
+# SMTP_SECURE="starttls" + SMTP_PORT="587" へ倒す（**25 番は使わない**）。
+SMTP_HOST = "smtp.larksuite.com"
+SMTP_PORT = "465"
+SMTP_SECURE = "implicit"
+SMTP_USERNAME = "noreply@stek.ai"
+MAIL_FROM = "ProofKeeping <noreply@stek.ai>"
 
 [[env.staging.d1_databases]]
 binding = "SHARD_00"
@@ -755,6 +782,15 @@ ENVIRONMENT = "production"
 SHARD_COUNT = "16"
 APP_BASE_URL = "https://app.proofkeeping.example"
 RESEND_FROM_ADDRESS = "billing@example.invalid"
+# メール送信（Lark Mail SMTP / P5-21・DECISIONS #248）。
+# **秘密は SMTP_PASSWORD だけ**で、それは `wrangler secret put` で入れる。
+# 465 = implicit TLS が第一候補。使えないと分かったときだけ
+# SMTP_SECURE="starttls" + SMTP_PORT="587" へ倒す（**25 番は使わない**）。
+SMTP_HOST = "smtp.larksuite.com"
+SMTP_PORT = "465"
+SMTP_SECURE = "implicit"
+SMTP_USERNAME = "noreply@stek.ai"
+MAIL_FROM = "ProofKeeping <noreply@stek.ai>"
 
 [[env.production.d1_databases]]
 binding = "SHARD_00"

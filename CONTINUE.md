@@ -1,6 +1,43 @@
 # CONTINUE
 
-## 2026-08-21 の追記 その 3（**この節が最新**）
+## 2026-08-21 の追記 その 4（**この節が最新**）
+
+### メールを Resend から Lark Mail SMTP へ移した（P5-21）
+
+**PR を出して止めてある**（人間の指示「merge と staging 疎通確認は行わない」）。
+
+| 事実 | 状態 |
+|---|---|
+| 送信の口 | `lib/mail/send.ts` の 1 本。開通リンク・帳票・通知の 3 経路が通る |
+| SMTP | `smtp.larksuite.com:465` / implicit TLS（`cloudflare:sockets`） |
+| 秘密 | **`SMTP_PASSWORD` だけ**（＋疎通確認用 `SMTP_PROBE_TOKEN`）。**未登録** |
+| 疎通確認 | `POST /api/v1/dev/smtp-probe` と `smtp-probe.yml`（**メールを送らない**） |
+| 配信状態 | `SMTP_ACCEPTED` / `SMTP_REJECTED` / `DELIVERY_UNCONFIRMED` を追加。**既存 5 状態は残す** |
+| Resend | **secret も webhook 受信も消していない**（移行完了と実送信確認まで残す） |
+
+### 次にやること（**この順**）
+
+1. **PR をレビューして merge**
+2. **`SMTP_PASSWORD` を staging へ登録**（人間 / `wrangler secret put`）
+3. **`smtp-probe.yml` を staging で実行**（合言葉 `PROBE`）。
+   **`CONNECT` で止まったら送信へ進まない** — Cloudflare から 465 へ
+   出られていない。手順は `docs/runbook/smtp.md` §2
+4. 疎通が通ったら **PF-16 の開通をもう一度**（宛先は人間が指定）
+5. 実送信が安定したら `RESEND_*` の削除を判断（**まだ消さない**）
+
+### 申し送り
+
+- **OPEN_QUESTIONS #117**（`RESEND_FROM_ADDRESS` が実在しない）は
+  `MAIL_FROM` へ置き換わったことで**実質解消**。ただし
+  `RESEND_FROM_ADDRESS` の行自体は 4 環境に残してある（削除は移行完了後）
+- **OPEN_QUESTIONS #118 / `docs/tasks/P5-22.md`** — SMTP に webhook が無く、
+  **配達・開封・バウンスが分からない。** `DELIVERED` / `BOUNCED` /
+  `openedAt` は**推測で埋めていない**。受信側の実装は消さずに残してある
+- **PF-18**（`db-status` の「表の数」0 表示 / #116）は未着手のまま
+
+---
+
+## 2026-08-21 の追記 その 3（この節は古い）
 
 ### staging の状態（PF-16 の開通は**まだ通っていない**）
 

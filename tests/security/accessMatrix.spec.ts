@@ -52,6 +52,9 @@ const API_EXEMPTIONS: Readonly<Record<string, string>> = {
   "platformBootstrap.ts":
     "運営担当者の初期開通（PF-16）。**この時点で運営担当者は 1 人も居ない**ので " +
     "判定する主体が無い。守っているのは管理鍵（鍵が無ければ 404）＋『既に居れば拒否』",
+  "smtpProbe.ts":
+    "SMTP の疎通確認（P5-21）。**メールを送らず、テナントのデータに一切触れない**ので " +
+    "判定する対象が無い。守っているのは管理鍵（鍵が無ければ 404）。返すのは真偽値だけ",
   "webhooks.ts": "署名で守る（security.md §7）",
   "integrationWebhooks.ts": "署名で守る（security.md §7）",
   "public.ts": "API キーのスコープで守る（DECISIONS #151）",

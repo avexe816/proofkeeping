@@ -32,6 +32,28 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 - 決める人: PK-SPEC-P8 §3 の版上げ。現場責任者に開くなら
   「名前を出さずに組む」画面設計が先に要る。
 
+### #118 SMTP に webhook が無く、配信・開封・バウンスを確認できない
+- 提起: 2026-08-21 / P5-21（Resend → Lark Mail SMTP）実装中
+- 内容: SMTP で分かるのは **「サーバーが `DATA` を受理したか」**までで、
+  最終的に届いたか・開封されたか・バウンスしたかは**分からない。**
+  Resend には webhook があり、`documentDelivery` の `DELIVERED` /
+  `BOUNCED` / `openedAt` をそこから立てていた。**SMTP へ移すと、この 3 つは
+  更新されなくなる。**
+- 影響: **P5-10 の完了条件 2 つ**。
+  - 「Resend の webhook で bounce を受け取る」→ **経路が無くなる**
+  - 「不達が画面に警告表示される（`GET /api/v1/deliveries/failed`）」→
+    **`SMTP_REJECTED`（送信時の拒否）だけに縮む。** 送信後の不達は見えない
+- 暫定対応: **推測・代用・捏造をしない**（人間の指示 2026-08-21）。
+  分かる事実だけを 3 状態で持つ（`SMTP_ACCEPTED` / `SMTP_REJECTED` /
+  `DELIVERY_UNCONFIRMED` / DECISIONS #248）。**既存の 5 状態と受信側の
+  実装（`handleDeliveryEvent()`）はそのまま残してある**ので、
+  webhook を足せば戻せる。
+- 決める人: 人間。**どの経路で配信状態を戻すか**を選ぶ。
+  (a) Lark の Open API / 管理機能に webhook 相当があるか調べる、
+  (b) バウンスを `noreply@stek.ai` で受けて読み取る、
+  (c) 配信状態を諦める（`DELIVERY_UNCONFIRMED` のまま運用する）。
+  実装は後続 task **`docs/tasks/P5-22.md`**。
+
 ### #117 staging の `RESEND_FROM_ADDRESS` が実在しない（`billing@example.invalid`）
 - 提起: 2026-08-21 / PF-16 の staging 開通が失敗したとき
 - 内容: 最初の運営担当者の開通（`platform-bootstrap.yml` / staging）が

@@ -128,7 +128,32 @@ export const DELIVERY_CHANNELS = ["EMAIL", "DOWNLOAD_LINK"] as const;
 export type DeliveryChannel = (typeof DELIVERY_CHANNELS)[number];
 
 /** 送付の状態（§2.7）。`BOUNCED` は P5-10 が拾う。 */
-export const DELIVERY_STATUSES = ["QUEUED", "SENT", "DELIVERED", "BOUNCED", "FAILED"] as const;
+/**
+ * 送付ログの状態。
+ *
+ * ── 前 5 つ（Resend 時代）は残す ─────────────────────────
+ * `SENT` / `DELIVERED` / `BOUNCED` は **webhook が付いていた頃の記録**で、
+ * 既存の行がこの値を持つ。**破壊的に置き換えない**（人間の指示 2026-08-21）。
+ *
+ * ── 後ろ 3 つ（Lark SMTP / P5-21・DECISIONS #248）─────────
+ * SMTP で分かるのは「サーバーが受理したか」までで、**配信・開封・
+ * バウンスは分からない。** 分からないものを `DELIVERED` で代用しない。
+ *   - `SMTP_ACCEPTED`        `DATA` に 250 が返った（Lark が受理した）
+ *   - `SMTP_REJECTED`        受理されなかった
+ *   - `DELIVERY_UNCONFIRMED` 最終配信・バウンス・開封は未確認
+ * webhook を導入して `DELIVERED` / `BOUNCED` / `openedAt` を戻すのは
+ * **後続 task**（OPEN_QUESTIONS #118 / docs/tasks/P5-22.md）。
+ */
+export const DELIVERY_STATUSES = [
+  "QUEUED",
+  "SENT",
+  "DELIVERED",
+  "BOUNCED",
+  "FAILED",
+  "SMTP_ACCEPTED",
+  "SMTP_REJECTED",
+  "DELIVERY_UNCONFIRMED",
+] as const;
 
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 

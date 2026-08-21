@@ -26,6 +26,7 @@
  * `bodyPreview` に残るのも同じ範囲。
  */
 
+import { canSendMail, sendMail } from "../lib/mail/send.js";
 import { signReviewLinkPath } from "../lib/billing/reviewLink.js";
 import { parseDeliveryEvent } from "../lib/billing/webhookEvent.js";
 
@@ -42,7 +43,6 @@ import {
   markInvoiceSent,
   markReceiptSent,
   recordDocumentDelivery,
-  setDeliveryProviderMessageId,
   updateDocumentDeliveryStatus,
   type Env,
   type TenantContext,
@@ -104,60 +104,44 @@ export function invoiceBody(input: { documentNo: string; periodFrom: string; per
   ].join("\n");
 }
 
-/** 送付ログの ID を載せるタグ名。**webhook がこれを見て行を引く。** */
+/**
+ * 送付ログの ID を載せるタグ名。**webhook がこれを見て行を引く。**
+ *
+ * **SMTP へ移した今は送信側で載せていない**（SMTP に提供者のタグが無い）。
+ * 受信側（`handleDeliveryEvent()`）は webhook を戻す後続 task のために
+ * そのまま残してある（P5-22 / OPEN_QUESTIONS #118）。
+ */
 export const PK_DELIVERY_TAG = "pk_delivery_id";
 
 /** 同じものをヘッダにも載せる。 */
 export const PK_DELIVERY_HEADER = "X-PK-Delivery-Id";
 
-/** Resend の応答のうち使う部分。 */
-interface ResendResponse {
-  id?: string;
-}
-
 /**
- * Resend でメールを送る。
+ * メールを送る（Lark Mail SMTP / `lib/mail/send.ts`）。
  *
  * **添付は送らない。** PDF は R2 にあり、署名付き URL で配るのが
  * `files.ts` の作りなので、リンクを本文に含めるのは P5-10 以降の
  * 送付経路（`DOWNLOAD_LINK`）で扱う。ここでは本文のみを送り、
  * **送った事実を記録すること**を優先する（§2.7）。
+ *
+ * ── 返るのは「受理されたか」まで（#248）──────────────────
+ * SMTP で分かるのは Lark が `DATA` を受理したかどうかだけ。
+ * **配信・開封・バウンスは分からない**（OPEN_QUESTIONS #118 /
+ * 後続 task `docs/tasks/P5-22.md`）。
  */
-async function sendViaResend(
+async function sendViaMail(
   env: Env,
-  input: { to: string; cc: string[]; subject: string; body: string; deliveryId: string },
-): Promise<{ ok: true; messageId: string | null } | { ok: false; reason: string }> {
-  try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from: env.RESEND_FROM_ADDRESS,
-        to: [input.to],
-        cc: input.cc,
-        subject: input.subject,
-        text: input.body,
-        // **送付ログの ID を持たせる**（P5-10 / `lib/billing/webhookEvent.ts`）。
-        // webhook は組織を知らない。ID は自己記述（`{orgShortId}__dlv_{ulid}`）
-        // なので、これが返ってくればシャードを引ける。
-        // タグとヘッダの両方に入れるのは、Resend の webhook が
-        // どちらを載せるかが payload の種類で違うため（OPEN_QUESTIONS #077）。
-        tags: [{ name: PK_DELIVERY_TAG, value: input.deliveryId }],
-        headers: { [PK_DELIVERY_HEADER]: input.deliveryId },
-      }),
-    });
-
-    if (!response.ok) return { ok: false, reason: `HTTP_${String(response.status)}` };
-
-    const body = await response.json<ResendResponse>();
-    return { ok: true, messageId: body.id ?? null };
-  } catch (error) {
-    // **中身をログへ流さない。** 例外の名前だけ（architecture.md §1）。
-    return { ok: false, reason: error instanceof Error ? error.name : "UNKNOWN" };
-  }
+  input: { to: string; cc: string[]; subject: string; body: string; now: Date },
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const result = await sendMail(env, {
+    to: input.to,
+    cc: input.cc,
+    subject: input.subject,
+    text: input.body,
+    now: input.now,
+  });
+  // **失敗の理由は段階名だけ**（`RCPT_TO` など）。宛先も応答文も持ち出さない。
+  return result.accepted ? { ok: true } : { ok: false, reason: result.failedAt ?? "UNKNOWN" };
 }
 
 /**
@@ -190,8 +174,8 @@ export async function deliverInvoice(
     periodTo: invoice.periodTo,
   });
 
-  // **先に送付ログを起こしてから送る。** ID を Resend へ渡す必要があり、
-  // 送ってから採番すると webhook が先に届いたときに引けない。
+  // **先に送付ログを起こしてから送る。** 送信の成否をこの行へ書き戻すため、
+  // ID は送る前に要る（webhook を戻す後続 task でも同じ形が要る）。
   const { deliveryId } = await recordDocumentDelivery(env, ctx, {
     docType: "INVOICE",
     documentId: message.invoiceId,
@@ -208,21 +192,21 @@ export async function deliverInvoice(
     sentAt: null,
   });
 
-  const sent = await sendViaResend(env, {
+  const sent = await sendViaMail(env, {
     to: message.toEmail,
     cc: message.ccEmails,
     subject,
     body,
-    deliveryId,
+    now: ctx.now,
   });
 
   await updateDocumentDeliveryStatus(env, ctx, deliveryId, {
-    status: sent.ok ? "SENT" : "FAILED",
+    // **SMTP が受理したか否かだけ**（#248）。配信・開封は分からない。
+    status: sent.ok ? "SMTP_ACCEPTED" : "SMTP_REJECTED",
     ...(sent.ok ? {} : { errorMessage: sent.reason }),
   });
-  if (sent.ok && sent.messageId !== null) {
-    await setDeliveryProviderMessageId(env, ctx, deliveryId, sent.messageId);
-  }
+  // **SMTP は提供者側の ID を返さない。** `providerMessageId` は
+  // webhook を戻す後続 task（P5-22）まで `null` のまま。
 
   if (!sent.ok) return { kind: "FAILED", reason: sent.reason };
 
@@ -369,21 +353,21 @@ export async function deliverReceipt(
     sentAt: null,
   });
 
-  const sent = await sendViaResend(env, {
+  const sent = await sendViaMail(env, {
     to: message.toEmail,
     cc: message.ccEmails,
     subject,
     body,
-    deliveryId,
+    now: ctx.now,
   });
 
   await updateDocumentDeliveryStatus(env, ctx, deliveryId, {
-    status: sent.ok ? "SENT" : "FAILED",
+    // **SMTP が受理したか否かだけ**（#248）。配信・開封は分からない。
+    status: sent.ok ? "SMTP_ACCEPTED" : "SMTP_REJECTED",
     ...(sent.ok ? {} : { errorMessage: sent.reason }),
   });
-  if (sent.ok && sent.messageId !== null) {
-    await setDeliveryProviderMessageId(env, ctx, deliveryId, sent.messageId);
-  }
+  // **SMTP は提供者側の ID を返さない。** `providerMessageId` は
+  // webhook を戻す後続 task（P5-22）まで `null` のまま。
 
   if (!sent.ok) return { kind: "FAILED", reason: sent.reason };
 
@@ -503,31 +487,31 @@ export async function deliverReviewRequest(
     sentAt: null,
   });
 
-  // Resend が未接続の環境（local / preview）では送らずに事実だけ残す
-  // （`notify.ts` と同じ判断 / DECISIONS #188）。再送しても直らないので SKIP。
-  if (typeof env.RESEND_API_KEY !== "string" || env.RESEND_API_KEY.trim() === "") {
+  // SMTP が未設定の環境（local / preview）では送らずに事実だけ残す
+  // （`notify.ts` と同じ判断 / DECISIONS #188・#248）。再送しても直らないので SKIP。
+  if (!canSendMail(env)) {
     await updateDocumentDeliveryStatus(env, ctx, deliveryId, {
-      status: "FAILED",
-      errorMessage: "RESEND_DISABLED",
+      status: "SMTP_REJECTED",
+      errorMessage: "MAIL_DISABLED",
     });
-    return { kind: "SKIPPED", reason: "RESEND_DISABLED" };
+    return { kind: "SKIPPED", reason: "MAIL_DISABLED" };
   }
 
-  const sent = await sendViaResend(env, {
+  const sent = await sendViaMail(env, {
     to: message.toEmail,
     cc: message.ccEmails,
     subject,
     body,
-    deliveryId,
+    now: ctx.now,
   });
 
   await updateDocumentDeliveryStatus(env, ctx, deliveryId, {
-    status: sent.ok ? "SENT" : "FAILED",
+    // **SMTP が受理したか否かだけ**（#248）。配信・開封は分からない。
+    status: sent.ok ? "SMTP_ACCEPTED" : "SMTP_REJECTED",
     ...(sent.ok ? {} : { errorMessage: sent.reason }),
   });
-  if (sent.ok && sent.messageId !== null) {
-    await setDeliveryProviderMessageId(env, ctx, deliveryId, sent.messageId);
-  }
+  // **SMTP は提供者側の ID を返さない。** `providerMessageId` は
+  // webhook を戻す後続 task（P5-22）まで `null` のまま。
 
   if (!sent.ok) return { kind: "FAILED", reason: sent.reason };
 
