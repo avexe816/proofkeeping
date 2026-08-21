@@ -160,6 +160,34 @@ describe("bootstrap の workflow（要件: ログ・summary・artifact へ出さ
     expect(steps).toContain("if: always()");
   });
 
+  // ── cleanup の取りこぼしを塞ぐ（2026-08-21 / DECISIONS #247）──
+  //
+  // 初版は `--force`（存在しない引数）を渡し、失敗を `|| true` で
+  // 握りつぶしていた。**削除は 1 度も走らないままステップが緑になり、
+  // 管理鍵が staging に残った。** 同じ形が戻らないようにここで固定する。
+
+  it("`wrangler secret delete` に `--force` を渡さない（存在しない引数）", () => {
+    expect(steps).not.toMatch(/secret delete[\s\S]{0,120}--force/);
+  });
+
+  it("削除の失敗を握りつぶさない（`|| true` を付けない）", () => {
+    const deleteBlock = steps.slice(steps.indexOf("wrangler secret delete PLATFORM_BOOTSTRAP_TOKEN"));
+    // 削除コマンドと、続く 1 行（改行継続の `--env …`）に `|| true` が無いこと。
+    expect(deleteBlock.split("\n").slice(0, 3).join("\n")).not.toContain("|| true");
+  });
+
+  it("**消えたことを名前で確かめる**（一覧に残っていたら赤にする）", () => {
+    expect(steps).toContain("wrangler secret list --env");
+    expect(steps).toMatch(/grep -q 'PLATFORM_BOOTSTRAP_TOKEN'[\s\S]{0,200}exit 1/);
+  });
+
+  it("確認は staging / production のどちらでも同じに働く（環境を焼き込まない）", () => {
+    // 削除も一覧も `inputs.environment` を使う。**片方だけ固定値にしない。**
+    const cleanup = steps.slice(steps.indexOf("wrangler secret delete PLATFORM_BOOTSTRAP_TOKEN"));
+    expect(cleanup).toContain('--env "${{ inputs.environment }}"');
+    expect(cleanup).not.toMatch(/--env\s+"?(staging|production)"?[\s\n]/);
+  });
+
   it("`set -x` を置かない（鍵が展開されて残る）", () => {
     expect(steps).not.toMatch(/set\s+-[a-z]*x/);
   });

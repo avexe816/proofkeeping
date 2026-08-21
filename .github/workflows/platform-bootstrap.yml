@@ -180,6 +180,20 @@ jobs:
       #
       # **`if: always()`。** 上が落ちても消す。消し忘れると、開通の口が
       # 開いたままの環境が残る。削除も再デプロイまでが 1 組。
+      #
+      # ── 消せなかったことを success にしない ──────────────
+      # 初版は `--force` を付け、失敗を `|| true` で握りつぶしていた。
+      # `wrangler secret delete` に `--force` は無く（4.123.0 で
+      # `Unknown argument: force`）、**削除は 1 度も走らないまま
+      # ステップは緑になり、鍵が残った**（2026-08-21 / staging で発生）。
+      # 握りつぶす先が「開いたままの扉」なので、**失敗はそのまま赤にする。**
+      #
+      # ── 消えたことを名前で確かめる ──────────────────────
+      # 削除コマンドの終了コードだけでは足りない。再デプロイのあとに
+      # 一覧を取り、**名前が消えていることまで見て**初めて cleanup 成功とする。
+      # 出るのは名前と型だけで、**値は出ない**（`wrangler secret list` の仕様）。
+      # 環境は `inputs.environment` をそのまま使うので staging / production の
+      # どちらでも同じ検査が働く。
       - name: 管理鍵を削除する
         if: always()
         working-directory: apps/web
@@ -188,10 +202,23 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
         run: |
           set -euo pipefail
+
+          # **`|| true` を付けない。** 消せなければここで落ちる。
           pnpm exec wrangler secret delete PLATFORM_BOOTSTRAP_TOKEN \
-            --env "${{ inputs.environment }}" --force || true
+            --env "${{ inputs.environment }}"
+
           CLOUDFLARE_ENV="${{ inputs.environment }}" pnpm build >/dev/null
           pnpm exec wrangler deploy
 
           echo "登録済みの secret（名前だけ）:"
-          pnpm exec wrangler secret list --env "${{ inputs.environment }}"
+          pnpm exec wrangler secret list --env "${{ inputs.environment }}" \
+            | tee /tmp/secret-names.json
+
+          # **名前が残っていたら赤にする。** 扉が開いたままなので、
+          # 気づかれない緑よりも赤で止めるほうがよい。
+          if grep -q 'PLATFORM_BOOTSTRAP_TOKEN' /tmp/secret-names.json; then
+            echo "管理鍵が残っています。開通の口が開いたままです。"
+            echo "docs/runbook/platform-bootstrap.md §9 の手順で手で消してください。"
+            exit 1
+          fi
+          echo "管理鍵は削除されています（名前が一覧にありません）。"

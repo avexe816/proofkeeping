@@ -1,6 +1,45 @@
 # CONTINUE
 
-## 2026-08-21 の追記 その 2（**この節が最新**）
+## 2026-08-21 の追記 その 3（**この節が最新**）
+
+### staging の状態（PF-16 の開通は**まだ通っていない**）
+
+| 事実 | 状態 |
+|---|---|
+| PR #163（PF-16） | **main へ squash merge 済み**（`1c28709`）。main の CI 3 本とも緑 |
+| staging へのデプロイ | 済み（main への push で自動） |
+| migration **0035** | **staging の両 shard へ適用済み**（`0035_pf16_bootstrap` / `schemaVersionConsistent=true`） |
+| `RESEND_API_KEY` | staging に**登録済み**（名前で確認） |
+| 最初の運営担当者 | **未作成。** 開通が `DELIVERY_REJECTED` で失敗した |
+| `PLATFORM_BOOTSTRAP_TOKEN` | **削除済み**（人間が Cloudflare Dashboard から手で削除して再デプロイ） |
+
+### 開通が失敗した理由と、次に確かめること
+
+1. **`platform-bootstrap.yml` の cleanup にバグがあった**（DECISIONS #247）。
+   `wrangler secret delete … --force || true` が `Unknown argument: force` で
+   弾かれ、**削除が走らないままステップが緑になり、管理鍵が残った。**
+   → この PR（`claude/pf-16-bootstrap-cleanup-fix`）で直した。
+   **bootstrap のロジックは触っていない。**
+2. **開通そのものは `DELIVERY_REJECTED`。** 有力な原因は staging の
+   **`RESEND_FROM_ADDRESS` が `billing@example.invalid`**（実在しない）。
+   → **OPEN_QUESTIONS #117。Resend で Verified になっている送信元を
+   確認してから変更する。推測で書き換えないこと**（人間の指示）。
+   確定させるには `platform_audit_log` の `detail.cause` を見る
+   （`DELIVERY_SEND_FAILED` / `DELIVERY_NOT_CONFIGURED`）。
+
+### 次にやること
+
+1. **Resend の Verified 送信元を確定**（人間）→ `wrangler.toml` の
+   `[env.staging.vars] RESEND_FROM_ADDRESS` を直す
+2. そのうえで `platform-bootstrap.yml` を**もう一度だけ**実行して開通する
+   （宛先は人間が指定する。**2 回目の実行は指示があるまで行わない**）
+3. 開通後に `/plat/*` の目視確認（PF-05 の「未計測」表示ほか）
+4. 積み残し: **PF-18**（`db-status` の「表の数」0 表示 / OPEN_QUESTIONS #116）、
+   `secrets-list` phase の追加（読み取り専用で secret 名を出す口。後回しと決定）
+
+---
+
+## 2026-08-21 の追記 その 2（この節は古い）
 
 ### いまどこ
 
