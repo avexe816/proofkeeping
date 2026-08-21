@@ -14,6 +14,15 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  FAKE_SMTP_ENV,
+  SMTP_HAPPY_PATH,
+  decodeSentMailBody,
+  fakeSmtpConnect,
+} from "../mail/fakeSocket.js";
+import type { SocketConnect } from "../mail/smtp.js";
+
+
 interface FakeToken {
   id: string;
   email: string;
@@ -35,6 +44,26 @@ const store = {
   }[],
   tokens: [] as FakeToken[],
 };
+
+
+/**
+ * `sendMail()` が使う socket を差し替える（P5-21）。
+ *
+ * **中身は本物のまま。** 「鍵が無ければ接続しない」も SMTP の手順も
+ * 実際に動く。開く先だけが偽物になる。
+ */
+let connectSpy: SocketConnect | undefined;
+
+vi.mock("../mail/send.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../mail/send.js")>();
+  return {
+    ...actual,
+    sendMail: (
+      env: Parameters<typeof actual.sendMail>[0],
+      input: Parameters<typeof actual.sendMail>[1],
+    ) => actual.sendMail(env, input, connectSpy),
+  };
+});
 
 vi.mock("@pk/db", () => ({
   recordPlatformAudit: () => Promise.resolve(),
@@ -109,13 +138,13 @@ const EMAIL = "ops@stek.ai";
 const PASSWORD = "Bootstrap2026x";
 
 let env: Env;
-let fetchMock: ReturnType<typeof vi.fn>;
+/** 送られたコマンドを溜める偽 socket（P5-21。**本物の TCP を開かない**）。 */
+let smtp: ReturnType<typeof fakeSmtpConnect>;
 
 /** 発行 → 開通 まで通し、出来上がった Cookie の値を返す。 */
 async function activateAndGetCookie(): Promise<string> {
   await issuePlatformBootstrap(env, { email: EMAIL, displayName: "運営 太郎", now: NOW });
-  const body = (fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined)?.body ?? "";
-  const token = /\/plat\/bootstrap\/([A-Za-z0-9_-]+)/.exec(body)?.[1];
+  const token = /\/plat\/bootstrap\/([A-Za-z0-9_-]+)/.exec(decodeSentMailBody(smtp.sent()))?.[1];
   if (token === undefined) throw new Error("link not sent");
 
   const result = await activatePlatformBootstrap(env, { token, password: PASSWORD, now: NOW });
@@ -143,14 +172,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   store.operators = [];
   store.tokens = [];
-  fetchMock = vi.fn().mockResolvedValue({ ok: true });
-  vi.stubGlobal("fetch", fetchMock);
+  smtp = fakeSmtpConnect(SMTP_HAPPY_PATH);
+  connectSpy = smtp.connect;
   env = {
     SESSION: createFakeKv().namespace,
     SESSION_SECRET: "test-secret",
     APP_BASE_URL: "https://plat.example.invalid",
-    RESEND_API_KEY: "re_test_key",
-    RESEND_FROM_ADDRESS: "noreply@example.invalid",
+    ...FAKE_SMTP_ENV,
   } as unknown as Env;
 });
 

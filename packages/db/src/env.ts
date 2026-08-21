@@ -129,6 +129,33 @@ export interface EnvVars {
    * （§2 に差出人を持つ列が無い / docs/OPEN_QUESTIONS.md #075）。
    */
   RESEND_FROM_ADDRESS: string;
+
+  // ── メール送信（Lark Mail SMTP / P5-21・DECISIONS #248）──────
+  //
+  // **秘密は `SMTP_PASSWORD` だけ。** ホスト・ポート・利用者名・差出人は
+  // 秘密ではないので `[vars]` に置く。**wrangler.toml を読めば
+  // staging と production の向き先が分かる**形にして、取り違えを早く見つける。
+
+  /** SMTP のホスト名（Lark Mail）。 */
+  SMTP_HOST: string;
+  /** SMTP のポート。**465 が第一候補**（implicit TLS）。文字列で持つ。 */
+  SMTP_PORT: string;
+  /**
+   * TLS の掛け方。`implicit`（465）か `starttls`（587）。
+   *
+   * **未設定は `implicit`。** 465 が使えないと分かったときだけ
+   * `starttls` へ倒す（**25 番は使わない**）。
+   */
+  SMTP_SECURE: string;
+  /** SMTP の利用者名。Lark はメールアドレスをそのまま使う。 */
+  SMTP_USERNAME: string;
+  /**
+   * 差出人（`From` ヘッダ）。`ProofKeeping <noreply@stek.ai>` の形。
+   *
+   * **提供者名を含めない名前にしてある** — 次に乗り換えるとき、
+   * 名前を変えずに値だけ差し替えられる（`RESEND_FROM_ADDRESS` の反省）。
+   */
+  MAIL_FROM: string;
 }
 
 /**
@@ -139,8 +166,28 @@ export interface EnvVars {
 export interface EnvSecrets {
   /** セッション ID の署名鍵。 */
   SESSION_SECRET: string;
-  /** Resend の API キー。 */
+  /** Resend の API キー。**移行中のみ残す**（P5-21 / 削除は別途判断）。 */
   RESEND_API_KEY: string;
+  /**
+   * Lark Mail の SMTP authorization password（P5-21 / DECISIONS #248）。
+   *
+   * **メール送信で使う唯一の秘密。** `lib/mail/send.ts` から
+   * `lib/mail/smtp.ts` へ渡る 1 本道だけで使い、**ログにも監査ログにも
+   * 応答にも出さない**（`tests/security/mailSecrets.spec.ts` が走査）。
+   *
+   * `REQUIRED_SECRETS` には**入れない** — 無くて壊れるのはメールだけで、
+   * 必須にすると鍵を置くまで全リクエストが 503 になる。
+   * **未設定なら送信そのものを行わない**（`canSendMail()`）。
+   */
+  SMTP_PASSWORD: string;
+  /**
+   * SMTP の疎通確認（`POST /api/v1/dev/smtp-probe`）を開ける鍵。
+   *
+   * **置かなければ 404。** workflow（`.github/workflows/smtp-probe.yml`）が
+   * 実行のたびに作って登録し、**終わったら消す**（PF-16 の管理鍵と同じ形 /
+   * DECISIONS #247）。
+   */
+  SMTP_PROBE_TOKEN: string;
   /**
    * Resend の webhook 署名鍵（P5-10 / security.md §7）。
    *

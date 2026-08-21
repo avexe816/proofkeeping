@@ -5,8 +5,8 @@
  * 手順: docs/runbook/platform-bootstrap.md
  *
  * ── なぜメールなのか ────────────────────────────────────
- * 1 回限りの秘密を人へ渡す口が、この製品には既に 1 つある（Resend /
- * `consumers/notify.ts`）。**新しい受け渡しの仕組みを増やさない。**
+ * 1 回限りの秘密を人へ渡す口が、この製品には既に 1 つある
+ * （`lib/mail/send.ts`）。**新しい受け渡しの仕組みを増やさない。**
  *
  * ── 採らなかった案 ──────────────────────────────────────
  *   * **workflow のログ・summary・artifact へ出す** — Actions のログは
@@ -19,7 +19,7 @@
  *     載り、`set -x` やエラー出力で漏れる余地ができる。
  *
  * ── 送れないなら発行しない ──────────────────────────────
- * `RESEND_API_KEY` が無い環境では**券を作らずに断る**（`bootstrap.ts` の 1）。
+ * SMTP の設定が無い環境では**券を作らずに断る**（`bootstrap.ts` の 1）。
  * 「送れなかったから代わりにログへ」は採らない。
  *
  * ── 本文に何を書かないか ────────────────────────────────
@@ -29,12 +29,16 @@
 
 import type { Env } from "@pk/db";
 
+import { canSendMail, sendMail } from "../mail/send.js";
+
 /** 送信の入力。**平文の token はリンクの中にだけ現れる。** */
 export interface BootstrapMailInput {
   to: string;
   /** `/plat/bootstrap/{token}` の完全な URL。 */
   link: string;
   expiresAt: Date;
+  /** 現在時刻（`Date` ヘッダ用）。**`Date.now()` を呼ばない**（CLAUDE.md §5）。 */
+  now: Date;
 }
 
 /** 日本時間の `M月D日 H:MM`。期限を本文に書くためだけの整形。 */
@@ -50,11 +54,12 @@ function formatJst(at: Date): string {
 /**
  * 開通リンクを送る。送れたら `true`。
  *
- * **失敗の中身をログへ流さない。** 宛先は個人情報（security.md §3）で、
- * 本文にはリンク（＝ token）が入っている。例外の中身も出さない。
+ * **失敗の中身を持ち出さない。** 宛先は個人情報（security.md §3）で、
+ * 本文にはリンク（＝ token）が入っている。`sendMail()` は成否と段階しか
+ * 返さないので、ここでそれを `boolean` へ畳む。**`console` を呼ばない。**
  */
 export async function sendBootstrapLink(env: Env, input: BootstrapMailInput): Promise<boolean> {
-  if (typeof env.RESEND_API_KEY !== "string" || env.RESEND_API_KEY.trim() === "") return false;
+  if (!canSendMail(env)) return false;
 
   const body = [
     "ProofKeeping 運営コンソールの開通のご案内です。",
@@ -70,24 +75,11 @@ export async function sendBootstrapLink(env: Env, input: BootstrapMailInput): Pr
     "心当たりが無い場合は、このメールを破棄してください。",
   ].join("\n");
 
-  try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from: env.RESEND_FROM_ADDRESS,
-        to: [input.to],
-        subject: "ProofKeeping 運営コンソールの開通",
-        text: body,
-      }),
-    });
-    return response.ok;
-  } catch {
-    // **中身を出さない**（宛先もリンクも入っている）。名前だけ残す。
-    console.error("platform-bootstrap-mail-failed");
-    return false;
-  }
+  const result = await sendMail(env, {
+    to: input.to,
+    subject: "ProofKeeping 運営コンソールの開通",
+    text: body,
+    now: input.now,
+  });
+  return result.accepted;
 }

@@ -46,6 +46,7 @@ import {
 
 import { hashPassword } from "../auth/password.js";
 import { sha256HexOfText } from "../evidence/hash.js";
+import { canSendMail } from "../mail/send.js";
 
 import { auditQuietly, platformAuditId } from "./audit.js";
 import { sendBootstrapLink } from "./bootstrapMail.js";
@@ -178,10 +179,11 @@ export async function issuePlatformBootstrap(
     to: input.email,
     link: buildBootstrapLink(env, token),
     expiresAt,
+    now: input.now,
   });
   if (!delivered) {
     await revokePlatformBootstrapTokens(env, input.now);
-    // **`cause` は監査ログの中だけ**（#246）。`RESEND_API_KEY` の値も
+    // **`cause` は監査ログの中だけ**（#246）。`SMTP_PASSWORD` の値も
     // 宛先も入れない（要件 10 / security.md §6）。
     await audit("platform.bootstrap.delivery_failed", {
       tokenId: id,
@@ -205,9 +207,14 @@ export function buildBootstrapLink(env: Pick<Env, "APP_BASE_URL">, token: string
   return `${env.APP_BASE_URL.replace(/\/+$/, "")}/plat/bootstrap/${token}`;
 }
 
-/** メールを送れる環境か。**鍵が無ければ発行そのものを断る。** */
-function canDeliverBootstrapLink(env: Pick<Env, "RESEND_API_KEY">): boolean {
-  return typeof env.RESEND_API_KEY === "string" && env.RESEND_API_KEY.trim() !== "";
+/**
+ * メールを送れる環境か。**設定が無ければ発行そのものを断る。**
+ *
+ * 判定は `lib/mail/send.ts` の `canSendMail()` に一本化してある
+ * （送る側と発行する側で条件がずれると、券だけができて誰にも渡らない）。
+ */
+function canDeliverBootstrapLink(env: Env): boolean {
+  return canSendMail(env);
 }
 
 /** 開通の画面に出してよい情報。**token も期限の秒数も含めない。** */

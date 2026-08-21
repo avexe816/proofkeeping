@@ -8,14 +8,36 @@
  *   - 静音時間が機能する（`PUSH` を落とし、`EMAIL` は落とさない）
  *
  * 判定そのものは `lib/notification/routing.spec.ts`。ここは
- * **実際に fetch が飛ぶかどうか**を見る。
+ * **実際に SMTP の接続が張られるかどうか**を見る（P5-21 で Resend から
+ * Lark SMTP へ移した。差し替えるのは socket だけで、`sendMail()` の
+ * 判定はそのまま働く）。
  */
 
 import { generateId } from "@pk/db";
 import { createFakeD1, createFakeEnv, TEST_ORG, type FakeD1 } from "@pk/db/test-support";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { FAKE_SMTP_ENV, SMTP_HAPPY_PATH, fakeSmtpConnect } from "../lib/mail/fakeSocket.js";
+import type { SocketConnect } from "../lib/mail/smtp.js";
+
 import { dedupeKvKey, isNotifyMessage, notificationBody, runNotify, type NotifyMessage } from "./notify.js";
+
+/**
+ * `sendMail()` が使う socket。**各テストが `stubSmtp()` で差し込む。**
+ *
+ * 差し替えるのは socket だけ。`canSendMail()` の判定も SMTP の手順も
+ * 本物が動く（「鍵が無ければ接続しない」を本当に検査できる）。
+ */
+let connectSpy: SocketConnect | undefined;
+
+vi.mock("../lib/mail/send.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/mail/send.js")>();
+  return {
+    ...actual,
+    sendMail: (env: Parameters<typeof actual.sendMail>[0], input: Parameters<typeof actual.sendMail>[1]) =>
+      actual.sendMail(env, input, connectSpy),
+  };
+});
 
 const MEMBERSHIP_ID = generateId(TEST_ORG.orgShortId, "mem");
 const PROPERTY_ID = generateId(TEST_ORG.orgShortId, "prop");
@@ -48,15 +70,20 @@ function fakeKv(initial: Record<string, string> = {}) {
 }
 
 /** 送信を数える fetch。 */
-function stubFetch(ok = true) {
+/**
+ * SMTP の送信を偽 socket へ向ける（P5-21）。
+ *
+ * **`sendMail()` の中身は本物のまま。** 差し替えるのは socket だけなので、
+ * 「鍵が無ければ接続しない」という判定もそのまま働く。
+ * 戻り値は**接続が試みられた回数**（= 送ろうとした回数）。
+ */
+function stubSmtp(happy = true): { url: string; body: unknown }[] {
   const calls: { url: string; body: unknown }[] = [];
-  vi.stubGlobal(
-    "fetch",
-    (url: string, init: { body: string }) => {
-      calls.push({ url, body: JSON.parse(init.body) });
-      return Promise.resolve({ ok, json: () => Promise.resolve({ id: "re_1" }) });
-    },
-  );
+  connectSpy = (address, options) => {
+    calls.push({ url: `smtp://${address.hostname}:${String(address.port)}`, body: null });
+    const fake = fakeSmtpConnect(happy ? SMTP_HAPPY_PATH : ["554 refused\r\n"]);
+    return fake.connect(address, options);
+  };
   return calls;
 }
 
@@ -76,11 +103,12 @@ function primeFake(
 }
 
 function envWith(fake: FakeD1, kv = fakeKv()) {
-  return { ...createFakeEnv(fake), CONFIG: kv, RESEND_API_KEY: "k", RESEND_FROM_ADDRESS: "n@pk" } as never;
+  return { ...createFakeEnv(fake), CONFIG: kv, ...FAKE_SMTP_ENV } as never;
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  connectSpy = undefined;
 });
 
 describe("isNotifyMessage", () => {
@@ -110,11 +138,11 @@ describe("runNotify — 送る", () => {
   it("`ORG_ADMIN` へ EMAIL が 1 通飛ぶ", async () => {
     const fake = createFakeD1();
     primeFake(fake);
-    const calls = stubFetch();
+    const calls = stubSmtp();
     const outcome = await runNotify(envWith(fake), MESSAGE);
     expect(outcome).toEqual({ kind: "OK", sent: 1, withheld: 0 });
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.url).toBe("https://api.resend.com/emails");
+    expect(calls[0]?.url).toBe("smtp://smtp.example.invalid:465");
   });
 
   it("**本文に要約とリンクだけ**（ui-writing.md §6）", () => {
@@ -128,43 +156,43 @@ describe("runNotify — 送る", () => {
   it("送ったら `dedupeKey` を KV へ置く", async () => {
     const fake = createFakeD1();
     primeFake(fake);
-    stubFetch();
+    stubSmtp();
     const kv = fakeKv();
     await runNotify(envWith(fake, kv), MESSAGE);
     expect(kv.store.get(dedupeKvKey(TEST_ORG.orgShortId, MESSAGE.dedupeKey))).toBe("1");
   });
 });
 
-describe("runNotify — API キーが無ければ外へ出さない（DECISIONS #188）", () => {
+describe("runNotify — 鍵が無ければ外へ出さない（DECISIONS #188 / #248）", () => {
   /**
-   * staging は `RESEND_API_KEY` を置かないことで外部送信を止める。
-   * **止まっているとは「fetch が飛ばない」こと。** 401 を受けて false を
+   * staging は `SMTP_PASSWORD` を置かないことで外部送信を止める。
+   * **止まっているとは「接続が張られない」こと。** 認証失敗を受けて false を
    * 返すのでは、宛先が外へ出てしまう。
    */
-  it("`RESEND_API_KEY` が未設定なら **fetch を呼ばない**", async () => {
+  it("`SMTP_PASSWORD` が未設定なら **接続しない**", async () => {
     const fake = createFakeD1();
     primeFake(fake);
-    const calls = stubFetch();
-    const env = { ...(envWith(fake) as object), RESEND_API_KEY: undefined } as never;
+    const calls = stubSmtp();
+    const env = { ...(envWith(fake) as object), SMTP_PASSWORD: undefined } as never;
     const outcome = await runNotify(env, MESSAGE);
     expect(calls).toHaveLength(0);
     expect(outcome).toEqual({ kind: "OK", sent: 0, withheld: 1 });
   });
 
-  it("空文字の `RESEND_API_KEY` でも fetch を呼ばない", async () => {
+  it("空文字の `SMTP_PASSWORD` でも接続しない", async () => {
     const fake = createFakeD1();
     primeFake(fake);
-    const calls = stubFetch();
-    const env = { ...(envWith(fake) as object), RESEND_API_KEY: "" } as never;
+    const calls = stubSmtp();
+    const env = { ...(envWith(fake) as object), SMTP_PASSWORD: "" } as never;
     await runNotify(env, MESSAGE);
     expect(calls).toHaveLength(0);
   });
 
-  it("空白だけの `RESEND_API_KEY` でも fetch を呼ばない", async () => {
+  it("空白だけの `SMTP_PASSWORD` でも接続しない", async () => {
     const fake = createFakeD1();
     primeFake(fake);
-    const calls = stubFetch();
-    const env = { ...(envWith(fake) as object), RESEND_API_KEY: "   " } as never;
+    const calls = stubSmtp();
+    const env = { ...(envWith(fake) as object), SMTP_PASSWORD: "   " } as never;
     await runNotify(env, MESSAGE);
     expect(calls).toHaveLength(0);
   });
@@ -173,7 +201,7 @@ describe("runNotify — API キーが無ければ外へ出さない（DECISIONS 
 describe("runNotify — 送らない", () => {
   it("**同じ `dedupeKey` は 2 度送らない**（冪等 / testing.md §4）", async () => {
     const fake = createFakeD1();
-    const calls = stubFetch();
+    const calls = stubSmtp();
     const kv = fakeKv({ [dedupeKvKey(TEST_ORG.orgShortId, MESSAGE.dedupeKey)]: "1" });
     const outcome = await runNotify(envWith(fake, kv), MESSAGE);
     expect(outcome).toEqual({ kind: "OK", sent: 0, withheld: 0 });
@@ -207,7 +235,7 @@ describe("runNotify — 送らない", () => {
     const fake = createFakeD1();
     fake.enqueueRows([[TEST_ORG.organizationId]]);
     fake.enqueueRows([]); // 宛先なし
-    const calls = stubFetch();
+    const calls = stubSmtp();
     expect(await runNotify(envWith(fake), MESSAGE)).toEqual({ kind: "OK", sent: 0, withheld: 0 });
     expect(calls).toHaveLength(0);
   });
@@ -215,7 +243,7 @@ describe("runNotify — 送らない", () => {
   it("**メール未登録は送らないが失敗にもしない**（`email` は任意項目）", async () => {
     const fake = createFakeD1();
     primeFake(fake, { email: null });
-    const calls = stubFetch();
+    const calls = stubSmtp();
     expect(await runNotify(envWith(fake), MESSAGE)).toEqual({ kind: "OK", sent: 0, withheld: 1 });
     expect(calls).toHaveLength(0);
   });
@@ -223,15 +251,15 @@ describe("runNotify — 送らない", () => {
   it("設定でチャネルを空にしたら送らない", async () => {
     const fake = createFakeD1();
     primeFake(fake, { channels: [] });
-    const calls = stubFetch();
+    const calls = stubSmtp();
     expect(await runNotify(envWith(fake), MESSAGE)).toEqual({ kind: "OK", sent: 0, withheld: 1 });
     expect(calls).toHaveLength(0);
   });
 
-  it("Resend が失敗しても例外にしない（他の宛先を巻き込まない）", async () => {
+  it("SMTP が失敗しても例外にしない（他の宛先を巻き込まない）", async () => {
     const fake = createFakeD1();
     primeFake(fake);
-    stubFetch(false);
+    stubSmtp(false);
     expect(await runNotify(envWith(fake), MESSAGE)).toEqual({ kind: "OK", sent: 0, withheld: 1 });
   });
 });
@@ -240,7 +268,7 @@ describe("runNotify — `CLEANER` の境界（§5.1 MUST / security.md §1）", 
   it("**清掃スタッフには 1 通も飛ばない**（対象ロールに含まれないイベント）", async () => {
     const fake = createFakeD1();
     primeFake(fake, { role: "CLEANER" });
-    const calls = stubFetch();
+    const calls = stubSmtp();
     // `integration.error` の対象は `ORG_ADMIN`。宛先の照会自体が
     // `ORG_ADMIN` で絞られるが、万一 `CLEANER` の行が返っても落ちる。
     const outcome = await runNotify(envWith(fake), MESSAGE);
@@ -251,7 +279,7 @@ describe("runNotify — `CLEANER` の境界（§5.1 MUST / security.md §1）", 
   it("**唯一許されたイベントも外へは送らない**（既定は `IN_APP`）", async () => {
     const fake = createFakeD1();
     primeFake(fake, { role: "CLEANER" });
-    const calls = stubFetch();
+    const calls = stubSmtp();
     const outcome = await runNotify(envWith(fake), {
       ...MESSAGE,
       eventCode: "task.rework_assigned",
@@ -266,7 +294,7 @@ describe("runNotify — 静音時間（§5.3）", () => {
   it("**深夜でも EMAIL は止めない**（§5.3 が止めるのは PUSH / LINE）", async () => {
     const fake = createFakeD1();
     primeFake(fake);
-    const calls = stubFetch();
+    const calls = stubSmtp();
     const outcome = await runNotify(envWith(fake), {
       ...MESSAGE,
       requestedAtMs: NIGHT_AT.getTime(),
@@ -278,7 +306,7 @@ describe("runNotify — 静音時間（§5.3）", () => {
   it("深夜に PUSH だけの設定なら 1 通も飛ばない（`IN_APP` へ落ちる）", async () => {
     const fake = createFakeD1();
     primeFake(fake, { channels: ["PUSH"] });
-    const calls = stubFetch();
+    const calls = stubSmtp();
     const outcome = await runNotify(envWith(fake), {
       ...MESSAGE,
       requestedAtMs: NIGHT_AT.getTime(),
@@ -296,7 +324,7 @@ describe("runNotify — 施設スコープ", () => {
     fake.enqueueRows([[MEMBERSHIP_ID, "PROPERTY_MANAGER", "pm@example.com", "ja"]]);
     fake.enqueueRows([]); // 設定なし
     fake.enqueueRows([[PROPERTY_ID, TEST_ORG.organizationId]]); // property（timezone）
-    const calls = stubFetch();
+    const calls = stubSmtp();
     const outcome = await runNotify(envWith(fake), {
       ...MESSAGE,
       eventCode: "issue.critical",

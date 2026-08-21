@@ -1,0 +1,175 @@
+# SMTP の疎通確認（P5-21 / **メールは送らない**）
+#
+# task:   docs/tasks/P5-21.md
+# 決定:   docs/DECISIONS.md #248
+# 手順書: docs/runbook/smtp.md
+#
+# ── 何のためか ──────────────────────────────────────────
+# Cloudflare Workers から Lark の SMTP へ **TCP が出られるか**が最大の
+# 未知数（25 番は塞がれており、465 / 587 も出られない環境がある）。
+# 送信の実装を本番へ載せる前に、ここで確かめる。
+#
+# ── platform-bootstrap.yml と混ぜない ───────────────────
+# あちらは**1 人目専用で 2 回押してはいけない**操作。こちらは**何度でも
+# 押してよい確認**。合言葉も別（`PROBE` / `BOOTSTRAP`）にして、
+# 惰性で押せないようにする。
+#
+# ── 出してはいけないもの ────────────────────────────────
+#   * **SMTP のパスワード** — この workflow は触らない（`SMTP_PASSWORD` を
+#     読まない。確認では認証を試さないため）。
+#   * **ホスト名・利用者名・サーバーの応答全文** — 応答に含めない設計
+#     （`routes/api/v1/smtpProbe.ts`）。ここでも出さない。
+#   * **管理鍵（SMTP_PROBE_TOKEN）** — 生成した値を echo しない。
+#
+# **`set -x` を足さないこと。** 鍵が展開されて残る。
+name: smtp-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "対象の環境"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      confirm:
+        description: "PROBE と入力すると実行する"
+        required: true
+        type: string
+
+# **書き込みの権限を持たせない。**
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 実行確認
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.confirm }}" != "PROBE" ]; then
+            echo "confirm に PROBE と入力されていません。何もせずに終了します。"
+            exit 1
+          fi
+          echo "対象環境: ${{ inputs.environment }}"
+
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      - name: アカウント ID を正規化する
+        id: account
+        run: |
+          set -euo pipefail
+          raw='${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'
+          clean=$(printf '%s' "$raw" | tr -d '[:space:]"'"'"'')
+          echo "::add-mask::$clean"
+          echo "value=$clean" >> "$GITHUB_OUTPUT"
+
+      # ── 対象を確かめる（`platform-bootstrap.yml` と同じ形）──
+      - name: 対象を確かめる
+        id: target
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          CLOUDFLARE_ENV="${{ inputs.environment }}" pnpm build >/dev/null
+          name=$(jq -r .name build/server/wrangler.json)
+          base=$(jq -r '.vars.APP_BASE_URL' build/server/wrangler.json)
+          env_var=$(jq -r '.vars.ENVIRONMENT' build/server/wrangler.json)
+
+          echo "Worker 名: $name"
+          echo "APP_BASE_URL: $base"
+          echo "ENVIRONMENT: $env_var"
+
+          if [ "$env_var" != "${{ inputs.environment }}" ]; then
+            echo "焼き込まれた環境が選んだものと違います。中止します。"
+            exit 1
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+      # ── 鍵を登録して 1 回だけ叩く ───────────────────────
+      #
+      # **応答は真偽値と段階名だけ**（口の側でそう作ってある）。
+      # ここでも `jq` で 6 つの値だけを読み、丸ごとは出さない。
+      - name: 疎通を確かめる
+        id: probe
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+          TARGET_BASE: ${{ steps.target.outputs.base }}
+        run: |
+          set -euo pipefail
+
+          # 1 回きりの管理鍵。**echo しない。**
+          probe_token=$(openssl rand -hex 32)
+          echo "::add-mask::$probe_token"
+
+          printf '%s' "$probe_token" \
+            | pnpm exec wrangler secret put SMTP_PROBE_TOKEN --env "${{ inputs.environment }}"
+
+          # 秘密を入れた直後は再デプロイが要る（実行中の版は古い env を持つ）。
+          CLOUDFLARE_ENV="${{ inputs.environment }}" pnpm build >/dev/null
+          pnpm exec wrangler deploy
+
+          code=$(curl -s -o /tmp/probe.json -w "%{http_code}" \
+            -X POST "$TARGET_BASE/api/v1/dev/smtp-probe" \
+            -H "content-type: application/json" \
+            -H "x-pk-smtp-probe-token: $probe_token" \
+            -d '{}')
+
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "疎通確認の口へ到達できませんでした（鍵の登録か再デプロイを確かめてください）。"
+            exit 1
+          fi
+
+          # **6 つの値だけを読む。** 応答を丸ごと出さない。
+          for key in tcp tls greeting ehlo authAdvertised; do
+            printf '%s: %s\n' "$key" "$(jq -r ".$key" /tmp/probe.json)"
+          done
+          failed=$(jq -r '.failedAt // "none"' /tmp/probe.json)
+          echo "failedAt: $failed"
+
+          if [ "$failed" != "none" ] && [ "$failed" != "null" ]; then
+            echo "疎通に失敗しました。**送信の実装へ進まないでください。**"
+            echo "失敗した段階: $failed"
+            exit 1
+          fi
+          echo "接続・TLS・greeting・EHLO・AUTH の広告まで確認できました。"
+          echo "**メールは 1 通も送っていません。**"
+
+      # ── 鍵を必ず消す（#247 の形）────────────────────────
+      #
+      # `--force` を付けない・`|| true` を付けない・**消えたことを名前で
+      # 確かめる。** 残っていれば赤にする。
+      - name: 管理鍵を削除する
+        if: always()
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          pnpm exec wrangler secret delete SMTP_PROBE_TOKEN \
+            --env "${{ inputs.environment }}"
+
+          CLOUDFLARE_ENV="${{ inputs.environment }}" pnpm build >/dev/null
+          pnpm exec wrangler deploy
+
+          echo "登録済みの secret（名前だけ）:"
+          pnpm exec wrangler secret list --env "${{ inputs.environment }}" \
+            | tee /tmp/secret-names.json
+
+          if grep -q 'SMTP_PROBE_TOKEN' /tmp/secret-names.json; then
+            echo "管理鍵が残っています。疎通確認の口が開いたままです。"
+            echo "docs/runbook/smtp.md §4 の手順で手で消してください。"
+            exit 1
+          fi
+          echo "管理鍵は削除されています（名前が一覧にありません）。"

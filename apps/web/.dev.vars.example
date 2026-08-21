@@ -10,7 +10,18 @@
 SESSION_SECRET="dev-only-session-secret-change-me"
 
 # Resend の API キー。ローカルではメールを実送信しないためダミーでよい。
+# **移行中のみ残している**（P5-21。Lark SMTP へ切替済み。削除は別途判断）。
 RESEND_API_KEY="dev-only-resend-key"
+
+# Lark Mail の SMTP authorization password（P5-21 / DECISIONS #248）。
+# **空のままにしておくこと。** 空ならローカルでは 1 通も送らない
+# （`canSendMail()` が false を返す）。実値をこのファイルに書かない。
+SMTP_PASSWORD=""
+
+# SMTP の疎通確認（POST /api/v1/dev/smtp-probe）を開ける鍵。
+# **空なら 404 のまま。** staging へは workflow が実行のたびに作って登録し、
+# 終わったら消す（.github/workflows/smtp-probe.yml）。
+SMTP_PROBE_TOKEN=""
 
 # CREDENTIALS KV に置く外部連携の資格情報を暗号化する鍵（security.md §7）。
 CREDENTIAL_ENCRYPTION_KEY="dev-only-credential-encryption-key"

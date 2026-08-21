@@ -6061,3 +6061,73 @@
 - 付随: この実行は開通そのものも `DELIVERY_REJECTED` で失敗している。
   原因の候補は staging の `RESEND_FROM_ADDRESS` が実在しないこと
   （OPEN_QUESTIONS #117）。**この PR では推測して変更しない。**
+
+
+## #248 メール送信を Resend から Lark Mail SMTP へ移す（第一段階）
+
+- 日付: 2026-08-21
+- task: 新規 `docs/tasks/P5-21.md`
+- 由来: **オーナー判断。** stek.ai は Lark Mail を使っており、`noreply@stek.ai`
+  を送信専用にする。Resend は今後使わない。
+  （直接の引き金は PF-16 の staging 開通が `DELIVERY_REJECTED` で失敗し、
+  差出人が `billing@example.invalid` だったこと / OPEN_QUESTIONS #117）
+- 決定 A（**送信の口を 1 本にする**）:
+  1. `lib/mail/send.ts` の `sendMail()` を唯一の口にし、3 経路
+     （開通リンク・帳票の送付・業務通知）をそこへ寄せる。
+     **送り先を変えるたびに 3 か所を直す形をやめる。**
+  2. `SMTP_PASSWORD` が未設定・空白なら**接続そのものを行わない**
+     （DECISIONS #188 の「鍵が無ければ送らない」を踏襲）。
+     **環境名で分岐しない。**
+- 決定 B（**SMTP は 465 の implicit TLS**）:
+  1. 既定は `smtp.larksuite.com:465` の implicit TLS。
+     **25 番は使わない**（Cloudflare が塞いでいる）。
+  2. 465 が使えないと分かったときだけ `SMTP_SECURE="starttls"` +
+     `SMTP_PORT="587"` へ倒す。分岐は設定 1 か所に閉じる。
+  3. 実装は `cloudflare:sockets` の `connect()`。**1 通 1 接続**で必ず閉じ、
+     全体に 15 秒の上限を掛ける。`SocketConnect` を差し替えられる形にして、
+     検査は本物の TCP を開かない。
+- 決定 C（**秘密は 1 本・vars は読める場所へ**）:
+  1. secret は **`SMTP_PASSWORD`** だけ（と、疎通確認用の
+     `SMTP_PROBE_TOKEN`）。host / port / secure / username / from は
+     秘密ではないので `[vars]`。**wrangler.toml を読めば向き先が分かる。**
+  2. `MAIL_FROM` という**提供者名を含めない名前**にする
+     （`RESEND_FROM_ADDRESS` は次の乗り換えで名前ごと変える羽目になった）。
+  3. `SMTP_PASSWORD` を `REQUIRED_SECRETS` に**入れない**。無くて壊れるのは
+     メールだけで、必須にすると鍵を置くまで全リクエストが 503 になる。
+- 決定 D（**分かることだけを記録する**）:
+  1. 送付ログの状態に **`SMTP_ACCEPTED` / `SMTP_REJECTED` /
+     `DELIVERY_UNCONFIRMED`** を足す。SMTP で分かるのは
+     「Lark が `DATA` を受理したか」までで、**配信・開封・バウンスは
+     分からない。**
+  2. **`DELIVERED` / `BOUNCED` / `openedAt` を推測・代用・捏造しない**
+     （人間の指示）。webhook を戻すのは後続 task（`docs/tasks/P5-22.md` /
+     OPEN_QUESTIONS #118）。
+  3. **既存の 5 状態を消さない。** `SENT` / `DELIVERED` / `BOUNCED` は
+     webhook が付いていた頃の記録で、既存の行がその値を持つ。
+     受信側（`handleDeliveryEvent()`）もそのまま残す。
+  4. `document_delivery.status` は CHECK 制約の無い `text` なので、
+     **マイグレーションは要らない**（列挙は TypeScript にしかない）。
+- 決定 E（**疎通確認を送信と分ける**）:
+  1. `POST /api/v1/dev/smtp-probe` は接続・TLS・greeting・`EHLO`・
+     `AUTH` の広告までを見て `QUIT`。**メールを 1 通も送らない。**
+  2. **`AUTH LOGIN` も実行しない** — 失敗回数を Lark 側へ溜めないため、
+     そして**この経路が `SMTP_PASSWORD` を受け取らない**形にするため
+     （`probeSmtp()` の引数から password を外してある）。
+  3. workflow は `smtp-probe.yml` を**新設**（合言葉 `PROBE`）。
+     `platform-bootstrap.yml` に混ぜない — あちらは 1 人目専用で
+     2 回押してはいけない操作、こちらは何度でも押してよい確認。
+  4. 鍵の後始末は #247 の形（`--force` を付けない・`|| true` を付けない・
+     **消えたことを名前で確かめる**）。
+- 決定 F（**何も出力しない**）:
+  1. `lib/mail/*` は `console` を 1 度も呼ばない。`smtp.ts` は**投げない**
+     （例外のスタックに接続先やコマンドが載る）。
+  2. 戻り値に**応答の全文を持たせない** — SMTP は拒否のときに宛先を
+     そのまま echo する（`550 <someone@example.com> unknown mailbox`）。
+     返すのは成否・段階名・3 桁コードまで。
+  3. 走査で固定する（`tests/security/mailSecrets.spec.ts`）。
+- 影響: `lib/mail/{smtp,mime,send,probe}.ts`（新設）/
+  `routes/api/v1/smtpProbe.ts`（新設）/ `.github/workflows/smtp-probe.yml`（新設）/
+  `lib/platform/bootstrapMail.ts`・`consumers/notification.ts`・`consumers/notify.ts`（差し替え）/
+  `packages/db/src/env.ts`・`wrangler.toml` 4 環境・`.dev.vars.example`。
+  **`RESEND_API_KEY` / `RESEND_FROM_ADDRESS` / `RESEND_WEBHOOK_SECRET` は
+  削除しない**（移行の完了と staging の実送信確認まで残す / 人間の指示）。

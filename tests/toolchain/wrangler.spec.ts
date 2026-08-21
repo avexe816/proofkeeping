@@ -47,6 +47,9 @@ const SECRET_NAMES = [
   "CREDENTIAL_ENCRYPTION_KEY",
   "SENTRY_DSN",
   "STAGING_SEED_TOKEN",
+  // P5-21。**メール送信の秘密はこれ 1 本**（host / port / username は vars）。
+  "SMTP_PASSWORD",
+  "SMTP_PROBE_TOKEN",
 ] as const;
 
 interface D1Entry {

@@ -51,6 +51,7 @@ const DOCUMENTS = [
  */
 const EXTRA_DOCUMENTS = [
   { file: "platform-bootstrap.md", title: "運営担当者の初期開通" },
+  { file: "smtp.md", title: "メール送信（Lark Mail SMTP）" },
 ] as const;
 
 describe("§7.2 の 7 文書", () => {

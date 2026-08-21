@@ -51,6 +51,7 @@ import {
 } from "@pk/db";
 
 import { DEFAULT_TIMEZONE, localClockOf } from "../lib/businessDate.js";
+import { sendMail } from "../lib/mail/send.js";
 import { audienceOf, findNotificationEvent } from "../lib/notification/events.js";
 import { outboundChannelsOf, resolveChannels } from "../lib/notification/routing.js";
 
@@ -238,6 +239,7 @@ async function deliver(
       to: recipient.email,
       subject: message.subject,
       body: notificationBody(message),
+      now: ctx.now,
     });
     if (ok) sent += 1;
     else withheld += 1;
@@ -281,45 +283,28 @@ export function notificationBody(
  * （電帳法 / billing.md §2）、業務通知を混ぜると「いつ請求書を送ったか」
  * が引けなくなるため（OPEN_QUESTIONS #091）。
  *
- * ── API キーが無いときは送らない（DECISIONS #188）────────
- * `RESEND_API_KEY` が未設定・空白のときは **fetch そのものを行わない。**
- * 以前は `Bearer undefined` を付けて Resend を叩き、401 を受けて false を
- * 返していた。動作としては「送れない」で同じだが、**通知 1 件ごとに
- * 外部へリクエストが出る。** staging のように鍵を置かない環境では、
- * 外部送信を止めたつもりで宛先だけが外へ出続けることになる。
+ * ── 鍵が無いときは送らない（DECISIONS #188 / #248）────────
+ * `SMTP_PASSWORD` が未設定・空白のときは **接続そのものを行わない**
+ * （判定は `lib/mail/send.ts` の `canSendMail()`）。staging のように鍵を
+ * 置かない環境では、鍵を置かないことが即座に停止を意味する。
  *
  * **環境名で分岐しない。** `ENVIRONMENT === "staging"` で切ると、
  * 環境を増やすたびに条件が増え、書き漏らした環境から実送信が漏れる。
- * 「鍵が無ければ送らない」なら、鍵を置かないことが即座に停止を意味する。
+ *
+ * ── 宛先も本文も持ち出さない ────────────────────────────
+ * 送信そのものは `lib/mail/send.ts` の 1 本道。**ここは成否だけを見る。**
  */
 async function sendNotificationEmail(
   env: Env,
-  input: { to: string; subject: string; body: string },
+  input: { to: string; subject: string; body: string; now: Date },
 ): Promise<boolean> {
-  if (typeof env.RESEND_API_KEY !== "string" || env.RESEND_API_KEY.trim() === "") {
-    return false;
-  }
-
-  try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from: env.RESEND_FROM_ADDRESS,
-        to: [input.to],
-        subject: input.subject,
-        text: input.body,
-      }),
-    });
-    return response.ok;
-  } catch {
-    // **中身をログへ流さない**（宛先は個人情報 / security.md §3）。
-    console.error("notify-email-failed");
-    return false;
-  }
+  const result = await sendMail(env, {
+    to: input.to,
+    subject: input.subject,
+    text: input.body,
+    now: input.now,
+  });
+  return result.accepted;
 }
 
 /**

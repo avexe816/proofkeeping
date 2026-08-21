@@ -22,6 +22,15 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  FAKE_SMTP_ENV,
+  SMTP_HAPPY_PATH,
+  decodeSentMailBody,
+  fakeSmtpConnect,
+} from "../mail/fakeSocket.js";
+import type { SocketConnect } from "../mail/smtp.js";
+
+
 /** 代役の中身。テストから直接覗く。 */
 interface FakeRow {
   id: string;
@@ -44,6 +53,26 @@ const recordPlatformAudit = vi.fn();
  * **1 文で終わる代役。** `await` を挟まない（挟むと原子性が消え、
  * 実装の誤りを捕まえられなくなる — このファイル冒頭の注記）。
  */
+
+/**
+ * `sendMail()` が使う socket を差し替える（P5-21）。
+ *
+ * **中身は本物のまま。** 「鍵が無ければ接続しない」も SMTP の手順も
+ * 実際に動く。開く先だけが偽物になる。
+ */
+let connectSpy: SocketConnect | undefined;
+
+vi.mock("../mail/send.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../mail/send.js")>();
+  return {
+    ...actual,
+    sendMail: (
+      env: Parameters<typeof actual.sendMail>[0],
+      input: Parameters<typeof actual.sendMail>[1],
+    ) => actual.sendMail(env, input, connectSpy),
+  };
+});
+
 vi.mock("@pk/db", () => ({
   recordPlatformAudit: (...args: unknown[]) => recordPlatformAudit(...args) as unknown,
   platformOperatorExists: () => Promise.resolve(store.operators.length > 0),
@@ -115,7 +144,8 @@ const PASSWORD = "Bootstrap2026x";
 
 let env: Env;
 /** Resend への送信。既定は成功。 */
-let fetchMock: ReturnType<typeof vi.fn>;
+/** 送られたコマンドを溜める偽 socket（P5-21。**本物の TCP を開かない**）。 */
+let smtp: ReturnType<typeof fakeSmtpConnect>;
 
 /** 監査へ渡った全引数の JSON。**秘密の非露出をここで走査する。** */
 function auditJson(): string {
@@ -144,11 +174,9 @@ function auditDetails(): Record<string, unknown>[] {
   });
 }
 
-/** 送ったメール本文（1 通目）。 */
+/** 送ったメール本文（1 通目）。**base64 を読み直す。** */
 function sentMailBody(): string {
-  const call = fetchMock.mock.calls[0];
-  const init = call?.[1] as { body?: string } | undefined;
-  return init?.body ?? "";
+  return decodeSentMailBody(smtp.sent());
 }
 
 /** 発行してリンクの token を取り出す（**テストの中でだけ触れる**）。 */
@@ -157,7 +185,8 @@ async function issueAndCaptureToken(at: Date = NOW): Promise<string> {
   expect(result.ok).toBe(true);
   const match = /\/plat\/bootstrap\/([A-Za-z0-9_-]+)/.exec(sentMailBody());
   if (match?.[1] === undefined) throw new Error("link not sent");
-  fetchMock.mockClear();
+  smtp = fakeSmtpConnect(SMTP_HAPPY_PATH);
+  connectSpy = smtp.connect;
   return match[1];
 }
 
@@ -166,14 +195,13 @@ beforeEach(() => {
   store.operators = [];
   store.tokens = [];
   recordPlatformAudit.mockResolvedValue(undefined);
-  fetchMock = vi.fn().mockResolvedValue({ ok: true });
-  vi.stubGlobal("fetch", fetchMock);
+  smtp = fakeSmtpConnect(SMTP_HAPPY_PATH);
+  connectSpy = smtp.connect;
   env = {
     SESSION: createFakeKv().namespace,
     SESSION_SECRET: "test-secret",
     APP_BASE_URL: "https://plat.example.invalid",
-    RESEND_API_KEY: "re_test_key",
-    RESEND_FROM_ADDRESS: "noreply@example.invalid",
+    ...FAKE_SMTP_ENV,
   } as unknown as Env;
 });
 
@@ -196,8 +224,8 @@ describe("発行（issuePlatformBootstrap）", () => {
       expiresAt: new Date(NOW.getTime() + BOOTSTRAP_TOKEN_TTL_SECONDS * 1000),
     });
     expect(store.tokens).toHaveLength(1);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.resend.com/emails");
+    expect(smtp.sentText()).toContain("MAIL FROM:<noreply@example.invalid>");
+    expect(smtp.sentText()).toContain("RCPT TO:<ops@stek.ai>");
     expect(sentMailBody()).toContain("/plat/bootstrap/");
     // **運営担当者はまだ作らない**（既定パスワードを持つ行を作らないため）。
     expect(store.operators).toEqual([]);
@@ -230,12 +258,12 @@ describe("発行（issuePlatformBootstrap）", () => {
 
     expect(result).toEqual({ ok: false, reason: "OPERATOR_EXISTS" });
     expect(store.tokens).toEqual([]);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(smtp.sent()).toHaveLength(0);
     expect(auditActions()).toContain("platform.bootstrap.rejected");
   });
 
   it("メールを送れない環境では券を作らない（ログ出力へ倒さない）", async () => {
-    env = { ...env, RESEND_API_KEY: "" };
+    env = { ...env, SMTP_PASSWORD: "" };
 
     const result = await issuePlatformBootstrap(env, {
       email: EMAIL,
@@ -245,7 +273,7 @@ describe("発行（issuePlatformBootstrap）", () => {
 
     expect(result).toEqual({ ok: false, reason: "DELIVERY_REJECTED" });
     expect(store.tokens).toEqual([]);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(smtp.sent()).toHaveLength(0);
     // 内訳は**監査ログの中だけ**（#246）。
     expect(auditDetails()).toContainEqual(
       expect.objectContaining({ cause: "DELIVERY_NOT_CONFIGURED" }),
@@ -253,7 +281,8 @@ describe("発行（issuePlatformBootstrap）", () => {
   });
 
   it("送信に失敗したら券を失効させる", async () => {
-    fetchMock.mockResolvedValue({ ok: false });
+    smtp = fakeSmtpConnect(["554 refused\r\n"]);
+    connectSpy = smtp.connect;
 
     const result = await issuePlatformBootstrap(env, {
       email: EMAIL,
@@ -276,11 +305,12 @@ describe("発行（issuePlatformBootstrap）", () => {
   // 応答で分けると、環境の設定状態を答える装置になる。**
   it("経路が無い場合と送信に失敗した場合で、返す理由が同じになる", async () => {
     const notConfigured = await issuePlatformBootstrap(
-      { ...env, RESEND_API_KEY: "" },
+      { ...env, SMTP_PASSWORD: "" },
       { email: EMAIL, displayName: NAME, now: NOW },
     );
 
-    fetchMock.mockResolvedValue({ ok: false });
+    smtp = fakeSmtpConnect(["554 refused\r\n"]);
+    connectSpy = smtp.connect;
     const sendFailed = await issuePlatformBootstrap(env, {
       email: EMAIL,
       displayName: NAME,
@@ -291,15 +321,16 @@ describe("発行（issuePlatformBootstrap）", () => {
     expect(sendFailed).toEqual(notConfigured);
   });
 
-  it("監査ログの内訳に RESEND_API_KEY の値とメールアドレスを入れない", async () => {
-    const secret = "re_secret_value_should_never_appear";
+  it("監査ログの内訳に SMTP_PASSWORD の値とメールアドレスを入れない", async () => {
+    const secret = "smtp_secret_value_should_never_appear";
     await issuePlatformBootstrap(
-      { ...env, RESEND_API_KEY: secret },
+      { ...env, SMTP_PASSWORD: secret },
       { email: EMAIL, displayName: NAME, now: NOW },
     );
-    fetchMock.mockResolvedValue({ ok: false });
+    smtp = fakeSmtpConnect(["554 refused\r\n"]);
+    connectSpy = smtp.connect;
     await issuePlatformBootstrap(
-      { ...env, RESEND_API_KEY: secret },
+      { ...env, SMTP_PASSWORD: secret },
       { email: EMAIL, displayName: NAME, now: NOW },
     );
 
