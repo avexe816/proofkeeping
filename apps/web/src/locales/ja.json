@@ -2128,7 +2128,6 @@
   "plat.usage.column.locale": "表示言語",
   "plat.usage.column.people": "人数",
   "plat.usage.column.share": "割合",
-  "plat.usage.notMeasured": "未計測",
   "plat.usage.notMeasured.body": "この指標は未計測です。集計の仕組みが入る前の記録が混ざっているため、数値を出しません。",
   "plat.usage.note.locale": "アプリの主要利用者は日本語を読まない方々です。文言変更のレビューは必ず全7言語で行ってください。",
   "plat.usage.pending": "まだ並べていない指標",
