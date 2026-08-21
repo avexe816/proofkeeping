@@ -30,7 +30,7 @@
 |---|---|---|
 | 対象環境が合っている | 実行画面の `environment` | **本番に運営担当者ができる。取り消せない** |
 | migration が当たっている | `staging-bootstrap.yml` の `phase=migrate --check` | `platform_bootstrap_token` が無く 500 |
-| `RESEND_API_KEY` が登録済み | `wrangler secret list --env <env>` の名前 | `DELIVERY_UNAVAILABLE` で**何も作られない** |
+| `RESEND_API_KEY` が登録済み | `wrangler secret list --env <env>` の名前 | `DELIVERY_REJECTED` で**何も作られない** |
 | `TWO_FACTOR_ENCRYPTION_KEY` が登録済み | 同上 | パスワードは設定できるが**2FA 登録で詰まる**（PF-17） |
 | 運営担当者がまだ 0 名 | 実行して `OPERATOR_EXISTS` が出なければ 0 名 | 押しても拒否される（害は無い） |
 | 宛先のメールが受け取れる | 本人に確認する | 30 分後に券が切れ、発行から実行し直しになる |
@@ -151,14 +151,32 @@ bootstrap は拒否のままになる。**運営担当者を消す口は用意�
 | 出力 | 意味 | 押し直す前に |
 |---|---|---|
 | `OPERATOR_EXISTS` | 既に運営担当者が居る | **押し直さない。** 誰が居るのかを先に確かめる（§7） |
-| `DELIVERY_UNAVAILABLE` | `RESEND_API_KEY` が未登録 | **券は作られていない。** 鍵を登録してから押す |
-| `DELIVERY_FAILED` | 送信に失敗した | **券は失効済み。** 宛先の綴りと Resend の送信ドメインを確かめる |
+| `DELIVERY_REJECTED` | 開通リンクを渡せなかった | **有効な券は残っていない**（作られていないか、失効させた）。下の 3 点を順に確かめてから押す |
 | `INVALID_REQUEST` | メールか表示名の形式 | 入力を直して押す |
 | HTTP 404 | 管理鍵が載っていない | 前回の実行が途中で落ちて鍵が消えている。**そのまま押し直してよい** |
 | 何も届かない | 送信は成功している | 迷惑メールを見る。30 分を過ぎていたら押し直す |
 
 **押し直しは安全。** 新しい券を出すとき、**未使用の古い券はすべて失効する**
 （有効な開通リンクが 2 本同時に存在しない）。
+
+### `DELIVERY_REJECTED` のときに確かめる 3 点
+
+**応答はどちらか（経路が未設定 / 送信に失敗）を教えない。**
+分けて返すと、この無認証の口が「この環境はメール送信が未設定」を
+答える装置になるため、**わざと 1 種類にしてある**（DECISIONS #246）。
+運用者は順に確かめる。
+
+```
+1. RESEND_API_KEY が対象環境に登録されているか
+   wrangler secret list --env <env>   ← **名前だけを見る。値は出さない**
+2. 宛先の綴りが正しいか
+3. Resend 側の送信ドメインと差出人が有効か
+```
+
+**内訳は残っている。** `platform_audit_log` の `detail.cause` に
+`DELIVERY_NOT_CONFIGURED`（経路が無い）か `DELIVERY_SEND_FAILED`
+（送信に失敗）が入る。§7 の引き方で読める。**この列に
+`RESEND_API_KEY` の値も宛先のメールアドレスも入らない。**
 
 **押し直す前に必ず見ること。**
 

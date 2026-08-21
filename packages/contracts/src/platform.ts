@@ -32,10 +32,16 @@ export type PlatformBootstrapRequest = z.infer<typeof platformBootstrapRequestSc
 export const PLATFORM_BOOTSTRAP_ERROR_CODES = [
   /** 運営担当者が既に居る（**2 人目以降は PF-14 の招待**）。 */
   "OPERATOR_EXISTS",
-  /** メールの経路が無い。**何も作っていない。** */
-  "DELIVERY_UNAVAILABLE",
-  /** 送信に失敗した。**券は失効させた。** */
-  "DELIVERY_FAILED",
+  /**
+   * 開通リンクを渡せなかった。
+   *
+   * **経路が無いのか送れなかったのかを応答で分けない**（人間のレビュー
+   * 指摘 2026-08-21 / #246）。この口は無認証で公開されており、分けると
+   * 「この環境はメール送信が未設定」という内部の状態を、鍵を持たない
+   * 探索者にまで教えることになる。内訳は `platform_audit_log` の
+   * `detail.cause` にだけ残す。
+   */
+  "DELIVERY_REJECTED",
   /** 入力が契約に合わない。 */
   "INVALID_REQUEST",
 ] as const;

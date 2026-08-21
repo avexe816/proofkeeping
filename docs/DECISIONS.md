@@ -5952,7 +5952,8 @@
 - 決定 B（**開通リンクの受け渡し**）:
   1. **メール 1 通だけ**（Resend / `lib/platform/bootstrapMail.ts`）。
      新しい受け渡しの仕組みを増やさない。
-  2. **送れない環境では券を作らずに断る**（`DELIVERY_UNAVAILABLE`）。
+  2. **送れない環境では券を作らずに断る**（応答は `DELIVERY_REJECTED` /
+     初版は `DELIVERY_UNAVAILABLE` だった。#246 で統合）。
      「送れなかったので代わりにログへ」は採らない（PF-16 の要件）。
   3. 採らなかった案: workflow のログ・summary・artifact へ出す
      （リポジトリの読み取り権限を持つ全員が読め、保存も残る）/
@@ -5996,3 +5997,35 @@
   `.github/workflows/platform-bootstrap.yml` /
   `docs/runbook/platform-bootstrap.md` / `tests/security/platformBootstrap.spec.ts`。
   **`seed.ts` は触っていない**（運営担当者の作成は local / staging のまま）。
+
+
+## #246 初期開通の応答で「メールが未設定」と「送信に失敗」を分けない
+
+- 日付: 2026-08-21
+- task: `docs/tasks/PF-16.md`（PR #163 のレビュー指摘）
+- 由来: **人間のレビュー指摘。** 初版は `POST /api/v1/platform/bootstrap` が
+  `DELIVERY_UNAVAILABLE`（`RESEND_API_KEY` が無い）と `DELIVERY_FAILED`
+  （送信に失敗）を別のコードで返していた。**この口は無認証で公開されており**
+  （守りは管理鍵 1 本 / #245 の A-2）、分けて返すと管理鍵を持つ相手や
+  探索者に「この環境はメール送信が未設定」という内部の状態を教えることになる。
+- 決定:
+  1. HTTP 応答は **`DELIVERY_REJECTED` の 1 種類**（503）。契約の列挙
+     （`PLATFORM_BOOTSTRAP_ERROR_CODES`）から 2 つのコードを消す。
+  2. **`issuePlatformBootstrap()` の戻り値の型でも分けない。** 型が内訳を
+     持たなければ、後から応答へ載る事故が起きない（`AUTH_FAILED` 一本に
+     倒してある運営ログインと同じ向き / security.md §2）。
+  3. `OPERATOR_EXISTS`（409）と `INVALID_REQUEST`（400）は**そのまま分ける。**
+     どちらも押した人の入力から決まる話で、環境の構成を漏らさない。
+  4. 内訳は **`platform_audit_log` の `detail.cause`** にだけ残す
+     （`DELIVERY_NOT_CONFIGURED` / `DELIVERY_SEND_FAILED`）。
+     **`RESEND_API_KEY` の値も宛先のメールアドレスも入れない**（要件 10）。
+  5. workflow のログには運用者向けの案内を残すが、**「未登録です」と
+     断定しない。** 応答からは判らないため、確かめる順序（鍵の名前 →
+     宛先の綴り → Resend の送信ドメイン）だけを出す。
+  6. runbook §8 の表を 1 行に統合し、確かめる 3 点と `detail.cause` の
+     読み方を足す。
+- 影響: `packages/contracts/src/platform.ts` / `lib/platform/bootstrap.ts` /
+  `routes/api/v1/platformBootstrap.ts` /
+  `.github/workflows/platform-bootstrap.yml` /
+  `docs/runbook/platform-bootstrap.md` §1・§8 / 対応するテスト。
+  **DB とマイグレーションは変わらない。**

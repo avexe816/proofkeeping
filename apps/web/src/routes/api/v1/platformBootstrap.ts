@@ -94,7 +94,12 @@ platformBootstrap.post("/bootstrap", async (c) => {
 
   if (!result.ok) {
     // 409 = 既に運営担当者が居る（**押し直しても変わらない**）。
-    // 503 = メールが送れない（**設定を直せば通る**）。
+    // 503 = 開通リンクを渡せなかった（**設定か宛先を直せば通る**）。
+    //
+    // **渡せなかった内訳を応答で分けない**（#246）。経路が無いのか送信に
+    // 失敗したのかで応答コードも状態も変えると、この無認証の口が
+    // 「この環境はメール送信が未設定」を答える装置になる。内訳は
+    // `platform_audit_log` の `detail.cause` にだけ残る。
     const status = result.reason === "OPERATOR_EXISTS" ? 409 : 503;
     return c.json({ error: result.reason }, status);
   }

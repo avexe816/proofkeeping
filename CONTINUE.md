@@ -49,7 +49,10 @@
   実行後に `wrangler secret list` へ名前が残っていたら手で消すこと
   （runbook §9）。
 - **開通リンクはメール 1 通だけ。** 応答にも監査ログにもログにも出ない。
-  `RESEND_API_KEY` の無い環境では**券すら作らずに断る**（`DELIVERY_UNAVAILABLE`）。
+  `RESEND_API_KEY` の無い環境では**券すら作らずに断る**（応答は
+  `DELIVERY_REJECTED`。**送信失敗と応答で区別しない** — 無認証の口が
+  環境の設定状態を答えないため / DECISIONS #246。内訳は
+  `platform_audit_log` の `detail.cause` にだけ残る）。
 - **1 人目の保証は DB 側。** `INSERT ... WHERE NOT EXISTS` の 1 文。
   発行時の件数検査は早く断るためだけで、保証ではない。
 - **2 人目以降はこの経路から作れない。** PF-14 の招待待ち（未実装）。

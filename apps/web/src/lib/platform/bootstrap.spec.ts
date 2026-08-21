@@ -126,6 +126,24 @@ function auditActions(): string[] {
   return recordPlatformAudit.mock.calls.map((call) => (call[1] as { action: string }).action);
 }
 
+/**
+ * 監査へ**書き込まれる側**（第 2 引数）だけの JSON。
+ *
+ * `auditJson()` は第 1 引数の `env` ごと写すので、秘密が env に在るだけで
+ * 引っかかる。**行として残るのはこちら。**
+ */
+function auditInputJson(): string {
+  return JSON.stringify(recordPlatformAudit.mock.calls.map((call) => call[1] as unknown));
+}
+
+/** 監査へ渡った `detail` の一覧（`cause` の確認に使う）。 */
+function auditDetails(): Record<string, unknown>[] {
+  return recordPlatformAudit.mock.calls.flatMap((call) => {
+    const detail = (call[1] as { detail?: Record<string, unknown> }).detail;
+    return detail === undefined ? [] : [detail];
+  });
+}
+
 /** 送ったメール本文（1 通目）。 */
 function sentMailBody(): string {
   const call = fetchMock.mock.calls[0];
@@ -225,9 +243,13 @@ describe("発行（issuePlatformBootstrap）", () => {
       now: NOW,
     });
 
-    expect(result).toEqual({ ok: false, reason: "DELIVERY_UNAVAILABLE" });
+    expect(result).toEqual({ ok: false, reason: "DELIVERY_REJECTED" });
     expect(store.tokens).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
+    // 内訳は**監査ログの中だけ**（#246）。
+    expect(auditDetails()).toContainEqual(
+      expect.objectContaining({ cause: "DELIVERY_NOT_CONFIGURED" }),
+    );
   });
 
   it("送信に失敗したら券を失効させる", async () => {
@@ -239,10 +261,52 @@ describe("発行（issuePlatformBootstrap）", () => {
       now: NOW,
     });
 
-    expect(result).toEqual({ ok: false, reason: "DELIVERY_FAILED" });
+    expect(result).toEqual({ ok: false, reason: "DELIVERY_REJECTED" });
     expect(store.tokens).toHaveLength(1);
     expect(store.tokens[0]?.revokedAt).not.toBeNull();
     expect(auditActions()).toContain("platform.bootstrap.delivery_failed");
+    expect(auditDetails()).toContainEqual(
+      expect.objectContaining({ cause: "DELIVERY_SEND_FAILED" }),
+    );
+  });
+
+  // ── #246（人間のレビュー指摘 2026-08-21）────────────────
+  //
+  // この口は無認証で公開されている。**「経路が無い」と「送れなかった」を
+  // 応答で分けると、環境の設定状態を答える装置になる。**
+  it("経路が無い場合と送信に失敗した場合で、返す理由が同じになる", async () => {
+    const notConfigured = await issuePlatformBootstrap(
+      { ...env, RESEND_API_KEY: "" },
+      { email: EMAIL, displayName: NAME, now: NOW },
+    );
+
+    fetchMock.mockResolvedValue({ ok: false });
+    const sendFailed = await issuePlatformBootstrap(env, {
+      email: EMAIL,
+      displayName: NAME,
+      now: NOW,
+    });
+
+    expect(notConfigured).toEqual({ ok: false, reason: "DELIVERY_REJECTED" });
+    expect(sendFailed).toEqual(notConfigured);
+  });
+
+  it("監査ログの内訳に RESEND_API_KEY の値とメールアドレスを入れない", async () => {
+    const secret = "re_secret_value_should_never_appear";
+    await issuePlatformBootstrap(
+      { ...env, RESEND_API_KEY: secret },
+      { email: EMAIL, displayName: NAME, now: NOW },
+    );
+    fetchMock.mockResolvedValue({ ok: false });
+    await issuePlatformBootstrap(
+      { ...env, RESEND_API_KEY: secret },
+      { email: EMAIL, displayName: NAME, now: NOW },
+    );
+
+    // **監査の行に残るもの**だけを見る（`env` は行にならない）。
+    const json = auditInputJson();
+    expect(json).not.toContain(secret);
+    expect(json).not.toContain(EMAIL);
   });
 
   it("再発行すると前の券は使えなくなる（有効なリンクは常に 1 本以下）", async () => {

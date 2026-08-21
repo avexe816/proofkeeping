@@ -93,10 +93,14 @@ export type IssueBootstrapResult =
       ok: false;
       /**
        * `OPERATOR_EXISTS` 既に運営担当者が居る（要件 8）
-       * `DELIVERY_UNAVAILABLE` メールの経路が無い（**何も作っていない**）
-       * `DELIVERY_FAILED` 送信に失敗した（**券は失効させた**）
+       * `DELIVERY_REJECTED` 開通リンクを渡せなかった
+       *
+       * **渡せなかった内訳（経路が無い / 送信に失敗した）をここに持たせない**
+       * （#246）。この値はそのまま HTTP 応答になり、口は無認証で公開されて
+       * いる。分けると「この環境はメール送信が未設定」という内部の状態が
+       * 応答から読める。内訳は監査ログの `detail.cause` にだけ残す。
        */
-      reason: "OPERATOR_EXISTS" | "DELIVERY_UNAVAILABLE" | "DELIVERY_FAILED";
+      reason: "OPERATOR_EXISTS" | "DELIVERY_REJECTED";
     };
 
 export interface IssueBootstrapInput {
@@ -138,8 +142,12 @@ export async function issuePlatformBootstrap(
   // 1. **送れないなら作らない。** 券だけができて誰にも渡らない状態を残さない。
   //    ここで「代わりにログへ出す」ことはしない（要件）。
   if (!canDeliverBootstrapLink(env)) {
-    await audit("platform.bootstrap.rejected", { reason: "DELIVERY_UNAVAILABLE" });
-    return { ok: false, reason: "DELIVERY_UNAVAILABLE" };
+    // **内訳は監査ログにだけ残す**（#246）。応答は `DELIVERY_REJECTED` 一本。
+    await audit("platform.bootstrap.rejected", {
+      reason: "DELIVERY_REJECTED",
+      cause: "DELIVERY_NOT_CONFIGURED",
+    });
+    return { ok: false, reason: "DELIVERY_REJECTED" };
   }
 
   // 2. 既に居るなら断る（要件 8）。**2 人目以降は PF-14 の招待が持つ。**
@@ -173,8 +181,14 @@ export async function issuePlatformBootstrap(
   });
   if (!delivered) {
     await revokePlatformBootstrapTokens(env, input.now);
-    await audit("platform.bootstrap.delivery_failed", { tokenId: id });
-    return { ok: false, reason: "DELIVERY_FAILED" };
+    // **`cause` は監査ログの中だけ**（#246）。`RESEND_API_KEY` の値も
+    // 宛先も入れない（要件 10 / security.md §6）。
+    await audit("platform.bootstrap.delivery_failed", {
+      tokenId: id,
+      reason: "DELIVERY_REJECTED",
+      cause: "DELIVERY_SEND_FAILED",
+    });
+    return { ok: false, reason: "DELIVERY_REJECTED" };
   }
 
   // **`detail` に入れてよいのは券の ID と期限まで。** メールアドレスも

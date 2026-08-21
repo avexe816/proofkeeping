@@ -160,10 +160,17 @@ jobs:
           case "$(jq -r '.error // ""' /tmp/bootstrap.json)" in
             OPERATOR_EXISTS)
               echo "運営担当者が既に居ます。**2 人目以降はここから作れません**（PF-14 の招待）。" ;;
-            DELIVERY_UNAVAILABLE)
-              echo "メールを送れません。RESEND_API_KEY が未登録です。**券は作られていません。**" ;;
-            DELIVERY_FAILED)
-              echo "送信に失敗しました。**券は失効させました。** 宛先と Resend の設定を確かめて、もう一度実行してください。" ;;
+            DELIVERY_REJECTED)
+              # **応答は理由を分けない**（#246）。ここで「未登録です」と
+              # 断定しない — 応答からはどちらか分からないし、断定すると
+              # ログが応答の代わりに内部の状態を答えることになる。
+              # 運用者には**確かめる順序**だけを示す。
+              echo "開通リンクを渡せませんでした。**有効な券は残っていません**（作られていないか、失効させました）。"
+              echo "もう一度実行する前に、次の順に確かめてください。"
+              echo "  1. RESEND_API_KEY が対象環境に登録されているか（wrangler secret list --env ${{ inputs.environment }} / 名前だけ）"
+              echo "  2. 宛先の綴りが正しいか"
+              echo "  3. Resend 側の送信ドメインと差出人が有効か"
+              echo "  詳しい内訳は platform_audit_log の detail.cause に残っています（docs/runbook/platform-bootstrap.md §8）。" ;;
             INVALID_REQUEST)
               echo "メールアドレスか表示名の形式を確かめてください。" ;;
           esac
