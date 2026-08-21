@@ -162,6 +162,9 @@ describe("テナントのスナップショット（PF-02）", () => {
       observationsSkipped: 2,
       observationsUsedDefaults: 10,
       inputDurationMedianMs: 12_000,
+      findingsHigh: 3,
+      photoCount: 240,
+      localeCounts: { ja: 4, vi: 20 },
       now: new Date("2026-08-20T00:00:00.000Z"),
     });
     const insert = fake.queries.find((query) => query.sql.startsWith("insert into"));

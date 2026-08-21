@@ -87,6 +87,7 @@ export {
 export {
   countPhotosByTask,
   countTaskPhotos,
+  countTaskPhotosByBusinessDate,
   createTaskPhoto,
   findTaskPhotoByClientId,
   findTaskPhotoById,
@@ -229,6 +230,7 @@ export {
 export {
   ADMIN_STAFF_ROLES,
   PASSWORD_HISTORY_GENERATIONS,
+  countActiveMembersByLocale,
   countActiveMembershipsByRole,
   createAdminStaff,
   createFieldStaff,

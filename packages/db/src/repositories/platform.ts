@@ -291,6 +291,15 @@ export interface TenantSnapshotInput {
   observationsSkipped: number;
   observationsUsedDefaults: number;
   inputDurationMedianMs: number | null;
+  // ── 3 つとも `null` を取る。**`null` は「未計測」** ────────
+  // 0033 より前の行はこの 3 つを数えていない。**`?? 0` で 0 に落とさない**
+  // （未計測を「実測 0 件」に見せない / schema/platform.ts の注記）。
+  /** その業務日に記録された差異の数（PF-05）。`null` は未計測。 */
+  findingsHigh: number | null;
+  /** その業務日にアップロードされた写真の枚数（PF-05）。`null` は未計測。 */
+  photoCount: number | null;
+  /** 表示言語ごとの人数（PF-05）。**誰が何語かは持たない。** `null` は未計測。 */
+  localeCounts: Record<string, number> | null;
   now: Date;
 }
 
@@ -322,6 +331,9 @@ export async function upsertTenantSnapshot(
     observationsSkipped: input.observationsSkipped,
     observationsUsedDefaults: input.observationsUsedDefaults,
     inputDurationMedianMs: input.inputDurationMedianMs,
+    findingsHigh: input.findingsHigh,
+    photoCount: input.photoCount,
+    localeCounts: input.localeCounts,
     updatedAt: input.now,
   };
 
@@ -377,6 +389,9 @@ export async function listTenantSnapshots(
       observationsSkipped: platformTenantSnapshot.observationsSkipped,
       observationsUsedDefaults: platformTenantSnapshot.observationsUsedDefaults,
       inputDurationMedianMs: platformTenantSnapshot.inputDurationMedianMs,
+      findingsHigh: platformTenantSnapshot.findingsHigh,
+      photoCount: platformTenantSnapshot.photoCount,
+      localeCounts: platformTenantSnapshot.localeCounts,
       updatedAt: platformTenantSnapshot.updatedAt,
     })
     .from(platformTenantSnapshot)

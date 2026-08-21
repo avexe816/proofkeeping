@@ -44,6 +44,9 @@ function snapshot(overrides: Partial<TenantSnapshotRow> = {}): TenantSnapshotRow
     observationsSkipped: 2,
     observationsUsedDefaults: 20,
     inputDurationMedianMs: 19_000,
+    findingsHigh: 3,
+    photoCount: 240,
+    localeCounts: { ja: 4, vi: 20 },
     updatedAt: new Date("2026-08-20T00:00:00.000Z"),
     ...overrides,
   };

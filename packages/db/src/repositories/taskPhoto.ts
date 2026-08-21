@@ -19,7 +19,7 @@ import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { chunkIdsForInArray } from "../limits.js";
 import { getTenantDb, type TenantContext } from "../router.js";
-import { taskPhoto, type PhotoKind } from "../schema/task.js";
+import { cleaningTask, taskPhoto, type PhotoKind } from "../schema/task.js";
 
 import { withTenantScope } from "./base.js";
 
@@ -227,4 +227,40 @@ export async function listPhotosForChecklistItem(
       ),
     )
     .orderBy(taskPhoto.uploadedAt);
+}
+
+/**
+ * ある業務日にアップロードされた写真の枚数（PF-05）。
+ *
+ * `task_photo` は業務日を持たないので、**同じテナントの `cleaning_task` と
+ * 突き合わせる。** テナント内の JOIN で、テナント横断ではない
+ * （architecture.md §3 が禁じるのは組織をまたぐ集計）。
+ *
+ * **誰が撮ったかを返さない**（`uploadedById` を選ばない）。運営面へ渡る値。
+ */
+export async function countTaskPhotosByBusinessDate(
+  env: Env,
+  ctx: TenantContext,
+  businessDate: string,
+): Promise<number> {
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({ value: sql<number>`count(*)` })
+    .from(taskPhoto)
+    .innerJoin(
+      cleaningTask,
+      and(
+        eq(cleaningTask.organizationId, taskPhoto.organizationId),
+        eq(cleaningTask.id, taskPhoto.taskId),
+      ),
+    )
+    .where(
+      withTenantScope(
+        taskPhoto,
+        ctx,
+        taskPhoto.propertyId,
+        eq(cleaningTask.businessDate, businessDate),
+      ),
+    );
+  return rows[0]?.value ?? 0;
 }

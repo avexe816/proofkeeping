@@ -132,6 +132,7 @@ export default [
   layout("routes/plat/layout.tsx", [
     route("plat/status", "routes/plat/status.tsx"),
     route("plat/tenants", "routes/plat/tenants.tsx"),
+    route("plat/usage", "routes/plat/usage.tsx"),
   ]),
   layout("routes/m/layout.tsx", [
     route("m/today", "routes/m/today.tsx"),
