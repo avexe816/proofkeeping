@@ -7480,3 +7480,61 @@ D1 を数回引く）。そこは ② の待ち表示で受けている。
 
 `routes/app/staff.tsx` / `styles/app.css` / `routes/app/staffScreen.spec.ts`。
 **migration 無し。権限も URL の意味も変えていない。**
+
+---
+
+## #270 ブランドマーク（銀杏の葉）を置き、タブの題名を画面名にする
+
+日付: 2026-08-22 / **オーナー指示**（3 点）
+
+> 1. Top Bar の左に Logo を追加
+> 2. Browser のアイコンをその Logo に
+> 3. Browser のタイトルはページのテーマ・リンクの文字に
+
+### ① マークは画像ではなく図形で持つ
+
+`.png` を置くと、拡大表示・高解像度・明暗のぶんだけ枚数が要る。SVG なら
+1 つで足り、**数百バイトなので Worker の中に置ける**（和文書体を静的
+アセットへ出した #256 の逆で、こちらは同梱してよい大きさ）。
+
+**色は固定してある。** 濃色の topbar と白いタブの両方に載るので、
+`currentColor` にすると topbar の文字色（白）を継いで金の柄が消える。
+明暗どちらでも読める中間の緑（`#6e9c7e`）とブランドの金（`#c09b4f`）。
+
+**モノグラム（`PK`）は廃止した。** レール（56px）に葉 22px と 2 文字は
+入りきらず、詰めると縦のラインが折れる（A01 §1.1 / 基準 #13）。
+**レールでは葉だけ**にする。
+
+### ② ファビコンは `public/favicon.svg`
+
+HTML の中の図形はタブのアイコンにできないので、**同じ絵が 2 か所にある**
+（`ui/Logo.tsx` と `public/favicon.svg`）。`[assets] directory =
+"build/client"` に vite が `public/` を写すので、`/favicon.svg` で出る。
+**片方だけ直さないこと**（両方のファイルにその旨を書いてある）。
+
+### ③ タブの題名は「リンクの文字」をそのまま出す
+
+**題名の一覧を新しく作らない。** サイドバーの項目（`NAV_ITEMS`）が
+すでに画面の名前を持っている。別表を起こすと、画面を足した人が 2 か所を
+直すことになり片方だけ増える（`settingsGroup` を union にしたのと同じ
+考え / #258）。
+
+**画面ごとに `meta` を書かない。** 50 個以上に散る。React Router の
+`MetaFunction` は `location` を受け取るので、**`root.tsx` 1 か所**で
+経路から引く（`lib/ui/pageTitle.ts`）。
+
+- 一致は接頭辞で見て、**いちばん長く一致したものが勝つ**
+  （`/app/settings/rooms` は `/app/settings` にも当たる）。
+- `href` に施設 ID を含む項目（`/app/p/{propertyId}/board`）は
+  **プレースホルダより手前**を接頭辞にする。
+- 並びは `画面名｜ProofKeeping`。**ブランドを後ろに置く** — タブが狭いと
+  後ろから省かれるので、先に画面名が読めるほうがよい。
+- **知らない経路（`/login` / `/m/*` / `/platform/*`）では既定の題名。**
+  推測で名前を作らない。必要になったら、その画面を作る task が 1 行足す。
+
+### 影響
+
+`apps/web/src/ui/Logo.tsx`（新規）/ `ui/Topbar.tsx` / `public/favicon.svg`（新規）/
+`root.tsx`（`links` と `meta`）/ `lib/ui/pageTitle.ts`（新規）/ `styles/app.css` /
+`locales/ja.json`（モノグラムの 2 キーを削除）。
+**migration 無し。画面の中身・URL・権限は変えていない。**

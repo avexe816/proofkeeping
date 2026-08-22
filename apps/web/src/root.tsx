@@ -11,6 +11,7 @@ import {
 } from "react-router";
 
 import { t } from "./lib/i18n.js";
+import { documentTitle } from "./lib/ui/pageTitle.js";
 import appStylesHref from "./styles/app.css?url";
 
 /**
@@ -24,9 +25,21 @@ import appStylesHref from "./styles/app.css?url";
  * 言語の選択と保持は P0-15 の担当。ここは既定の日本語だけを宣言する。
  */
 
-export const links: LinksFunction = () => [{ rel: "stylesheet", href: appStylesHref }];
+export const links: LinksFunction = () => [
+  { rel: "stylesheet", href: appStylesHref },
+  // ブランドマーク（銀杏の葉 / 人間の指示 2026-08-22）。**`public/` に置く。**
+  // HTML の中の図形はタブのアイコンにできないので、`ui/Logo.tsx` と
+  // **同じ絵が 2 か所にある**（`Logo.tsx` の注記）。
+  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+];
 
-export const meta: MetaFunction = () => [{ title: t("app.title") }];
+/**
+ * タブの題名。**画面ごとに `meta` を書かず、ここ 1 か所で経路から引く**
+ * （`lib/ui/pageTitle.ts` の注記 / 人間の指示 2026-08-22）。
+ *
+ * 出すのはサイドバーのリンクと同じ文字。**別表を作らない。**
+ */
+export const meta: MetaFunction = ({ location }) => [{ title: documentTitle(location.pathname) }];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
