@@ -426,7 +426,8 @@ describe("設定ハブ", () => {
     }).find((group) => group.section === "settings");
 
     expect(settings?.items.map((entry) => entry.item.key)).toEqual([SETTINGS_ITEM_KEY]);
-    expect(settings?.items[0]?.href).toBe(SETTINGS_HUB_PATH);
+    // **ハブではなく設定画面そのものへ入る**（人間の指示 2026-08-22）。
+    expect(settings?.items[0]?.href).toBe("/app/settings/properties");
   });
 
   it("区分の項目キーがすべて実在し、重複しない", () => {
@@ -532,5 +533,62 @@ describe("設定ハブ", () => {
     for (const pathname of ["/app/dashboard", "/app/audit/findings", "/app/shifts"]) {
       expect(isActivePrefix(SETTINGS_ACTIVE_PREFIXES, pathname), pathname).toBe(false);
     }
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 「⚙ 設定」の行き先（人間の指示 2026-08-22）
+// ────────────────────────────────────────────────────────────
+
+describe("設定の入口", () => {
+  /** その相手のサイドバーに出る「設定」の `href`。 */
+  function settingsHrefFor(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES) {
+    return buildNavigation(ctxFor(role), { selectedPropertyId: PROPERTY_ID, enabledModules })
+      .find((group) => group.section === "settings")
+      ?.items[0]?.href;
+  }
+
+  it("**ハブを経由しない。** 押したら設定画面そのものが開く", () => {
+    expect(settingsHrefFor("OWNER")).toBe("/app/settings/properties");
+    expect(settingsHrefFor("OWNER")).not.toBe(SETTINGS_HUB_PATH);
+  });
+
+  it("**行き先を定数で書かない。** その相手が開ける最初の画面へ入る", () => {
+    // `PROPERTY_MANAGER` は施設設定（`property.write`）を開けない。
+    // 定数で `/app/settings/properties` を書くと、押した瞬間 404 になる。
+    const href = settingsHrefFor("PROPERTY_MANAGER");
+    expect(href).not.toBe(SETTINGS_HUB_PATH);
+    expect(href).not.toBeUndefined();
+  });
+
+  it("入口の行き先は、その相手のハブの先頭カードと一致する", () => {
+    for (const role of ["OWNER", "ORG_ADMIN", "PROPERTY_MANAGER"] as const) {
+      const hub = buildSettingsHub(ctxFor(role), {
+        selectedPropertyId: PROPERTY_ID,
+        enabledModules: ALL_MODULES,
+      });
+      const first = hub.flatMap((category) => category.items).find((entry) => !entry.locked);
+      expect(settingsHrefFor(role), role).toBe(first?.href);
+    }
+  });
+
+  it("未契約でリンクを持たない画面には着地しない（グレーの項目を踏まない）", () => {
+    // すべて未契約なら全カードが `locked`。**ハブへ倒す。**
+    expect(settingsHrefFor("OWNER", [])).toBe(SETTINGS_HUB_PATH);
+  });
+
+  it("設定を 1 つも開けない相手には入口自体が出ない（従来どおり）", () => {
+    for (const role of ["CLEANER", "INSPECTOR"] as const) {
+      const settings = buildNavigation(ctxFor(role), {
+        selectedPropertyId: PROPERTY_ID,
+        enabledModules: ALL_MODULES,
+      }).find((group) => group.section === "settings");
+      expect(settings, role).toBeUndefined();
+    }
+  });
+
+  it("行き先が変わっても選択状態は設定領域ぜんぶで続く", () => {
+    const href = settingsHrefFor("OWNER") ?? "";
+    expect(isActivePrefix(SETTINGS_ACTIVE_PREFIXES, href)).toBe(true);
   });
 });

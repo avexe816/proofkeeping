@@ -756,8 +756,15 @@ export function buildNavigation(
     if (item.key === SETTINGS_ITEM_KEY) {
       // **入口の可視性はハブの中身で決める**（`NavItemBase.action` の注記）。
       // 1 枚も開けない相手に、押しても何も無い入口を出さない。
-      if (buildSettingsHub(ctx, input).length === 0) continue;
-      visible.push({ item, locked: false, href: item.status === "READY" ? item.href : null });
+      const hub = buildSettingsHub(ctx, input);
+      if (hub.length === 0) continue;
+      // **押したら設定画面そのものへ入る**（人間の指示 2026-08-22）。
+      // 行き先は `settingsEntryHref()` が決める（同関数の注記）。
+      visible.push({
+        item,
+        locked: false,
+        href: item.status === "READY" ? settingsEntryHref(hub) : null,
+      });
       continue;
     }
 
@@ -872,6 +879,35 @@ export function buildSettingsHub(
       .map((item) => resolveNavItem(item, ctx, input))
       .filter((entry): entry is VisibleNavItem => entry !== null),
   })).filter((category) => category.items.length > 0);
+}
+
+/**
+ * サイドバーの「⚙ 設定」を押したときの行き先（人間の指示 2026-08-22）。
+ *
+ * ── ハブを経由しない ────────────────────────────────────
+ * 以前はハブ（`/app/settings`）のカード一覧に着地していた。設定内ナビ
+ * （`SettingsSidebar` / DECISIONS #258）が入ってからは、**サブ画面に居れば
+ * 17 画面すべてが左に並んでいる。** ハブはその目次をもう 1 枚見せるだけの
+ * 段になっていたので、押した時点で最初の設定画面へ入る。
+ *
+ * ── 行き先を定数で書かない ──────────────────────────────
+ * 通常は `/app/settings/properties`（`SETTINGS_GROUPS` の先頭群の
+ * `settingsOrder: 1`）だが、**そこに着けない相手がいる。**
+ * `PROPERTY_MANAGER` は施設設定を開けず（`property.write` が要る）、
+ * 未契約のモジュールはグレーでリンクを持たない。定数で書くと、
+ * その相手を押した瞬間に 404 へ送る。
+ *
+ * **開ける画面のうち、ハブに並ぶ順で最初のもの**を返す。1 つも無ければ
+ * ハブへ倒す（そもそもその状態では入口自体が出ない）。
+ */
+export function settingsEntryHref(hub: readonly VisibleSettingsCategory[]): string {
+  for (const category of hub) {
+    for (const entry of category.items) {
+      // 未契約（`locked`）はリンクを持たない。着地先にしない。
+      if (!entry.locked && entry.href !== null) return entry.href;
+    }
+  }
+  return SETTINGS_HUB_PATH;
 }
 
 /**
