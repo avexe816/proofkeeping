@@ -12,6 +12,7 @@ import {
 } from "@pk/db";
 import {
   Form,
+  Link,
   useActionData,
   useLoaderData,
   type ActionFunctionArgs,
@@ -38,6 +39,13 @@ import {
   type StaffLedgerPage,
   type StaffLedgerView,
 } from "../../lib/staff/ledger.js";
+import {
+  loadStaffDetail,
+  setStaffActive,
+  updateStaff,
+  type StaffDetail,
+  type StaffEditResult,
+} from "../../lib/staff/edit.js";
 import { saveResidency, type ResidencySaveResult } from "../../lib/staff/residency.js";
 import { recordResidencyView } from "../../lib/staff/residencyAudit.js";
 import { registerFieldStaff } from "../../lib/staff/register.js";
@@ -95,6 +103,23 @@ interface StaffProperty {
   name: string;
 }
 
+/**
+ * 右からスライドインするレイヤーの中身（人間の指示 2026-08-22）。
+ *
+ * **開いているかどうかを URL に持つ。** `?panel=new` で登録、
+ * `?panel={membershipId}` で 1 名の詳細。絞り込み（`?status=`）と
+ * 同じ扱いで、画面を共有したときに同じものが開く。
+ *
+ * ── なぜ `useState` にしないのか ────────────────────────
+ * 中身がサーバーの値（担当施設・連絡先）だからで、状態を画面側に
+ * 持つと、開いた瞬間に別の口でもう一度引くことになる。URL に持てば
+ * loader が 1 回で返し、**JS が動かなくても開く。** 戻るボタンで
+ * 閉じるのも素直に効く。
+ */
+type StaffPanel =
+  | { mode: "NEW" }
+  | { mode: "DETAIL"; detail: StaffDetail };
+
 interface StaffData {
   properties: StaffProperty[];
   /** 台帳（P8-01 / プロトタイプ ops 07）。 */
@@ -103,6 +128,8 @@ interface StaffData {
   canReadResidency: boolean;
   /** 一覧の絞り込み（プロトタイプ ops 07 の「全員 / 稼働中 / 研修中」）。 */
   filter: StaffFilter;
+  /** レイヤー。閉じているときは `null`。 */
+  panel: StaffPanel | null;
 }
 
 type StaffActionResult =
@@ -110,7 +137,9 @@ type StaffActionResult =
   | { invalid: true }
   | { duplicate: true }
   /** 在留資格の保存結果（P8-02）。型は `lib/staff/residency.ts` が持つ。 */
-  | ResidencySaveResult;
+  | ResidencySaveResult
+  /** 編集・無効化の結果（型は `lib/staff/edit.ts` が持つ）。 */
+  | StaffEditResult;
 
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<StaffData> {
   const env = getEnv(context);
@@ -146,7 +175,20 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     await recordResidencyView(env, tenant, { actorId: session.membershipId });
   }
 
+  // ── レイヤーは開いている 1 名ぶんだけを引く ────────────────
+  // 一覧（`listOrgStaff()`）に連絡先を混ぜない。混ぜると組織全員の
+  // メールアドレスが HTML に載る（在留期限と同じ考え方 / INV-08）。
+  // **知らない ID は `assertIdBelongsToTenant()` が 404 にする。**
+  const panelParam = new URL(request.url).searchParams.get("panel");
+  const panel: StaffPanel | null =
+    panelParam === null || panelParam === ""
+      ? null
+      : panelParam === "new"
+        ? { mode: "NEW" }
+        : await detailPanel(env, tenant, panelParam);
+
   return {
+    panel,
     properties: properties.map((property) => ({
       id: property.id,
       code: property.code,
@@ -165,6 +207,21 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     // **絞りは URL に置く。** 画面を共有したときに同じ見え方になる。
     filter: parseStaffFilter(new URL(request.url).searchParams.get("status")),
   };
+}
+
+/**
+ * 1 名ぶんのレイヤー。**見つからなければ閉じたまま返す。**
+ *
+ * 無効化したスタッフの ID を踏んでも開く（`listOrgStaff()` が退職者も
+ * 返すのと同じ理由 — 再開の入口がこのレイヤーしか無い）。
+ */
+async function detailPanel(
+  env: ReturnType<typeof getEnv>,
+  tenant: Parameters<typeof loadStaffDetail>[1],
+  membershipId: string,
+): Promise<StaffPanel | null> {
+  const detail = await loadStaffDetail(env, tenant, membershipId);
+  return detail === undefined ? null : { mode: "DETAIL", detail };
 }
 
 /** `YYYY-MM-DD` に日を足す。**業務日の文字列のまま扱う**（architecture.md §7）。 */
@@ -199,7 +256,7 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
 
   const form = await request.formData();
 
-  // 1 画面に 2 つのフォームがある（スタッフの登録・在留資格の記録）。
+  // 1 画面に 4 つのフォームがある（登録・在留資格・編集・利用の停止/再開）。
   // **`intent` で分ける。** 項目の有無で推測すると、片方の必須項目が
   // 空のときにもう片方として処理されうる。
   if (fieldOf(form, "intent") === "residency") {
@@ -208,6 +265,19 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
     // `action` の戻り値として運ぶので、`recordAudit()` を呼ぶ経路が
     // 同居していると、取り違えたときに PIN が監査ログへ入りうる。
     return saveResidency(env, tenant, session.membershipId, form);
+  }
+
+  // 編集と利用の停止/再開も同じ理由で `lib/staff/edit.ts` にある。
+  if (fieldOf(form, "intent") === "staffUpdate") {
+    return updateStaff(env, tenant, session.membershipId, form);
+  }
+  if (fieldOf(form, "intent") === "staffActive") {
+    return setStaffActive(env, tenant, session.membershipId, {
+      membershipId: fieldOf(form, "membershipId"),
+      // **既定を「停める」にしない。** 値が落ちたときに人が締め出される
+      // 側へ倒れる形にしないため、`"true"` のときだけ再開する。
+      isActive: fieldOf(form, "isActive") === "true",
+    });
   }
 
   const email = fieldOf(form, "email").trim();
@@ -435,6 +505,9 @@ function StaffRoster({
                   <th>{t("staff.roster.properties")}</th>
                   {canReadResidency ? <th>{t("staff.roster.expiresOn")}</th> : null}
                   <th>{t("staff.roster.status")}</th>
+                  {/* 「詳細」の列。**見出しは空にしない** — 読み上げで
+                      列の意味が消える（表の他の列と同じ扱いにする）。 */}
+                  <th>{t("staff.roster.detailColumn")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -448,6 +521,15 @@ function StaffRoster({
                     <td>{row.properties.length === 0 ? "—" : row.properties.join(" · ")}</td>
                     {canReadResidency ? <ExpiryCell row={row} /> : null}
                     <td>{t(`staff.status.${row.workStatus}` as Parameters<typeof t>[0])}</td>
+                    <td>
+                      {/* プロトタイプ ops 07 の「詳細」ボタン。押すと右から
+                          レイヤーが出る（人間の指示 2026-08-22）。
+                          **`<Link>` にしてある** — 素の `<a>` だと画面ごと
+                          読み直しになり、レイヤーが出てくる動きが消える。 */}
+                      <Link className="pk-button" to={panelHref(filter, row.membershipId)}>
+                        {t("staff.roster.detail")}
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -598,12 +680,245 @@ function ResidencyForm({ rows }: { rows: readonly StaffLedgerView[] }) {
   );
 }
 
+/** この画面の場所。**レイヤーの開閉は同じ画面の中で行う。** */
+const STAFF_PATH = "/app/settings/staff";
+
+/**
+ * レイヤーの開閉を表す URL。
+ *
+ * **絞り込みを持ち回る。** 「稼働中」で絞った状態から詳細を開いて閉じたら、
+ * 絞り込みが外れて一覧が変わる、という動きにしない。
+ *
+ * @param panel `null` で閉じる。`"new"` で登録、それ以外は `membershipId`。
+ */
+function panelHref(filter: StaffFilter, panel: string | null): string {
+  const params = new URLSearchParams();
+  if (filter !== "ALL") params.set("status", filter);
+  if (panel !== null) params.set("panel", panel);
+  const query = params.toString();
+  return query === "" ? STAFF_PATH : `${STAFF_PATH}?${query}`;
+}
+
 /** 言語コード → 辞書のキー。**知らないコードは素のまま出さない。** */
 function languageKey(code: string): Parameters<typeof t>[0] {
   const known = ["ja", "en", "zh-CN", "vi", "id", "my", "ne"];
   return (known.includes(code) ? `staff.language.${code}` : "staff.language.other") as Parameters<
     typeof t
   >[0];
+}
+
+/**
+ * 右からスライドインするレイヤー（人間の指示 2026-08-22）。
+ *
+ * ── 素の HTML で開いて閉じる ────────────────────────────
+ * 中身はサーバーが描き、閉じるのはリンク 1 本。**JS が動かなくても
+ * 開閉する。** 動き（スライドイン）は CSS の `@keyframes` で、
+ * `prefers-reduced-motion` を立てている人には出さない（`app.css`）。
+ *
+ * ── 背景の暗幕もリンク ──────────────────────────────────
+ * 幕の外を押すと閉じる、という当たり前の動きを `onClick` ではなく
+ * `<Link>` で作る。**キーボードでも到達できる**（`onClick` を載せた
+ * `<div>` には Tab で行けない）。
+ */
+function StaffDrawer({
+  title,
+  closeHref,
+  children,
+}: {
+  title: string;
+  closeHref: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="pk-drawer">
+      <Link className="pk-drawer__scrim" to={closeHref} aria-label={t("staff.panel.close")} />
+      <aside className="pk-drawer__panel" aria-label={title}>
+        <div className="pk-drawer__head">
+          <h2 className="pk-drawer__title">{title}</h2>
+          <Link className="pk-drawer__close" to={closeHref} aria-label={t("staff.panel.close")}>
+            <span aria-hidden="true">×</span>
+          </Link>
+        </div>
+        <div className="pk-drawer__body">{children}</div>
+      </aside>
+    </div>
+  );
+}
+
+/** 担当する施設のチェックボックス（登録と編集で同じ形）。 */
+function PropertyChecks({
+  properties,
+  selected,
+}: {
+  properties: readonly StaffProperty[];
+  selected: readonly string[];
+}) {
+  return (
+    <fieldset className="pk-form__group">
+      <legend>{t("staff.form.properties")}</legend>
+      {properties.map((property) => (
+        <label key={property.id} className="pk-form__check">
+          <input
+            type="checkbox"
+            name="propertyIds"
+            value={property.id}
+            defaultChecked={selected.includes(property.id)}
+          />
+          {`${property.code} ${property.name}`}
+        </label>
+      ))}
+      <p className="pk-form__note">{t("staff.form.propertiesNote")}</p>
+    </fieldset>
+  );
+}
+
+/**
+ * 登録のフォーム（レイヤーの中）。
+ *
+ * **画面の最下部ではなくレイヤーに置く**（人間の指示 2026-08-22）。
+ * 一覧の下に長いフォームが常時開いていると、一覧を読みに来た人が
+ * 毎回それを跨ぐことになる。
+ */
+function StaffCreateForm({ properties }: { properties: readonly StaffProperty[] }) {
+  return (
+    <Form method="post" className="pk-form">
+      <label htmlFor="displayName">{t("staff.form.displayName")}</label>
+      <input id="displayName" name="displayName" maxLength={64} required />
+
+      <label htmlFor="staffNumber">{t("staff.form.staffNumber")}</label>
+      <input id="staffNumber" name="staffNumber" required />
+
+      <label htmlFor="role">{t("staff.form.role")}</label>
+      <select id="role" name="role" defaultValue="CLEANER">
+        {FIELD_STAFF_ROLES.map((role) => (
+          <option key={role} value={role}>
+            {t(`role.${role}` as Parameters<typeof t>[0])}
+          </option>
+        ))}
+      </select>
+
+      <PropertyChecks properties={properties} selected={[]} />
+
+      <label htmlFor="locale">{t("staff.form.locale")}</label>
+      <select id="locale" name="locale" defaultValue="ja">
+        <option value="ja">{t("staff.locale.ja")}</option>
+        <option value="en">{t("staff.locale.en")}</option>
+      </select>
+
+      <label htmlFor="email">{t("staff.form.email")}</label>
+      <input id="email" name="email" type="email" maxLength={254} />
+      <p className="pk-form__note">{t("staff.form.emailNote")}</p>
+
+      <button type="submit">{t("staff.form.submit")}</button>
+    </Form>
+  );
+}
+
+/**
+ * 詳細と編集（レイヤーの中）。
+ *
+ * ── 触れるのは現場スタッフだけ ──────────────────────────
+ * `isFieldStaff` が偽なら、読める値を出して終わりにする。管理系ユーザーの
+ * ロール変更・無効化は W-12（権限と監査）が持っており、**同じ操作の入口を
+ * 2 つ作らない**（`lib/staff/edit.ts` の注記 / DECISIONS #181）。
+ *
+ * ── スタッフ番号と PIN の欄が無いのは意図 ───────────────
+ * 番号はログインの 3 フィールドの 1 つで、現場に配った案内カードにも
+ * 刷ってある（`contracts/user.ts` の注記）。PIN の再発行も W-12。
+ *
+ * ── 「削除」ではなく「利用を停止する」──────────────────
+ * 行は消えない（PK-SPEC-P0 §26）。過去のタスクと証跡がこの人を
+ * 参照しているため、消すと記録の側が誰の作業か分からなくなる。
+ * 停止するとログインが止まり、シフトと研修の割当候補からも外れる。
+ * **戻せる**（`lib/staff/edit.ts`）。
+ */
+function StaffDetailForm({
+  detail,
+  properties,
+}: {
+  detail: StaffDetail;
+  properties: readonly StaffProperty[];
+}) {
+  return (
+    <>
+      <dl className="pk-drawer__facts">
+        <dt>{t("staff.roster.staffNumber")}</dt>
+        <dd>{detail.staffNumber ?? "—"}</dd>
+        <dt>{t("staff.panel.account")}</dt>
+        <dd>{t(detail.isActive ? "staff.panel.active" : "staff.panel.inactive")}</dd>
+      </dl>
+
+      {detail.isFieldStaff ? null : (
+        <p className="pk-notice">{t("staff.panel.adminOnly")}</p>
+      )}
+
+      {detail.isFieldStaff ? (
+        <>
+          <Form method="post" className="pk-form">
+            <input type="hidden" name="intent" value="staffUpdate" />
+            <input type="hidden" name="membershipId" value={detail.membershipId} />
+
+            <label htmlFor="editDisplayName">{t("staff.form.displayName")}</label>
+            <input
+              id="editDisplayName"
+              name="displayName"
+              maxLength={64}
+              required
+              defaultValue={detail.displayName}
+            />
+
+            <label htmlFor="editRole">{t("staff.form.role")}</label>
+            <select id="editRole" name="role" defaultValue={detail.role}>
+              {FIELD_STAFF_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {t(`role.${role}` as Parameters<typeof t>[0])}
+                </option>
+              ))}
+            </select>
+
+            <PropertyChecks properties={properties} selected={detail.propertyIds} />
+
+            <label htmlFor="editLocale">{t("staff.form.locale")}</label>
+            <select id="editLocale" name="locale" defaultValue={detail.locale === "en" ? "en" : "ja"}>
+              <option value="ja">{t("staff.locale.ja")}</option>
+              <option value="en">{t("staff.locale.en")}</option>
+            </select>
+
+            <label htmlFor="editEmail">{t("staff.form.email")}</label>
+            <input
+              id="editEmail"
+              name="email"
+              type="email"
+              maxLength={254}
+              defaultValue={detail.email ?? ""}
+            />
+            <p className="pk-form__note">{t("staff.form.emailNote")}</p>
+
+            <button type="submit">{t("staff.panel.save")}</button>
+          </Form>
+
+          {/* 利用の停止と再開。**編集と同じフォームに混ぜない** —
+              「保存」を押したつもりで人を止めることになる。 */}
+          <Form method="post" className="pk-form pk-drawer__danger">
+            <input type="hidden" name="intent" value="staffActive" />
+            <input type="hidden" name="membershipId" value={detail.membershipId} />
+            <input type="hidden" name="isActive" value={detail.isActive ? "false" : "true"} />
+            <p className="pk-form__note">
+              {t(detail.isActive ? "staff.panel.stopNote" : "staff.panel.resumeNote")}
+            </p>
+            <button type="submit">
+              {t(detail.isActive ? "staff.panel.stop" : "staff.panel.resume")}
+            </button>
+          </Form>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+/** レイヤーの見出し。 */
+function panelTitle(panel: StaffPanel): string {
+  return panel.mode === "NEW" ? t("staff.panel.newTitle") : panel.detail.displayName;
 }
 
 export default function Staff() {
@@ -622,12 +937,54 @@ export default function Staff() {
     );
   }
 
+  // **登録できたらレイヤーを閉じる。** 案内カードは画面の側に出す —
+  // 印刷するものが幕の下にあると、そのまま印刷して白紙になる。
+  const panel = card === null ? data.panel : null;
+
   return (
     <section className="pk-page">
       <div className="pk-pagehead">
         <h1 className="pk-pagehead__title">{t("staff.title")}</h1>
+        <div className="pk-pagehead__actions">
+          <Link
+            className="pk-button pk-button--primary"
+            to={panelHref(data.filter, "new")}
+          >
+            {t("staff.panel.new")}
+          </Link>
+        </div>
       </div>
       <p className="pk-page__lede">{t("staff.lede")}</p>
+
+      {result !== undefined && "invalid" in result ? (
+        <p className="pk-notice">{t("staff.error.invalid")}</p>
+      ) : null}
+      {result !== undefined && "duplicate" in result ? (
+        <p className="pk-notice">{t("staff.error.duplicate")}</p>
+      ) : null}
+      {result !== undefined && "residencySaved" in result ? (
+        <p className="pk-notice">{t("staff.residency.saved")}</p>
+      ) : null}
+      {result !== undefined && "residencyInvalid" in result ? (
+        <p className="pk-notice">{t(residencyErrorKey(result.residencyInvalid))}</p>
+      ) : null}
+      {result !== undefined && "staffSaved" in result ? (
+        <p className="pk-notice">
+          {t(`staff.panel.saved.${result.staffSaved}` as Parameters<typeof t>[0])}
+        </p>
+      ) : null}
+      {result !== undefined && "staffInvalid" in result ? (
+        <p className="pk-notice">{t("staff.error.invalid")}</p>
+      ) : null}
+      {result !== undefined && "staffNotFound" in result ? (
+        <p className="pk-notice">{t("staff.panel.error.notFound")}</p>
+      ) : null}
+      {result !== undefined && "staffNotField" in result ? (
+        <p className="pk-notice">{t("staff.panel.adminOnly")}</p>
+      ) : null}
+      {result !== undefined && "staffSelf" in result ? (
+        <p className="pk-notice">{t("staff.panel.error.self")}</p>
+      ) : null}
 
       <StaffRoster
         ledger={data.ledger}
@@ -645,58 +1002,15 @@ export default function Staff() {
         </div>
       )}
 
-      {result !== undefined && "invalid" in result ? (
-        <p className="pk-notice">{t("staff.error.invalid")}</p>
-      ) : null}
-      {result !== undefined && "duplicate" in result ? (
-        <p className="pk-notice">{t("staff.error.duplicate")}</p>
-      ) : null}
-      {result !== undefined && "residencySaved" in result ? (
-        <p className="pk-notice">{t("staff.residency.saved")}</p>
-      ) : null}
-      {result !== undefined && "residencyInvalid" in result ? (
-        <p className="pk-notice">{t(residencyErrorKey(result.residencyInvalid))}</p>
-      ) : null}
-
-      <Form method="post" className="pk-form pk-print__hide">
-        <label htmlFor="displayName">{t("staff.form.displayName")}</label>
-        <input id="displayName" name="displayName" maxLength={64} required />
-
-        <label htmlFor="staffNumber">{t("staff.form.staffNumber")}</label>
-        <input id="staffNumber" name="staffNumber" required />
-
-        <label htmlFor="role">{t("staff.form.role")}</label>
-        <select id="role" name="role" defaultValue="CLEANER">
-          {FIELD_STAFF_ROLES.map((role) => (
-            <option key={role} value={role}>
-              {t(`role.${role}` as Parameters<typeof t>[0])}
-            </option>
-          ))}
-        </select>
-
-        <fieldset className="pk-form__group">
-          <legend>{t("staff.form.properties")}</legend>
-          {data.properties.map((property) => (
-            <label key={property.id} className="pk-form__check">
-              <input type="checkbox" name="propertyIds" value={property.id} />
-              {`${property.code} ${property.name}`}
-            </label>
-          ))}
-          <p className="pk-form__note">{t("staff.form.propertiesNote")}</p>
-        </fieldset>
-
-        <label htmlFor="locale">{t("staff.form.locale")}</label>
-        <select id="locale" name="locale" defaultValue="ja">
-          <option value="ja">{t("staff.locale.ja")}</option>
-          <option value="en">{t("staff.locale.en")}</option>
-        </select>
-
-        <label htmlFor="email">{t("staff.form.email")}</label>
-        <input id="email" name="email" type="email" maxLength={254} />
-        <p className="pk-form__note">{t("staff.form.emailNote")}</p>
-
-        <button type="submit">{t("staff.form.submit")}</button>
-      </Form>
+      {panel === null ? null : (
+        <StaffDrawer title={panelTitle(panel)} closeHref={panelHref(data.filter, null)}>
+          {panel.mode === "NEW" ? (
+            <StaffCreateForm properties={data.properties} />
+          ) : (
+            <StaffDetailForm detail={panel.detail} properties={data.properties} />
+          )}
+        </StaffDrawer>
+      )}
     </section>
   );
 }

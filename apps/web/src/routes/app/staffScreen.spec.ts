@@ -30,6 +30,15 @@ const WRITE_SOURCE = readFileSync(
 );
 
 /**
+ * 詳細レイヤーの読み書き（W-07 / 人間の指示 2026-08-22）。
+ * **同じ理由で切り出してある**（PIN と監査ログの口を同居させない）。
+ */
+const EDIT_SOURCE = readFileSync(
+  join(import.meta.dirname, "..", "..", "lib", "staff", "edit.ts"),
+  "utf8",
+);
+
+/**
  * コメントを落としたソース。
  *
  * **禁止事項を説明した doc コメント自体が検査に引っ掛かる**ので、
@@ -130,6 +139,69 @@ describe("在留資格の書き込み（P8-02）", () => {
   it("就労可否を聞くフォーム項目が無い（同 MUST）", () => {
     for (const forbidden of ["canWork", "就労可", "働けますか"]) {
       expect(CODE, forbidden).not.toContain(forbidden);
+    }
+  });
+});
+
+describe("スタッフ詳細レイヤー（人間の指示 2026-08-22）", () => {
+  it("開いているかどうかを URL に持つ（`useState` に持たない）", () => {
+    // 画面を共有したときに同じものが開く。JS が動かなくても開く。
+    expect(SOURCE).toContain('searchParams.get("panel")');
+    expect(CODE).not.toContain("useState");
+  });
+
+  it("絞り込みを持ち回る（開いて閉じたら一覧が変わる、をしない）", () => {
+    expect(SOURCE).toContain("function panelHref(filter: StaffFilter");
+    expect(SOURCE).toContain('params.set("status", filter)');
+  });
+
+  it("レイヤーの中身は開いている 1 名ぶんだけを引く（INV-08 と同じ考え方）", () => {
+    // 一覧（`listOrgStaff()`）に連絡先を混ぜると、組織全員のメールが
+    // loader の戻り値（= HTML に載る JSON）に出る。
+    expect(SOURCE).toContain("loadStaffDetail(env, tenant, membershipId)");
+    expect(CODE).not.toContain("listOrgStaffDetail");
+  });
+
+  it("4 つのフォームを `intent` で分けている（項目の有無で推測しない）", () => {
+    expect(SOURCE).toContain('fieldOf(form, "intent") === "residency"');
+    expect(SOURCE).toContain('fieldOf(form, "intent") === "staffUpdate"');
+    expect(SOURCE).toContain('fieldOf(form, "intent") === "staffActive"');
+  });
+
+  it("**PIN を持つ画面に監査ログの口を置いていない**（編集を足しても同じ）", () => {
+    // 既存の検査（`describe("在留資格の書き込み")`）と同じ境界。
+    // 編集・停止の `recordAudit()` は `lib/staff/edit.ts` にある。
+    expect(CODE).not.toContain("recordAudit");
+    expect(EDIT_SOURCE).toContain('action: "user.updated"');
+  });
+
+  it("停止は片道にしない（再開の口がある）", () => {
+    // 消せない操作を画面に置かない。停止したまま戻せないと、
+    // 復旧の口が別の管理者を探すことしか無くなる。
+    expect(EDIT_SOURCE).toContain('action: input.isActive ? "user.reactivated"');
+    expect(SOURCE).toContain("staff.panel.resume");
+  });
+
+  it("物理削除の口を作っていない（PK-SPEC-P0 §26）", () => {
+    // 過去のタスク・検査・証跡がこの人を参照している。行を消すと、
+    // 記録の側が誰の作業だったかを失う。
+    for (const forbidden of ["deleteUser", "deleteStaff", 'method="delete"', "DELETE"]) {
+      expect(CODE, forbidden).not.toContain(forbidden);
+      expect(EDIT_SOURCE, forbidden).not.toContain(forbidden);
+    }
+  });
+
+  it("この画面から管理系ユーザーを触れない（W-12 の安全装置を迂回しない）", () => {
+    expect(EDIT_SOURCE).toContain("FIELD_STAFF_ROLES");
+    expect(EDIT_SOURCE).toContain("staffNotField");
+  });
+
+  it("編集にスタッフ番号と PIN の欄が無い（ログインの 3 フィールド）", () => {
+    // 番号は現場に配った案内カードにも刷ってある。PIN の再発行は W-12。
+    const editForm = /intent" value="staffUpdate"[\s\S]*?<\/Form>/.exec(SOURCE)?.[0] ?? "";
+    expect(editForm).not.toBe("");
+    for (const forbidden of ["staffNumber", "pin", "PIN"]) {
+      expect(editForm, forbidden).not.toContain(forbidden);
     }
   });
 });

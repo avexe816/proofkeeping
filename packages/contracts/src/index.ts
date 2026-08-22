@@ -735,9 +735,11 @@ export {
   FIELD_STAFF_ROLES,
   fieldStaffCreateSchema,
   fieldStaffRoleSchema,
+  fieldStaffUpdateSchema,
   type FieldStaffCreateRequest,
   type FieldStaffCreateResponse,
   type FieldStaffRoleValue,
+  type FieldStaffUpdateRequest,
 } from "./user.js";
 
 // セットアップウィザードの進行（P7-01 / PK-SPEC-P7 §2.3）。

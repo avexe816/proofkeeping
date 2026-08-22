@@ -70,6 +70,20 @@ export const AUDIT_ACTIONS = {
   "user.reactivated": { requiresReason: false },
   "user.pinReset": { requiresReason: false },
   /**
+   * スタッフの登録内容の更新（W-07 の詳細レイヤー / 人間の指示 2026-08-22）。
+   *
+   * security.md §6 は「ユーザーの招待・ロール変更・無効化・PIN リセット」を
+   * 挙げるが、**担当施設の割当の変更がどれにも当てはまらない。**
+   * 割当が変わると、その人に出るタスクと見える記録の範囲が変わる
+   * （architecture.md §2 の `scopeToProperties()`）。CLAUDE.md §5 の
+   * 「破壊的操作には必ず `recordAudit()`」に当たる。
+   *
+   * `after` に**連絡先を載せない。** 誰がいつ担当施設を動かしたかが
+   * 追えればよく、監査ログに個人の連絡先を写す理由が無い
+   * （`residency.updated` と同じ考え方）。
+   */
+  "user.updated": { requiresReason: false },
+  /**
    * 在留資格の登録・更新（P8-02 / PK-SPEC-P8 §1.4）。
    *
    * security.md §6 の列挙には無いが、**期限切れで新規タスク配分が止まる**

@@ -1272,6 +1272,37 @@ const INVOCATIONS: Invocation[] = [
         role: "ORG_ADMIN",
       }),
   },
+  // W-07 のスタッフ詳細レイヤー（人間の指示 2026-08-22）。
+  {
+    name: "user.findOrgStaffDetail",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.findOrgStaffDetail(env, ctx, OWN_ID.membership),
+    crossTenant: (env, ctx) => userRepo.findOrgStaffDetail(env, ctx, OTHER_ID.membership),
+  },
+  {
+    name: "user.updateUserProfile",
+    kind: "tenant",
+    run: (env, ctx) =>
+      userRepo.updateUserProfile(env, ctx, { userId: OWN_ID.user, displayName: "テスト 花子" }),
+    crossTenant: (env, ctx) =>
+      userRepo.updateUserProfile(env, ctx, { userId: OTHER_ID.user, displayName: "テスト 花子" }),
+  },
+  {
+    name: "user.replacePropertyAssignments",
+    kind: "tenant",
+    run: (env, ctx) =>
+      userRepo.replacePropertyAssignments(env, ctx, {
+        membershipId: OWN_ID.membership,
+        propertyIds: [OWN_ID.property],
+        assignedBy: OWN_ID.membership,
+      }),
+    crossTenant: (env, ctx) =>
+      userRepo.replacePropertyAssignments(env, ctx, {
+        membershipId: OTHER_ID.membership,
+        propertyIds: [OTHER_ID.property],
+        assignedBy: OTHER_ID.membership,
+      }),
+  },
   {
     name: "user.setUserActive",
     kind: "tenant",
