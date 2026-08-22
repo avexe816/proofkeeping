@@ -29,6 +29,9 @@ const ITEM_CODES = [
   "SLIPPERS",
   "TOOTHBRUSH",
   "BOTTLED_WATER",
+  // DECISIONS #252。**列から来る 2 種**（`amenitiesUsed` は経由しない）。
+  "CUP",
+  "EXTRA_FUTON",
 ] as const;
 
 function observationOf(
@@ -47,6 +50,8 @@ function observationOf(
     handTowelUsed: 1,
     bathMatUsed: 1,
     slippersUsed: 2,
+    cupsUsed: 2,
+    extraFutonUsed: 0,
     amenitiesUsed: {},
     inputDurationMs: 12_000,
     recordedById: "mem_1",
@@ -74,11 +79,13 @@ function inputOf(overrides: Partial<BaselineSampleInput> = {}): BaselineSampleIn
 }
 
 describe("toObservationSamples — 採るもの", () => {
-  it("列を持つ 5 品目がサンプルになる", () => {
+  it("列を持つ 7 品目がサンプルになる（#252 で 2 種増えた）", () => {
     const result = toObservationSamples(inputOf());
     expect(result.samples.map((sample) => sample.itemCode).sort()).toEqual([
       "BATH_MAT",
       "BATH_TOWEL",
+      "CUP",
+      "EXTRA_FUTON",
       "FACE_TOWEL",
       "HAND_TOWEL",
       "SLIPPERS",
@@ -251,5 +258,43 @@ describe("toObservationSamples — 決定性（§9.3）", () => {
       }),
     );
     expect(a.samples).toEqual(b.samples);
+  });
+});
+
+/**
+ * 列から来る 2 種（DECISIONS #252）。
+ *
+ * **`amenitiesUsed` の JSON を経由しない。** 施設が `enabledItemCodes` に
+ * 入れていなくても、列に値があれば標本になる（`SLIPPERS` と同じ形）。
+ */
+describe("CUP / EXTRA_FUTON（#061 の解決）", () => {
+  it("**列の値がそのまま標本になる**（JSON は空でよい）", () => {
+    const result = toObservationSamples(
+      inputOf({
+        observations: [observationOf({ cupsUsed: 3, extraFutonUsed: 1, amenitiesUsed: {} })],
+      }),
+    );
+    const byCode = new Map(result.samples.map((s) => [s.itemCode, s.qty]));
+    expect(byCode.get("CUP")).toBe(3);
+    expect(byCode.get("EXTRA_FUTON")).toBe(1);
+  });
+
+  it("**0 でも標本になる**（除外するかは集計側の判断 / #058）", () => {
+    const result = toObservationSamples(
+      inputOf({ observations: [observationOf({ cupsUsed: 0, extraFutonUsed: 0 })] }),
+    );
+    const codes = result.samples.map((s) => s.itemCode);
+    expect(codes).toContain("CUP");
+    expect(codes).toContain("EXTRA_FUTON");
+  });
+
+  it("語彙から外すと標本にならない（綴り違いは黙って消える）", () => {
+    const result = toObservationSamples(
+      inputOf({
+        observations: [observationOf({ cupsUsed: 3 })],
+        itemCodes: ITEM_CODES.filter((code) => code !== "CUP"),
+      }),
+    );
+    expect(result.samples.map((s) => s.itemCode)).not.toContain("CUP");
   });
 });

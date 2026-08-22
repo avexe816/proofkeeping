@@ -46,6 +46,8 @@ export const LINEN_ITEM_CODES = [
   "HAND_TOWEL",
   "BATH_MAT",
   "YUKATA",
+  // 追加布団（DECISIONS #252）。値は roomObservation.extra_futon_used 列。
+  "EXTRA_FUTON",
 ] as const;
 
 /** アメニティの品目コード（§2.5）。 */
@@ -60,6 +62,8 @@ export const AMENITY_ITEM_CODES = [
   "SLIPPERS",
   "BOTTLED_WATER",
   "TEA_BAG",
+  // コップ（DECISIONS #252）。値は roomObservation.cups_used 列。
+  "CUP",
 ] as const;
 
 /** 品目コード（§2.5）。**一度使ったコードを変えない。** */

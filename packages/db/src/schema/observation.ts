@@ -58,6 +58,14 @@ export const LINEN_ITEM_CODES = [
   "HAND_TOWEL",
   "BATH_MAT",
   "YUKATA",
+  /**
+   * 追加布団（P4 の精度向上 / DECISIONS #252）。値は
+   * `roomObservation.extra_futon_used` 列から来る（`BATH_TOWEL` と同じ形）。
+   *
+   * **除外ルール①の対象にしない。** ほとんどの宿泊で使われず、0 が通常の
+   * 状態。除外すると母数が「使った回」だけになり、ベースラインが跳ね上がる。
+   */
+  "EXTRA_FUTON",
 ] as const;
 
 /** アメニティの品目コード（§2.5）。 */
@@ -72,6 +80,12 @@ export const AMENITY_ITEM_CODES = [
   "SLIPPERS",
   "BOTTLED_WATER",
   "TEA_BAG",
+  /**
+   * コップ（P4 の精度向上 / DECISIONS #252）。値は
+   * `roomObservation.cups_used` 列から来る（`SLIPPERS` と同じ形で、
+   * `amenitiesUsed` の JSON は経由しない）。
+   */
+  "CUP",
 ] as const;
 
 /**

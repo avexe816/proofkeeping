@@ -46,9 +46,16 @@ import type { ObservationSample } from "./baseline.js";
 /**
  * `roomObservation` の数値列 → 品目コード（§2.1 / §2.5）。
  *
- * **`cupsUsed` と `extraFutonUsed` は写像を持たない。** §2.5 の品目コードに
- * 対応するコードが無く、ベースラインの集計キーに載せられない
- * （docs/OPEN_QUESTIONS.md #061）。列そのものは観察記録に残る。
+ * ── 値は列から来る。JSON は経由しない ───────────────────
+ * `amenitiesUsed`（JSON）は施設が `enabledItemCodes` で有効にした品目だけを
+ * 運ぶ別の経路。**ここに載っている品目は、施設の設定に関わらず列から拾う**
+ * （`SLIPPERS` が先例）。同じコードが両方から来ても、集計側が列を先に処理し
+ * `taken` で重複を防ぐ。
+ *
+ * ── `cupsUsed` / `extraFutonUsed` を足した（#061 解決）───
+ * 列は migration 0012 以降ずっと記録されていて、**§2.5 の語彙に無かった
+ * だけ**だった。`CUP` / `EXTRA_FUTON` を足したので、過去のぶんも次回の
+ * 集計から標本になる（DECISIONS #252）。
  */
 export const OBSERVATION_ITEM_COLUMNS = [
   { column: "bathTowelUsed", itemCode: "BATH_TOWEL" },
@@ -56,6 +63,8 @@ export const OBSERVATION_ITEM_COLUMNS = [
   { column: "handTowelUsed", itemCode: "HAND_TOWEL" },
   { column: "bathMatUsed", itemCode: "BATH_MAT" },
   { column: "slippersUsed", itemCode: "SLIPPERS" },
+  { column: "cupsUsed", itemCode: "CUP" },
+  { column: "extraFutonUsed", itemCode: "EXTRA_FUTON" },
 ] as const;
 
 /** 平らにする対象の観察記録 1 件。**`roomObservation` の必要な列だけ。** */
@@ -72,6 +81,9 @@ export interface BaselineObservationInput {
   handTowelUsed: number;
   bathMatUsed: number;
   slippersUsed: number;
+  // DECISIONS #252 で語彙に載った 2 列（`CUP` / `EXTRA_FUTON`）。
+  cupsUsed: number;
+  extraFutonUsed: number;
   /** 品目コード → 個数または使用の有無（§2.1）。 */
   amenitiesUsed: Record<string, number | boolean>;
   inputDurationMs: number | null;

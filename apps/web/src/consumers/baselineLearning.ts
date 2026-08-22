@@ -164,6 +164,8 @@ export async function recomputeBaseline(
           handTowelUsed: row.handTowelUsed,
           bathMatUsed: row.bathMatUsed,
           slippersUsed: row.slippersUsed,
+          cupsUsed: row.cupsUsed,
+          extraFutonUsed: row.extraFutonUsed,
           amenitiesUsed: row.amenitiesUsed,
           inputDurationMs: row.inputDurationMs,
           recordedById: row.recordedById,
