@@ -488,6 +488,7 @@ a.pk-nav:hover {
 .pk-shell--nav-collapsed .pk-nav__label,
 .pk-shell--nav-collapsed .pk-nav__note,
 .pk-shell--nav-collapsed .pk-sidebar__heading,
+.pk-shell--nav-collapsed .pk-sidebar__note,
 .pk-shell--nav-collapsed .pk-sidebar__scope {
   display: none;
 }
@@ -2928,6 +2929,17 @@ a.pk-tile:hover {
 /* 開閉しない見出し（運営ナビは 12 項目で折りたたみを持たない）。 */
 .pk-sidebar__heading--static {
   cursor: default;
+}
+
+/* 群の説明（人間の指示 2026-08-22 / DECISIONS #251）。見出しより 1 段
+   暗く・小さく置き、**項目そのものより目立たせない。** 折り返す前提
+   なので `letter-spacing` は付けない（見出しの 0.06em は 1 行の記号
+   としての字送りで、文には効かせると読みにくい）。 */
+.pk-sidebar__note {
+  padding: 0 15px 6px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #6b8478;
 }
 
 .pk-sidebar__heading--static::after {
