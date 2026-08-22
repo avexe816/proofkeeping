@@ -214,7 +214,7 @@ describe("INV-30: 監査ログを消せない", () => {
     // 閲覧の記録を 1 日 1 件に畳む口（INV-08 v2 / DECISIONS #261）。
     // **書き込みの口が 2 つになった。** 削除・更新ではないので INV-30 は保つ。
     "recordAuditDaily",
-    // **実行しないまま返す 1 文**（P8-11 hotfix / 2026-08-22 / DECISIONS #268）。
+    // **実行しないまま返す 1 文**（P8-11 hotfix / 2026-08-22 / DECISIONS #271）。
     // 物理削除と監査ログを同じ `batch()` へ束ねるために要る。
     // 書き込みの口が 3 つになったが、**削除・更新ではないので INV-30 は保つ**。
     // `auditLog` を触るのがこのファイルだけ、という境界も保つ
@@ -263,7 +263,7 @@ describe("INV-30: 監査ログを消せない", () => {
   });
 });
 
-describe("residencyDeletionAuditStatement（P8-11 / DECISIONS #268）", () => {
+describe("residencyDeletionAuditStatement（P8-11 / DECISIONS #271）", () => {
   /** この関数の本文だけを取り出す（コメントの語で検査を通さない）。 */
   const BODY = (() => {
     const source = readFileSync(

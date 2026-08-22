@@ -166,12 +166,32 @@ body {
 
 /* 幅の時間と曲線は `.pk-sidebar` と揃える（基準 #13 の注記）。 */
 .pk-topbar__brand {
+  display: flex;
   flex-shrink: 0;
+  gap: 9px;
+  align-items: center;
   width: var(--brandWidth);
   padding-left: 18px;
   font-size: 15.5px;
   font-weight: 800;
   transition: width 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ブランドマークの既定の寸法。**置き場所ごとに `className` で上書きする**
+   （topbar は 22px）。既定を持たせておくのは、寸法を指定し忘れた場所で
+   viewBox のぶんだけ巨大に描かれるのを防ぐため。 */
+.pk-logo {
+  width: 24px;
+  height: 24px;
+}
+
+/* 銀杏の葉（人間の指示 2026-08-22）。**文字の左に置く。**
+   高さは大文字の高さより少し大きい程度に留め、`ProofKeeping` の
+   字面より目立たせない。 */
+.pk-topbar__logo {
+  flex: none;
+  width: 22px;
+  height: 22px;
 }
 
 /* ロゴの後半だけを金にする。`em` の既定の斜体は消す（プロトタイプと同じ）。 */
@@ -180,20 +200,14 @@ body {
   font-style: normal;
 }
 
-/* レール時はモノグラム（PK）へ切り替える（A01 §4.4）。 */
-.pk-topbar__brandMark {
-  display: none;
-}
-
+/* レール（56px）では**葉だけ**にする。葉 22px ＋ 余白 ＋ 文字は
+   入りきらず、詰めると縦のラインが折れる（A01 §1.1 / 基準 #13）。 */
 .pk-shell--nav-collapsed .pk-topbar__brandFull {
   display: none;
 }
 
-.pk-shell--nav-collapsed .pk-topbar__brandMark {
-  display: inline;
-}
-
 .pk-shell--nav-collapsed .pk-topbar__brand {
+  justify-content: center;
   padding-left: 0;
   text-align: center;
 }
@@ -906,6 +920,14 @@ a.pk-nav:hover {
   background: var(--surf2);
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+
+/* 但し書きの 1 行目。**面の色は変えない**（状態ではなく説明なので）。 */
+.pk-notice__title {
+  display: block;
+  margin-bottom: 3px;
+  font-weight: 700;
+  color: var(--ink);
 }
 
 /* 警告はオレンジまで。**赤にしない**（INV-05 / 契約 §11.2）。 */
@@ -1827,22 +1849,39 @@ a.pk-nav:hover {
   white-space: nowrap;
 }
 
-/* ── 常に動く規則の 1 行（プロトタイプ ops 07 の `.rowsw`）────────
-   **スイッチは押せない。** 3 つとも常に動いていて止める設定を持たない
-   （`staff.tsx` の `ResidencyRule` の注記）。押せる形にすると
-   「切れる」という約束になるので、状態だけを示す。 */
-.pk-ruleswitch {
+/* ── 自動で動く規則の一覧（OPEN_QUESTIONS #124 の決着 / 2026-08-22）──
+   以前はスイッチの見た目にしていたが、**3 つとも設定を持たない。**
+   押せないスイッチは「切れるはずのものが壊れている」と読めるので、
+   チェックの印＋規則名＋状態の一覧にした。**状態は普通の文字。** */
+.pk-rulelist {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.pk-rulelist__item {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  gap: 10px;
+  align-items: flex-start;
   padding: 11px 0;
 }
 
-.pk-ruleswitch + .pk-ruleswitch {
+.pk-rulelist__item + .pk-rulelist__item {
   border-top: 1px solid var(--line2);
 }
 
-.pk-ruleswitch__text {
+/* 印。**装飾**（`aria-hidden`）。状態そのものは右の文字が言う。 */
+.pk-rulelist__icon {
+  flex: none;
+  width: 18px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+  color: var(--ok);
+  text-align: center;
+}
+
+.pk-rulelist__text {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -1850,34 +1889,25 @@ a.pk-nav:hover {
   min-width: 0;
 }
 
-.pk-ruleswitch__title {
+.pk-rulelist__title {
   font-size: 12.5px;
   font-weight: 700;
 }
 
-.pk-ruleswitch__note {
+.pk-rulelist__note {
   font-size: 11px;
   color: var(--muted);
 }
 
-/* 入りっぱなしの状態。**`input` にしない**（押せる形にしない）。 */
-.pk-ruleswitch__state {
-  display: flex;
+/* 状態（常時有効 / 必須）。**変えられないことが読めればよい**ので、
+   押せる部品に見える形（枠・面）にしない。 */
+.pk-rulelist__state {
   flex: none;
-  align-items: center;
-  width: 40px;
-  height: 22px;
-  padding: 3px;
-  background: var(--ok);
-  border-radius: 999px;
-}
-
-.pk-ruleswitch__knob {
-  width: 16px;
-  height: 16px;
-  margin-left: auto;
-  background: #fff;
-  border-radius: 50%;
+  padding-top: 1px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 /* 棒グラフ（プロトタイプの hb）。値 → 棒 → ラベルの縦積み。 */
@@ -2978,19 +3008,6 @@ a.pk-tile:hover {
   border-color: var(--info);
 }
 
-/*
- * 法令の警告。**ここだけ赤を使う。**
- *
- * ui-writing.md §3 が赤を戒めるのは「経過時間で急かす」用途で、
- * 在留期限切れの就業は法令の問題（`ExpiryCell` の `--over` が
- * `--danger` なのと同じ扱い）。**急かす色として持ち出さないこと。**
- */
-.pk-alert--danger {
-  color: var(--danger);
-  background: var(--dangerbg);
-  border-color: var(--danger);
-}
-
 /* 警告はオレンジまで。**赤にしない**（INV-05 / 契約 §11.2）。 */
 .pk-alert--warn {
   color: var(--warn);
@@ -3289,7 +3306,7 @@ a.pk-tile:hover {
   inset: 0;
   background: rgb(16 26 21 / 42%);
   backdrop-filter: blur(2px);
-  animation: pk-drawer-fade 0.18s ease-out;
+  animation: pk-drawer-fade 0.1s ease-out;
 }
 
 .pk-drawer__panel {
@@ -3301,7 +3318,7 @@ a.pk-tile:hover {
   /* 左肩だけ丸める。右は画面の端に接するので丸めない。 */
   border-radius: 16px 0 0 16px;
   box-shadow: -18px 0 48px rgb(16 26 21 / 18%);
-  animation: pk-drawer-in 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  animation: pk-drawer-in 0.14s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* 見出しは**スクロールしても残る。** 長いフォームの途中でも、
@@ -3342,8 +3359,6 @@ a.pk-tile:hover {
   justify-content: center;
   width: 36px;
   height: 36px;
-  font-size: 19px;
-  line-height: 1;
   color: var(--ink2);
   text-decoration: none;
   background: var(--surf2);
@@ -3355,6 +3370,17 @@ a.pk-tile:hover {
 .pk-drawer__close:hover {
   color: var(--ink);
   background: var(--surf3);
+}
+
+/* ✕ の図形。**文字で描かない**（`staff.tsx` の注記）。
+   `viewBox` の中で中央に決まるので、フォントが変わっても上下がずれない。 */
+.pk-drawer__closeIcon {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }
 
 /* 中身は縦に流す。**長いフォームでも幕の中だけがスクロールする。** */
@@ -3465,6 +3491,25 @@ a.pk-tile:hover {
   color: var(--danger);
   background: var(--surf);
   border-color: var(--danger);
+}
+
+/* ── 待っている間（人間の指示 2026-08-22）─────────────────────
+   開くのも保存もサーバーへの往復で、押してから戻るまでに間がある。
+   **ポインタの形でそれを見せる。** 幕の上ぜんぶに掛ける（押せる場所も
+   押せない場所も同じ状態なので、境で形が変わると迷う）。
+   `disabled` の要素は cursor を継承しない実装があるので明示する。 */
+.pk-drawer--busy,
+.pk-drawer--busy .pk-drawer__scrim,
+.pk-drawer--busy a,
+.pk-drawer--busy button,
+.pk-drawer--busy input,
+.pk-drawer--busy select {
+  cursor: progress;
+}
+
+/* 押せなくなった送信ボタン。**消さずに薄くする**（どこにあったかは残す）。 */
+.pk-drawer__body .pk-form > button[type="submit"]:disabled {
+  opacity: 0.6;
 }
 
 @keyframes pk-drawer-in {

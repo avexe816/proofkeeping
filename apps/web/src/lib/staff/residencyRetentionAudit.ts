@@ -3,7 +3,7 @@
  *
  * task: docs/tasks/P8-11.md
  * ルール: .claude/rules/security.md §6
- * 決定: docs/DECISIONS.md #268
+ * 決定: docs/DECISIONS.md #271
  *
  * ── 消した回はここを通らない ────────────────────────────
  * 実際に消える回の監査ログは、**DELETE と同じ D1 `batch()` の中**で

@@ -1,7 +1,7 @@
 /**
  * 削除バッチが「走ったが 0 件だった」ことの記録（`residencyRetentionAudit.ts`）。
  *
- * **消えた回の記録はここを通らない**（hotfix 2026-08-22 / DECISIONS #268）。
+ * **消えた回の記録はここを通らない**（hotfix 2026-08-22 / DECISIONS #271）。
  * あちらは `deleteResidencyRecords()` が DELETE と同じ `batch()` の中で書く。
  *
  * ここが守るのは 4 つ（P8-11 の完了条件）。

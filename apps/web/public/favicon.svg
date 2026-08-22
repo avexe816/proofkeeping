@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>ProofKeeping</title>
+  <path fill="#6e9c7e" d="M15.4 4.6 A 12.6 11.4 0 0 0 3.6 21.2 C 6.2 23.4, 10.2 23.2, 13.2 20.6 L 13.2 15.4 A 2.8 2.8 0 0 1 15.4 12.7 Z"/>
+  <path fill="#6e9c7e" d="M16.6 4.6 A 12.6 11.4 0 0 1 28.4 21.2 C 25.8 23.4, 21.8 23.2, 18.8 20.6 L 18.8 15.4 A 2.8 2.8 0 0 0 16.6 12.7 Z"/>
+  <path fill="none" stroke="#c09b4f" stroke-width="2.5" stroke-linecap="round" d="M16 21.6 C 16.1 25.4, 17.4 27.6, 19.9 28.4"/>
+</svg>

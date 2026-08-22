@@ -442,7 +442,7 @@ export const RESIDENCY_DELETION_TARGET = "residencyRetention";
 
 /**
  * 在留資格の物理削除を記録する **1 文を、実行しないまま返す**
- * （P8-11 / hotfix 2026-08-22 / DECISIONS #268）。
+ * （P8-11 / hotfix 2026-08-22 / DECISIONS #271）。
  *
  * 呼び出し側が `db.batch([...])` の中へ入れて、**DELETE と同じ
  * トランザクションで書く**ための口。ここでは `await` しない。
