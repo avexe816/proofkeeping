@@ -150,10 +150,10 @@ describe("在留資格を見たことを記録する", () => {
    * `staff.tsx` は初期 PIN を `action` の戻り値として運ぶ。ここに
    * `recordAudit` 系を直接置くと、取り違えたときに PIN が監査ログへ
    * 入りうる（上の「PIN を持つ画面に監査ログの口を置いていない」）。
-   * 記録は `lib/staff/residencyAudit.ts` が持ち、**この画面は
-   * 操作者と業務日しか渡せない。**
+   * 記録は `lib/staff/residencyAudit.ts` が持ち、**この画面が渡すのは
+   * 操作者だけ。時刻は `ctx.now` から取る。**
    */
-  it("**渡すのは操作者と業務日だけ**（値を渡せる形にしない）", () => {
+  it("**渡すのは操作者だけ。時刻は `ctx.now`**（値を渡せる形にしない）", () => {
     const call = /recordResidencyView\(env, tenant, \{([\s\S]*?)\}\);/.exec(SOURCE);
     expect(call, "recordResidencyView の呼び出しが読めていない").not.toBeNull();
     const body = call?.[1] ?? "";
