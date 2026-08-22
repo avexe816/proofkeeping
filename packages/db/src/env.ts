@@ -258,6 +258,23 @@ export interface EnvSecrets {
   PLATFORM_BOOTSTRAP_TOKEN: string;
 }
 
+/**
+ * 静的アセット（`[assets]` / `build/client`）。
+ *
+ * ── 何のために binding を持つのか ───────────────────────
+ * 画面の配信そのものは binding を使わない（Worker より前に配られる）。
+ * ここで要るのは **Queue コンシューマから和文書体を読む**ため
+ * （`apps/web/src/lib/report/font.ts` / DECISIONS #256）。
+ * **アセットはスクリプトの容量に数えられない。** 書体をスクリプトへ
+ * 同梱すると無料枠の 3 MiB を超えてデプロイが通らない。
+ *
+ * **秘密を置かないこと。** アセットは認証なしで配信される
+ * （`wrangler.toml` の `[assets]` の注記）。
+ */
+export interface AssetBindings {
+  ASSETS: Fetcher;
+}
+
 /** Worker が受け取る env の全体。 */
 export interface Env
   extends ShardBindings,
@@ -265,5 +282,6 @@ export interface Env
     KvBindings,
     QueueBindings,
     DurableObjectBindings,
+    AssetBindings,
     EnvVars,
     EnvSecrets {}

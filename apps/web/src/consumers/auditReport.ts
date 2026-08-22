@@ -30,7 +30,7 @@ import type { Env, TenantContext } from "@pk/db";
 import { renderAuditReportPdf } from "@pk/pdf";
 
 import { auditReportKey, collectAuditReport } from "../lib/report/auditReport.js";
-import { dailyReportFont } from "../lib/report/font.js";
+import { loadDailyReportFont } from "../lib/report/font.js";
 
 /** キューへ載せるメッセージ。**組織の解決に要る値を全部持たせる。** */
 export interface AuditReportMessage {
@@ -97,9 +97,10 @@ export async function generateAuditReport(
     });
     if (payload === null) return { kind: "SKIPPED", reason: "PROPERTY_OR_MONTH_NOT_FOUND" };
 
-    // 和文の書体は Worker に同梱してある（`lib/report/font.ts` / DECISIONS #255）。
-    // **取得に失敗する枝は無い。**
-    const font = dailyReportFont();
+    // **和文の書体が読めなければ作らない。** 「動いているのに読めない PDF」を
+    // 出回らせない（`packages/pdf/src/dailyReport.ts` の注記）。
+    const font = await loadDailyReportFont(env);
+    if (font === null) return { kind: "FAILED", reason: "FONT_NOT_FOUND" };
 
     const bytes = await renderAuditReportPdf(payload, font);
     const key = auditReportKey({

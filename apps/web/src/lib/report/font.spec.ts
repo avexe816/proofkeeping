@@ -18,19 +18,31 @@ import {
   PAYOUT_LABELS,
   RECEIPT_LABELS,
 } from "@pk/pdf";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { DAILY_REPORT_FONT_FAMILY, dailyReportFont } from "./font.js";
+import { DAILY_REPORT_FONT_PATH, bytesToBase64 } from "./font.js";
 
-/** data URL からバイト列へ戻す。 */
+/**
+ * 配るのと同じ実体を読む。
+ *
+ * **`loadDailyReportFont()` を通さない。** あちらは `ASSETS` binding を
+ * 使い、それは Workers の実行環境にしか無い。ここで確かめたいのは
+ * **配る書体そのものの中身**なので、アセットのファイルを直接読む。
+ * パスは実装の定数から組み立てるので、**置き場所を変えるとここも動く。**
+ */
 function fontBytes(): Uint8Array {
-  const font = dailyReportFont();
-  if (font.kind !== "EMBEDDED") throw new Error("EMBEDDED ではない");
-  const base64 = font.dataUrl.slice(font.dataUrl.indexOf(",") + 1);
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  const path = join(
+    import.meta.dirname,
+    "..",
+    "..",
+    "..",
+    "public",
+    ...DAILY_REPORT_FONT_PATH.split("/").filter((part) => part !== ""),
+  );
+  return new Uint8Array(readFileSync(path));
 }
 
 /** 帳票に出うる日本語をすべて集める（重複は落とす）。 */
@@ -53,12 +65,11 @@ function labelText(): string {
 }
 
 describe("同梱した和文書体", () => {
-  it("data URL の形で持っている（`?url` へ変えると実行時に落ちる枝へ入る）", () => {
-    const font = dailyReportFont();
-    expect(font.kind).toBe("EMBEDDED");
-    if (font.kind !== "EMBEDDED") return;
-    expect(font.family).toBe(DAILY_REPORT_FONT_FAMILY);
-    expect(font.dataUrl.startsWith("data:font/ttf;base64,")).toBe(true);
+  it("base64 へ直せる（`@react-pdf/font` には data URL で渡す）", () => {
+    // URL やパスのまま渡すと `fontkit.open()` の枝へ落ちる。
+    // **browser 版のバンドルにその関数は無い**（`font.ts` の注記）。
+    const base64 = bytesToBase64(fontBytes().subarray(0, 12));
+    expect(base64).toBe("AAEAAAASAQAABAAg");
   });
 
   it("TrueType の実体になっている", () => {
@@ -86,10 +97,6 @@ describe("同梱した和文書体", () => {
     expect(cmap(0x1f427)).toBe(0);
     // 逆に、ごく普通の漢字は必ず在る。
     expect(cmap("清".codePointAt(0) ?? 0)).not.toBe(0);
-  });
-
-  it("参照するたびに作り直さない（8MB の文字列を複製しない）", () => {
-    expect(dailyReportFont()).toBe(dailyReportFont());
   });
 });
 

@@ -30,7 +30,7 @@ import {
   nextRevision,
   DAILY_REPORT_PREFIX,
 } from "../lib/report/dailyReportKey.js";
-import { dailyReportFont } from "../lib/report/font.js";
+import { bytesToBase64 } from "../lib/report/font.js";
 
 import { isDailyReportMessage, type DailyReportMessage } from "./dailyReport.js";
 
@@ -176,18 +176,17 @@ describe("冪等: 同じメッセージから同じ payload ができる", () =>
   });
 });
 
-describe("同梱した和文書体", () => {
-  it("data URL として渡せる形になっている", () => {
-    // `@react-pdf/font` は data URL のときだけ `fontkit.create()` を使う。
-    // **`?url` へ変えると browser 版に無い `fontkit.open()` の枝へ落ちる。**
-    const font = dailyReportFont();
-    expect(font.kind).toBe("EMBEDDED");
-    if (font.kind !== "EMBEDDED") return;
-    expect(font.dataUrl.startsWith("data:")).toBe(true);
-    expect(font.dataUrl).toContain(";base64,");
+describe("フォントの base64", () => {
+  it("空でも落ちない", () => {
+    expect(bytesToBase64(new Uint8Array())).toBe("");
   });
 
-  it("参照するたびに作り直さない（8MB の文字列を複製しない）", () => {
-    expect(dailyReportFont()).toBe(dailyReportFont());
+  it("既知の値", () => {
+    expect(bytesToBase64(new TextEncoder().encode("hello"))).toBe("aGVsbG8=");
+  });
+
+  it("塊の境界（0x8000 超）でも壊れない", () => {
+    const bytes = new Uint8Array(0x8000 + 17).fill(65);
+    expect(bytesToBase64(bytes)).toBe(btoa("A".repeat(0x8000 + 17)));
   });
 });
