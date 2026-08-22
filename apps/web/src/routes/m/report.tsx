@@ -49,10 +49,11 @@ import {
 } from "@pk/contracts";
 import { findRoomById, findTaskById } from "@pk/db";
 import { useRef, useState } from "react";
-import { useLoaderData, useNavigate, type LoaderFunctionArgs } from "react-router";
+import { Link, useLoaderData, useNavigate, type LoaderFunctionArgs } from "react-router";
 
 import { assertPermission, propertyTarget } from "../../lib/auth/permission.js";
 import { createTranslator, type Locale, type MessageKey } from "../../lib/i18n.js";
+import { taskBackPath } from "../../lib/mobile/back.js";
 import { requireMobileContext } from "../../lib/mobile/session.js";
 import { preparePhoto } from "../../lib/photo/resize.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
@@ -232,13 +233,14 @@ export default function ReportScreen(): React.ReactElement {
               {t("m.report.choice.issue")}
             </button>
           </div>
-          <button
-            type="button"
-            className="pk-m-button pk-m-button--quiet"
-            onClick={() => void navigate(-1)}
-          >
+          {/* **履歴を戻らない**（人間の指示 2026-08-22 / DECISIONS #259）。
+              以前は `navigate(-1)` で、ホーム画面の PWA から起動した場合や
+              URL を直接開いた場合に**押しても動かなかった。** 報告元の
+              タスクは `?taskId=` から解決済み（loader が無ければ 404）なので、
+              **戻り先はいつでも決まる。** */}
+          <Link className="pk-m-button pk-m-button--quiet" to={taskBackPath(data.taskId)}>
             {t("m.report.back")}
-          </button>
+          </Link>
         </main>
       </>
     );
@@ -255,7 +257,7 @@ export default function ReportScreen(): React.ReactElement {
           <button
             type="button"
             className="pk-m-button"
-            onClick={() => void navigate(data.taskId === null ? "/m/today" : `/m/task/${data.taskId}`)}
+            onClick={() => void navigate(taskBackPath(data.taskId))}
           >
             {t("m.report.backToTask")}
           </button>
