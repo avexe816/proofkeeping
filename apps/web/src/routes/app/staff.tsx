@@ -143,10 +143,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   // 監査ログの口と同居させない（`staffScreen.spec.ts`）。
   // 値も氏名も渡せない形にしてある（`recordResidencyView()` の注記）。
   if (canReadResidency) {
-    await recordResidencyView(env, tenant, {
-      actorId: session.membershipId,
-      businessDate,
-    });
+    await recordResidencyView(env, tenant, { actorId: session.membershipId });
   }
 
   return {

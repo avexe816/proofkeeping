@@ -52,7 +52,17 @@ describe("在留資格の閲覧の記録", () => {
     }
   });
 
-  it("受け取るのは操作者と業務日だけ", () => {
-    expect(CODE).toContain("input: { actorId: string; businessDate: string }");
+  it("受け取るのは操作者だけ（時刻は `ctx.now`）", () => {
+    // 日付の文字列を受け取らない。**受け取ると、どの時間帯の日付かが
+    // 呼び出し側の都合で変わりうる**（2026-08-22 の不具合の元）。
+    expect(CODE).toContain("input: { actorId: string }");
+    expect(CODE).toContain("since: startOfJstDay(ctx.now)");
+  });
+
+  it("**畳む境目は JST の暦日**（UTC の 0 時として読まない）", () => {
+    // `businessDate` を `T00:00:00.000Z` で読むと、その瞬間は JST の 9:00。
+    // 05:00〜08:59 JST に開くと境目が未来を指し、毎回 1 行増える。
+    expect(CODE).not.toContain("T00:00:00.000Z");
+    expect(CODE).toContain("JST_OFFSET_MS");
   });
 });

@@ -466,7 +466,7 @@ export const purchaseOrder = sqliteTable("purchase_order", {
 - 編集の `OWNER` を `○` → **`×`**。閲覧だけを広げ、記録の書き換えは
   運営管理者に集める（INV-08 v2 は「閲覧」だけを定める）。
 - `CLEANER 自分のみ` は**実装が追いついていない**（現在は `DENY`）。
-  本人が自分の在留資格を見る経路は M-11 の課題として `docs/tasks/P8-11.md` に起票。
+  本人が自分の在留資格を見る経路は M-11 の課題として `docs/tasks/P8-12.md` に起票。
 
 ---
 

@@ -20,6 +20,19 @@
  * 埋まり、**本当に追いたい変更の行が探せなくなる**（オーナー判断
  * 2026-08-22「畳んでください」）。同じ人が同じ日に何度開いても 1 行。
  *
+ * ── 「同じ日」は **JST の暦日**（00:00〜23:59 Asia/Tokyo）────
+ * **施設ごとの業務日・日締めを持ち込まない。** 在留資格は組織の事実で
+ * 施設に紐づかず、日締め時刻（施設ごとに違う）を当てる根拠が無い。
+ * 一方で UTC の暦日にすると、日本の利用者にとって **9:00 に日付が変わる**
+ * ことになり、「同じ日に 2 回見た」の直感と合わない。
+ * そこで **JST の暦日**を採る。境目は `startOfJstDay()` が UTC の瞬間へ
+ * 直す（JST = UTC+9 の固定オフセット。日本に夏時刻は無い）。
+ *
+ * **`businessDate` の文字列をそのまま `T00:00:00.000Z` で読まないこと。**
+ * それは JST の日付を UTC の 0 時として解釈することになり、**その瞬間は
+ * JST の 9:00。** 05:00〜08:59 JST に開くと境目が現在時刻より未来になり、
+ * 既存の行が検索範囲から外れて**毎回 1 行増える**（2026-08-22 に修正）。
+ *
  * ── 一覧は 1 件。行ごとに記録しない ─────────────────────
  * 記録するのは「一覧を見た」という事実だけで、**誰の在留資格を見たかは
  * 残さない。** 行ごとに残すと、監査ログ自体が「誰が在留資格を持つか」の
@@ -31,25 +44,49 @@ import { recordAuditDaily, type Env, type TenantContext } from "@pk/db";
 /** 「一覧を見た」の対象種別。**個人を指す ID を持たない。** */
 export const RESIDENCY_VIEW_TARGET = "residencyList";
 
+/** JST の固定オフセット（UTC+9）。**日本に夏時刻は無い。** */
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/**
+ * その瞬間が属する **JST の暦日の始まり**を、UTC の瞬間として返す。
+ *
+ * ```
+ * 2026-08-22T00:00:00+09:00  →  2026-08-21T15:00:00Z
+ * ```
+ *
+ * **常に `now` 以前になる。** 畳みの境目が未来を指すと、既存の行が
+ * 検索範囲から外れて記録が毎回増える（この関数を置いた理由）。
+ */
+export function startOfJstDay(now: Date): Date {
+  // UTC の暦として読むために +9h ずらしてから、その日の 0 時を取る。
+  const shifted = new Date(now.getTime() + JST_OFFSET_MS);
+  const startShifted = Date.UTC(
+    shifted.getUTCFullYear(),
+    shifted.getUTCMonth(),
+    shifted.getUTCDate(),
+  );
+  return new Date(startShifted - JST_OFFSET_MS);
+}
+
 /**
  * 在留資格の一覧を見たことを記録する。
  *
+ * 畳む単位は **JST の暦日**で、時刻は `ctx.now` から取る
+ * （**日付の文字列を受け取らない** — 受け取ると、どの時間帯の日付かが
+ * 呼び出し側の都合で変わりうる）。
+ *
  * @param actorId 操作者の `membership.id`。
- * @param businessDate 畳む単位の日（`YYYY-MM-DD`）。
  * @returns 書いたら `true`、その日ぶんが既にあって見送ったら `false`。
  */
 export async function recordResidencyView(
   env: Env,
   ctx: TenantContext,
-  input: { actorId: string; businessDate: string },
+  input: { actorId: string },
 ): Promise<boolean> {
   return recordAuditDaily(env, ctx, {
     actorId: input.actorId,
     action: "residency.viewed",
     targetType: RESIDENCY_VIEW_TARGET,
-    // 業務日の始まり（UTC）。ここで要るのは「同じ日か」の判定だけで、
-    // 境目が数時間ずれても畳む効きは変わらない。**施設ごとの日締めを
-    // 持ち込まない**（在留資格は組織の事実で、施設に紐づかない）。
-    since: new Date(`${input.businessDate}T00:00:00.000Z`),
+    since: startOfJstDay(ctx.now),
   });
 }
