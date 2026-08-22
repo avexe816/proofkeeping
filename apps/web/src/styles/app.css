@@ -3150,3 +3150,154 @@ a.pk-tile:hover {
   font-size: 14px;
   letter-spacing: 0.06em;
 }
+
+/* ── 右からスライドインするレイヤー（W-07 / 人間の指示 2026-08-22）──
+ *
+ * スタッフの詳細と登録をこの中で行う。**開いているかどうかは URL
+ * （`?panel=`）が持ち**、中身はサーバーが描く（`staff.tsx` の注記）。
+ * ここがやるのは置き場所と動きだけで、開閉の状態を CSS に持たせない。
+ *
+ * `position: fixed` にしてあるので、一覧をどこまでスクロールしていても
+ * 同じ場所に出る。幅は 420px を上限に、狭い画面では全幅へ倒す。
+ */
+.pk-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 背景の暗幕。**押すと閉じる**（`staff.tsx` は `<Link>` で描く）。 */
+.pk-drawer__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(20 30 25 / 38%);
+  animation: pk-drawer-fade 0.16s ease-out;
+}
+
+.pk-drawer__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, 100%);
+  background: var(--surf);
+  border-left: 1px solid var(--line);
+  box-shadow: -8px 0 24px rgb(20 30 25 / 12%);
+  animation: pk-drawer-in 0.18s ease-out;
+}
+
+.pk-drawer__head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-drawer__title {
+  font-size: 14.5px;
+  font-weight: 800;
+}
+
+/* 閉じる。**48px 角を確保する**（手袋のままでも押せる寸法 / ui-writing.md §3）。 */
+.pk-drawer__close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  font-size: 20px;
+  color: var(--ink2);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* 中身は縦に流す。**長いフォームでも幕の中だけがスクロールする。** */
+.pk-drawer__body {
+  flex: 1;
+  min-height: 0;
+  padding: 4px 16px 20px;
+  overflow-y: auto;
+}
+
+/* 詳細の読み取り項目（スタッフ番号・アカウントの状態）。 */
+.pk-drawer__facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 14px;
+  padding: 12px 0;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--line2);
+}
+
+.pk-drawer__facts dt {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/*
+ * レイヤーの中のフォームは**囲いを外す。**
+ * `.pk-form` は 1 枚のカードとして描かれるが（面・枠・影）、
+ * レイヤー自体がすでに面なので、そのまま置くと箱の中に箱が入る。
+ */
+.pk-drawer__body .pk-form {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/*
+ * 利用の停止・再開。**編集のフォームと見た目で切る。**
+ * 「保存」を押したつもりで人を止めることが起きないようにするための境で、
+ * 色ではなく区切り線と余白で分ける（ui-writing.md §3 が急かす赤を戒める
+ * のと同じ考え方。停止は催促ではない）。
+ */
+.pk-drawer__body .pk-drawer__danger {
+  padding-top: 18px;
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+@keyframes pk-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pk-drawer-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* 動きを減らす設定を尊重する。**出ること自体は変えない。** */
+@media (prefers-reduced-motion: reduce) {
+  .pk-drawer__panel,
+  .pk-drawer__scrim {
+    animation: none;
+  }
+}
+
+/* 印刷にレイヤーを載せない。案内カードは幕の外に出るが、
+   紙の 1 枚目が暗幕で潰れるのを防ぐ。 */
+@media print {
+  .pk-drawer {
+    display: none;
+  }
+}

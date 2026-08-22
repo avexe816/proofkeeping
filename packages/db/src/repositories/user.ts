@@ -302,10 +302,19 @@ export interface OrgStaff {
  *
  * **無効化済みも返す。** 「退職者を含めて 31 名」と「稼働中 28 名」を
  * 同じ一覧から数えるため。落とすのは画面側。
+ *
+ * ── `isActive` は 2 つの旗の論理積 ──────────────────────
+ * 無効化は `user.isActive` に立てる（`setUserActive()` / `listOrgMembers()`
+ * と同じ）が、この関数は **`membership.isActive` だけ**を返していた。
+ * その結果、W-07 で無効化したスタッフが W-02（シフト）・W-08（研修）の
+ * 割当候補に残り続けていた（**ログインは `user.isActive` で止まるので、
+ * 入れないのに割り当てられる**状態）。ログイン側（`login.ts` /
+ * `pinLogin.ts`）は元から 2 つとも見ている。ここを合わせた
+ * （人間の指示 2026-08-22 / DECISIONS #261）。
  */
 export async function listOrgStaff(env: Env, ctx: TenantContext): Promise<OrgStaff[]> {
   const db = await getTenantDb(env, ctx);
-  return db
+  const rows = await db
     .select({
       membershipId: membership.id,
       userId: user.id,
@@ -313,12 +322,19 @@ export async function listOrgStaff(env: Env, ctx: TenantContext): Promise<OrgSta
       staffNumber: user.staffNumber,
       displayName: user.displayName,
       locale: user.locale,
-      isActive: membership.isActive,
+      // **2 つの旗の論理積**（下の注記）。
+      userActive: user.isActive,
+      membershipActive: membership.isActive,
     })
     .from(membership)
     .innerJoin(user, eq(user.id, membership.userId))
     .where(withTenantScope(membership, ctx, NO_PROPERTY_SCOPE))
     .orderBy(user.staffNumber);
+
+  return rows.map(({ userActive, membershipActive, ...rest }) => ({
+    ...rest,
+    isActive: userActive && membershipActive,
+  }));
 }
 
 /**
@@ -930,4 +946,187 @@ export async function countActiveMembersByLocale(
     .where(withTenantScope(membership, ctx, NO_PROPERTY_SCOPE, eq(membership.isActive, true)))
     .groupBy(user.locale);
   return new Map(rows.map((row) => [row.locale, row.count]));
+}
+
+// ────────────────────────────────────────────────────────────
+// スタッフ詳細レイヤーの編集（W-07 / 人間の指示 2026-08-22）
+//
+// 一覧の「詳細」から開くレイヤーで、名前・役割・担当施設・表示言語・
+// メールを直す。**スタッフ番号と PIN はここに無い**（`contracts/user.ts`
+// の `fieldStaffUpdateSchema` の注記）。
+//
+// 監査ログ（`recordAudit`）はこの層では呼ばない。呼ぶのは
+// `apps/web/src/lib/staff/edit.ts`。
+// ────────────────────────────────────────────────────────────
+
+/**
+ * 詳細レイヤーが出す 1 名ぶん。
+ *
+ * **`listOrgStaff()` に `email` を足す代わりに、1 名だけを引く関数を置く。**
+ * 一覧の戻り値は画面の JSON にそのまま載るため、足すと組織全員の
+ * 連絡先が HTML に出る。開いている 1 名ぶんだけを運ぶ（`staff.tsx` の
+ * 在留期限と同じ考え方 / INV-08）。
+ *
+ * **認証情報を選ばない**（`listOrgMembers()` と同じく列を明示）。
+ */
+export interface OrgStaffDetail {
+  membershipId: string;
+  userId: string;
+  role: Role;
+  staffNumber: string | null;
+  displayName: string;
+  locale: string;
+  /** 通知の送信先。**ログイン識別子ではない**（DECISIONS #018）。 */
+  email: string | null;
+  /** **2 つの旗の論理積**（`listOrgStaff()` と同じ）。 */
+  isActive: boolean;
+}
+
+export async function findOrgStaffDetail(
+  env: Env,
+  ctx: TenantContext,
+  membershipId: string,
+): Promise<OrgStaffDetail | undefined> {
+  assertIdBelongsToTenant(membershipId, ctx);
+  const db = await getTenantDb(env, ctx);
+  const rows = await db
+    .select({
+      membershipId: membership.id,
+      userId: user.id,
+      role: membership.role,
+      staffNumber: user.staffNumber,
+      displayName: user.displayName,
+      locale: user.locale,
+      email: user.email,
+      userActive: user.isActive,
+      membershipActive: membership.isActive,
+    })
+    .from(membership)
+    .innerJoin(user, eq(user.id, membership.userId))
+    .where(withTenantScope(membership, ctx, NO_PROPERTY_SCOPE, eq(membership.id, membershipId)))
+    .limit(1);
+
+  const row = rows[0];
+  if (row === undefined) return undefined;
+  const { userActive, membershipActive, ...rest } = row;
+  return { ...rest, isActive: userActive && membershipActive };
+}
+
+/** `updateUserProfile()` の入力。**渡した列だけを書き換える。** */
+export interface UpdateUserProfileInput {
+  userId: string;
+  displayName?: string;
+  /** `null` で消す（`undefined` は「触らない」）。 */
+  email?: string | null;
+  locale?: string;
+}
+
+/**
+ * 表示名・連絡先・表示言語の更新（W-07 の詳細レイヤー）。
+ *
+ * **`staffNumber` / `pinHash` / `isActive` を触らない。** 番号は
+ * ログインの 3 フィールドの 1 つ、PIN の再発行は
+ * `resetUserPin()`、無効化は `setUserActive()` が持つ。ここへ寄せると
+ * 「名前を直したつもりが番号も変わった」が起こりうる。
+ *
+ * 呼び出し側が必ず `recordAudit()`（`user.updated`）。
+ */
+export async function updateUserProfile(
+  env: Env,
+  ctx: TenantContext,
+  input: UpdateUserProfileInput,
+): Promise<number> {
+  assertIdBelongsToTenant(input.userId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  const set: Record<string, unknown> = { updatedAt: ctx.now };
+  if (input.displayName !== undefined) set["displayName"] = input.displayName;
+  if (input.email !== undefined) set["email"] = input.email;
+  if (input.locale !== undefined) set["locale"] = input.locale;
+
+  const result = await db
+    .update(user)
+    .set(set)
+    .where(withTenantScope(user, ctx, NO_PROPERTY_SCOPE, eq(user.id, input.userId)));
+  return result.meta.changes;
+}
+
+/**
+ * 担当施設の割当を**入れ替える**（W-07 の詳細レイヤー）。
+ *
+ * ── 外した割当を物理削除しない ──────────────────────────
+ * `isActive = false` にするだけ（PK-SPEC-P0 §26 / `columns.ts` の
+ * `activeFlag`）。過去のタスクが「誰の担当だったか」を辿る先になる。
+ * 外して付け直したときは、同じ行が `isActive = true` に戻る
+ * （`uq_property_assignment` があるので行は増えない）。
+ *
+ * ── 原子性は無い ────────────────────────────────────────
+ * D1 に跨るトランザクションが無いのは `createFieldStaff()` と同じ。
+ * 途中で落ちると「外れたが付いていない」状態が残りうる。**その状態は
+ * もう一度保存すれば収束する**（この関数は冪等）。
+ *
+ * 呼び出し側が必ず `recordAudit()`。
+ */
+export async function replacePropertyAssignments(
+  env: Env,
+  ctx: TenantContext,
+  input: { membershipId: string; propertyIds: readonly string[]; assignedBy: string },
+): Promise<void> {
+  assertIdBelongsToTenant(input.membershipId, ctx);
+  assertIdBelongsToTenant(input.assignedBy, ctx);
+  for (const propertyId of input.propertyIds) assertIdBelongsToTenant(propertyId, ctx);
+
+  const db = await getTenantDb(env, ctx);
+
+  // ① 外れたものを無効化する。**`propertyId` のスコープを掛けない** —
+  //    担当外の施設への割当を「見えないから触れない」で残さないため
+  //    （呼び出し側が `assertPermission()` で門を持つ）。
+  await db
+    .update(propertyAssignment)
+    .set({ isActive: false, updatedAt: ctx.now })
+    .where(
+      withTenantScope(
+        propertyAssignment,
+        ctx,
+        NO_PROPERTY_SCOPE,
+        input.propertyIds.length === 0
+          ? eq(propertyAssignment.membershipId, input.membershipId)
+          : and(
+              eq(propertyAssignment.membershipId, input.membershipId),
+              notInArray(propertyAssignment.propertyId, [...input.propertyIds]),
+            ),
+      ),
+    );
+
+  // ② 残す・足すものを有効化する。行が無ければ作る。
+  for (const propertyId of input.propertyIds) {
+    await db
+      .insert(propertyAssignment)
+      .values({
+        id: generateId(ctx.orgShortId, "asgn"),
+        organizationId: ctx.organizationId,
+        membershipId: input.membershipId,
+        propertyId,
+        assignedBy: input.assignedBy,
+        assignedAt: ctx.now,
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+      })
+      .onConflictDoNothing();
+
+    await db
+      .update(propertyAssignment)
+      .set({ isActive: true, updatedAt: ctx.now })
+      .where(
+        withTenantScope(
+          propertyAssignment,
+          ctx,
+          NO_PROPERTY_SCOPE,
+          and(
+            eq(propertyAssignment.membershipId, input.membershipId),
+            eq(propertyAssignment.propertyId, propertyId),
+          ),
+        ),
+      );
+  }
 }

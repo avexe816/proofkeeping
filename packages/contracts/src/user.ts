@@ -77,3 +77,34 @@ export interface FieldStaffCreateResponse {
   /** **1 回だけ返る 4 桁。** 初回ログインで変更が強制される。 */
   initialPin: string;
 }
+
+/**
+ * 現場スタッフの編集（W-07 のスタッフ詳細レイヤー / 人間の指示 2026-08-22）。
+ *
+ * ── スタッフ番号を編集項目に入れない ────────────────────
+ * あれは**ログインの 3 フィールドのうちの 1 つ**（security.md §2）で、
+ * 現場に配った案内カードにも印字されている。ここで書き換えられると、
+ * 手元の紙でログインできない人が出る。番号を変えたい場合は
+ * 新しい番号で登録し直す（ロールの族またぎと同じ扱い）。
+ *
+ * ── PIN もここでは触らない ──────────────────────────────
+ * 再発行は W-12（権限と監査）の `reissueCredential()` が持つ。
+ * **発行値を返す経路を 2 つにしない**（DECISIONS #177 / #181）。
+ *
+ * ── `email` は `null` を許す ────────────────────────────
+ * 登録時は任意（`optional()`）だが、編集では**空欄にして消せる**必要が
+ * ある。`optional()` のままだと「送らなかった」と「消したい」を
+ * 区別できず、フォームからは常に前者になる。
+ */
+export const fieldStaffUpdateSchema = z.object({
+  membershipId: z.string().min(1),
+  displayName: z.string().trim().min(1).max(64),
+  role: fieldStaffRoleSchema,
+  /** 通知の送信先。**空欄で消せる**（上の注記）。 */
+  email: z.union([z.email().trim().max(254), z.null()]),
+  /** 担当施設。**登録と同じく 1 つ以上**（空にすると本人にタスクが出ない）。 */
+  propertyIds: z.array(z.string().min(1)).min(1).max(50),
+  locale: z.enum(["ja", "en"]),
+});
+
+export type FieldStaffUpdateRequest = z.infer<typeof fieldStaffUpdateSchema>;
