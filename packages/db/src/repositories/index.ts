@@ -243,6 +243,7 @@ export {
   listOrgStaff,
   listPropertyStaff,
   listRecentPasswordHashes,
+  listStaffPropertyAssignments,
   listUsers,
   recordLoginAttempt,
   resetUserPassword,
@@ -260,6 +261,7 @@ export {
   type OrgStaff,
   type PropertyStaff,
   type SetPasswordHashInput,
+  type StaffPropertyAssignment,
   type UserFilter,
 } from "./user.js";
 
