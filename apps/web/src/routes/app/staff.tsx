@@ -8,6 +8,7 @@ import {
   listOrgStaff,
   listResidencyRecords,
   listStaffLedger,
+  listStaffPropertyAssignments,
 } from "@pk/db";
 import {
   Form,
@@ -29,6 +30,11 @@ import { listSelectableProperties } from "../../lib/property/selection.js";
 import { encodeQr, qrPath } from "../../lib/qr/encode.js";
 import {
   buildStaffLedger,
+  expiringStaff,
+  filterStaffRows,
+  parseStaffFilter,
+  STAFF_FILTERS,
+  type StaffFilter,
   type StaffLedgerPage,
   type StaffLedgerView,
 } from "../../lib/staff/ledger.js";
@@ -94,6 +100,8 @@ interface StaffData {
   ledger: StaffLedgerPage;
   /** **在留期限の列を出すか**（INV-08。`ORG_ADMIN` だけ真）。 */
   canReadResidency: boolean;
+  /** 一覧の絞り込み（プロトタイプ ops 07 の「全員 / 稼働中 / 研修中」）。 */
+  filter: StaffFilter;
 }
 
 type StaffActionResult =
@@ -121,11 +129,12 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   const businessDate = businessDateOf(now);
   const expiryHorizon = addDays(businessDate, 90);
 
-  const [staff, ledgerRows, residency, expiringWithin90Days] = await Promise.all([
+  const [staff, ledgerRows, residency, expiringWithin90Days, assignments] = await Promise.all([
     listOrgStaff(env, tenant),
     listStaffLedger(env, tenant),
     canReadResidency ? listResidencyRecords(env, tenant) : Promise.resolve([]),
     countExpiringResidencies(env, tenant, expiryHorizon),
+    listStaffPropertyAssignments(env, tenant),
   ]);
 
   return {
@@ -140,8 +149,12 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
       residency,
       businessDate,
       expiringWithin90Days,
+      assignments,
+      propertyNames: new Map(properties.map((property) => [property.id, property.name])),
     }),
     canReadResidency,
+    // **絞りは URL に置く。** 画面を共有したときに同じ見え方になる。
+    filter: parseStaffFilter(new URL(request.url).searchParams.get("status")),
   };
 }
 
@@ -295,19 +308,99 @@ function experienceOf(row: StaffLedgerView): string {
 function StaffRoster({
   ledger,
   canReadResidency,
+  filter,
 }: {
   ledger: StaffLedgerPage;
   canReadResidency: boolean;
+  filter: StaffFilter;
 }) {
+  const expiring = expiringStaff(ledger.rows);
+  const visible = filterStaffRows(ledger.rows, filter);
+
   return (
     <>
-      <ul className="pk-board__counts">
-        <li>{`${t("staff.kpi.registered")} ${String(ledger.summary.registered)}`}</li>
-        <li>{`${t("staff.kpi.active")} ${String(ledger.summary.active)}`}</li>
-        <li>{`${t("staff.kpi.training")} ${String(ledger.summary.training)}`}</li>
+      {/* KPI 4 枚（プロトタイプ ops 07）。**絞り込みでは動かない** —
+          母数が読めなくなるため（`filterStaffRows()` の注記）。 */}
+      <dl className="pk-stats pk-stats--4">
+        <div className="pk-stats__item">
+          <dt>
+            <span className="pk-stats__icon" aria-hidden="true">
+              👥
+            </span>
+            {t("staff.kpi.registered")}
+          </dt>
+          <dd>
+            {String(ledger.summary.registered)}
+            <span className="pk-stats__unit">{t("staff.unit.people")}</span>
+          </dd>
+        </div>
+        <div className="pk-stats__item pk-stats__item--accent-ok">
+          <dt>
+            <span className="pk-stats__icon" aria-hidden="true">
+              ✓
+            </span>
+            {t("staff.kpi.active")}
+          </dt>
+          <dd>
+            {String(ledger.summary.active)}
+            <span className="pk-stats__unit">{t("staff.unit.people")}</span>
+          </dd>
+        </div>
+        <div className="pk-stats__item pk-stats__item--accent-info">
+          <dt>
+            <span className="pk-stats__icon" aria-hidden="true">
+              🎓
+            </span>
+            {t("staff.kpi.training")}
+          </dt>
+          <dd>
+            {String(ledger.summary.training)}
+            <span className="pk-stats__unit">{t("staff.unit.people")}</span>
+          </dd>
+        </div>
         {/* **件数だけは誰にでも出す**（INV-08 / 仕様 §1.4 の「件数のみ」）。 */}
-        <li>{`${t("staff.kpi.expiring")} ${String(ledger.summary.expiringWithin90Days)}`}</li>
-      </ul>
+        <div className="pk-stats__item pk-stats__item--accent-warn">
+          <dt>
+            <span className="pk-stats__icon" aria-hidden="true">
+              📅
+            </span>
+            {t("staff.kpi.expiring")}
+          </dt>
+          <dd>
+            {String(ledger.summary.expiringWithin90Days)}
+            <span className="pk-stats__unit">{t("staff.unit.people")}</span>
+          </dd>
+          <p className="pk-report__delta">{t("staff.kpi.expiringNote")}</p>
+        </div>
+      </dl>
+
+      {/* 期限が近い方の案内（プロトタイプ ops 07 の警告バナー）。
+          **名前と日付は `residency.read` を持つ相手にだけ出る** —
+          読めない相手には `expiresOn` が `null` で入るので空になる。 */}
+      {expiring.length === 0 ? null : (
+        <div className="pk-alert pk-alert--warn">
+          <p className="pk-alert__title">{t("staff.expiring.title")}</p>
+          <p>
+            {expiring
+              .map((row) => `${row.displayName}（${row.expiresOn ?? ""}）`)
+              .join(" · ")}
+          </p>
+          <p className="pk-muted">{t("staff.expiring.note")}</p>
+        </div>
+      )}
+
+      {/* 絞り込み（プロトタイプ ops 07）。**GET。** 押した状態が URL に残る。 */}
+      <form method="get" className="pk-filter">
+        <label htmlFor="status">{t("staff.filter.label")}</label>
+        <select id="status" name="status" defaultValue={filter}>
+          {STAFF_FILTERS.map((value) => (
+            <option key={value} value={value}>
+              {t(`staff.filter.${value}` as Parameters<typeof t>[0])}
+            </option>
+          ))}
+        </select>
+        <button type="submit">{t("staff.filter.apply")}</button>
+      </form>
 
       {/* プロトタイプ ops 07「👥 スタッフ一覧」。 */}
       <section className="pk-panel">
@@ -317,7 +410,7 @@ function StaffRoster({
           </span>
           {t("staff.roster.card")}
         </div>
-        {ledger.rows.length === 0 ? (
+        {visible.length === 0 ? (
           <div className="pk-panel__body">
             <p className="pk-muted">{t("staff.roster.empty")}</p>
           </div>
@@ -330,17 +423,20 @@ function StaffRoster({
                   <th>{t("staff.roster.staffNumber")}</th>
                   <th>{t("staff.roster.languages")}</th>
                   <th>{t("staff.roster.experience")}</th>
+                  <th>{t("staff.roster.properties")}</th>
                   {canReadResidency ? <th>{t("staff.roster.expiresOn")}</th> : null}
                   <th>{t("staff.roster.status")}</th>
                 </tr>
               </thead>
               <tbody>
-                {ledger.rows.map((row) => (
+                {visible.map((row) => (
                   <tr key={row.membershipId}>
                     <th scope="row">{row.displayName}</th>
                     <td>{row.staffNumber ?? "—"}</td>
                     <td>{row.languages.map((code) => t(languageKey(code))).join(" · ")}</td>
                     <td>{experienceOf(row)}</td>
+                    {/* **割当が無ければ空欄。**「全施設」と読み替えない。 */}
+                    <td>{row.properties.length === 0 ? "—" : row.properties.join(" · ")}</td>
                     {canReadResidency ? <ExpiryCell row={row} /> : null}
                     <td>{t(`staff.status.${row.workStatus}` as Parameters<typeof t>[0])}</td>
                   </tr>
@@ -384,6 +480,54 @@ function StaffRoster({
           <div className="pk-panel__foot">{t("staff.languages.note")}</div>
         </section>
       )}
+
+      {/* 在留資格の管理（プロトタイプ ops 07「📅 在留資格の管理」）。
+          **プロトタイプは切り替えスイッチだが、実装は説明にしてある。**
+          3 つとも常に動いていて、止める設定を持たない（持たせるには
+          設定の置き場が要り、仕様にその項目が無い）。**動く条件を
+          スイッチの形で見せると「切れる」と読めてしまう。** */}
+      {canReadResidency ? (
+        <section className="pk-panel">
+          <div className="pk-panel__head">
+            <span className="pk-panel__icon" aria-hidden="true">
+              📅
+            </span>
+            {t("staff.residency.manage.title")}
+          </div>
+          <div className="pk-panel__body">
+            <ul className="pk-board__counts">
+              <li>{t("staff.residency.manage.notice90")}</li>
+              <li>{t("staff.residency.manage.notice30")}</li>
+              <li>{t("staff.residency.manage.block")}</li>
+            </ul>
+            {/* §1.4 MUST。**この境界を消さないこと。** */}
+            <p className="pk-notice">{t("staff.residency.manage.human")}</p>
+          </div>
+          {ledger.residencyBreakdown.length === 0 ? null : (
+            <>
+              <div className="pk-panel__foot">{t("staff.residency.breakdown.title")}</div>
+              <div className="pk-panel__body pk-panel__body--flush">
+                <table className="pk-tbl">
+                  <tbody>
+                    {ledger.residencyBreakdown.map((row) => (
+                      <tr key={row.statusType}>
+                        <th scope="row">
+                          {t(
+                            `staff.residency.type.${row.statusType}` as Parameters<typeof t>[0],
+                          )}
+                        </th>
+                        <td>
+                          {`${String(row.count)}${t("staff.residency.breakdown.unit")}`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </section>
+      ) : null}
     </>
   );
 }
@@ -476,7 +620,11 @@ export default function Staff() {
       </div>
       <p className="pk-page__lede">{t("staff.lede")}</p>
 
-      <StaffRoster ledger={data.ledger} canReadResidency={data.canReadResidency} />
+      <StaffRoster
+        ledger={data.ledger}
+        canReadResidency={data.canReadResidency}
+        filter={data.filter}
+      />
 
       {card === null ? null : (
         <div className="pk-print">

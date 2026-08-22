@@ -175,6 +175,45 @@ export async function listAssignedPropertyIds(
 }
 
 /**
+ * 組織のスタッフ全員ぶんの施設割当（W-07 スタッフ管理の「主な担当施設」）。
+ *
+ * task: プロトタイプ ops 07
+ *
+ * ── 1 回で引く ──────────────────────────────────────────
+ * `listAssignedPropertyIds()` は 1 人ぶん。台帳の画面は 30 人を超えるので、
+ * 人数ぶん呼ぶと D1 への往復がそのまま増える。**組織ぶんを 1 クエリで返し、
+ * 画面側で `membershipId` に畳む。**
+ *
+ * 無効化された割当（`isActive = false`）は返さない。担当を外れた施設が
+ * 一覧に出続けるのを防ぐ（`listAssignedPropertyIds()` と同じ扱い）。
+ */
+export interface StaffPropertyAssignment {
+  membershipId: string;
+  propertyId: string;
+}
+
+export async function listStaffPropertyAssignments(
+  env: Env,
+  ctx: TenantContext,
+): Promise<StaffPropertyAssignment[]> {
+  const db = await getTenantDb(env, ctx);
+  return db
+    .select({
+      membershipId: propertyAssignment.membershipId,
+      propertyId: propertyAssignment.propertyId,
+    })
+    .from(propertyAssignment)
+    .where(
+      withTenantScope(
+        propertyAssignment,
+        ctx,
+        propertyAssignment.propertyId,
+        eq(propertyAssignment.isActive, true),
+      ),
+    );
+}
+
+/**
  * 施設に割り当てられたスタッフ（W-04 人員配分 / PK-SPEC-P1 §4）。
  *
  * task: docs/tasks/P1-14.md
