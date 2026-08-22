@@ -200,6 +200,9 @@ export default [
     route("app/settings/tax", "routes/app/taxProfile.tsx"),
     route("app/settings/counterparties", "routes/app/counterparties.tsx"),
     route("app/settings/observation", "routes/app/observationSettings.tsx"),
+    // W-18 検査ポリシー（PK-SPEC-P2 §2.1 / §12.1）。施設ごとの検査方式。
+    // **この画面が無いと `mode` が `NONE` のままで検査待ちが 1 件も出ない。**
+    route("app/settings/inspection", "routes/app/inspectionSettings.tsx"),
     route("app/settings/baseline", "routes/app/baselineSettings.tsx"),
     route("app/p/:propertyId/data-quality", "routes/app/dataQuality.tsx"),
     // 月次レポート（owner 09）。門は finding.read（§3 に差異の内訳が載る）。

@@ -113,7 +113,7 @@ export async function generateInvoicePdf(
     if (source === null) return { kind: "SKIPPED", reason: "INVOICE_NOT_FOUND" };
     const { payload, revision } = source;
 
-    // **和文の書体が無ければ作らない。** 「動いているのに読めない PDF」を
+    // **和文の書体が読めなければ作らない。** 「動いているのに読めない PDF」を
     // 取引先へ送らない（`packages/pdf/src/dailyReport.ts` の注記）。
     const font = await loadDailyReportFont(env);
     if (font === null) return { kind: "FAILED", reason: "FONT_NOT_FOUND" };

@@ -136,6 +136,8 @@ describe("登録簿の不変条件", () => {
       "nav.standardTimes",
       // P3-11 が足した W-20（観察項目の設定）。
       "nav.observationSettings",
+      // W-18 検査ポリシー（施設ごとの検査方式）。観察項目の設定の直後。
+      "nav.inspectionSettings",
       // P4-13 が足した W-25（照合ルールの設定）。
       "nav.rules",
       // P3-10 が足した W-21（ベースライン確認・上書き）。
@@ -457,8 +459,9 @@ describe("設定ハブ", () => {
     }
   });
 
-  it("OWNER は 16 枚すべてを開ける", () => {
-    expect(hubKeys("OWNER")).toHaveLength(16);
+  it("OWNER は 17 枚すべてを開ける", () => {
+    // W-18 検査ポリシーを足して 16 → 17。
+    expect(hubKeys("OWNER")).toHaveLength(17);
   });
 
   /**

@@ -7,7 +7,7 @@ import {
   type Role,
 } from "@pk/db";
 import { useEffect, useState } from "react";
-import { Outlet, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { Outlet, useLoaderData, useLocation, type LoaderFunctionArgs } from "react-router";
 
 import { businessDateOf } from "../../lib/businessDate.js";
 import { countNotificationBadge } from "../../lib/notification/badge.js";
@@ -20,6 +20,7 @@ import {
 import { getPropertySummaries } from "../../lib/property/summary.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
+import { Breadcrumb } from "../../ui/Breadcrumb.js";
 import { Sidebar } from "../../ui/Sidebar.js";
 import { Topbar } from "../../ui/Topbar.js";
 import { buildNavigation, type VisibleNavSection } from "../../ui/navigation.js";
@@ -155,6 +156,7 @@ export default function AppShell() {
   // セッションへの書き込みは背景の `fetch` に回す（`toggleSidebar.ts`）。
   // SSR はセッションの値で描くので初回のちらつきは無い（A01 §4.4）。
   const [collapsed, setCollapsed] = useState(data.sidebarCollapsed);
+  const location = useLocation();
 
   // 別の端末・タブで変えた値、あるいは書き込みに失敗した値はこちらへ寄せる。
   useEffect(() => {
@@ -197,6 +199,10 @@ export default function AppShell() {
           onToggleCollapsed={toggleCollapsed}
         />
         <main className="pk-main">
+          {/* 上位へ戻る帯（人間の指摘 2026-08-22 / DECISIONS #257）。
+              **URL だけで決まる**ので各画面は何も持たない。戻り先が
+              無い画面では要素ごと出ない（`Breadcrumb.tsx` の注記）。 */}
+          <Breadcrumb pathname={location.pathname} />
           <Outlet />
         </main>
       </div>

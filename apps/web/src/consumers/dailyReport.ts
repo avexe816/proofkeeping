@@ -58,7 +58,7 @@ import {
   dailyReportKey,
   nextRevision,
 } from "../lib/report/dailyReportKey.js";
-import { DAILY_REPORT_FONT_KEY, loadDailyReportFont } from "../lib/report/font.js";
+import { DAILY_REPORT_FONT_PATH, loadDailyReportFont } from "../lib/report/font.js";
 
 import { generateAuditReport, isAuditReportMessage } from "./auditReport.js";
 import {
@@ -146,11 +146,12 @@ export async function generateDailyReport(
       return { kind: "SKIPPED", reason: "ALREADY_GENERATED" };
     }
 
-    // 書体が無ければ**作らない**（`lib/report/font.ts` の注記）。
-    // 和文が空白の日報を施設へ渡さないため。
+    // 書体が読めなければ**作らない**（`lib/report/font.ts` の注記）。
+    // 和文が空白の日報を施設へ渡さないため。**アセットとしてデプロイに
+    // 同梱してあるので、通常は読める**（DECISIONS #256）。
     const font = await loadDailyReportFont(env);
     if (font === null) {
-      console.error(`daily-report-font-missing key=${DAILY_REPORT_FONT_KEY}`);
+      console.error(`daily-report-font-missing path=${DAILY_REPORT_FONT_PATH}`);
       return { kind: "FAILED", reason: "FONT_ASSET_MISSING" };
     }
 

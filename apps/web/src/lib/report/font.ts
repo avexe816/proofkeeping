@@ -1,53 +1,55 @@
 /**
- * 日報 PDF の和文フォント（PK-SPEC-P2 §9）。
+ * 帳票 PDF の和文書体（PK-SPEC-P2 §9）。
  *
- * task: docs/tasks/P2-14.md
+ * task:  docs/tasks/P2-14.md（当初）/ オーナー指示 2026-08-22
+ * 決定:  docs/DECISIONS.md #255（R2 をやめる）→ **#256（置き場所を静的アセットへ）**
  *
- * ── なぜフォントを外から持ってくるのか ──────────────────
- * `@react-pdf/renderer` の既定は Helvetica で、**CJK のグリフを持たない。**
- * 和文を渡しても例外にはならず、**字が出ないだけの PDF ができる。**
- * 日報は施設へ提出する文書なので、これは静かな事故になる。
+ * ── 何を使っているか ────────────────────────────────────
+ * **IPAゴシック（`ipag.ttf`）を無改変のまま同梱している。**
+ * ライセンスは IPA Font License Agreement v1.0（全文は書体と同じ
+ * ディレクトリ `public/fonts/` に置いてある）。第 2 条 5 項が
+ * 「文書に埋め込んで、その文書の内容を表示するためだけに使う場合、
+ * これ以上の義務を負わない」と定めており、PDF への埋め込みはこの条項が
+ * そのまま当たる。無改変・改名なしで置いているのは第 3 条 2 項
+ * （名称を変えない・改変しない・許諾書を添付する）に沿わせるため。
+ * **サブセット化しないこと。** 改変にあたり、別の条件（第 3 条 1 項）へ移る。
  *
- * 和文 TTF は数 MB ある。**Worker のバンドルに含めない**
- * （アップロードの上限に効くうえ、フォントの差し替えでコードの
- * デプロイが要る形になる）。R2（`DOCUMENTS`）に 1 つ置き、
- * 生成のときに読む。
+ * ── なぜ静的アセットなのか（スクリプトへの同梱をやめた）──
+ * R2 に置く形は**人手の作業で、置かれていなかった**（OPEN_QUESTIONS #054）。
+ * そこでスクリプトへ同梱したところ、**無料枠の上限 3 MiB を超えて
+ * staging のデプロイが落ちた**（gzip 6.34 MiB / DECISIONS #256）。
  *
- * ── 置く場所（人手の作業）──────────────────────────────
- * ```
- * wrangler r2 object put pk-documents/fonts/pk-jp-regular.ttf --file <TTF>
- * ```
- * **これが無いと日報は作られない**（`loadDailyReportFont()` が `null` を
- * 返し、コンシューマが失敗として再送に回す）。空白だらけの PDF を
- * 出すより、出さずに気づけるほうがよい。使う TTF は「日本語の
- * グリフを持ち、埋め込みが許諾されているもの」であること
- * （P0-02 と同じく、実物の用意は人間の作業。docs/PROGRESS.md 参照）。
+ * **静的アセットはスクリプトの容量に数えられない。** `build/client` に
+ * 置いて `ASSETS` binding から読む。デプロイに同梱されるので**置き忘れが
+ * 起きない**という R2 に対する利点は保ったまま、容量の制約を外せる。
+ *
+ * ── ネットワークから取りに行かない ──────────────────────
+ * `ASSETS` は Worker に紐づく binding で、外へ出る通信ではない。
+ * fetch も R2 も KV も読まない。**この方針を崩さないこと**（オーナー指示）。
  *
  * ── data URL で渡すこと（URL やパスにしない）────────────
  * `@react-pdf/font` は `src` の形で読み込み方を変える。data URL なら
  * `fontkit.create()`（同期・バイト列から）だが、**パスとして扱われると
  * `fontkit.open()` を呼ぶ。これは browser 版のバンドルに存在しない**
- * （`pnpm --filter @pk/web build` が `IMPORT_IS_UNDEFINED` を警告する枝）。
- * R2 の URL を直接渡す形にすると、Worker から取りに行けても
- * 実行時に `undefined is not a function` で落ちる。**バイト列を
- * base64 にしてから渡す。**
+ * （ビルドが `IMPORT_IS_UNDEFINED` を警告する枝）。アセットの URL を
+ * そのまま渡すと実行時に `undefined is not a function` で落ちる。
+ * **バイト列を base64 にしてから渡す。**
  *
  * ── isolate ごとに 1 回だけ読む ─────────────────────────
- * R2 から数 MB を読み、base64 に直す処理は安くない。
- * 同じ isolate で 2 通目以降は使い回す。**プロセスをまたいで
- * 共有しない**（Workers に共有メモリは無い）。
+ * 6MB を読んで base64 に直す処理は安くない。同じ isolate で 2 通目以降は
+ * 使い回す。**プロセスをまたいで共有しない**（Workers に共有メモリは無い）。
  */
 
 import type { DailyReportFont } from "@pk/pdf";
 import type { Env } from "@pk/db";
 
-/** R2（`DOCUMENTS`）のフォントのキー。**署名付き URL では配れない接頭辞**（`files.ts`）。 */
-export const DAILY_REPORT_FONT_KEY = "fonts/pk-jp-regular.ttf";
+/** アセットの位置。**`public/fonts/` に置いたものがそのままここへ出る。** */
+export const DAILY_REPORT_FONT_PATH = "/fonts/ipag.ttf";
 
 /** `@react-pdf/renderer` に登録する family 名。 */
 export const DAILY_REPORT_FONT_FAMILY = "PkJp";
 
-/** isolate ごとの控え。**未取得は `undefined`、取りに行って無かったのは `null`。** */
+/** isolate ごとの控え。**未取得は `undefined`、読めなかったのは `null`。** */
 let cached: DailyReportFont | null | undefined;
 
 /** base64 へ直すときの塊。**引数に展開するので大きくしすぎない**（`apply` の上限）。 */
@@ -63,20 +65,31 @@ export function bytesToBase64(bytes: Uint8Array): string {
 }
 
 /**
- * フォントを読む。**無ければ `null`。**
+ * 和文書体を読む。**読めなければ `null`。**
  *
- * @returns 登録に使える `DailyReportFont`。R2 に置かれていなければ `null`。
+ * 呼び出し側は `null` を失敗として扱い、再送に回すこと。**空白の PDF を
+ * 出さない**（`packages/pdf/src/dailyReport.ts` の注記）。
+ *
+ * @param env `ASSETS` binding を持つ env。
  */
 export async function loadDailyReportFont(env: Env): Promise<DailyReportFont | null> {
   if (cached !== undefined) return cached;
 
-  const object = await env.DOCUMENTS.get(DAILY_REPORT_FONT_KEY);
-  if (object === null) {
+  // **相対パスは使えない。** binding の `fetch()` は絶対 URL を要求する。
+  // 出ていく通信ではないので、host は何でもよい。
+  const response = await env.ASSETS.fetch(new Request(`https://assets.local${DAILY_REPORT_FONT_PATH}`));
+  if (!response.ok) {
     cached = null;
     return null;
   }
 
-  const bytes = new Uint8Array(await object.arrayBuffer());
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  // 0 バイトを「読めた」にしない（書体として使えない）。
+  if (bytes.byteLength === 0) {
+    cached = null;
+    return null;
+  }
+
   cached = {
     kind: "EMBEDDED",
     family: DAILY_REPORT_FONT_FAMILY,

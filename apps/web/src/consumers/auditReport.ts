@@ -97,7 +97,7 @@ export async function generateAuditReport(
     });
     if (payload === null) return { kind: "SKIPPED", reason: "PROPERTY_OR_MONTH_NOT_FOUND" };
 
-    // **和文の書体が無ければ作らない。** 「動いているのに読めない PDF」を
+    // **和文の書体が読めなければ作らない。** 「動いているのに読めない PDF」を
     // 出回らせない（`packages/pdf/src/dailyReport.ts` の注記）。
     const font = await loadDailyReportFont(env);
     if (font === null) return { kind: "FAILED", reason: "FONT_NOT_FOUND" };

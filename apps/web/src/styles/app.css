@@ -574,6 +574,47 @@ a.pk-nav:hover {
   font-weight: 800;
 }
 
+/* ── 上位へ戻る帯（人間の指摘 2026-08-22 / DECISIONS #257）─────
+   設定のサブ画面は入口がハブ 1 枚しかなく、戻るのにサイドバーへ
+   手を戻す必要があった。見出しの帯の**上**に細い帯を敷いて、
+   1 クリックで上位へ戻れるようにする。**戻り先が無い画面には
+   要素そのものが出ない**ので、他の画面の高さは 1px も変わらない。 */
+.pk-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 6px 18px;
+  font-size: 12.5px;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--line2);
+}
+
+.pk-crumbs__link {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+  color: var(--ink2);
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.pk-crumbs__link:hover {
+  color: var(--ink);
+  background: var(--surf3);
+}
+
+/* 矢印だけ強めに置く。**「押せば上へ戻る」の合図**（プロトタイプの
+   「← 一覧へ戻る」と同じ役割）。 */
+.pk-crumbs__back {
+  font-weight: 800;
+}
+
+.pk-crumbs__sep {
+  color: var(--muted);
+}
+
 .pk-content {
   flex: 1;
   padding: 20px 22px 30px;
