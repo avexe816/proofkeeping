@@ -196,6 +196,27 @@ describe("スタッフ詳細レイヤー（人間の指示 2026-08-22）", () =>
     expect(EDIT_SOURCE).toContain("staffNotField");
   });
 
+  it("**閉じるはレイヤーの左端。** 右上に置かない（人間の指示 2026-08-22）", () => {
+    // レイヤーは右端に出るので、右上の × はトップバーのログアウトボタンの
+    // 真下に来る。閉じると × ごと消えるため、勢いで 2 回押すと 2 回目が
+    // ログアウトに当たる。**見出しより先に閉じるが来ること**を固定する。
+    const head = /pk-drawer__head[\s\S]*?<\/div>/.exec(SOURCE)?.[0] ?? "";
+    expect(head, "pk-drawer__head が読めていない").not.toBe("");
+    expect(head.indexOf("pk-drawer__close")).toBeGreaterThan(-1);
+    expect(head.indexOf("pk-drawer__title")).toBeGreaterThan(-1);
+    expect(head.indexOf("pk-drawer__close")).toBeLessThan(head.indexOf("pk-drawer__title"));
+  });
+
+  it("閉じるを右端へ寄せる指定が残っていない（CSS で戻らないこと）", () => {
+    const css = readFileSync(
+      join(import.meta.dirname, "..", "..", "styles", "app.css"),
+      "utf8",
+    );
+    const rule = /\.pk-drawer__close\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(rule, ".pk-drawer__close の規則が読めていない").not.toBe("");
+    expect(rule).not.toMatch(/margin-left:\s*auto/);
+  });
+
   it("編集にスタッフ番号と PIN の欄が無い（ログインの 3 フィールド）", () => {
     // 番号は現場に配った案内カードにも刷ってある。PIN の再発行は W-12。
     const editForm = /intent" value="staffUpdate"[\s\S]*?<\/Form>/.exec(SOURCE)?.[0] ?? "";

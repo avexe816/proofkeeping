@@ -733,11 +733,16 @@ function StaffDrawer({
     <div className="pk-drawer">
       <Link className="pk-drawer__scrim" to={closeHref} aria-label={t("staff.panel.close")} />
       <aside className="pk-drawer__panel" aria-label={title}>
+        {/* ── 閉じるは**左端**。右上に置かない（人間の指示 2026-08-22）──
+            レイヤーは右端に出るので、右上の × は**トップバーのログアウト
+            ボタンの真下**に来る。閉じると × ごと消えるため、勢いで
+            2 回押すと 2 回目がログアウトに当たる。**破壊的でない操作の
+            すぐ後ろに、取り返しのつかない操作を置かない。** */}
         <div className="pk-drawer__head">
-          <h2 className="pk-drawer__title">{title}</h2>
           <Link className="pk-drawer__close" to={closeHref} aria-label={t("staff.panel.close")}>
             <span aria-hidden="true">×</span>
           </Link>
+          <h2 className="pk-drawer__title">{title}</h2>
         </div>
         <div className="pk-drawer__body">{children}</div>
       </aside>
