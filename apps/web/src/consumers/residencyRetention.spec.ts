@@ -75,6 +75,54 @@ function auditInsert(fake: FakeD1): { sql: string; params: unknown[] } {
   return insert;
 }
 
+/**
+ * 監査ログの INSERT を**列の名前で引ける形**にする。
+ *
+ * ── なぜ列に分けるのか ──────────────────────────────────
+ * 以前はパラメータ全体を `JSON.stringify()` して部分文字列を探していた。
+ * **その中には毎回変わる ULID（`audit_log.id`）と時刻が混ざる。**
+ * 週の上限時間「28」のような短い値を探すと、**ULID にたまたま `28` が
+ * 並んだ回だけ落ちる**（26 桁 Crockford base32 で実測 2.4%）。
+ *
+ * 列に分ければ、**見たい列だけ**を厳密に見られる。ULID も時刻も
+ * 検査の対象から外れる。
+ *
+ * SQL の列並びから読むので、**列が増えても順番を写経し直さなくてよい。**
+ */
+function auditColumns(fake: FakeD1): Record<string, unknown> {
+  const insert = auditInsert(fake);
+  const listed = /insert into "[^"]+" \(([^)]*)\) values/.exec(insert.sql)?.[1];
+  if (listed === undefined) throw new Error(`INSERT の列が読めない: ${insert.sql}`);
+
+  const names = listed.split(",").map((name) => name.trim().replaceAll('"', ""));
+  if (names.length !== insert.params.length) {
+    throw new Error(`列 ${String(names.length)} と値 ${String(insert.params.length)} が合わない`);
+  }
+  return Object.fromEntries(names.map((name, index) => [name, insert.params[index]]));
+}
+
+/**
+ * `after` を JSON として読む。**文字列比較にしない** —
+ * 鍵の並びが変わっただけで落ちる検査は、payload の中身を見ていない。
+ */
+function auditPayload(fake: FakeD1, column: "before" | "after"): unknown {
+  const raw = auditColumns(fake)[column];
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== "string") throw new Error(`${column} が文字列でない: ${JSON.stringify(raw)}`);
+  return JSON.parse(raw) as unknown;
+}
+
+/**
+ * 監査ログのうち**自由記述が入りうる列だけ**を連ねた文字列。
+ *
+ * **ここに ULID も時刻も入れない。** 「この値が残っていないこと」を
+ * 見るための検査で、生成のたびに変わる値を混ぜると偶然で落ちる。
+ */
+function auditFreeText(fake: FakeD1): string {
+  const columns = auditColumns(fake);
+  return JSON.stringify([columns["before"], columns["after"], columns["reason"]]);
+}
+
 describe("runResidencyRetention", () => {
   it("退職から 3 年が経った記録を消す", async () => {
     const fake = createFakeD1();
@@ -156,9 +204,11 @@ describe("runResidencyRetention", () => {
       businessDate: BUSINESS_DATE,
     });
 
-    const insert = auditInsert(fake);
-    expect(insert.params).toContain("residency.deleted");
-    expect(insert.params).toContain('{"deleted":0}');
+    const columns = auditColumns(fake);
+    expect(columns["action"]).toBe("residency.deleted");
+    // **`after` は件数だけ。完全一致で見る**（鍵が増えたらここで落ちる）。
+    expect(auditPayload(fake, "after")).toEqual({ deleted: 0 });
+    expect(auditPayload(fake, "before")).toBeNull();
   });
 
   it("監査ログの操作者はバッチ（**人の ID を借りない** / DECISIONS #164）", async () => {
@@ -185,7 +235,24 @@ describe("runResidencyRetention", () => {
       businessDate: BUSINESS_DATE,
     });
 
-    const serialized = JSON.stringify(auditInsert(fake).params);
+    // ── ① payload そのものを完全一致で押さえる ────────────────
+    // **これが本体。** 件数だけの形なら、値が入る余地がそもそも無い。
+    expect(auditPayload(fake, "after")).toEqual({ deleted: 1 });
+    expect(auditPayload(fake, "before")).toBeNull();
+
+    // 鍵の一覧も固定する。**`deleted` 以外の鍵を足したらここで落ちる。**
+    expect(Object.keys(auditPayload(fake, "after") as Record<string, unknown>)).toEqual([
+      "deleted",
+    ]);
+
+    // 週の上限時間（28）は**数値として**入っていないこと。
+    // 文字列の部分一致で探すと ULID の中の `28` に当たる（`auditColumns()`
+    // の注記）。**値そのものを見る。**
+    expect(Object.values(auditPayload(fake, "after") as Record<string, unknown>)).toEqual([1]);
+
+    // ── ② 自由記述の列に値が写っていない ──────────────────────
+    // **ULID と時刻を含まない列だけ**を見る（`auditFreeText()` の注記）。
+    const freeText = auditFreeText(fake);
     for (const value of [
       "SPECIFIED_SKILLED_1", // 種別
       "特定技能1号", // 表示名
@@ -193,10 +260,43 @@ describe("runResidencyRetention", () => {
       "2023-12-01", // 更新申請日
       "更新手続きの控え", // ノート
       "2023-08-20", // 退職日
-      "28", // 週の上限時間
     ]) {
-      expect(serialized, value).not.toContain(value);
+      expect(freeText, value).not.toContain(value);
     }
+
+    // ── ③ 氏名は元から持っていない ────────────────────────────
+    // `runResidencyRetention()` は台帳と在留資格しか受け取らず、`user` を
+    // 引かない。**入りようが無いことを、渡した値の側から固定する。**
+    expect(JSON.stringify(residencyRow(id))).not.toContain("displayName");
+  });
+
+  it("**検査が ULID と時刻を見ていない**（偶然で落ちる検査を残さない）", async () => {
+    // この spec は以前、パラメータ全体を `JSON.stringify()` して
+    // 「28」（週の上限時間）を探していた。**その中には毎回変わる
+    // ULID が混ざる**ので、26 桁に `28` が並んだ回だけ落ちていた
+    // （実測 2.4%）。ここで「見ている列に ULID も時刻も入らない」ことを
+    // 固定し、同じ壊れ方が戻らないようにする。
+    const fake = createFakeD1();
+    const id = staffId("ABCDEFGH");
+
+    await runResidencyRetention(envOf(fake), CTX, {
+      ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: "2023-08-20" })],
+      residency: [residencyRow(id)],
+      businessDate: BUSINESS_DATE,
+    });
+
+    const columns = auditColumns(fake);
+    const auditId = String(columns["id"]);
+    // 生成された ID であること（固定値に差し替えて逃げていない）。
+    expect(auditId).toMatch(
+      new RegExp(`^${TEST_ORG.orgShortId}__audit_[0-9A-HJKMNP-TV-Z]{26}$`),
+    );
+
+    const freeText = auditFreeText(fake);
+    expect(freeText, "ULID を見ている").not.toContain(auditId);
+    expect(freeText, "時刻を見ている").not.toContain(String(columns["at"]));
+    // 見ているのは `before` / `after` / `reason` の 3 列だけ。
+    expect(freeText).toBe(JSON.stringify([null, '{"deleted":1}', null]));
   });
 
   it("**削除済みの情報を監査ログから復元できない**（誰のものかが残らない）", async () => {
@@ -209,12 +309,16 @@ describe("runResidencyRetention", () => {
       businessDate: BUSINESS_DATE,
     });
 
-    const insert = auditInsert(fake);
-    // スタッフの ID も、在留資格の行の ID も載らない。
-    expect(insert.params).not.toContain(id);
-    expect(insert.params).not.toContain(residencyRow(id).id);
-    // `after` に載るのは件数だけ。
-    expect(insert.params).toContain('{"deleted":1}');
+    const columns = auditColumns(fake);
+    // スタッフの ID も、在留資格の行の ID も載らない。**列で見る** —
+    // `params` の要素比較は完全一致なので偶然は起きないが、どの列に
+    // 入っていないのかが読めるようにしておく。
+    expect(columns["target_id"]).toBeNull();
+    expect(columns["property_id"]).toBeNull();
+    expect(auditFreeText(fake)).not.toContain(id);
+    expect(auditFreeText(fake)).not.toContain(residencyRow(id).id);
+    // `after` に載るのは件数だけ。**完全一致。**
+    expect(auditPayload(fake, "after")).toEqual({ deleted: 1 });
   });
 
   it("複数人ぶんをまとめて消す（**DELETE は 1 回**）", async () => {
