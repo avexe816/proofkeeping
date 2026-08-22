@@ -56,10 +56,14 @@ const EXPECTED: Record<PermissionAction, string> = {
   "taxProfile.write": "OO------",
   "user.read": "OOOOOOO-",
   "user.write": "OOA-----",
-  // P8-02。**INV-08 を採った**（OPEN_QUESTIONS #110）。仕様 PK-SPEC-P8 §3 は
-  // `OWNER ○` / `VENDOR_ADMIN ○` だが、実装契約が優先（CLAUDE.md §6）。
+  // P8-02 / **INV-08 v2**（OPEN_QUESTIONS #110 決着 / DECISIONS #261）。
+  // **雇用主の側（`OWNER` / `ORG_ADMIN`）だけが読める。** 旧版は `OWNER` も
+  // 外していたが、その根拠は「オーナー＝発注元」という読みだった。
+  // `VENDOR_ADMIN` は仕様 §3 が `○` としていたが **`×` へ版上げ**した
+  // （受託先の従業員は自組織の従業員ではない）。
   // `PROPERTY_MANAGER` の「件数のみ」は `countExpiringResidencies()` で表す。
-  "residency.read": "-O------",
+  // **編集は広げていない**（運営管理者のまま）。
+  "residency.read": "OO------",
   "residency.write": "-O------",
   // P8-03。仕様 §3 の表より狭い（OPEN_QUESTIONS #112）。プロトタイプ
   // ops 02 が「担当者名は運営管理者のみ」と明記しているため。
@@ -260,6 +264,35 @@ describe("不変条件", () => {
   it("CLEANER と INSPECTOR は差異レポートに到達できない", () => {
     expect(resolveScope("CLEANER", "finding.read")).toBe("DENY");
     expect(resolveScope("INSPECTOR", "finding.read")).toBe("DENY");
+  });
+
+  /**
+   * **在留資格を読めるのは雇用主の側だけ**（INV-08 v2 / DECISIONS #261）。
+   *
+   * 2026-08-22 に `OWNER` を足したが、**広げたのはそこだけ。**
+   * 現場（`CLEANER` / `INSPECTOR`）と施設責任者・発注元へは広げない。
+   * ここが緑のまま `residency.read` を広げると、境界が黙って消える。
+   */
+  it("**現場は在留資格を見られない**（`CLEANER` / `INSPECTOR`）", () => {
+    expect(resolveScope("CLEANER", "residency.read")).toBe("DENY");
+    expect(resolveScope("INSPECTOR", "residency.read")).toBe("DENY");
+    expect(resolveScope("CLEANER", "residency.write")).toBe("DENY");
+    expect(resolveScope("INSPECTOR", "residency.write")).toBe("DENY");
+  });
+
+  it("在留資格を読めるのは雇用主の側だけ（施設責任者・発注元・監査は不可）", () => {
+    expect(resolveScope("OWNER", "residency.read")).toBe("ORG");
+    expect(resolveScope("ORG_ADMIN", "residency.read")).toBe("ORG");
+    // 「件数のみ」は `countExpiringResidencies()` が担う（読みは DENY）。
+    expect(resolveScope("PROPERTY_MANAGER", "residency.read")).toBe("DENY");
+    expect(resolveScope("VENDOR_ADMIN", "residency.read")).toBe("DENY");
+    expect(resolveScope("AUDITOR", "residency.read")).toBe("DENY");
+    expect(resolveScope("CLIENT_VIEWER", "residency.read")).toBe("DENY");
+  });
+
+  it("**編集は広げていない**（`OWNER` は読めるが書けない）", () => {
+    expect(resolveScope("OWNER", "residency.write")).toBe("DENY");
+    expect(resolveScope("ORG_ADMIN", "residency.write")).toBe("ORG");
   });
 
   it("CLEANER は忘れ物の保管場所・返却先を見られない", () => {

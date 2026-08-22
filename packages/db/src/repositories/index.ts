@@ -26,6 +26,7 @@ export {
   listAuditLogs,
   listAuditLogsForViewer,
   recordAudit,
+  recordAuditDaily,
   type AuditAction,
   type AuditLogFilter,
   type RecordAuditInput,

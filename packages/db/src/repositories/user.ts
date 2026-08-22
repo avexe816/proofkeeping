@@ -310,7 +310,7 @@ export interface OrgStaff {
  * 割当候補に残り続けていた（**ログインは `user.isActive` で止まるので、
  * 入れないのに割り当てられる**状態）。ログイン側（`login.ts` /
  * `pinLogin.ts`）は元から 2 つとも見ている。ここを合わせた
- * （人間の指示 2026-08-22 / DECISIONS #261）。
+ * （人間の指示 2026-08-22 / DECISIONS #262）。
  */
 export async function listOrgStaff(env: Env, ctx: TenantContext): Promise<OrgStaff[]> {
   const db = await getTenantDb(env, ctx);

@@ -643,6 +643,26 @@ const INVOCATIONS: Invocation[] = [
         targetType: "property",
       }),
   },
+  // 閲覧の記録を 1 日 1 件に畳む口（INV-08 v2 / DECISIONS #261）。
+  // **読んでから書く**ので、読み側にも組織条件が要る。
+  {
+    name: "audit.recordAuditDaily",
+    kind: "tenant",
+    run: (env, ctx) =>
+      auditRepo.recordAuditDaily(env, ctx, {
+        actorId: OWN_ID.membership,
+        action: "residency.viewed",
+        targetType: "residencyList",
+        since: new Date("2026-08-22T00:00:00.000Z"),
+      }),
+    crossTenant: (env, ctx) =>
+      auditRepo.recordAuditDaily(env, ctx, {
+        actorId: OTHER_ID.membership,
+        action: "residency.viewed",
+        targetType: "residencyList",
+        since: new Date("2026-08-22T00:00:00.000Z"),
+      }),
+  },
   {
     name: "entitlement.isModuleEnabled",
     kind: "tenant",

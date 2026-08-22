@@ -30,7 +30,7 @@ import { serializeAuditPayload } from "../mask.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import { auditLog } from "../schema/audit.js";
 
-import { ALWAYS_TRUE, withTenantScope } from "./base.js";
+import { ALWAYS_TRUE, NO_PROPERTY_SCOPE, withTenantScope } from "./base.js";
 
 /**
  * 監査対象の操作。**閉じたレジストリ。**
@@ -96,6 +96,20 @@ export const AUDIT_ACTIONS = {
    * 監査ログに個人の事情を写さない）。
    */
   "residency.updated": { requiresReason: false },
+  /**
+   * 在留資格の**閲覧**（INV-08 v2 / DECISIONS #261）。
+   *
+   * security.md §6 の列挙に閲覧は無いが、**INV-08 v2 で読める相手を
+   * 広げたぶんの見返り**として残す（オーナー判断 2026-08-22）。
+   *
+   * **`recordAuditDaily()` で書くこと。** 一覧を開くたびに 1 行増えると、
+   * 本当に追いたい変更の行が閲覧の行に埋もれる。同じ人が同じ対象を
+   * 同じ日に何度開いても 1 行に畳む。
+   *
+   * **`before` / `after` に何も載せない。** 在留資格の値も氏名も
+   * 監査ログへ写さない（`residency.updated` の注記と同じ考え方）。
+   */
+  "residency.viewed": { requiresReason: false },
   /** スタッフ台帳の更新（P8-01）。在籍・言語・スキルの変更。 */
   "staffLedger.updated": { requiresReason: false },
   // パスワードの再発行（管理系の資格情報。PIN リセットと同じ扱い）。
@@ -343,6 +357,59 @@ export async function recordAudit(
     ip: input.ip ?? null,
     at: ctx.now,
   });
+}
+
+/**
+ * **1 日 1 行に畳んで記録する**（閲覧の記録用 / DECISIONS #261）。
+ *
+ * 同じ操作者・同じ操作・同じ対象で、`since` 以降に行が既にあれば
+ * **何も書かない。** 閲覧は画面を開くたびに起きるので、そのまま書くと
+ * 監査ログが閲覧の行で埋まり、**本当に追いたい変更の行が探せなくなる。**
+ *
+ * ── 日の境目は呼び出し側が決める ────────────────────────
+ * `since` に「その日の始まり」を渡す。業務日は施設ごとに違い
+ * （architecture.md §7）、この層はタイムゾーンを持たない。
+ *
+ * ── 競り合いは許す ──────────────────────────────────────
+ * 読んでから書くまでの間に別のリクエストが書くと 2 行になりうる。
+ * **一意制約で潰さない** — 監査ログに制約を足すと、書き込みが
+ * 落ちる形になりうる（記録が消えるより重複するほうがよい）。
+ *
+ * @returns 書いたら `true`、畳んで見送ったら `false`。
+ */
+export async function recordAuditDaily(
+  env: Env,
+  ctx: TenantContext,
+  input: RecordAuditInput & { since: Date },
+): Promise<boolean> {
+  assertIdBelongsToTenant(input.actorId, ctx);
+  const db = await getTenantDb(env, ctx);
+
+  // `idx_audit_log_org_action_at` が効く形で引く。
+  const [existing] = await db
+    .select({ id: auditLog.id })
+    .from(auditLog)
+    .where(
+      withTenantScope(
+        auditLog,
+        ctx,
+        // 施設で絞らない。**在留資格は組織の事実**で、施設に紐づかない。
+        NO_PROPERTY_SCOPE,
+        eq(auditLog.action, input.action),
+        eq(auditLog.actorId, input.actorId),
+        gte(auditLog.at, input.since),
+        // 対象の ID があればそれで、無ければ種別で畳む
+        // （一覧の閲覧のように、個人を指す ID を持たない記録がある）。
+        input.targetId === undefined
+          ? eq(auditLog.targetType, input.targetType)
+          : eq(auditLog.targetId, input.targetId),
+      ),
+    )
+    .limit(1);
+  if (existing !== undefined) return false;
+
+  await recordAudit(env, ctx, input);
+  return true;
 }
 
 // ────────────────────────────────────────────────────────────
