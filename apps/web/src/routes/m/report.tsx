@@ -233,7 +233,7 @@ export default function ReportScreen(): React.ReactElement {
               {t("m.report.choice.issue")}
             </button>
           </div>
-          {/* **履歴を戻らない**（人間の指示 2026-08-22 / DECISIONS #259）。
+          {/* **履歴を戻らない**（人間の指示 2026-08-22 / DECISIONS #260）。
               以前は `navigate(-1)` で、ホーム画面の PWA から起動した場合や
               URL を直接開いた場合に**押しても動かなかった。** 報告元の
               タスクは `?taskId=` から解決済み（loader が無ければ 404）なので、

@@ -48,6 +48,14 @@ export interface StaffLedgerView {
   expiresOn: string | null;
   /** 期限までの残り日数。`expiresOn` が `null` なら `null`。 */
   daysUntilExpiry: number | null;
+  /**
+   * 主な担当施設の名前（プロトタイプ ops 07 の「主な担当施設」）。
+   *
+   * **割当が無ければ空配列。** 「全施設」と読み替えない — 現場ロールに
+   * とって割当が空とは「担当施設なし」であって、その人は
+   * `/m/today` に 1 件も出ない（`listAssignedPropertyIds()` の注記）。
+   */
+  properties: readonly string[];
 }
 
 /** KPI 4 枚（プロトタイプ ops 07）。 */
@@ -67,11 +75,23 @@ export interface LanguageBreakdownRow {
   ratio: number;
 }
 
+/** 「📅 在留資格の内訳」の 1 行（プロトタイプ ops 07）。 */
+export interface ResidencyBreakdownRow {
+  statusType: string;
+  count: number;
+}
+
 /** 台帳の画面 1 枚ぶん。 */
 export interface StaffLedgerPage {
   rows: readonly StaffLedgerView[];
   summary: StaffLedgerSummary;
   languages: readonly LanguageBreakdownRow[];
+  /**
+   * 在留資格の種別ごとの人数。**`residency.read` を持たない相手には空配列**
+   * （`residency` に空配列が渡るので自然にそうなる）。
+   * 人数だけで、誰がどれかは出さない。
+   */
+  residencyBreakdown: readonly ResidencyBreakdownRow[];
 }
 
 /** `YYYY-MM-DD` を UTC の epoch 日に直す。**タイムゾーンを持ち込まない。** */
@@ -114,6 +134,10 @@ export interface BuildStaffLedgerInput {
   businessDate: string;
   /** KPI の「在留期限 90 日以内」。**読めない相手にも渡す件数**（INV-08）。 */
   expiringWithin90Days: number;
+  /** 施設割当（`membershipId` → `propertyId`）。無ければ空配列でよい。 */
+  assignments?: readonly { membershipId: string; propertyId: string }[];
+  /** 施設の名前を引く表（`propertyId` → 表示名）。 */
+  propertyNames?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -127,6 +151,17 @@ export interface BuildStaffLedgerInput {
 export function buildStaffLedger(input: BuildStaffLedgerInput): StaffLedgerPage {
   const ledgerByMembership = new Map(input.ledger.map((row) => [row.membershipId, row]));
   const residencyByProfile = new Map(input.residency.map((row) => [row.staffProfileId, row]));
+
+  // `membershipId` → 施設名。**割当の順序はそのまま**（施設の並びは
+  // 呼び出し側が決める）。名前を引けない割当は落とす（無効化された施設）。
+  const propertiesByMembership = new Map<string, string[]>();
+  for (const assignment of input.assignments ?? []) {
+    const name = input.propertyNames?.get(assignment.propertyId);
+    if (name === undefined) continue;
+    const list = propertiesByMembership.get(assignment.membershipId);
+    if (list === undefined) propertiesByMembership.set(assignment.membershipId, [name]);
+    else list.push(name);
+  }
 
   const rows: StaffLedgerView[] = input.staff.map((person) => {
     const ledger = ledgerByMembership.get(person.membershipId);
@@ -160,6 +195,7 @@ export function buildStaffLedger(input: BuildStaffLedgerInput): StaffLedgerPage 
         ledger?.workStatus ?? (person.isActive ? ("ACTIVE" as const) : ("RESIGNED" as const)),
       expiresOn,
       daysUntilExpiry: expiresOn === null ? null : daysUntil(input.businessDate, expiresOn),
+      properties: propertiesByMembership.get(person.membershipId) ?? [],
     };
   });
 
@@ -176,8 +212,23 @@ export function buildStaffLedger(input: BuildStaffLedgerInput): StaffLedgerPage 
     .map(([language, count]) => ({ language, count, ratio: Math.round((count / max) * 100) }))
     .sort((a, b) => b.count - a.count || a.language.localeCompare(b.language));
 
+  // 在留資格の内訳。**台帳に居ないスタッフの残骸は数えない**
+  // （`countResidencyAlerts()` と同じ扱い）。
+  const knownProfileIds = new Set(
+    rows.map((row) => row.staffProfileId).filter((id): id is string => id !== null),
+  );
+  const residencyCounts = new Map<string, number>();
+  for (const record of input.residency) {
+    if (!knownProfileIds.has(record.staffProfileId)) continue;
+    residencyCounts.set(record.statusType, (residencyCounts.get(record.statusType) ?? 0) + 1);
+  }
+  const residencyBreakdown = [...residencyCounts.entries()]
+    .map(([statusType, count]) => ({ statusType, count }))
+    .sort((a, b) => b.count - a.count || a.statusType.localeCompare(b.statusType));
+
   return {
     rows,
+    residencyBreakdown,
     summary: {
       registered: rows.length,
       active: rows.filter((row) => row.workStatus === "ACTIVE").length,
@@ -186,4 +237,52 @@ export function buildStaffLedger(input: BuildStaffLedgerInput): StaffLedgerPage 
     },
     languages,
   };
+}
+
+// ────────────────────────────────────────────────────────────
+// 絞り込み（プロトタイプ ops 07 の「全員 / 稼働中 / 研修中」）
+// ────────────────────────────────────────────────────────────
+
+/** 一覧の絞り込み。**プロトタイプの 3 つだけ。増やさない。** */
+export const STAFF_FILTERS = ["ALL", "ACTIVE", "TRAINING"] as const;
+
+export type StaffFilter = (typeof STAFF_FILTERS)[number];
+
+/** 語彙にある値だけを通す。知らない値は「全員」へ倒す。 */
+export function parseStaffFilter(value: string | null): StaffFilter {
+  return (STAFF_FILTERS as readonly string[]).includes(value ?? "")
+    ? (value as StaffFilter)
+    : "ALL";
+}
+
+/**
+ * 一覧を絞る。**KPI は絞らない。**
+ *
+ * プロトタイプの KPI は「登録 31 名 / 稼働中 28 名」で、絞り込みと
+ * 無関係に組織全体を数えている。絞りを KPI にも掛けると、「稼働中」を
+ * 選んだ瞬間に登録数まで動いて、母数が読めなくなる。
+ */
+export function filterStaffRows(
+  rows: readonly StaffLedgerView[],
+  filter: StaffFilter,
+): readonly StaffLedgerView[] {
+  if (filter === "ALL") return rows;
+  if (filter === "ACTIVE") return rows.filter((row) => row.workStatus === "ACTIVE");
+  return rows.filter((row) => row.workStatus === "TRAINING");
+}
+
+/**
+ * 期限が近い人（プロトタイプ ops 07 の警告バナー）。
+ *
+ * **90 日以内と期限切れを両方入れる。** 期限切れを外すと、いちばん
+ * 危ない状態がバナーから消える。**`residency.read` を持たない相手には
+ * `expiresOn` が `null` で入ってくる**ので、自然に空になる。
+ */
+export function expiringStaff(
+  rows: readonly StaffLedgerView[],
+): readonly StaffLedgerView[] {
+  return rows
+    .filter((row) => row.daysUntilExpiry !== null && row.daysUntilExpiry <= 90)
+    .filter((row) => row.workStatus !== "RESIGNED")
+    .sort((a, b) => (a.daysUntilExpiry ?? 0) - (b.daysUntilExpiry ?? 0));
 }

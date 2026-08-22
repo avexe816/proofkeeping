@@ -1280,6 +1280,13 @@ const INVOCATIONS: Invocation[] = [
     run: (env, ctx) => userRepo.listPropertyStaff(env, ctx, OWN_ID.property),
     crossTenant: (env, ctx) => userRepo.listPropertyStaff(env, ctx, OTHER_ID.property),
   },
+  // スタッフ管理（W-07）の「主な担当施設」。**組織ぶんを 1 回で引く。**
+  // 施設 ID を受け取らないので `crossTenant` は無い（越境の入口が無い）。
+  {
+    name: "user.listStaffPropertyAssignments",
+    kind: "tenant",
+    run: (env, ctx) => userRepo.listStaffPropertyAssignments(env, ctx),
+  },
   // P5-15 の清掃会社プランが読む「稼働スタッフ」（PK-SPEC-P5 §7.2）。
   // **人数だけを返す。** 個人が並ぶ配列を画面へ渡さない（security.md §5）。
   {

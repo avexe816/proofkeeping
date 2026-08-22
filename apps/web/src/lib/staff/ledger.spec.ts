@@ -13,7 +13,13 @@
 import type { OrgStaff, ResidencyRow, StaffLedgerRow } from "@pk/db";
 import { describe, expect, it } from "vitest";
 
-import { buildStaffLedger, daysUntil } from "./ledger.js";
+import {
+  buildStaffLedger,
+  daysUntil,
+  expiringStaff,
+  filterStaffRows,
+  parseStaffFilter,
+} from "./ledger.js";
 
 const ORG = "a1b2c3";
 const TODAY = "2026-08-20";
@@ -62,6 +68,8 @@ function build(input: {
   ledger?: StaffLedgerRow[];
   residency?: ResidencyRow[];
   expiringWithin90Days?: number;
+  assignments?: { membershipId: string; propertyId: string }[];
+  propertyNames?: Map<string, string>;
 }) {
   return buildStaffLedger({
     staff: input.staff,
@@ -69,6 +77,8 @@ function build(input: {
     residency: input.residency ?? [],
     businessDate: TODAY,
     expiringWithin90Days: input.expiringWithin90Days ?? 0,
+    ...(input.assignments === undefined ? {} : { assignments: input.assignments }),
+    ...(input.propertyNames === undefined ? {} : { propertyNames: input.propertyNames }),
   });
 }
 
@@ -253,5 +263,164 @@ describe("daysUntil", () => {
 
   it("形が違えば `null`（例外にしない）", () => {
     expect(daysUntil("2026-08-20", "bad")).toBeNull();
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 主な担当施設（プロトタイプ ops 07）
+// ────────────────────────────────────────────────────────────
+
+describe("主な担当施設", () => {
+  const MEMBERSHIP = `${ORG}__mbsh_01JBXQ3ZK8N4P2VYR60000`;
+  const PROPERTY_A = `${ORG}__prop_01JBXQ3ZK8N4P2VYR60001`;
+  const PROPERTY_B = `${ORG}__prop_01JBXQ3ZK8N4P2VYR60002`;
+  const staff = [person({ membershipId: MEMBERSHIP })];
+  const names = new Map([
+    [PROPERTY_A, "サンプルホテル東京"],
+    [PROPERTY_B, "サンプルイン大阪"],
+  ]);
+
+  it("割当が無ければ空配列（「全施設」と読み替えない）", () => {
+    expect(build({ staff }).rows[0]?.properties).toEqual([]);
+  });
+
+  it("割当ぶんの施設名が並ぶ", () => {
+    const page = build({
+      staff,
+      assignments: [
+        { membershipId: MEMBERSHIP, propertyId: PROPERTY_A },
+        { membershipId: MEMBERSHIP, propertyId: PROPERTY_B },
+      ],
+      propertyNames: names,
+    });
+    expect(page.rows[0]?.properties).toEqual(["サンプルホテル東京", "サンプルイン大阪"]);
+  });
+
+  it("名前を引けない施設は落とす（無効化された施設を空欄で出さない）", () => {
+    const page = build({
+      staff,
+      assignments: [{ membershipId: MEMBERSHIP, propertyId: `${ORG}__prop_99` }],
+      propertyNames: names,
+    });
+    expect(page.rows[0]?.properties).toEqual([]);
+  });
+
+  it("**他人の割当を混ぜない**", () => {
+    const other = `${ORG}__mbsh_01JBXQ3ZK8N4P2VYR60009`;
+    const page = build({
+      staff,
+      assignments: [{ membershipId: other, propertyId: PROPERTY_A }],
+      propertyNames: names,
+    });
+    expect(page.rows[0]?.properties).toEqual([]);
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 在留資格の内訳（プロトタイプ ops 07）
+// ────────────────────────────────────────────────────────────
+
+describe("在留資格の内訳", () => {
+  const MEMBERSHIP = `${ORG}__mbsh_01JBXQ3ZK8N4P2VYR60000`;
+  const PROFILE = `${ORG}__sppf_01JBXQ3ZK8N4P2VYR60000`;
+  const staff = [person({ membershipId: MEMBERSHIP })];
+  const ledger = [ledgerRow({ membershipId: MEMBERSHIP, id: PROFILE })];
+
+  it("渡されなければ空（`residency.read` を持たない相手）", () => {
+    expect(build({ staff, ledger }).residencyBreakdown).toEqual([]);
+  });
+
+  it("種別ごとに数える", () => {
+    const page = build({
+      staff,
+      ledger,
+      residency: [residencyRow({ staffProfileId: PROFILE, statusType: "TRAINING_EMPLOYMENT" })],
+    });
+    expect(page.residencyBreakdown).toEqual([{ statusType: "TRAINING_EMPLOYMENT", count: 1 }]);
+  });
+
+  it("**台帳に居ない行の残骸を数えない**", () => {
+    const page = build({
+      staff,
+      ledger,
+      residency: [residencyRow({ staffProfileId: `${ORG}__sppf_99` })],
+    });
+    expect(page.residencyBreakdown).toEqual([]);
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 絞り込みと期限の近い人（プロトタイプ ops 07）
+// ────────────────────────────────────────────────────────────
+
+describe("絞り込み", () => {
+  const rows = [
+    { workStatus: "ACTIVE" as const },
+    { workStatus: "TRAINING" as const },
+    { workStatus: "RESIGNED" as const },
+  ].map((row, index) => ({
+    membershipId: `m${String(index)}`,
+    staffProfileId: null,
+    displayName: "テスト",
+    staffNumber: null,
+    languages: [],
+    years: null,
+    months: null,
+    expiresOn: null,
+    daysUntilExpiry: null,
+    properties: [],
+    ...row,
+  }));
+
+  it.each([
+    ["ALL", 3],
+    ["ACTIVE", 1],
+    ["TRAINING", 1],
+  ])("%s は %i 件", (filter, expected) => {
+    expect(filterStaffRows(rows, parseStaffFilter(filter)).length).toBe(expected);
+  });
+
+  it.each([null, "", "RESIGNED", "unknown"])("知らない値 %s は全員へ倒す", (value) => {
+    expect(parseStaffFilter(value)).toBe("ALL");
+  });
+});
+
+describe("期限が近い人", () => {
+  function row(daysUntilExpiry: number | null, workStatus: "ACTIVE" | "RESIGNED" = "ACTIVE") {
+    return {
+      membershipId: `m${String(daysUntilExpiry ?? 0)}`,
+      staffProfileId: null,
+      displayName: "テスト",
+      staffNumber: null,
+      languages: [],
+      years: null,
+      months: null,
+      workStatus,
+      expiresOn: "2026-11-30",
+      daysUntilExpiry,
+      properties: [],
+    };
+  }
+
+  it("90 日以内だけを拾う", () => {
+    expect(expiringStaff([row(120), row(90), row(10)]).length).toBe(2);
+  });
+
+  it("**期限切れも拾う**（いちばん危ない状態を落とさない）", () => {
+    expect(expiringStaff([row(-5)]).length).toBe(1);
+  });
+
+  it("退職者は拾わない", () => {
+    expect(expiringStaff([row(10, "RESIGNED")])).toEqual([]);
+  });
+
+  it("期限の無い人は拾わない（日本国籍など）", () => {
+    expect(expiringStaff([row(null)])).toEqual([]);
+  });
+
+  it("残り日数の少ない順に並ぶ", () => {
+    expect(expiringStaff([row(80), row(-1), row(30)]).map((r) => r.daysUntilExpiry)).toEqual([
+      -1, 30, 80,
+    ]);
   });
 });
