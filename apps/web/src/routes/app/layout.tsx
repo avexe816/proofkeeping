@@ -20,10 +20,11 @@ import {
 import { getPropertySummaries } from "../../lib/property/summary.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
-import { Breadcrumb } from "../../ui/Breadcrumb.js";
+import { SettingsSidebar, type SettingsNavGroup } from "../../ui/SettingsSidebar.js";
 import { Sidebar } from "../../ui/Sidebar.js";
 import { Topbar } from "../../ui/Topbar.js";
-import { buildNavigation, type VisibleNavSection } from "../../ui/navigation.js";
+import { buildNavigation, buildSettingsHub, type VisibleNavSection } from "../../ui/navigation.js";
+import { isSettingsSubScreen } from "../../ui/settingsNav.js";
 
 /**
  * 管理画面のシェル（PK-SPEC-UI-A01 v3 レイアウト標準）。
@@ -66,6 +67,13 @@ export interface ShellData {
   notificationCount: number | null;
   /** サイドバーをレールに畳んでいるか（A01 §4.4 / P7-21）。 */
   sidebarCollapsed: boolean;
+  /**
+   * 設定サイドバーに並べる群（DECISIONS #258）。**設定領域の外では空。**
+   *
+   * 判定は全体ナビと同じ `resolveNavItem()` を通る（`buildSettingsHub()`）
+   * ので、権限が無い項目はここへ来ない・未契約はグレーで届く。
+   */
+  settingsNav: readonly SettingsNavGroup[];
 }
 
 /**
@@ -94,8 +102,9 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   // **セッションの値を認可の根拠にしない。** ロールと一覧から解き直す
   // （DECISIONS #020）。降格後に `"ALL"` が残っていれば既定施設へ落ちる。
   // URL が施設を示す画面では URL が勝つ（`selectionFromPath()` の注記）。
+  const pathname = new URL(request.url).pathname;
   const { scope, property: selected } = resolveSelectedScope(
-    selectionFromPath(new URL(request.url).pathname) ?? session.selectedPropertyId,
+    selectionFromPath(pathname) ?? session.selectedPropertyId,
     tenant,
     properties,
   );
@@ -142,6 +151,21 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     enabledModules,
     notificationCount,
     sidebarCollapsed: session.sidebarCollapsed === true,
+    // **設定の画面でだけ組む。** 他の画面へ 17 項目を運んでも使わない。
+    // DB は引かない（`buildSettingsHub()` は純粋関数で、材料は上で揃っている）。
+    settingsNav: isSettingsSubScreen(pathname)
+      ? buildSettingsHub(tenant, { selectedPropertyId, enabledModules }).map((category) => ({
+          key: category.key,
+          label: category.label,
+          icon: category.icon,
+          items: category.items.map((entry) => ({
+            key: entry.item.key,
+            icon: entry.item.icon,
+            href: entry.href,
+            locked: entry.locked,
+          })),
+        }))
+      : [],
   };
 }
 
@@ -199,11 +223,21 @@ export default function AppShell() {
           onToggleCollapsed={toggleCollapsed}
         />
         <main className="pk-main">
-          {/* 上位へ戻る帯（人間の指摘 2026-08-22 / DECISIONS #257）。
-              **URL だけで決まる**ので各画面は何も持たない。戻り先が
-              無い画面では要素ごと出ない（`Breadcrumb.tsx` の注記）。 */}
-          <Breadcrumb pathname={location.pathname} />
-          <Outlet />
+          {/* 設定の画面だけ「設定サイドバー + 内容」の 2 カラムにする
+              （人間の指示 2026-08-22 / DECISIONS #258）。**17 画面には
+              何も足さない**（置き忘れは lint も typecheck も通る）。
+              設定の外では `.pk-settings` ごと出ないので、他の画面の
+              組み方は 1px も変わらない。 */}
+          {data.settingsNav.length === 0 ? (
+            <Outlet />
+          ) : (
+            <div className="pk-settings">
+              <SettingsSidebar groups={data.settingsNav} pathname={location.pathname} />
+              <div className="pk-settings__body">
+                <Outlet />
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
