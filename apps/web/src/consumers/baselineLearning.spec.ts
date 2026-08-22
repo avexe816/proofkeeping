@@ -120,6 +120,8 @@ describe("平坦化から統計量まで（§5.2）", () => {
           handTowelUsed: 1,
           bathMatUsed: 1,
           slippersUsed: 2,
+        cupsUsed: 2,
+        extraFutonUsed: 0,
           amenitiesUsed: {},
           inputDurationMs: 12_000,
           recordedById: "mem_1",

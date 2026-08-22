@@ -11,6 +11,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ALWAYS_CONSUMED_ITEM_CODES,
   DEFAULT_MIN_SAMPLE_SIZE,
   MIN_INPUT_DURATION_MS,
   REPEATED_INPUT_THRESHOLD,
@@ -409,5 +410,69 @@ describe("computeBaseline — 決定性（§9.3）", () => {
     ]);
     const stdDev = result.baselines[0]?.stdDev ?? 0;
     expect(stdDev).toBe(0.4714);
+  });
+});
+
+/**
+ * 除外ルール①の適用範囲（DECISIONS #252）。
+ *
+ * **当てすぎても当てなさすぎても外れる。** 当てすぎるとベースラインが
+ * 上がって見逃し、当てなさすぎると下がって誤検知が増える。ここは
+ * **「どこに当たり、どこに当たらないか」を両方向で固定する。**
+ */
+describe("除外ルール①（ZERO_WITH_BEDS_USED）の適用範囲", () => {
+  /** 0 の標本 1 件が除外されたかどうか。 */
+  function excludedZero(overrides: Partial<ObservationSample>): boolean {
+    const result = computeBaseline([
+      ...samples(5, { qty: 2, ...overrides }),
+      sample({ observationId: "zero", qty: 0, bedsUsed: 2, ...overrides }),
+    ]);
+    return result.exclusions.some((exclusion) => exclusion.reason === "ZERO_WITH_BEDS_USED");
+  }
+
+  it("**一覧の 3 種は CHECKOUT で当たる**", () => {
+    for (const itemCode of ALWAYS_CONSUMED_ITEM_CODES) {
+      expect(excludedZero({ taskType: "CHECKOUT", itemCode }), itemCode).toBe(true);
+    }
+  });
+
+  it("**STAYOVER では当たらない**（滞在中はリネンを交換しない運用がある）", () => {
+    for (const itemCode of ALWAYS_CONSUMED_ITEM_CODES) {
+      expect(excludedZero({ taskType: "STAYOVER", itemCode }), itemCode).toBe(false);
+    }
+  });
+
+  it("DEEP / COMMON_AREA / RECHECK でも当たらない", () => {
+    for (const taskType of ["DEEP", "COMMON_AREA", "RECHECK"]) {
+      expect(excludedZero({ taskType, itemCode: "BATH_TOWEL" }), taskType).toBe(false);
+    }
+  });
+
+  it("**EXTRA_FUTON は CHECKOUT でも当たらない**（0 が通常の状態）", () => {
+    expect(excludedZero({ taskType: "CHECKOUT", itemCode: "EXTRA_FUTON" })).toBe(false);
+  });
+
+  it("一覧に載らない品目には当たらない（シーツ・フェイスタオル・コップ）", () => {
+    for (const itemCode of ["SHEET_SINGLE", "SHEET_DOUBLE", "FACE_TOWEL", "CUP", "TOOTHBRUSH"]) {
+      expect(excludedZero({ taskType: "CHECKOUT", itemCode }), itemCode).toBe(false);
+    }
+  });
+
+  it("**当たらない品目の 0 は母数に残る**（ベースラインが上がらない）", () => {
+    const withZeros = computeBaseline([
+      ...samples(5, { qty: 2, taskType: "STAYOVER", itemCode: "DUVET_COVER" }),
+      ...samples(5, { qty: 0, bedsUsed: 2, taskType: "STAYOVER", itemCode: "DUVET_COVER" }),
+    ]);
+    // 0 が 5 件残るので中央値は 2 より下がる。**消えていたら 2 のまま。**
+    expect(withZeros.baselines[0]?.sampleSize).toBe(10);
+    expect(withZeros.baselines[0]?.medianQty).toBeLessThan(2);
+  });
+
+  /**
+   * **綴りが語彙に在ることは `apps/web` 側で見る。**
+   * `packages/engine` は依存ゼロ（CLAUDE.md §5）で `@pk/db` を読めない。
+   */
+  it("`ALWAYS_CONSUMED_ITEM_CODES` は 3 種", () => {
+    expect([...ALWAYS_CONSUMED_ITEM_CODES]).toEqual(["DUVET_COVER", "PILLOW_CASE", "BATH_TOWEL"]);
   });
 });

@@ -224,6 +224,47 @@ function exclusionOf(
 }
 
 /**
+ * **宿泊があれば必ず消費される品目**（DECISIONS #252）。
+ *
+ * 除外ルール①（`ZERO_WITH_BEDS_USED`）はここに載るものにだけ当てる。
+ * **分類（リネン / アメニティ）では決めない。** `EXTRA_FUTON` はリネンだが
+ * ほとんどの宿泊で使われず、0 が通常の状態なので入れていない。
+ *
+ * | 入れた | 理由 |
+ * |---|---|
+ * | `DUVET_COVER` | `bedsUsed > 0` は「ベッドが使われた」の意。使われたベッドには必ず掛布団カバーが付く |
+ * | `PILLOW_CASE` | 同上。使われたベッドには必ず枕がある |
+ * | `BATH_TOWEL` | 仕様が「人が泊まったのにタオル 0 枚は入力漏れ」と名指ししている（#058） |
+ *
+ * **`FACE_TOWEL` は入れていない。** 用意はされるが客が使わないことがあり、
+ * 0 が正常でありうる。P4-08 で実データの 0 の出方を見てから判断する
+ * （`docs/tasks/P4-08.md`）。
+ *
+ * **シーツ（`SHEET_SINGLE` / `SHEET_DOUBLE`）も入れていない。**
+ * ベッドの種類に依存し、片方は 0 が正常。
+ */
+export const ALWAYS_CONSUMED_ITEM_CODES = [
+  "DUVET_COVER",
+  "PILLOW_CASE",
+  "BATH_TOWEL",
+] as const;
+
+/** 除外ルール①を当てる清掃種別。**退室清掃だけ**（上の注記 2）。 */
+const ZERO_RULE_TASK_TYPE = "CHECKOUT";
+
+/**
+ * 除外ルール①に当たるか。**品目と清掃種別の両方で絞る。**
+ *
+ * `DEEP` / `COMMON_AREA` / `RECHECK` も対象外。いずれも「宿泊があった
+ * 直後」ではなく、`bedsUsed > 0` との結びつきが `CHECKOUT` ほど強くない。
+ */
+function isZeroWithBedsUsed(sample: ObservationSample): boolean {
+  if (sample.taskType !== ZERO_RULE_TASK_TYPE) return false;
+  if (!(ALWAYS_CONSUMED_ITEM_CODES as readonly string[]).includes(sample.itemCode)) return false;
+  return sample.qty === 0 && sample.bedsUsed > 0;
+}
+
+/**
  * 除外ルールを 1 件に当てる（§5.3）。当たらなければ `null`。
  *
  * **仕様の並び順で先に当たったものを理由にする。** 複数のルールに
@@ -236,13 +277,24 @@ function exclusionOf(
  * たまに使われる品目は、実際に使われた日だけが全部消え、p90 が 0 に
  * 固定される。それは誤入力の除外ではなく、実データの削除にあたる。
  * 中央値が正のときだけ当てる（docs/DECISIONS.md #096）。
+ *
+ * ── 除外ルール①は 2 つの条件で絞る（DECISIONS #252）──────
+ * 仕様（PK-SPEC-P3 §5.3）は「値が 0 かつ `bedsUsed > 0`」を**全品目・
+ * 全清掃種別**に当てる書き方だが、そのままでは**正常な 0 まで消えて
+ * ベースラインが跳ね上がり、差異を見逃す側へ倒れる。**
+ *
+ *   1. **品目**: `ALWAYS_CONSUMED_ITEM_CODES` の 3 種だけ。
+ *      アメニティや追加布団は「泊まったが使わなかった」が正常な観察。
+ *   2. **清掃種別**: `CHECKOUT` の標本だけ。滞在中清掃（`STAYOVER`）では
+ *      リネンを交換しない運用があり、**0 が正常**。そこで除外すると
+ *      母数が「交換した回」だけになる。
  */
 function outlierReasonOf(
   sample: ObservationSample,
   provisionalMedian: number,
   repeated: ReadonlySet<string>,
 ): BaselineExclusionReasonValue | null {
-  if (sample.qty === 0 && sample.bedsUsed > 0) return "ZERO_WITH_BEDS_USED";
+  if (isZeroWithBedsUsed(sample)) return "ZERO_WITH_BEDS_USED";
 
   if (provisionalMedian > 0 && sample.qty > provisionalMedian * OUTLIER_MEDIAN_MULTIPLIER) {
     return "OVER_MEDIAN_5X";

@@ -363,6 +363,7 @@ export {
 // 消耗ベースライン（P3-08 / 同 §5）。**統計量だけを出し、判定はしない**（同 §0.2）。
 // `sampleSize < 20` は `isReliable = false`。P4 のルール評価から外れる（同 §2.4）。
 export {
+  ALWAYS_CONSUMED_ITEM_CODES,
   BASELINE_EXCLUSION_REASON_VALUES,
   DEFAULT_MIN_SAMPLE_SIZE,
   MIN_INPUT_DURATION_MS,

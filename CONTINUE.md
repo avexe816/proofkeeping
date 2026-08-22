@@ -2,6 +2,8 @@
 
 ## 2026-08-22 の追記（**この節が最新**）
 
+### staging の 2FA は戻した（merge 済み / main `6793c95`）
+
 ### staging の 2FA を戻した（PF-19 の無効化を解除）
 
 **PR を出して止めてある**（merge はオーナー承認後）。
@@ -32,17 +34,27 @@
 札の 10 分の期限切れなら 1 行も残らない（404 で検証に入らない）。
 手順は `docs/runbook/platform-bootstrap.md` §10。
 
-### 進行中（**オーナーの承認待ち**）
+### #058 / #061 を閉じた（DECISIONS #252 / **PR は merge 待ち**）
 
-**#058 / #061 の実装案が承認待ち。** 除外ルール①（`ZERO_WITH_BEDS_USED`）を
+除外ルール①（`ZERO_WITH_BEDS_USED`）を**2 条件で絞った。**
 
-- **品目**: `ALWAYS_CONSUMED_ITEM_CODES = [DUVET_COVER, PILLOW_CASE, BATH_TOWEL]` に限る
-- **清掃種別**: **`CHECKOUT` の標本に限る**（滞在中清掃はリネンを交換しない
-  運用があり、0 が正常。除外すると母数が「交換した回」だけになる）
+- **品目**: `ALWAYS_CONSUMED_ITEM_CODES = [DUVET_COVER, PILLOW_CASE, BATH_TOWEL]`
+- **清掃種別**: **`CHECKOUT` の標本だけ**（滞在中清掃はリネンを交換しない
+  運用があり 0 が正常。除外すると母数が「交換した回」だけになる）
 
-に絞り、`CUP` / `EXTRA_FUTON` を品目コードへ足す（**migration 不要**。
-`item_code` は CHECK 制約の無い `text`）。調査は完了していて、
-**`taskType` は標本にも集計の鍵にも既に載っている**ことを確認済み。
+あわせて **`CUP` / `EXTRA_FUTON` を品目コードへ追加**（**migration 不要**。
+`item_code` は CHECK 制約の無い `text`）。値は専用列から拾う。
+
+**ベースラインの値そのものが変わる。次回の週次バッチから反映される。**
+
+### 残した宿題
+
+| # | 内容 |
+|---|---|
+| OPEN_QUESTIONS **#119** | **滞在中清掃のリネン交換の有無を記録していない。** 回避で偏りは防げるが、「交換しなかった 0」と「記録漏れの 0」は区別できない。**P4-08 では `CHECKOUT` と `STAYOVER` を分けて数える必要がありうる** |
+| OPEN_QUESTIONS **#120** | `SLIPPERS` の二重ステッパー（`CUP` で 1 つ増えた）。**記録のみ・未修正** |
+| `docs/tasks/PF-20.md` | 監査ログを読み取り専用で引く phase。**未着手** |
+| `#062` | 集計ウィンドウは **90 日固定のまま**。列 1 本で効く準備は `docs/tasks/P3-09.md` に記録 |
 
 ---
 
