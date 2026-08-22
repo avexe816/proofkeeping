@@ -706,8 +706,20 @@ a.pk-nav:hover {
    **UA の「閉じていたら隠す」規則は作成者側の宣言が勝つ**ので
    `!important` は要らない。`::details-content` は新しい実装ぶん。 */
 @container workspace (min-width: 900px) {
+  /* ── 2 つの列がそれぞれスクロールする（人間の指示 2026-08-22）──────
+     `.pk-main` を 1 つのスクローラにしていた頃は、**設定内ナビが右の
+     内容と一緒に流れていった。** 設定は 17 画面あってナビ自身が縦に長く、
+     内容も長い。片方を読むともう片方が見えなくなる。
+     左の全体ナビ（`.pk-sidebar__nav`）が最初からそうしているのと
+     同じ形にする — **列ごとに独自のスクロール。**
+
+     `min-height: 0` と `grid-template-rows` が要る。既定の `auto` のままだと
+     行が中身の高さまで伸び、子に `overflow` を置いても溢れる側が無くなって
+     スクロールバーが出ない（`.pk-main` が代わりに伸びる）。 */
   .pk-settings {
     grid-template-columns: 208px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
   }
 
   .pk-settingsnav__toggle {
@@ -719,13 +731,24 @@ a.pk-nav:hover {
     content-visibility: visible;
   }
 
-  .pk-settingsnav__body {
-    position: sticky;
-    top: 0;
-    height: 100%;
-    padding: 14px 0;
+  /* **スクローラは `<details>` 自身に置く。**
+     中の `__body` に置くと、間に `::details-content` が挟まる実装で
+     高さの連鎖が切れ、ブラウザによってスクロールバーが出ない。 */
+  .pk-settingsnav {
+    min-height: 0;
+    overflow-y: auto;
     border-right: 1px solid var(--line);
+  }
+
+  .pk-settingsnav__body {
+    padding: 14px 0;
     border-bottom: 0;
+  }
+
+  /* 右の内容。**上下に動かしても左のナビは動かない。** */
+  .pk-settings__body {
+    min-height: 0;
+    overflow-y: auto;
   }
 }
 

@@ -84,3 +84,80 @@ describe("畳む動き", () => {
     expect(reduce).toMatch(/transition:\s*none/);
   });
 });
+
+/**
+ * 設定の 2 カラムが**列ごとに**スクロールすること（人間の指示 2026-08-22
+ * 「設定の SubMenu にも Scroll Bar を」「右の Content Area の上下は
+ * その SubMenu に影響なし」）。
+ *
+ * ── なぜ CSS を検査するのか ─────────────────────────────
+ * 独自スクロールは 3 つの宣言が揃って初めて成立する。**1 つ落ちると
+ * 静かに元の「1 つのスクローラ」に戻る**（エラーにならず、
+ * 見た目も広い画面で長い表を開くまで変わらない）。
+ *
+ *   `grid-template-rows: minmax(0, 1fr)`   行を中身の高さまで伸ばさない
+ *   `min-height: 0`                        子が縮めるようにする
+ *   `overflow-y: auto`（両列）              溢れる側を列が受け持つ
+ *
+ * 実際の高さの計算はブラウザで確認済み（`.pk-main` が伸びなくなり、
+ * 左右がそれぞれ独自の `scrollTop` を持つこと）。ここは約束の維持だけを見る。
+ */
+describe("設定の 2 カラム（DECISIONS #258 / 人間の指示 2026-08-22）", () => {
+  /** 作業領域が広いときのブロック（`@container workspace`）。 */
+  function wideBlock(): string {
+    const start = CSS.indexOf("@container workspace (min-width: 900px)");
+    expect(start, "@container workspace が無い").toBeGreaterThan(-1);
+    let depth = 0;
+    for (let i = CSS.indexOf("{", start); i < CSS.length; i++) {
+      if (CSS[i] === "{") depth++;
+      if (CSS[i] === "}") {
+        depth--;
+        if (depth === 0) return CSS.slice(start, i + 1);
+      }
+    }
+    throw new Error("@container のブロックが閉じていない");
+  }
+
+  const block = wideBlock();
+
+  /** ブロックの中の 1 規則。 */
+  function rule(selector: string): string {
+    return new RegExp(`${selector.replace(".", "\\.")}\\s*\\{([^}]*)\\}`).exec(block)?.[1] ?? "";
+  }
+
+  it("行を中身の高さまで伸ばさない（伸びるとスクロールバーが出ない）", () => {
+    const settings = rule(".pk-settings");
+    expect(settings).toMatch(/grid-template-rows:\s*minmax\(0,\s*1fr\)/);
+    expect(settings).toMatch(/min-height:\s*0/);
+  });
+
+  it("**設定内ナビが自前のスクロールを持つ**（左の全体ナビと同じ形）", () => {
+    const nav = rule(".pk-settingsnav");
+    expect(nav).toMatch(/overflow-y:\s*auto/);
+    expect(nav).toMatch(/min-height:\s*0/);
+  });
+
+  it("**右の内容も自前のスクロールを持つ**（上下に動かしても左は動かない）", () => {
+    const body = rule(".pk-settings__body");
+    expect(body).toMatch(/overflow-y:\s*auto/);
+    expect(body).toMatch(/min-height:\s*0/);
+  });
+
+  it("スクローラを `<details>` 自身に置く（`::details-content` で連鎖が切れる）", () => {
+    // 中の `__body` に置くと、間に `::details-content` が挟まる実装で
+    // 高さが伝わらず、ブラウザによってスクロールバーが出ない。
+    expect(rule(".pk-settingsnav__body")).not.toMatch(/overflow-y:/);
+  });
+
+  it("**`position: sticky` に戻さない**（自前のスクロールと役割が重なる）", () => {
+    expect(rule(".pk-settingsnav__body")).not.toMatch(/position:\s*sticky/);
+  });
+
+  it("狭いときは 1 カラムのまま（畳んだナビが独自スクロールを持たない）", () => {
+    // `@container` の外側の `.pk-settingsnav__body` は畳んだ形のまま。
+    const outside = CSS.replace(block, "");
+    expect(outside).toMatch(/\.pk-settingsnav__body\s*\{/);
+    const base = /\.pk-settingsnav__body\s*\{([^}]*)\}/.exec(outside)?.[1] ?? "";
+    expect(base).not.toMatch(/overflow-y:/);
+  });
+});
