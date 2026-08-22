@@ -5,6 +5,7 @@ import type { SelectableProperty } from "../lib/property/selection.js";
 
 import type { PropertySummary } from "@pk/contracts";
 
+import { Logo } from "./Logo.js";
 import { NotificationBell } from "./NotificationBell.js";
 import { PropertySwitcher } from "./PropertySwitcher.js";
 import { UserMenu } from "./UserMenu.js";
@@ -46,15 +47,15 @@ export function Topbar(props: {
           `app.brand` は 1 語のままにし、**表示の都合で分けるのは
           ここだけ**にする（辞書に markup を持ち込まない）。 */}
       <div className="pk-topbar__brand">
-        {/* レール時（A01 §4.4）は 56px に収まるモノグラムへ切り替える。
-            どちらを出すかは CSS（`.pk-shell--nav-collapsed`）が決める。 */}
+        {/* 銀杏の葉（人間の指示 2026-08-22）。**レール時も残す** —
+            56px に収まるのは葉だけで、モノグラムは CSS が隠す。 */}
+        <Logo className="pk-topbar__logo" />
+        {/* レール時（A01 §4.4）は葉だけになる（CSS が文字を隠す）。
+            **モノグラム（`PK`）は廃止した** — 56px に葉と 2 文字は
+            入りきらず、詰めると縦のラインが折れる。 */}
         <span className="pk-topbar__brandFull">
           {t("app.brand.proof")}
           <em className="pk-topbar__brandAccent">{t("app.brand.keeping")}</em>
-        </span>
-        <span className="pk-topbar__brandMark">
-          {t("app.brand.mark.proof")}
-          <em className="pk-topbar__brandAccent">{t("app.brand.mark.keeping")}</em>
         </span>
       </div>
       <PropertySwitcher
