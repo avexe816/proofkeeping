@@ -92,6 +92,9 @@ workers_dev = false
 # を実行するまで存在しない。
 [assets]
 directory = "build/client"
+# 和文書体を Queue コンシューマから読むための binding（DECISIONS #256）。
+# **アセットはスクリプトの容量に数えられない。** 同梱すると無料枠の 3 MiB を超える。
+binding = "ASSETS"
 
 # ==============================================================================
 # local — `wrangler dev`（miniflare）
@@ -355,6 +358,9 @@ name = "pk-preview"
 # 静的アセット（P0-14）。[env.*] は top-level を継承しないため環境ごとに書く。
 [env.preview.assets]
 directory = "build/client"
+# 和文書体を Queue コンシューマから読むための binding（DECISIONS #256）。
+# **アセットはスクリプトの容量に数えられない。** 同梱すると無料枠の 3 MiB を超える。
+binding = "ASSETS"
 
 [env.preview.vars]
 ENVIRONMENT = "preview"
@@ -571,6 +577,9 @@ workers_dev = true
 # 静的アセット（P0-14）。[env.*] は top-level を継承しないため環境ごとに書く。
 [env.staging.assets]
 directory = "build/client"
+# 和文書体を Queue コンシューマから読むための binding（DECISIONS #256）。
+# **アセットはスクリプトの容量に数えられない。** 同梱すると無料枠の 3 MiB を超える。
+binding = "ASSETS"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
@@ -790,6 +799,9 @@ name = "pk-prod"
 # 静的アセット（P0-14）。[env.*] は top-level を継承しないため環境ごとに書く。
 [env.production.assets]
 directory = "build/client"
+# 和文書体を Queue コンシューマから読むための binding（DECISIONS #256）。
+# **アセットはスクリプトの容量に数えられない。** 同梱すると無料枠の 3 MiB を超える。
+binding = "ASSETS"
 
 [env.production.vars]
 ENVIRONMENT = "production"
