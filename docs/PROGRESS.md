@@ -2121,7 +2121,7 @@ P8 へ送り、**監査ログの閲覧だけを P7-20 として起票した。**
       **`propertyInspectionPolicy.mode` を変える経路が製品のどこにも
       無かった。** 施設は `mode = NONE` で作られるため、清掃完了タスクが
       `AWAITING_INSPECTION` を通らず、M-08 の検査待ちが構造上ずっと空だった。
-      門は `property.write`、監査は `property.updated`（DECISIONS #253）。
+      門は `property.write`、監査は `property.updated`（DECISIONS #254）。
       **migration 無し**（表も列も 0011 以前から在る）。
       画面が触るのは §2.1 の 8 項目のうち 3 つ（方式・抽出率・最低件数）で、
       残り 5 つは現在値を書き戻す

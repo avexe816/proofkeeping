@@ -25,6 +25,7 @@ import {
   AMENITY_ITEM_CODES as CONTRACT_AMENITY_ITEM_CODES,
   ITEM_CODES as CONTRACT_ITEM_CODES,
   LINEN_ITEM_CODES as CONTRACT_LINEN_ITEM_CODES,
+  OBSERVATION_COLUMN_ITEM_CODES,
 } from "@pk/contracts";
 import { AMENITY_ITEM_CODES, ITEM_CODES, LINEN_ITEM_CODES } from "@pk/db";
 import { ALWAYS_CONSUMED_ITEM_CODES, OBSERVATION_ITEM_COLUMNS } from "@pk/engine";
@@ -41,6 +42,17 @@ describe("品目コードの語彙", () => {
 
   it("重複が無い", () => {
     expect(new Set(ITEM_CODES).size).toBe(ITEM_CODES.length);
+  });
+
+  it("**リネンとアメニティの和が `ITEM_CODES` で、重なりが無い**", () => {
+    // 分類で挙動を決める箇所がある（リネン画面に出す・出さない）。
+    // どちらにも属する品目を作ると、その分岐が両方成り立ってしまう。
+    const linen = new Set<string>(LINEN_ITEM_CODES);
+    const amenity = new Set<string>(AMENITY_ITEM_CODES);
+    for (const code of linen) expect(amenity.has(code), code).toBe(false);
+
+    expect(new Set(ITEM_CODES)).toEqual(new Set([...linen, ...amenity]));
+    expect(ITEM_CODES.length).toBe(LINEN_ITEM_CODES.length + AMENITY_ITEM_CODES.length);
   });
 
   it("`CUP` はアメニティ、`EXTRA_FUTON` はリネン（#061 の解決）", () => {
@@ -60,6 +72,46 @@ describe("観察記録の列 → 品目コードの写像", () => {
     const byColumn = new Map(OBSERVATION_ITEM_COLUMNS.map((m) => [m.column, m.itemCode]));
     expect(byColumn.get("cupsUsed")).toBe("CUP");
     expect(byColumn.get("extraFutonUsed")).toBe("EXTRA_FUTON");
+  });
+
+  it("**契約側の写し（`OBSERVATION_COLUMN_ITEM_CODES`）と一致する**（DECISIONS #253）", () => {
+    // 一致していないと、リネン画面が「入力できるのに捨てられる欄」を
+    // 出す側へ戻る。engine 側が正で、契約はその写し（engine を参照できない
+    // 画面側のため）。
+    expect([...OBSERVATION_COLUMN_ITEM_CODES].sort()).toEqual(
+      OBSERVATION_ITEM_COLUMNS.map((mapping) => mapping.itemCode).sort(),
+    );
+  });
+});
+
+describe("リネン画面の「回収枚数」に出る品目（DECISIONS #253）", () => {
+  const columnCodes = new Set<string>(OBSERVATION_COLUMN_ITEM_CODES);
+  /** `buildLinenResponse()` の `collectedItemCodes` と同じ導き方。 */
+  const collected = LINEN_ITEM_CODES.filter((code) => !columnCodes.has(code));
+
+  it("**経路①のリネン品目が落ちる**", () => {
+    // 残るのは経路③（`linenRecord`）でしか値が来ない品目だけ。
+    expect(collected).toEqual([
+      "SHEET_SINGLE",
+      "SHEET_DOUBLE",
+      "DUVET_COVER",
+      "PILLOW_CASE",
+      "YUKATA",
+    ]);
+  });
+
+  it("**除外ルール①の品目には必ず入力経路がある**", () => {
+    // ここが崩れると、現場が値を入れる術が無いのに①だけが当たり、
+    // そのグループの標本が全消しになる。経路は 2 つのどちらかでよい
+    // （`BATH_TOWEL` は経路①、`PILLOW_CASE` / `DUVET_COVER` は回収欄）。
+    for (const code of ALWAYS_CONSUMED_ITEM_CODES) {
+      const hasPath = columnCodes.has(code) || (collected as readonly string[]).includes(code);
+      expect(hasPath, code).toBe(true);
+    }
+  });
+
+  it("`CUP` はアメニティなのでリネン画面に出ない", () => {
+    expect(LINEN_ITEM_CODES as readonly string[]).not.toContain("CUP");
   });
 });
 
@@ -86,13 +138,25 @@ describe("除外ルール①の一覧（#058）", () => {
 });
 
 describe("i18n", () => {
-  const ja = JSON.parse(
-    readFileSync(join(ROOT, "apps", "web", "src", "locales", "ja.json"), "utf8"),
-  ) as Record<string, string>;
+  const catalogOf = (locale: string): Record<string, string> =>
+    JSON.parse(
+      readFileSync(join(ROOT, "apps", "web", "src", "locales", `${locale}.json`), "utf8"),
+    ) as Record<string, string>;
 
-  it("**すべての品目コードに `m.obs.item.*` がある**（M-05b / M-06）", () => {
-    for (const code of ITEM_CODES) {
-      expect(ja[`m.obs.item.${code}`], code).toBeTruthy();
+  const ja = catalogOf("ja");
+
+  /** 契約 §7.1 の 7 言語。モバイルは全言語に文言が要る（ui-writing.md §1）。 */
+  const MOBILE_LOCALES = ["ja", "en", "zh-CN", "vi", "id", "my", "ne"] as const;
+
+  it("**すべての品目コードに `m.obs.item.*` が 7 言語ある**（M-05b / M-06）", () => {
+    // モバイルの呼び出しは `t(\`m.obs.item.${code}\` as MessageKey)` で、
+    // **キャストがあるので鍵が無くても型では落ちない。**画面にキー文字列が
+    // そのまま出る側の壊れ方をするので、ここで見る。
+    for (const locale of MOBILE_LOCALES) {
+      const catalog = catalogOf(locale);
+      for (const code of ITEM_CODES) {
+        expect(catalog[`m.obs.item.${code}`], `${locale}: ${code}`).toBeTruthy();
+      }
     }
   });
 

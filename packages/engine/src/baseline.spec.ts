@@ -175,7 +175,12 @@ describe("computeBaseline — 統計量", () => {
   });
 
   it("空配列でも落ちない", () => {
-    expect(computeBaseline([])).toEqual({ baselines: [], exclusions: [], consideredCount: 0 });
+    expect(computeBaseline([])).toEqual({
+      baselines: [],
+      exclusions: [],
+      consideredCount: 0,
+      zeroReviews: [],
+    });
   });
 });
 
@@ -218,9 +223,7 @@ describe("computeBaseline — 外れ値の除外 4 種（§5.3）", () => {
       ...samples(5, { qty: 2 }),
       sample({ observationId: "zero", qty: 0, bedsUsed: 2 }),
     ]);
-    expect(result.exclusions.map((exclusion) => exclusion.reason)).toEqual([
-      "ZERO_WITH_BEDS_USED",
-    ]);
+    expect(result.exclusions.map((exclusion) => exclusion.reason)).toEqual(["ZERO_WITH_BEDS_USED"]);
     expect(result.baselines[0]?.sampleSize).toBe(5);
   });
 
@@ -420,6 +423,120 @@ describe("computeBaseline — 決定性（§9.3）", () => {
  * 上がって見逃し、当てなさすぎると下がって誤検知が増える。ここは
  * **「どこに当たり、どこに当たらないか」を両方向で固定する。**
  */
+describe("除外ルール①の自己停止（§5.3 / DECISIONS #253）", () => {
+  /** 全 10 件のうち `zeros` 件を 0 にする（既定は一覧の品目 × CHECKOUT）。 */
+  function withZeros(
+    zeros: number,
+    overrides: Partial<ObservationSample> = {},
+  ): ReturnType<typeof computeBaseline> {
+    return computeBaseline(
+      Array.from({ length: 10 }, (_unused, index) =>
+        sample({
+          observationId: `o7k2m9__obs_${String(index)}`,
+          businessDate: `2026-08-${String(index + 1).padStart(2, "0")}`,
+          itemCode: "PILLOW_CASE",
+          qty: index < zeros ? 0 : 2,
+          bedsUsed: 2,
+          ...overrides,
+        }),
+      ),
+    );
+  }
+
+  it("閾値ちょうど（30%）では止まらない — **超えたときだけ**", () => {
+    const result = withZeros(3);
+    expect(result.exclusions).toHaveLength(3);
+    expect(result.zeroReviews).toHaveLength(0);
+  });
+
+  it("閾値を超えると①を当てず、標本を残して人手へ回す", () => {
+    const result = withZeros(4);
+    expect(result.exclusions).toHaveLength(0);
+    expect(result.baselines[0]?.sampleSize).toBe(10);
+
+    expect(result.zeroReviews).toHaveLength(1);
+    const review = result.zeroReviews[0];
+    expect(review?.itemCode).toBe("PILLOW_CASE");
+    expect(review?.taskType).toBe("CHECKOUT");
+    expect(review?.sampleSize).toBe(10);
+    expect(review?.zeroCount).toBe(4);
+    expect(review?.zeroRate).toBe(0.4);
+  });
+
+  it("**全件が 0 でも標本を全消しにしない**（歯止めの本題）", () => {
+    const result = withZeros(10);
+    expect(result.exclusions).toHaveLength(0);
+    expect(result.baselines).toHaveLength(1);
+    expect(result.baselines[0]?.sampleSize).toBe(10);
+    expect(result.zeroReviews).toHaveLength(1);
+  });
+
+  it("最小件数（5）に満たないグループでは自己停止しない", () => {
+    // 4 件すべてが 0 でも比率が意味を持たない。①をそのまま当てる。
+    const result = computeBaseline(samples(4, { qty: 0, bedsUsed: 2, itemCode: "PILLOW_CASE" }));
+    expect(result.exclusions).toHaveLength(4);
+    expect(result.zeroReviews).toHaveLength(0);
+  });
+
+  it("**歯止めは除外を増やさない**（対象外の品目では何も起きない）", () => {
+    // 一覧に無い品目は元から①が当たらない。0 が多くても review は出ない。
+    const result = withZeros(10, { itemCode: "EXTRA_FUTON" });
+    expect(result.exclusions).toHaveLength(0);
+    expect(result.zeroReviews).toHaveLength(0);
+  });
+
+  it("**自己停止は集計キー単位**（別の客室タイプへ伝染しない）", () => {
+    const noisy = Array.from({ length: 10 }, (_unused, index) =>
+      sample({
+        observationId: `noisy_${String(index)}`,
+        businessDate: `2026-08-${String(index + 1).padStart(2, "0")}`,
+        roomTypeId: "o7k2m9__rtyp_JAPANESE",
+        itemCode: "PILLOW_CASE",
+        qty: 0,
+        bedsUsed: 2,
+      }),
+    );
+    const clean = [
+      ...samples(9, { qty: 2, itemCode: "PILLOW_CASE" }),
+      sample({ observationId: "one_zero", qty: 0, bedsUsed: 2, itemCode: "PILLOW_CASE" }),
+    ];
+
+    const result = computeBaseline([...noisy, ...clean]);
+    // 汚れているほうだけ止まり、きれいなほうは①が当たる。
+    expect(result.zeroReviews).toHaveLength(1);
+    expect(result.zeroReviews[0]?.roomTypeId).toBe("o7k2m9__rtyp_JAPANESE");
+    expect(result.exclusions.map((exclusion) => exclusion.reason)).toEqual(["ZERO_WITH_BEDS_USED"]);
+    expect(result.exclusions[0]?.roomTypeId).toBe("o7k2m9__rtyp_TWIN");
+  });
+
+  it("止まっても他の除外ルールは効く（②③④を巻き添えにしない）", () => {
+    const result = computeBaseline([
+      ...withZerosSamples(4),
+      sample({
+        observationId: "fast",
+        itemCode: "PILLOW_CASE",
+        qty: 2,
+        inputDurationMs: MIN_INPUT_DURATION_MS - 1,
+      }),
+    ]);
+    expect(result.zeroReviews).toHaveLength(1);
+    expect(result.exclusions.map((exclusion) => exclusion.reason)).toEqual(["INPUT_TOO_FAST"]);
+  });
+
+  /** 上の `withZeros` と同じ並びの標本だけを返す。 */
+  function withZerosSamples(zeros: number): ObservationSample[] {
+    return Array.from({ length: 10 }, (_unused, index) =>
+      sample({
+        observationId: `o7k2m9__obs_${String(index)}`,
+        businessDate: `2026-08-${String(index + 1).padStart(2, "0")}`,
+        itemCode: "PILLOW_CASE",
+        qty: index < zeros ? 0 : 2,
+        bedsUsed: 2,
+      }),
+    );
+  }
+});
+
 describe("除外ルール①（ZERO_WITH_BEDS_USED）の適用範囲", () => {
   /** 0 の標本 1 件が除外されたかどうか。 */
   function excludedZero(overrides: Partial<ObservationSample>): boolean {

@@ -324,6 +324,7 @@ export {
   ITEM_CODES,
   LINEN_ITEM_CODES,
   MAX_OBSERVED_QTY,
+  OBSERVATION_COLUMN_ITEM_CODES,
   OBSERVATION_ERROR_CODES,
   OBSERVATION_NOTE_MAX_LENGTH,
   TRASH_LEVELS,
@@ -366,12 +367,7 @@ export {
 } from "./observation.js";
 
 // middleware 共通のエラー応答（P0-10）。**403 を足さないこと**（INV-31）。
-export {
-  API_ERROR_CODES,
-  apiErrorSchema,
-  type ApiError,
-  type ApiErrorCode,
-} from "./error.js";
+export { API_ERROR_CODES, apiErrorSchema, type ApiError, type ApiErrorCode } from "./error.js";
 
 // 日報（P2-14 / PK-SPEC-P2 §9・§14.4）。
 // **削除・訂正のスキーマが無い。** 作り直しは版を上げた新しい 1 通。

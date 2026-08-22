@@ -106,6 +106,13 @@ export type BaselineLearningOutcome =
       samples: number;
       /** タスク・稼働予定が見つからず捨てた観察の件数。 */
       dropped: number;
+      /**
+       * 除外ルール①が自己停止した集計キーの数（§5.3 / DECISIONS #253）。
+       *
+       * **0 を標本に残したという申し送りであって、除外ではない。**
+       * `baselineExclusionLog` には載らない（載せる表が無い）。
+       */
+      zeroReviews: number;
     }
   /** D1 の失敗など。**直しうる**ので retry する。 */
   | { kind: "FAILED"; reason: string };
@@ -265,12 +272,26 @@ export async function recomputeBaseline(
       rows: exclusions,
     });
 
+    // ①の自己停止（§5.3）。**行を書く先がまだ無いのでログに残す。**
+    // 列を足すのは migration になるため P4 着手時にまとめる
+    // （DECISIONS #253）。品目コードと清掃種別は個人情報を含まないので
+    // 出してよい。**施設 ID は出さない**（自己記述 ID が組織を含む /
+    // architecture.md §1）。
+    for (const review of computed.zeroReviews) {
+      console.warn(
+        `baseline-zero-rule-self-stopped to=${window.to}` +
+          ` item=${review.itemCode} taskType=${review.taskType}` +
+          ` zero=${String(review.zeroCount)}/${String(review.sampleSize)}`,
+      );
+    }
+
     return {
       kind: "OK",
       baselines: rows.length,
       exclusions: exclusions.length,
       samples: flattened.samples.length,
       dropped: flattened.droppedNoTask + flattened.droppedNoRoomPlan,
+      zeroReviews: computed.zeroReviews.length,
     };
   } catch (error) {
     // **観察の中身をログへ流さない。** 例外の名前と業務日だけ。
