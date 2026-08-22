@@ -61,7 +61,7 @@ const OTHER_ORG_REWORK_ID = `zz9zz9__rwk_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 function depsFor(role: string): TenantDeps {
   return {
     findMembershipByUserId: () =>
-      Promise.resolve({ id: CLEANER_ID, role: role as "CLEANER", isActive: true }),
+      Promise.resolve({ id: CLEANER_ID, role: role as "CLEANER", isEffectiveActive: true }),
     listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
   };
 }

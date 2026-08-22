@@ -69,7 +69,7 @@ const OTHER_ORG_TASK_ID = `zz9zz9__task_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 function depsFor(role: TenantDeps extends never ? never : string = "INSPECTOR"): TenantDeps {
   return {
     findMembershipByUserId: () =>
-      Promise.resolve({ id: INSPECTOR_ID, role: role as "INSPECTOR", isActive: true }),
+      Promise.resolve({ id: INSPECTOR_ID, role: role as "INSPECTOR", isEffectiveActive: true }),
     listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
   };
 }

@@ -127,8 +127,13 @@ export async function requireAppContext(
 
   // 所属が無い / 無効化された / 作り直された（招待し直し等）。
   // middleware（`tenant.ts`）と同じ 3 条件。片方だけ緩めない。
+  //
+  // **見るのは `isEffectiveActive`**（`membership.isActive && user.isActive`）。
+  // `membership.isActive` だけを見ていた頃は、停止済みのスタッフの
+  // 発行済みセッションが期限（現場系 16 時間）まで通り続けた
+  // （DECISIONS #263）。`/m/*` もこの関数を通る（`lib/mobile/session.ts`）。
   if (membership === undefined) throw redirectToLogin(request);
-  if (!membership.isActive) throw redirectToLogin(request);
+  if (!membership.isEffectiveActive) throw redirectToLogin(request);
   if (membership.id !== session.membershipId) throw redirectToLogin(request);
 
   const allowedPropertyIds = isOrgWideRole(membership.role)

@@ -51,7 +51,7 @@ const STORAGE_KEY = `documents/${ORGANIZATION_ID}/${PROPERTY_ID}/daily-reports/2
 function depsFor(role: string): TenantDeps {
   return {
     findMembershipByUserId: () =>
-      Promise.resolve({ id: MEMBERSHIP_ID, role: role as "ORG_ADMIN", isActive: true }),
+      Promise.resolve({ id: MEMBERSHIP_ID, role: role as "ORG_ADMIN", isEffectiveActive: true }),
     listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
   };
 }

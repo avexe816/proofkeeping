@@ -46,7 +46,7 @@ const OTHER_FINDING_ID = `z9y8x7__find_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 function depsFor(role: string): TenantDeps {
   return {
     findMembershipByUserId: () =>
-      Promise.resolve({ id: MEMBERSHIP_ID, role: role as "OWNER", isActive: true }),
+      Promise.resolve({ id: MEMBERSHIP_ID, role: role as "OWNER", isEffectiveActive: true }),
     listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
   };
 }

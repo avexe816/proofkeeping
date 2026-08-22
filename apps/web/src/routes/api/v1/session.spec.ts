@@ -47,7 +47,7 @@ const OTHER_ORG_PROPERTY_ID = "zz9zz9__prop_01JBXQ3ZK8N4P2VYR6ABCDEFGH";
 
 const DEPS: TenantDeps = {
   findMembershipByUserId: () =>
-    Promise.resolve({ id: MEMBERSHIP_ID, role: "PROPERTY_MANAGER", isActive: true }),
+    Promise.resolve({ id: MEMBERSHIP_ID, role: "PROPERTY_MANAGER", isEffectiveActive: true }),
   listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
 };
 

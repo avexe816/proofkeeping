@@ -55,7 +55,7 @@ const IDEMPOTENCY_KEY = "8f0f0d5e-0d2e-4a9f-9a04-0c5d1a7d2b31";
 function depsFor(role: string): TenantDeps {
   return {
     findMembershipByUserId: () =>
-      Promise.resolve({ id: MEMBERSHIP_ID, role: role as "CLEANER", isActive: true }),
+      Promise.resolve({ id: MEMBERSHIP_ID, role: role as "CLEANER", isEffectiveActive: true }),
     listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
   };
 }

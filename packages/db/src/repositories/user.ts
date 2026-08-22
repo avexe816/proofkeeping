@@ -129,21 +129,86 @@ export async function recordLoginAttempt(env: Env, ctx: ShardContext, input: Log
 }
 
 /**
+ * `findMembershipByUserId()` が返す 1 件。
+ *
+ * ── 2 つの旗を別々に返し、判定した値も返す ──────────────
+ * 無効化は `user.isActive` に立ち（`setUserActive()`）、`membership.isActive`
+ * は組織ごとの所属の旗。**どちらの意味も上書きしない**まま、認証境界が
+ * 使う値を `isEffectiveActive` として明示する。呼び出し側が
+ * 「どちらの旗を見るのが正しいか」を毎回考えなくて済む形にするため
+ * （DECISIONS #263）。
+ *
+ * **認証情報を返さない。** `passwordHash` / `pinHash` を選ばない
+ * （security.md §6。JOIN で `user` を引くので、行をそのまま返すと出る）。
+ */
+export interface MembershipWithUser {
+  id: string;
+  userId: string;
+  organizationId: string;
+  role: Role;
+  /** 組織ごとの所属の旗。 */
+  isActive: boolean;
+  /** アカウントの旗（`setUserActive()` が立てる）。 */
+  userIsActive: boolean;
+  /** **認証境界が見る値。** `membership.isActive && user.isActive`。 */
+  isEffectiveActive: boolean;
+  /** 発注元ロール（CLIENT_VIEWER）の取引先（P5-16）。他ロールは null。 */
+  counterpartyId: string | null;
+}
+
+/**
  * **認証ブートストラップ専用。** ユーザーの所属とロールを引く。
  *
  * `membership` は組織 × ユーザーで unique なので高々 1 件。
- * 無効化された所属（`isActive = false`）も返す。ログインを拒むのは
- * 呼び出し側（P0-08）の判断で、ここでは事実だけを返す。
+ * 無効化された所属も返す。**ログインや継続を拒むのは呼び出し側の判断**で、
+ * ここは事実（2 つの旗と、その論理積）を返すだけ。
+ *
+ * ── なぜ `user` と JOIN するのか（DECISIONS #263）──────────
+ * 以前はこの関数が `membership` 表だけを引いており、毎リクエストの
+ * 再検査（`requireAppContext()` / `tenantMiddleware()`）が見られる旗も
+ * `membership.isActive` だけだった。ところが**無効化が立てるのは
+ * `user.isActive`** で、`membership.isActive` を書き換える経路は製品の
+ * どこにも無い（`UPDATE membership` は `updateMembershipRole()` の
+ * `role` 1 か所だけ）。結果、**停止済みのスタッフの発行済みセッションが
+ * 期限（現場系は 16 時間）まで通り続けていた。** ログインだけは
+ * `login.ts` / `pinLogin.ts` が `user` 行を別に引いて止めていたので、
+ * 「入り直せないのに、開いたままの端末では操作できる」状態だった。
+ *
+ * **JOIN 1 回で済ませる。** `findUserById()` を足すと D1 の往復が
+ * 毎リクエスト 1 回増える。組織内・同一シャードの JOIN なので
+ * architecture.md §3 が禁じるテナント横断にはあたらない。
+ *
+ * **`user` 側にも組織条件を掛ける。** JOIN の結合条件だけに頼らない
+ * （`countActiveMembersByLocale()` と同じ形）。
  */
-export async function findMembershipByUserId(env: Env, ctx: ShardContext, userId: string) {
+export async function findMembershipByUserId(
+  env: Env,
+  ctx: ShardContext,
+  userId: string,
+): Promise<MembershipWithUser | undefined> {
   assertIdBelongsToTenant(userId, ctx);
   const db = await getTenantDb(env, ctx);
   const rows = await db
-    .select()
+    .select({
+      id: membership.id,
+      userId: membership.userId,
+      organizationId: membership.organizationId,
+      role: membership.role,
+      isActive: membership.isActive,
+      userIsActive: user.isActive,
+      counterpartyId: membership.counterpartyId,
+    })
     .from(membership)
+    .innerJoin(
+      user,
+      and(eq(user.id, membership.userId), eq(user.organizationId, membership.organizationId)),
+    )
     .where(withOrganizationScope(membership, ctx, eq(membership.userId, userId)))
     .limit(1);
-  return rows[0];
+
+  const row = rows[0];
+  if (row === undefined) return undefined;
+  return { ...row, isEffectiveActive: row.isActive && row.userIsActive };
 }
 
 /**

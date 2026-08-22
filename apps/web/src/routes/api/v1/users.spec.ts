@@ -50,7 +50,7 @@ type TestRole = "ORG_ADMIN" | "PROPERTY_MANAGER" | "CLEANER" | "AUDITOR";
 
 function deps(role: TestRole): TenantDeps {
   return {
-    findMembershipByUserId: () => Promise.resolve({ id: MEMBERSHIP_ID, role, isActive: true }),
+    findMembershipByUserId: () => Promise.resolve({ id: MEMBERSHIP_ID, role, isEffectiveActive: true }),
     listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
   };
 }

@@ -45,7 +45,7 @@ const PROPERTY_ID = `${ORG_SHORT_ID}__prop_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 function deps(): TenantDeps {
   return {
     findMembershipByUserId: () =>
-      Promise.resolve({ id: MEMBERSHIP_ID, role: "ORG_ADMIN" as const, isActive: true }),
+      Promise.resolve({ id: MEMBERSHIP_ID, role: "ORG_ADMIN" as const, isEffectiveActive: true }),
     listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
   };
 }

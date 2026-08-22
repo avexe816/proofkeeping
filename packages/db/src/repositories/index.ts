@@ -261,6 +261,7 @@ export {
   type CreateFieldStaffInput,
   type CreateFieldStaffResult,
   type LoginAttemptInput,
+  type MembershipWithUser,
   type OrgMember,
   type OrgStaff,
   type OrgStaffDetail,
