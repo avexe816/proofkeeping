@@ -84,6 +84,96 @@ function deletes(fake: FakeD1): { sql: string; params: unknown[] }[] {
   return fake.queries.filter((query) => query.sql.startsWith("delete from"));
 }
 
+/**
+ * 監査ログの INSERT を**列ごとの枠**に割る（DECISIONS #272）。
+ *
+ * ── なぜ列に割るのか ────────────────────────────────────
+ * 以前はパラメータ全体を `JSON.stringify()` して部分文字列を探していた。
+ * **その中には毎回変わる ULID（`audit_log.id`）と時刻が混ざる。**
+ * 週の上限時間「28」のような短い値を探すと、**ULID にたまたま `28` が
+ * 並んだ回だけ落ちる**（26 桁 Crockford base32 で実測 2.4%）。
+ * 列に割れば、**見たい列だけ**を見られる。
+ *
+ * ── `?` とは限らない ────────────────────────────────────
+ * 消す回の `after` は束縛値ではなく **`json_object(...)` の式**
+ * （DELETE と同じ batch で数える / #271）。枠には SQL の断片と、
+ * その中で束縛された値の両方を入れる。
+ */
+interface AuditSlot {
+  /** その列に置かれた SQL（束縛なら `"?"`）。 */
+  sql: string;
+  /** その枠の中で束縛された値。 */
+  params: unknown[];
+}
+
+function auditSlots(fake: FakeD1): Record<string, AuditSlot> {
+  const insert = auditInserts(fake)[0];
+  if (insert === undefined) throw new Error("residency.deleted の監査ログが書かれていない");
+
+  const columns = /insert into "[^"]+" \(([^)]*)\) values \(/.exec(insert.sql);
+  if (columns === null) throw new Error(`INSERT の列が読めない: ${insert.sql}`);
+  const names = (columns[1] ?? "").split(",").map((name) => name.trim().replaceAll('"', ""));
+
+  // `values (` の直後から末尾の `)` の手前まで。**括弧の深さを数えて割る** —
+  // `json_object('deleted', (select ...))` の中のカンマで切らないため。
+  const body = insert.sql.slice(columns.index + columns[0].length, -1);
+  const slots: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const ch of body) {
+    if (ch === "(") depth += 1;
+    if (ch === ")") depth -= 1;
+    if (ch === "," && depth === 0) {
+      slots.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  slots.push(current.trim());
+
+  if (slots.length !== names.length) {
+    throw new Error(`列 ${String(names.length)} と枠 ${String(slots.length)} が合わない`);
+  }
+
+  let cursor = 0;
+  return Object.fromEntries(
+    names.map((name, index) => {
+      const sql = slots[index] ?? "";
+      const bound = (sql.match(/\?/g) ?? []).length;
+      const params = insert.params.slice(cursor, cursor + bound);
+      cursor += bound;
+      return [name, { sql, params }];
+    }),
+  );
+}
+
+/**
+ * 監査ログのうち**自由記述が入りうる列だけ**を連ねた文字列。
+ *
+ * **ここに `id`（ULID）も `at`（時刻）も入れない。** 「この値が残って
+ * いないこと」を見るための材料で、生成のたびに変わる値を混ぜると
+ * 偶然で落ちる。
+ *
+ * **`after` の束縛値は入れない。** 消す回の `after` は
+ * `json_object('deleted', (select count(*) ... where staff_profile_id in (?)))`
+ * で、**数えるための条件として `staffProfileId` が束縛される。**
+ * 保存されるのは件数だけで、それは `residencyRetention.db.spec.ts` が
+ * 実物の行で確かめる。ここが見るのは SQL の形。
+ */
+function auditFreeText(fake: FakeD1): string {
+  const slots = auditSlots(fake);
+  const pick = (name: string): unknown[] => [slots[name]?.sql, ...(slots[name]?.params ?? [])];
+  return JSON.stringify([
+    ...pick("before"),
+    ...pick("reason"),
+    ...pick("target_id"),
+    ...pick("target_type"),
+    // `after` は**形だけ**（束縛値は上の注記のとおり除く）。
+    slots["after"]?.sql,
+  ]);
+}
+
 describe("runResidencyRetention", () => {
   it("満了日を過ぎた記録を消す", async () => {
     const fake = createFakeD1();
@@ -233,11 +323,14 @@ describe("runResidencyRetention", () => {
       businessDate: BUSINESS_DATE,
     });
 
-    const insert = auditInserts(fake)[0];
-    expect(insert?.params).toContain("residency.deleted");
+    const slots = auditSlots(fake);
+    expect(slots["action"]?.params).toEqual(["residency.deleted"]);
     // 束ねる DELETE がいないので、こちらは値を束縛する経路
-    // （`recordEmptyResidencyRetentionRun()`。**件数は 0 に固定**）。
-    expect(insert?.params).toContain('{"deleted":0}');
+    // （`recordEmptyResidencyRetentionRun()`）。**payload を完全一致で見る。**
+    const after = JSON.parse(String(slots["after"]?.params[0])) as Record<string, unknown>;
+    expect(after).toEqual({ deleted: 0 });
+    expect(Object.keys(after)).toEqual(["deleted"]);
+    expect(slots["before"]?.params).toEqual([null]);
   });
 
   it("**消す回は 0 件用の口を通らない**（`{\"deleted\":0}` を書かない）", async () => {
@@ -281,7 +374,18 @@ describe("runResidencyRetention", () => {
       businessDate: BUSINESS_DATE,
     });
 
-    const serialized = JSON.stringify(auditInserts(fake)[0]?.params);
+    // ── ① `after` は件数だけを作る形 ──────────────────────────
+    // 消す回は `json_object('deleted', …)`。**鍵は `deleted` 1 つだけ。**
+    const slots = auditSlots(fake);
+    expect(slots["after"]?.sql).toContain("json_object('deleted'");
+    expect((slots["after"]?.sql.match(/'[a-z]+'/g) ?? []).length, "鍵が 1 つでない").toBe(1);
+    expect(slots["before"]?.params).toEqual([null]);
+    expect(slots["target_id"]?.params).toEqual([null]);
+
+    // ── ② 値が写っていないことは**列を絞って**見る ──────────────
+    // **`params` 全体を見ない。** ULID と時刻が混ざり、短い値を部分一致で
+    // 探すと偶然で落ちる（`auditSlots()` の注記 / DECISIONS #272）。
+    const freeText = auditFreeText(fake);
     for (const value of [
       "SPECIFIED_SKILLED_1", // 種別
       "特定技能1号", // 表示名
@@ -290,9 +394,19 @@ describe("runResidencyRetention", () => {
       "更新手続きの控え", // ノート
       RESIGNED_LONG_AGO, // 退職日
       `${TEST_ORG.orgShortId}__resd_01JBXQ3ZK8N4P2VYR6ABCDEFGH`, // 在留資格の行 ID
+      "28", // 週の上限時間。**ULID を見ていないので短い値も置ける。**
     ]) {
-      expect(serialized, value).not.toContain(value);
+      expect(freeText, value).not.toContain(value);
     }
+
+    // ── ③ 見ている枠に ULID も時刻も入っていない（②の前提）────────
+    const auditId = String(auditInserts(fake)[0]?.params[0]);
+    expect(auditId).toMatch(
+      new RegExp(`^${TEST_ORG.orgShortId}__audit_[0-9A-HJKMNP-TV-Z]{26}$`),
+    );
+    expect(freeText, "ULID を見ている").not.toContain(auditId);
+    expect(freeText, "時刻を見ている").not.toContain(String(slots["at"]?.params[0]));
+
     // **`staffProfileId` は DELETE 条件の束縛値としては現れる**（副問い合わせが
     // 同じ条件で数えるため）。**保存されるのは `{"deleted": N}` だけ**で、
     // 行に ID が入らないことは `residencyRetention.db.spec.ts` が実物で見る。

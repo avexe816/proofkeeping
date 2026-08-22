@@ -365,7 +365,29 @@ describe("監査ログに残る値", () => {
 
     const [row] = deletionAudits();
     expect(row).toBeDefined();
-    const serialized = JSON.stringify(row);
+
+    // ── ① payload を完全一致で押さえる ────────────────────────
+    // **これが本体。** 件数だけの形なら、値が入る余地がそもそも無い。
+    const after = JSON.parse(String(row?.["after"])) as Record<string, unknown>;
+    expect(after).toEqual({ deleted: 1 });
+    // 鍵の一覧も固定する。**`deleted` 以外を足したらここで落ちる。**
+    expect(Object.keys(after)).toEqual(["deleted"]);
+    expect(row?.["before"]).toBeNull();
+    expect(row?.["target_id"]).toBeNull();
+    expect(row?.["target_type"]).toBe("residencyRetention");
+
+    // ── ② 値が写っていないことは**列を絞って**見る ──────────────
+    // **行ごと `JSON.stringify()` しない。** 行には毎回変わる ULID
+    // （`audit_log.id`）と時刻が混ざるので、短い値を部分一致で探すと
+    // 偶然で落ちる（`residencyRetention.spec.ts` の `auditFreeText()` の
+    // 注記 / DECISIONS #272）。**自由記述が入りうる列だけ**を見る。
+    const freeText = JSON.stringify([
+      row?.["before"],
+      row?.["after"],
+      row?.["reason"],
+      row?.["target_id"],
+      row?.["target_type"],
+    ]);
     for (const value of [
       id, // スタッフの ID
       "SPECIFIED_SKILLED_1",
@@ -374,13 +396,14 @@ describe("監査ログに残る値", () => {
       "2023-12-01",
       "更新手続きの控え",
       RESIGNED_LONG_AGO,
+      "28", // 週の上限時間。**ULID を見ていないので短い値も置ける。**
     ]) {
-      expect(serialized, value).not.toContain(value);
+      expect(freeText, value).not.toContain(value);
     }
-    expect(row?.["after"]).toBe('{"deleted":1}');
-    expect(row?.["before"]).toBeNull();
-    expect(row?.["target_id"]).toBeNull();
-    expect(row?.["target_type"]).toBe("residencyRetention");
+
+    // ③ 見ている列に ULID も時刻も入っていない（②の前提）。
+    expect(freeText).not.toContain(String(row?.["id"]));
+    expect(freeText).not.toContain(String(row?.["at"]));
   });
 
   it("操作者はバッチ（**人の ID を借りない**）", async () => {
