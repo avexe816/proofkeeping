@@ -113,3 +113,35 @@ describe("画面のクラスは CSS に定義がある", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * CSS が構文として閉じていること。
+ *
+ * ── なぜここで見るのか ──────────────────────────────────
+ * `pnpm check` は lint・typecheck・test の 3 つで、**`build` を含まない。**
+ * ESLint は CSS を見ないので、**波かっこが 1 つ余っていても手元は全部緑**で
+ * 通り、CI の `build`（lightningcss の minify）で初めて
+ * `Unexpected end of input` として落ちる。実際に 1 度そうなった
+ * （2026-08-22 / レイヤーの CSS を差し替えたとき）。
+ *
+ * 見るのは対応の数だけ。**整形も規則の中身も見ない**（それは stylelint の
+ * 仕事で、導入は別の判断）。
+ */
+describe("CSS が閉じている", () => {
+  /** コメントを落とす。**注記の中の記号を数えないため。** */
+  function withoutComments(css: string): string {
+    return css.replace(/\/\*[\s\S]*?\*\//g, "");
+  }
+
+  it.each(["app.css", "mobile.css"])("%s の波かっこが対応している", (file) => {
+    const code = withoutComments(readFileSync(join(STYLES, file), "utf8"));
+    let depth = 0;
+    for (const ch of code) {
+      if (ch === "{") depth++;
+      if (ch === "}") depth--;
+      // 閉じ過ぎ（`}` が余る）はここで落ちる。最後まで見ずに止める。
+      expect(depth, `${file}: 対応しない } がある`).toBeGreaterThanOrEqual(0);
+    }
+    expect(depth, `${file}: 閉じていない { がある`).toBe(0);
+  });
+});

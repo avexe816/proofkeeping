@@ -733,13 +733,16 @@ export {
 // 管理者のメール招待は未実装（OPEN_QUESTIONS #101）。
 export {
   FIELD_STAFF_ROLES,
+  STAFF_LOCALES,
   fieldStaffCreateSchema,
   fieldStaffRoleSchema,
   fieldStaffUpdateSchema,
+  staffLocaleSchema,
   type FieldStaffCreateRequest,
   type FieldStaffCreateResponse,
   type FieldStaffRoleValue,
   type FieldStaffUpdateRequest,
+  type StaffLocaleValue,
 } from "./user.js";
 
 // セットアップウィザードの進行（P7-01 / PK-SPEC-P7 §2.3）。

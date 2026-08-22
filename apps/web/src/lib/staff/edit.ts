@@ -38,6 +38,7 @@ import {
   updateMembershipRole,
   updateUserProfile,
   type Env,
+  type ResidencyRow,
   type Role,
   type TenantContext,
 } from "@pk/db";
@@ -60,6 +61,28 @@ export interface StaffDetail {
    * 偽なら、レイヤーは詳細を出すだけで、フォームもボタンも出さない。
    */
   isFieldStaff: boolean;
+  /**
+   * 台帳（`staff_pay_profile`）の行の ID。**無ければ在留資格を記録できない**
+   * （在留資格はこの ID に紐づく / `ledger.ts` の注記）。
+   */
+  staffProfileId: string | null;
+  /**
+   * いま記録されている在留資格。
+   *
+   * **`residency.read` を持たない相手には常に `null`。** loader の戻り値は
+   * HTML に載るので、読めない相手のぶんを詰めない（INV-08 / `staff.tsx` の
+   * 一覧と同じ扱い）。
+   */
+  residency: StaffResidency | null;
+}
+
+/** レイヤーの在留資格フォームの初期値。**画面が出せる値だけ。** */
+export interface StaffResidency {
+  statusType: string;
+  expiresOn: string | null;
+  renewalAppliedOn: string | null;
+  workPermitRequired: boolean;
+  weeklyHourLimit: number | null;
 }
 
 /** 書き込みの結果。**拒んだ理由を画面がそのまま出せる形で返す。** */
@@ -108,12 +131,21 @@ async function loadStaffRecord(
   env: Env,
   tenant: TenantContext,
   membershipId: string,
+  extra: StaffDetailExtra = {},
 ): Promise<StaffRecord | undefined> {
   const [detail, assignments] = await Promise.all([
     findOrgStaffDetail(env, tenant, membershipId),
     listStaffPropertyAssignments(env, tenant),
   ]);
   if (detail === undefined) return undefined;
+
+  const staffProfileId = extra.staffProfileId ?? null;
+  // **読めない相手には詰めない。** 呼び出し側が `residency.read` で
+  // 分岐したうえで、読めるときだけ一覧を渡す（門を 2 か所に置かない）。
+  const record =
+    staffProfileId === null
+      ? undefined
+      : extra.residency?.find((row) => row.staffProfileId === staffProfileId);
 
   return {
     membershipId: detail.membershipId,
@@ -128,7 +160,31 @@ async function loadStaffRecord(
       .filter((assignment) => assignment.membershipId === membershipId)
       .map((assignment) => assignment.propertyId),
     isFieldStaff: isFieldRole(detail.role),
+    staffProfileId,
+    residency:
+      record === undefined
+        ? null
+        : {
+            statusType: record.statusType,
+            expiresOn: record.expiresOn,
+            renewalAppliedOn: record.renewalAppliedOn,
+            workPermitRequired: record.workPermitRequired,
+            weeklyHourLimit: record.weeklyHourLimit,
+          },
   };
+}
+
+/**
+ * レイヤーに載せる追加の情報。**呼び出し側が引いたものを渡すだけ。**
+ *
+ * loader はすでに台帳と在留資格の一覧を引いている（KPI と一覧のため）。
+ * ここでもう一度引くと D1 の往復が増えるので、**引き当てだけを行う。**
+ */
+export interface StaffDetailExtra {
+  /** 開いているスタッフの `staff_pay_profile.id`。 */
+  staffProfileId?: string | null;
+  /** **`residency.read` を持つときだけ渡すこと。** */
+  residency?: readonly ResidencyRow[];
 }
 
 /** レイヤーへ渡す 1 名ぶん。**`userId` を落として返す。** */
@@ -136,8 +192,9 @@ export async function loadStaffDetail(
   env: Env,
   tenant: TenantContext,
   membershipId: string,
+  extra: StaffDetailExtra = {},
 ): Promise<StaffDetail | undefined> {
-  const record = await loadStaffRecord(env, tenant, membershipId);
+  const record = await loadStaffRecord(env, tenant, membershipId, extra);
   if (record === undefined) return undefined;
 
   // **列を挙げて詰め直す。** スプレッドで `userId` を除く形にすると、
@@ -152,6 +209,8 @@ export async function loadStaffDetail(
     isActive: record.isActive,
     propertyIds: record.propertyIds,
     isFieldStaff: record.isFieldStaff,
+    staffProfileId: record.staffProfileId,
+    residency: record.residency,
   };
 }
 

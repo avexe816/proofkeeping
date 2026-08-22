@@ -35,6 +35,26 @@ import { staffNumberSchema } from "./auth.js";
  */
 export const FIELD_STAFF_ROLES = ["CLEANER", "INSPECTOR"] as const;
 
+/**
+ * 現場（`/m/*`）の表示言語（PK-IMPL-CONTRACT §7.1 の 7 言語）。
+ *
+ * ── なぜ 7 つあるのか ───────────────────────────────────
+ * 以前ここは `["ja", "en"]` の 2 つだけで、**登録画面で日本語と英語しか
+ * 選べなかった。** カタログ（`apps/web/src/locales`）には 7 言語ぶんの
+ * 翻訳が揃っており（DECISIONS #128 の機械翻訳の承認）、モバイルは
+ * 初回起動で自国語を選べる設計になっている。**選ばせる側だけが
+ * 2 つのままだった**（人間の指摘 2026-08-22 / DECISIONS #267）。
+ *
+ * 並びは契約 §7.1 と `LOCALES`（`apps/web/src/locales/index.ts`）に揃える。
+ * **2 か所に同じ一覧を置いている**ので、`i18n.spec.ts` が食い違いを見る。
+ * 管理画面は日本語のみ（ui-writing.md §1）。ここは現場の話。
+ */
+export const STAFF_LOCALES = ["ja", "en", "zh-CN", "vi", "id", "my", "ne"] as const;
+
+export const staffLocaleSchema = z.enum(STAFF_LOCALES);
+
+export type StaffLocaleValue = (typeof STAFF_LOCALES)[number];
+
 export const fieldStaffRoleSchema = z.enum(FIELD_STAFF_ROLES);
 
 export type FieldStaffRoleValue = (typeof FIELD_STAFF_ROLES)[number];
@@ -54,8 +74,8 @@ export const fieldStaffCreateSchema = z.object({
   email: z.email().trim().max(254).optional(),
   /** 担当施設。**1 つ以上。** */
   propertyIds: z.array(z.string().min(1)).min(1).max(50),
-  /** モバイルの表示言語。管理画面は日本語のみ（ui-writing.md §1）。 */
-  locale: z.enum(["ja", "en"]).optional(),
+  /** モバイルの表示言語（7 言語 / `STAFF_LOCALES`）。管理画面は日本語のみ。 */
+  locale: staffLocaleSchema.optional(),
 });
 
 export type FieldStaffCreateRequest = z.infer<typeof fieldStaffCreateSchema>;
@@ -104,7 +124,7 @@ export const fieldStaffUpdateSchema = z.object({
   email: z.union([z.email().trim().max(254), z.null()]),
   /** 担当施設。**登録と同じく 1 つ以上**（空にすると本人にタスクが出ない）。 */
   propertyIds: z.array(z.string().min(1)).min(1).max(50),
-  locale: z.enum(["ja", "en"]),
+  locale: staffLocaleSchema,
 });
 
 export type FieldStaffUpdateRequest = z.infer<typeof fieldStaffUpdateSchema>;

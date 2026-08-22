@@ -1802,6 +1802,84 @@ a.pk-nav:hover {
   background: var(--info);
 }
 
+/* 表のセルいっぱいに伸びる帯（プロトタイプ ops 07 の言語の構成）。
+   `.pk-meterbar` は数値の隣に置く短い帯で、こちらは列 1 本ぶん。 */
+.pk-meterbar--wide {
+  display: flex;
+  min-width: 90px;
+}
+
+.pk-meterbar--wide .pk-meterbar__track {
+  flex: 1;
+  width: auto;
+  height: 9px;
+}
+
+/* 構成比の帯。**状態ではないので状態色を使わない**（`--chartBar`）。 */
+.pk-meterbar__fill--chart {
+  background: var(--chartBar);
+}
+
+/* 数値の列。桁を揃える。 */
+.pk-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ── 常に動く規則の 1 行（プロトタイプ ops 07 の `.rowsw`）────────
+   **スイッチは押せない。** 3 つとも常に動いていて止める設定を持たない
+   （`staff.tsx` の `ResidencyRule` の注記）。押せる形にすると
+   「切れる」という約束になるので、状態だけを示す。 */
+.pk-ruleswitch {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 0;
+}
+
+.pk-ruleswitch + .pk-ruleswitch {
+  border-top: 1px solid var(--line2);
+}
+
+.pk-ruleswitch__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pk-ruleswitch__title {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.pk-ruleswitch__note {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* 入りっぱなしの状態。**`input` にしない**（押せる形にしない）。 */
+.pk-ruleswitch__state {
+  display: flex;
+  flex: none;
+  align-items: center;
+  width: 40px;
+  height: 22px;
+  padding: 3px;
+  background: var(--ok);
+  border-radius: 999px;
+}
+
+.pk-ruleswitch__knob {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  background: #fff;
+  border-radius: 50%;
+}
+
 /* 棒グラフ（プロトタイプの hb）。値 → 棒 → ラベルの縦積み。 */
 .pk-bars {
   display: flex;
@@ -2900,6 +2978,19 @@ a.pk-tile:hover {
   border-color: var(--info);
 }
 
+/*
+ * 法令の警告。**ここだけ赤を使う。**
+ *
+ * ui-writing.md §3 が赤を戒めるのは「経過時間で急かす」用途で、
+ * 在留期限切れの就業は法令の問題（`ExpiryCell` の `--over` が
+ * `--danger` なのと同じ扱い）。**急かす色として持ち出さないこと。**
+ */
+.pk-alert--danger {
+  color: var(--danger);
+  background: var(--dangerbg);
+  border-color: var(--danger);
+}
+
 /* 警告はオレンジまで。**赤にしない**（INV-05 / 契約 §11.2）。 */
 .pk-alert--warn {
   color: var(--warn);
@@ -3176,12 +3267,12 @@ a.pk-tile:hover {
 
 /* ── 右からスライドインするレイヤー（W-07 / 人間の指示 2026-08-22）──
  *
- * スタッフの詳細と登録をこの中で行う。**開いているかどうかは URL
- * （`?panel=`）が持ち**、中身はサーバーが描く（`staff.tsx` の注記）。
+ * スタッフの詳細・編集・在留資格・登録をこの中で行う。**開いているか
+ * どうかは URL（`?panel=`）が持ち**、中身はサーバーが描く。
  * ここがやるのは置き場所と動きだけで、開閉の状態を CSS に持たせない。
  *
  * `position: fixed` にしてあるので、一覧をどこまでスクロールしていても
- * 同じ場所に出る。幅は 420px を上限に、狭い画面では全幅へ倒す。
+ * 同じ場所に出る。幅は 440px を上限に、狭い画面では全幅へ倒す。
  */
 .pk-drawer {
   position: fixed;
@@ -3191,38 +3282,49 @@ a.pk-tile:hover {
   justify-content: flex-end;
 }
 
-/* 背景の暗幕。**押すと閉じる**（`staff.tsx` は `<Link>` で描く）。 */
+/* 背景の暗幕。**押すと閉じる**（`staff.tsx` は `<Link>` で描く）。
+   奥を少しぼかして、手前の面との距離を出す。 */
 .pk-drawer__scrim {
   position: absolute;
   inset: 0;
-  background: rgb(20 30 25 / 38%);
-  animation: pk-drawer-fade 0.16s ease-out;
+  background: rgb(16 26 21 / 42%);
+  backdrop-filter: blur(2px);
+  animation: pk-drawer-fade 0.18s ease-out;
 }
 
 .pk-drawer__panel {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(420px, 100%);
+  width: min(440px, 100%);
   background: var(--surf);
-  border-left: 1px solid var(--line);
-  box-shadow: -8px 0 24px rgb(20 30 25 / 12%);
-  animation: pk-drawer-in 0.18s ease-out;
+  /* 左肩だけ丸める。右は画面の端に接するので丸めない。 */
+  border-radius: 16px 0 0 16px;
+  box-shadow: -18px 0 48px rgb(16 26 21 / 18%);
+  animation: pk-drawer-in 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* 見出しは**スクロールしても残る。** 長いフォームの途中でも、
+   誰を開いているのかと閉じ方が同時に見えている。 */
 .pk-drawer__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   gap: 12px;
   align-items: center;
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--line);
+  padding: 14px 18px;
+  background: var(--surf);
+  border-bottom: 1px solid var(--line2);
+  border-radius: 16px 0 0;
 }
 
 /* **長い名前で × を押し出さない。** 折り返して見出しが 2 行になる。 */
 .pk-drawer__title {
   min-width: 0;
-  font-size: 14.5px;
+  font-size: 15.5px;
   font-weight: 800;
+  letter-spacing: 0.01em;
 }
 
 /*
@@ -3238,36 +3340,98 @@ a.pk-tile:hover {
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  font-size: 20px;
+  width: 36px;
+  height: 36px;
+  font-size: 19px;
+  line-height: 1;
   color: var(--ink2);
   text-decoration: none;
+  background: var(--surf2);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 50%;
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+
+.pk-drawer__close:hover {
+  color: var(--ink);
+  background: var(--surf3);
 }
 
 /* 中身は縦に流す。**長いフォームでも幕の中だけがスクロールする。** */
 .pk-drawer__body {
   flex: 1;
   min-height: 0;
-  padding: 4px 16px 20px;
+  padding: 0 18px 24px;
   overflow-y: auto;
+}
+
+/* 節の見出し（登録内容 / 在留資格 / アカウント）。
+   **レイヤーが 3 つの塊を持つようになったので、境を字で示す。** */
+.pk-drawer__section {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding-top: 20px;
+  margin-bottom: 2px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.pk-drawer__section::after {
+  flex: 1;
+  height: 1px;
+  content: "";
+  background: var(--line2);
 }
 
 /* 詳細の読み取り項目（スタッフ番号・アカウントの状態）。 */
 .pk-drawer__facts {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 6px 14px;
-  padding: 12px 0;
+  gap: 8px 16px;
+  align-items: center;
+  padding: 16px 0 4px;
   font-size: 12.5px;
-  border-bottom: 1px solid var(--line2);
 }
 
 .pk-drawer__facts dt {
   font-weight: 700;
   color: var(--muted);
+}
+
+/* §1.4 MUST の免責。**小さくしても消さない。** */
+.pk-drawer__disclaimer {
+  padding: 10px 12px;
+  margin: 10px 0 0;
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: var(--muted);
+  background: var(--surf2);
+  border-radius: 8px;
+}
+
+/*
+ * 利用の停止・再開。**編集のフォームと見た目で切る。**
+ * 「保存」を押したつもりで人を止めることが起きないようにするための境。
+ * 節の見出しだけを `--danger` にして、面は淡いままにする
+ * （ui-writing.md §3 が急かす赤を戒めるのと同じ考え方。停止は催促ではない）。
+ */
+.pk-drawer__section--danger {
+  color: var(--danger);
+}
+
+.pk-drawer__section--danger::after {
+  background: var(--danger);
+  opacity: 0.35;
+}
+
+.pk-drawer__body .pk-drawer__danger {
+  padding: 14px;
+  margin-top: 10px;
+  background: var(--dangerbg);
+  border-radius: 10px;
 }
 
 /*
@@ -3279,22 +3443,28 @@ a.pk-tile:hover {
   width: 100%;
   max-width: none;
   padding: 0;
+  margin: 8px 0 0;
   background: none;
   border: 0;
   border-radius: 0;
   box-shadow: none;
 }
 
-/*
- * 利用の停止・再開。**編集のフォームと見た目で切る。**
- * 「保存」を押したつもりで人を止めることが起きないようにするための境で、
- * 色ではなく区切り線と余白で分ける（ui-writing.md §3 が急かす赤を戒める
- * のと同じ考え方。停止は催促ではない）。
- */
-.pk-drawer__body .pk-drawer__danger {
-  padding-top: 18px;
-  margin-top: 22px;
-  border-top: 1px solid var(--line);
+/* 主たる操作（保存する / 登録して案内を作る / 在留資格を記録する）を
+   ブランド色で立てる。**節にひとつだけ。** */
+.pk-drawer__body .pk-form > button[type="submit"] {
+  width: 100%;
+  margin-top: 14px;
+  color: #fff;
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+/* 停止・再開だけは色を変える。**押す先が違うことを色で言う。** */
+.pk-drawer__body .pk-drawer__danger > button[type="submit"] {
+  color: var(--danger);
+  background: var(--surf);
+  border-color: var(--danger);
 }
 
 @keyframes pk-drawer-in {
@@ -3322,6 +3492,10 @@ a.pk-tile:hover {
   .pk-drawer__panel,
   .pk-drawer__scrim {
     animation: none;
+  }
+
+  .pk-drawer__close {
+    transition: none;
   }
 }
 
