@@ -30,7 +30,7 @@
 |---|---|---|
 | 対象環境が合っている | 実行画面の `environment` | **本番に運営担当者ができる。取り消せない** |
 | migration が当たっている | `staging-bootstrap.yml` の `phase=migrate --check` | `platform_bootstrap_token` が無く 500 |
-| `RESEND_API_KEY` が登録済み | `wrangler secret list --env <env>` の名前 | `DELIVERY_REJECTED` で**何も作られない** |
+| `SMTP_PASSWORD` が登録済み | `wrangler secret list --env <env>` の名前 | `DELIVERY_REJECTED` で**何も作られない** |
 | `TWO_FACTOR_ENCRYPTION_KEY` が登録済み | 同上 | パスワードは設定できるが**2FA 登録で詰まる**（PF-17） |
 | 運営担当者がまだ 0 名 | 実行して `OPERATOR_EXISTS` が出なければ 0 名 | 押しても拒否される（害は無い） |
 | 宛先のメールが受け取れる | 本人に確認する | 30 分後に券が切れ、発行から実行し直しになる |
@@ -159,7 +159,7 @@ bootstrap は拒否のままになる。**運営担当者を消す口は用意�
 **押し直しは安全。** 新しい券を出すとき、**未使用の古い券はすべて失効する**
 （有効な開通リンクが 2 本同時に存在しない）。
 
-### `DELIVERY_REJECTED` のときに確かめる 3 点
+### `DELIVERY_REJECTED` のときに確かめる 4 点
 
 **応答はどちらか（経路が未設定 / 送信に失敗）を教えない。**
 分けて返すと、この無認証の口が「この環境はメール送信が未設定」を
@@ -167,16 +167,22 @@ bootstrap は拒否のままになる。**運営担当者を消す口は用意�
 運用者は順に確かめる。
 
 ```
-1. RESEND_API_KEY が対象環境に登録されているか
+1. SMTP_PASSWORD が対象環境に登録されているか
    wrangler secret list --env <env>   ← **名前だけを見る。値は出さない**
 2. 宛先の綴りが正しいか
-3. Resend 側の送信ドメインと差出人が有効か
+3. Lark 側で noreply@stek.ai の SMTP が有効か
+   （MAIL_FROM と SMTP_USERNAME が一致しているか。Lark は差出人の詐称を拒否する）
+4. smtp-send-test を自分宛に実行して、送信経路そのものを確かめる
+   （docs/runbook/smtp.md §3。**開通を試し撃ちに使わない**）
 ```
+
+**「未登録だ」と断定しないこと。** 応答からはどちらか分からない。
+上は**確かめる順序**であって、原因の断定ではない。
 
 **内訳は残っている。** `platform_audit_log` の `detail.cause` に
 `DELIVERY_NOT_CONFIGURED`（経路が無い）か `DELIVERY_SEND_FAILED`
 （送信に失敗）が入る。§7 の引き方で読める。**この列に
-`RESEND_API_KEY` の値も宛先のメールアドレスも入らない。**
+`SMTP_PASSWORD` の値も宛先のメールアドレスも入らない。**
 
 **押し直す前に必ず見ること。**
 

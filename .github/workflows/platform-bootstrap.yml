@@ -167,9 +167,10 @@ jobs:
               # 運用者には**確かめる順序**だけを示す。
               echo "開通リンクを渡せませんでした。**有効な券は残っていません**（作られていないか、失効させました）。"
               echo "もう一度実行する前に、次の順に確かめてください。"
-              echo "  1. RESEND_API_KEY が対象環境に登録されているか（wrangler secret list --env ${{ inputs.environment }} / 名前だけ）"
+              echo "  1. SMTP_PASSWORD が対象環境に登録されているか（wrangler secret list --env ${{ inputs.environment }} / 名前だけ）"
               echo "  2. 宛先の綴りが正しいか"
-              echo "  3. Resend 側の送信ドメインと差出人が有効か"
+              echo "  3. Lark 側で noreply@stek.ai の SMTP が有効か（差出人 MAIL_FROM と SMTP_USERNAME が一致しているか）"
+              echo "  4. smtp-send-test で送信経路そのものを確かめる（docs/runbook/smtp.md §3）"
               echo "  詳しい内訳は platform_audit_log の detail.cause に残っています（docs/runbook/platform-bootstrap.md §8）。" ;;
             INVALID_REQUEST)
               echo "メールアドレスか表示名の形式を確かめてください。" ;;

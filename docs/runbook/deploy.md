@@ -161,6 +161,10 @@ fork からの PR で常に赤くならないようにするため。
 ```bash
 cd apps/web
 
+# メール送信（Lark Mail SMTP / P5-21・DECISIONS #248）。**秘密はこれ 1 本。**
+# host / port / username / 差出人は vars（wrangler.toml）。
+wrangler secret put SMTP_PASSWORD --env production
+# Resend は移行中のみ残す（削除の前提条件は docs/tasks/P5-24.md）。
 wrangler secret put RESEND_API_KEY --env production
 wrangler secret put RESEND_WEBHOOK_SECRET --env production
 wrangler secret put VAPID_PUBLIC_KEY --env production
@@ -250,9 +254,13 @@ wrangler secret put VAPID_PRIVATE_KEY --env staging
 wrangler secret put VAPID_SUBJECT --env staging
 ```
 
-**`RESEND_API_KEY` を staging へ置かない。** 置かなければメールの
-`fetch` そのものが飛ばない（DECISIONS #188）。**外部送信を止める操作は
-「鍵を置かないこと」。**
+**外部送信を止める操作は「鍵を置かないこと」**（DECISIONS #188）。
+いまその鍵は **`SMTP_PASSWORD`** で、置かなければ `canSendMail()` が
+false になり **接続そのものを行わない**（#248）。環境名では分岐しない。
+
+**staging には `SMTP_PASSWORD` を置いてある**（2026-08-21 / 実送信の受信まで
+確認済み / P5-23）。止めたいときは鍵を消す。`RESEND_API_KEY` は
+**もう送信に使われていない**（削除の前提条件は `docs/tasks/P5-24.md`）。
 
 設定済みの**名前だけ**を確認する（値は表示されない）。
 

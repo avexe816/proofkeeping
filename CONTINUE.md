@@ -1,6 +1,46 @@
 # CONTINUE
 
-## 2026-08-21 の追記 その 6（**この節が最新**）
+## 2026-08-21 の追記 その 7（**この節が最新**）
+
+### いまの staging は「入れる・送れる」状態
+
+| 事実 | 状態 |
+|---|---|
+| メール送信 | **Lark Mail SMTP**（P5-21 / DECISIONS #248）。Resend は**もう使っていない** |
+| staging の実送信 | **受信まで確認済み**（P5-23 の `smtp-send-test` / 2026-08-21） |
+| PF-16（運営の開通） | **完了。** `su_pk@stek.ai` へ開通リンクが届き、パスワードを設定済み |
+| PF-17（2FA の登録） | **未完了。** TOTP の登録が通らなかった |
+| PF-19 | **staging だけ 2FA を要求しない**（`PLATFORM_2FA_REQUIRED="false"`） |
+| production | **`"true"` のまま。** そもそも値を読まず常に要求する（コードで固定） |
+| `/plat/*` | **staging で入れることを確認済み**（Cookie を消してから login → status） |
+
+**`RESEND_API_KEY` / `RESEND_WEBHOOK_SECRET` / `RESEND_FROM_ADDRESS` は
+残してある。** 削除の前提条件は **`docs/tasks/P5-24.md`**。
+
+### 残っている宿題
+
+| # | 内容 |
+|---|---|
+| `P5-24` | Resend の削除。**帳票送付（P5-07 / P5-10）と業務通知（P6-08）の実送信確認が揃うまで着手しない** |
+| `P5-22` / OPEN_QUESTIONS #118 | SMTP に webhook が無く、配達・開封・バウンスが分からない。**受信側の実装は残してある** |
+| `PF-17` | staging の 2FA 登録。**再開するときは runbook §10 の確認順序から**（端末の時刻同期・札 10 分・リンク 30 分・5 回 15 分ロック） |
+| `PF-18` / OPEN_QUESTIONS #116 | `db-status` の「表の数」が 0 と出る |
+
+### 申し送り
+
+- **OPEN_QUESTIONS #117 は解決済みへ移した。** 差出人が
+  `noreply@stek.ai` になり、問題そのものが消えた（Resend の Verified
+  ドメインを確認する必要は無くなった）
+- **2FA を戻すときは `wrangler.toml` の `[env.staging.vars]` を `"true"` へ。**
+  手順は `docs/runbook/platform-bootstrap.md` §10。
+  **発行済みの `COMPLETE` の札は最長 12 時間生きる**
+- 運用の文書から Resend 前提の記述を落とした（runbook 5 本と
+  `platform-bootstrap.yml` の案内文）。**仕様書と完了済み task の記述は
+  当時の記録として残してある**
+
+---
+
+## 2026-08-21 の追記 その 6（この節は古い）
 
 ### staging では運営面の 2FA を無効化している（PF-19）
 

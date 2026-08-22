@@ -54,24 +54,6 @@ Claude Code はここに追記して作業を止める。人間が回答した�
   (c) 配信状態を諦める（`DELIVERY_UNCONFIRMED` のまま運用する）。
   実装は後続 task **`docs/tasks/P5-22.md`**。
 
-### #117 staging の `RESEND_FROM_ADDRESS` が実在しない（`billing@example.invalid`）
-- 提起: 2026-08-21 / PF-16 の staging 開通が失敗したとき
-- 内容: 最初の運営担当者の開通（`platform-bootstrap.yml` / staging）が
-  **`DELIVERY_REJECTED`** で失敗した。`RESEND_API_KEY` は登録済みで、
-  デプロイ時の binding 一覧に **`env.RESEND_FROM_ADDRESS
-  ("billing@example.invalid")`** と出ている。`.invalid` は RFC 2606 の
-  予約 TLD で**実在しない**ため、Resend が差出人として拒否したのが
-  有力な原因（内訳は `platform_audit_log` の `detail.cause` が
-  `DELIVERY_SEND_FAILED` か `DELIVERY_NOT_CONFIGURED` かで確定する）。
-- 影響: **メールを送る経路すべて。** 開通リンク（PF-16）だけでなく、
-  請求書の送付・通知（P5 / P6）も staging では届かない。
-  値は secret ではなく `wrangler.toml` の `[env.staging.vars]`。
-- 暫定対応: **推測で書き換えない**（人間の指示 2026-08-21）。
-  **Resend 側で Verified になっている送信元ドメインを確認してから**
-  変更する。確認できるまで staging の開通は通らない。
-- 決める人: 人間。**Resend の Verified ドメイン**（と、そこに置く
-  差出人アドレス）を確定させること。production の値も同じ確認が要る。
-
 ### #116 `staging-bootstrap.yml` の `db-status` が「表の数」を両 shard で 0 と出す
 - 提起: 2026-08-21 / PF-16 着手時（**PF-16 では直さない。別 task**）
 - 内容: `phase=db-status` の出力で、shard-00 / shard-01 とも
@@ -593,6 +575,29 @@ Claude Code はここに追記して作業を止める。人間が回答した�
 ---
 
 ## 解決済
+
+### #117 staging の `RESEND_FROM_ADDRESS` が実在しない（`billing@example.invalid`）
+- 提起: 2026-08-21 / PF-16 の staging 開通が失敗したとき
+- 回答: 2026-08-21 / **P5-21 で送信基盤ごと入れ替わり、問題そのものが消えた**
+- 内容: 最初の運営担当者の開通（`platform-bootstrap.yml` / staging）が
+  **`DELIVERY_REJECTED`** で失敗した。デプロイ時の binding 一覧に
+  **`env.RESEND_FROM_ADDRESS ("billing@example.invalid")`** と出ており、
+  `.invalid` は RFC 2606 の予約 TLD で**実在しない**ため、これが有力な
+  原因だった。**推測で書き換えないという指示**のため触らずに保留していた。
+- 決定: **Resend の Verified ドメインを確認する必要は無くなった。**
+  オーナー判断でメール送信を **Lark Mail SMTP** へ移し（DECISIONS #248 /
+  `docs/tasks/P5-21.md`）、差出人は `MAIL_FROM = "ProofKeeping
+  <noreply@stek.ai>"` になった。`RESEND_FROM_ADDRESS` は**もう読まれない。**
+- 確認できたこと（2026-08-21）:
+  1. `smtp-probe`（staging）が `CONNECT` → `TLS` → `GREETING` → `EHLO` →
+     `AUTH` の広告まで通った
+  2. `smtp-send-test`（staging / P5-23）が `accepted: true`。
+     **受信箱に届き、差出人・件名・本文の日本語表示も確認済み**
+  3. `platform-bootstrap`（staging）が成功し、**開通リンクが届いた**
+- 影響: `RESEND_FROM_ADDRESS` の行は 4 環境の `wrangler.toml` に**残してある**
+  （`RESEND_API_KEY` / `RESEND_WEBHOOK_SECRET` も同様）。削除の前提条件は
+  **`docs/tasks/P5-24.md`** に切り出した — 帳票送付（P5-07 / P5-10）と
+  業務通知（P6-08）の実送信が確認できるまで消さない。
 
 ### #001 フロントエンドフレームワーク
 - 提起: 未着手 / P0-01
