@@ -24,7 +24,7 @@
  * ── 削除と監査ログは同じ D1 batch（**原子的**）────────────
  * `deleteResidencyRecords()` が塊ごとに `[監査ログ, DELETE]` を 1 つの
  * `batch()` で書く。**どちらかが落ちればその塊は丸ごと巻き戻る。**
- * ここで `recordResidencyDeletion()` を後から呼ばないこと —
+ * ここで監査ログを後から書き足さないこと —
  * 別の `await` にした瞬間、間で落ちて「消えたのに記録が無い」状態が
  * 作れてしまう（2026-08-22 の hotfix はまさにそれを塞いだ）。
  *
@@ -35,7 +35,9 @@
  * ── 0 件の回だけは、記録を別に書く ──────────────────────
  * 消す行が無ければ DELETE が 1 文も出ないので、束ねる相手がいない。
  * **「走ったが 0 件」と「走っていない」を区別する**ために、
- * `recordResidencyDeletion()` で 1 行だけ残す。
+ * `recordEmptyResidencyRetentionRun()` で 1 行だけ残す。
+ * **あの関数は件数の引数を持たない**ので、消えた回の記録をそこから
+ * 作ることはできない（DECISIONS #268）。
  *
  * ── 冪等（testing.md §4）─────────────────────────────────
  * 3 回走らせても在留資格の表は同じ。1 回目で消えた行は 2 回目の
@@ -58,7 +60,7 @@ import {
   type TenantContext,
 } from "@pk/db";
 
-import { recordResidencyDeletion } from "../lib/staff/residencyRetentionAudit.js";
+import { recordEmptyResidencyRetentionRun } from "../lib/staff/residencyRetentionAudit.js";
 import { selectResidencyForDeletion } from "../lib/staff/residencyRetention.js";
 
 /** 1 組織 1 回ぶんの結果。**件数だけ。誰のものかを返さない。** */
@@ -91,7 +93,7 @@ export async function runResidencyRetention(
   // 消す行が無い回。**束ねる DELETE がいない**ので、実行したことだけを残す
   // （`photo.retentionDeleted` と同じ判断 / DECISIONS #165）。
   if (targets.length === 0) {
-    await recordResidencyDeletion(env, ctx, { deleted: 0 });
+    await recordEmptyResidencyRetentionRun(env, ctx);
     return { candidates: 0, deleted: 0 };
   }
 

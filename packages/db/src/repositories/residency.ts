@@ -32,9 +32,7 @@ import {
   residencyRecord,
   type ResidencyStatusType,
 } from "../schema/workforce.js";
-import { systemActorId } from "../systemActor.js";
-
-import { auditCountStatement } from "./audit.js";
+import { residencyDeletionAuditStatement } from "./audit.js";
 import { NO_PROPERTY_SCOPE, withTenantScope } from "./base.js";
 
 /** 在留資格 1 件。**番号も国籍も含まない**（そもそも列が無い）。 */
@@ -211,9 +209,6 @@ export async function upsertResidencyRecord(
   return { id: rows[0]?.id ?? id };
 }
 
-/** 削除の記録に使う対象種別。**個人を指す ID を持たない。** */
-export const RESIDENCY_DELETION_TARGET = "residencyRetention";
-
 /**
  * 保存期間を満了した在留資格の記録を**物理削除する**（P8-11）。
  *
@@ -245,7 +240,7 @@ export const RESIDENCY_DELETION_TARGET = "residencyRetention";
  * 監査ログの `deleted` は `chunk.length`（＝候補の数）**ではない。**
  * 選定から DELETE までの間に別の経路で消えている行がありうる。
  * **同じトランザクションの中で、DELETE と同じ条件で DB が数えた値**を
- * 記録する（`auditCountStatement()` の `count`）。
+ * 記録する（`residencyDeletionAuditStatement()` の `count`）。
  *
  * ── 監査ログの並び順 ────────────────────────────────────
  * 監査ログの INSERT を DELETE の**前**に置く。同じトランザクションなので
@@ -282,13 +277,13 @@ export async function deleteResidencyRecords(
 
     const results = await db.batch([
       // ① その瞬間に実在する対象行数を、DB が数えて監査ログへ書く。
-      auditCountStatement(db, ctx, {
-        // 誰も操作していない。**人の ID を借りない**（DECISIONS #164）。
-        actorId: systemActorId(ctx.orgShortId),
-        action: "residency.deleted",
-        targetType: RESIDENCY_DELETION_TARGET,
-        count: sql`(select count(*) from ${residencyRecord} where ${where})`,
-      }),
+      // **渡せるのは数える式だけ。** 操作種別・対象種別・操作者は
+      // `audit.ts` が固定する（`residencyDeletionAuditStatement()`）。
+      residencyDeletionAuditStatement(
+        db,
+        ctx,
+        sql`(select count(*) from ${residencyRecord} where ${where})`,
+      ),
       // ② 同じ条件で消す。①②は同じトランザクション。
       db.delete(residencyRecord).where(where),
     ]);

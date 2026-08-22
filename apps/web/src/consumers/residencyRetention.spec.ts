@@ -235,8 +235,26 @@ describe("runResidencyRetention", () => {
 
     const insert = auditInserts(fake)[0];
     expect(insert?.params).toContain("residency.deleted");
-    // 束ねる DELETE がいないので、こちらは値を束縛する経路（`recordAudit()`）。
+    // 束ねる DELETE がいないので、こちらは値を束縛する経路
+    // （`recordEmptyResidencyRetentionRun()`。**件数は 0 に固定**）。
     expect(insert?.params).toContain('{"deleted":0}');
+  });
+
+  it("**消す回は 0 件用の口を通らない**（`{\"deleted\":0}` を書かない）", async () => {
+    const fake = createFakeD1();
+    const id = staffId("ABCDEFGH");
+
+    await runResidencyRetention(envOf(fake), CTX, {
+      ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: RESIGNED_LONG_AGO })],
+      residency: [residencyRow(id)],
+      businessDate: BUSINESS_DATE,
+    });
+
+    // 0 件用の口は `after` にリテラルを束縛する。**その痕跡が無い。**
+    expect(JSON.stringify(fake.queries)).not.toContain('{\\"deleted\\":0}');
+    for (const query of fake.queries) {
+      expect(query.params).not.toContain('{"deleted":0}');
+    }
   });
 
   it("監査ログの操作者はバッチ（**人の ID を借りない** / DECISIONS #164）", async () => {

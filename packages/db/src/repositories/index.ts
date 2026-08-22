@@ -27,6 +27,7 @@ export {
   listAuditLogsForViewer,
   recordAudit,
   recordAuditDaily,
+  RESIDENCY_DELETION_TARGET,
   type AuditAction,
   type AuditLogFilter,
   type RecordAuditInput,
@@ -561,7 +562,6 @@ export {
   listExpiredResidencyStaffIds,
   listResidencyRecords,
   upsertResidencyRecord,
-  RESIDENCY_DELETION_TARGET,
   type ResidencyRow,
   type UpsertResidencyInput,
 } from "./residency.js";

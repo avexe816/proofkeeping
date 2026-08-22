@@ -3654,16 +3654,15 @@ const INVOCATIONS: Invocation[] = [
   {
     // **実行しないまま返す 1 文。** ここでは `await` して実際に送らせ、
     // 組織条件（`INSERT_WITH_ORG`）の検査を掛ける。
-    name: "audit.auditCountStatement",
+    name: "audit.residencyDeletionAuditStatement",
     kind: "tenant",
     run: async (env, ctx) => {
       const db = await getTenantDb(env, ctx);
-      await auditRepo.auditCountStatement(db, ctx, {
-        actorId: OWN_ID.membership,
-        action: "residency.deleted",
-        targetType: "residencyRetention",
-        count: sql`(select count(*) from ${residencyRecord} where ${eq(residencyRecord.organizationId, ctx.organizationId)})`,
-      });
+      await auditRepo.residencyDeletionAuditStatement(
+        db,
+        ctx,
+        sql`(select count(*) from ${residencyRecord} where ${eq(residencyRecord.organizationId, ctx.organizationId)})`,
+      );
     },
   },
 

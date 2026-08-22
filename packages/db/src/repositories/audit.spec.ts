@@ -12,9 +12,11 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import { generateId } from "../id.js";
+import { getTenantDb } from "../router.js";
 import { MASKED } from "../mask.js";
 import {
   createFakeD1,
@@ -24,7 +26,12 @@ import {
   tenantContext,
 } from "../test-support/fake-d1.js";
 
-import { AUDIT_ACTIONS, recordAudit } from "./audit.js";
+import {
+  AUDIT_ACTIONS,
+  recordAudit,
+  RESIDENCY_DELETION_TARGET,
+  residencyDeletionAuditStatement,
+} from "./audit.js";
 
 const ACTOR = generateId(TEST_ORG.orgShortId, "mem");
 const TARGET = generateId(TEST_ORG.orgShortId, "room");
@@ -207,12 +214,14 @@ describe("INV-30: 監査ログを消せない", () => {
     // 閲覧の記録を 1 日 1 件に畳む口（INV-08 v2 / DECISIONS #261）。
     // **書き込みの口が 2 つになった。** 削除・更新ではないので INV-30 は保つ。
     "recordAuditDaily",
-    // **実行しないまま返す 1 文**（P8-11 hotfix / 2026-08-22）。
+    // **実行しないまま返す 1 文**（P8-11 hotfix / 2026-08-22 / DECISIONS #268）。
     // 物理削除と監査ログを同じ `batch()` へ束ねるために要る。
     // 書き込みの口が 3 つになったが、**削除・更新ではないので INV-30 は保つ**。
     // `auditLog` を触るのがこのファイルだけ、という境界も保つ
     // （呼び出し側は `db.insert(auditLog)` と書かない）。
-    "auditCountStatement",
+    // **汎用の口にしない。** P8-11 専用で、呼び出し側が渡せるのは
+    // 件数を数える式だけ（操作種別・対象種別・操作者はここで固定）。
+    "residencyDeletionAuditStatement",
     "listAuditLogs",
     "listAuditLogsForViewer",
   ];
@@ -239,7 +248,7 @@ describe("INV-30: 監査ログを消せない", () => {
     expect(EXPECTED_FUNCTIONS).toEqual([
       "recordAudit",
       "recordAuditDaily",
-      "auditCountStatement",
+      "residencyDeletionAuditStatement",
       "listAuditLogs",
       "listAuditLogsForViewer",
     ]);
@@ -251,5 +260,76 @@ describe("INV-30: 監査ログを消せない", () => {
       .filter(([, value]) => typeof value === "function")
       .map(([name]) => name);
     expect(functions).toEqual(EXPECTED_FUNCTIONS);
+  });
+});
+
+describe("residencyDeletionAuditStatement（P8-11 / DECISIONS #268）", () => {
+  /** この関数の本文だけを取り出す（コメントの語で検査を通さない）。 */
+  const BODY = (() => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "audit.ts"),
+      "utf8",
+    );
+    const start = source.indexOf("export function residencyDeletionAuditStatement(");
+    return source
+      .slice(start)
+      .split("\n")
+      .filter((line) => {
+        const trimmed = line.trimStart();
+        return !trimmed.startsWith("*") && !trimmed.startsWith("//") && !trimmed.startsWith("/*");
+      })
+      .join("\n");
+  })();
+
+  it("**受け取るのは db・ctx・数える式の 3 つだけ**", () => {
+    // 汎用の口にすると、別の `action` に `{deleted: N}` を書いたり、
+    // 人の ID を操作者に使ったりできてしまう。
+    expect(residencyDeletionAuditStatement).toHaveLength(3);
+    expect(BODY).toContain("count: SQL,");
+  });
+
+  it("**操作種別を呼び出し側から指定できない**（`residency.deleted` に固定）", () => {
+    expect(BODY).toContain('action: "residency.deleted"');
+    expect(BODY).not.toContain("action: input");
+    expect(BODY).not.toContain("action: AuditAction");
+  });
+
+  it("**対象種別を呼び出し側から指定できない**（`residencyRetention` に固定）", () => {
+    expect(RESIDENCY_DELETION_TARGET).toBe("residencyRetention");
+    expect(BODY).toContain("targetType: RESIDENCY_DELETION_TARGET");
+    expect(BODY).not.toContain("targetType: input");
+    expect(BODY).not.toContain("targetType: string");
+  });
+
+  it("**操作者を呼び出し側から指定できない**（system actor に固定）", () => {
+    expect(BODY).toContain("actorId: systemActorId(ctx.orgShortId)");
+    expect(BODY).not.toContain("actorId: input");
+    expect(BODY).not.toContain("actorId: string");
+  });
+
+  it("**載るのは DB が数えた件数だけ**（値も対象 ID も理由も残さない）", () => {
+    expect(BODY).toContain("json_object('deleted', ${count})");
+    expect(BODY).toContain("targetId: null");
+    expect(BODY).toContain("before: null");
+    expect(BODY).toContain("reason: null");
+    expect(BODY).toContain("ip: null");
+  });
+
+  it("実際に発行される INSERT が上の形になっている", async () => {
+    const fake = createFakeD1();
+    const ctx = tenantContext();
+    const db = await getTenantDb(createFakeEnv(fake), ctx);
+
+    await residencyDeletionAuditStatement(db, ctx, sql`(select 0)`);
+
+    const [insert] = fake.queries;
+    expect(insert?.sql.startsWith("insert into")).toBe(true);
+    // 件数は副問い合わせ。**リテラルの JSON を束縛していない。**
+    expect(insert?.sql).toContain("json_object('deleted'");
+    expect(insert?.params).toContain("residency.deleted");
+    expect(insert?.params).toContain(RESIDENCY_DELETION_TARGET);
+    expect(insert?.params).toContain(`${TEST_ORG.orgShortId}__sys_00000000000000000000000000`);
+    expect(insert?.params).toContain(TEST_ORG.organizationId);
+    expect(JSON.stringify(insert?.params)).not.toContain('"deleted"');
   });
 });

@@ -7286,6 +7286,7 @@ typecheck が落ちる。** 24 本の spec がその場で赤くなり、直す�
 
 **3. 監査ログの口を、値を受け取れない形にした。**
 `recordResidencyDeletion(env, ctx, { deleted })` の**引数は件数だけ**で、
+（この口は #268 で `recordEmptyResidencyRetentionRun(env, ctx)` へ狭めた）
 氏名も種別も期限も更新申請日も、**消した相手の ID すら受け取らない。**
 受け取れれば「誰が在留資格を持っていたか」の一覧が監査ログに残り、
 **監査ログ自体が「消したはずの情報」の控えになる。**
@@ -7405,7 +7406,7 @@ typecheck が落ちる。** 24 本の spec がその場で赤くなり、直す�
 
 ```ts
 const deleted = await deleteResidencyRecords(...);   // ① 行が消える
-await recordResidencyDeletion(env, ctx, { deleted }); // ② ここで落ちると…
+await recordResidencyDeletion(env, ctx, { deleted });  // ② ここで落ちると…
 ```
 
 ② が落ちると行はもう無く、retry では対象が 0 件になるので**実際の削除件数を
@@ -7444,9 +7445,15 @@ queue が無く、4 回とも落ちれば**監査ログの行が 1 つも残ら�
   → どちらかが落ちれば、その塊は丸ごと巻き戻る
 ```
 
-- 監査ログの文は **`audit.ts` が組み立てて返す**（`auditCountStatement()`）。
+- 監査ログの文は **`audit.ts` が組み立てて返す**
+  （`residencyDeletionAuditStatement(db, ctx, count)`）。
   `residency.ts` から `auditLog` へ直接 INSERT しない — **`auditLog` を触るのは
-  `audit.ts` だけ**という境界を保つ。`AUDIT_ACTIONS` の理由必須の検査も通る。
+  `audit.ts` だけ**という境界を保つ。
+  **汎用の口にしない。** 呼び出し側が渡せるのは件数を数える式だけで、
+  操作種別（`residency.deleted`）・対象種別（`RESIDENCY_DELETION_TARGET`）・
+  操作者（system actor）・`targetId` / `before` / `reason` / `ip`（すべて `null`）は
+  `audit.ts` が固定する。汎用にすると**別の `action` に `{deleted: N}` を書いたり、
+  人の ID を操作者に使ったり**できてしまい、5 年残る監査ログの語彙が割れる。
 - **件数は DB が数える。** `after` は
   `json_object('deleted', (select count(*) from residency_record where <DELETE と同じ条件>))`。
   **`chunk.length`（＝候補の数）を渡さない** — 選定から DELETE までの間に別経路で
@@ -7454,8 +7461,12 @@ queue が無く、4 回とも落ちれば**監査ログの行が 1 つも残ら�
 - 監査ログの INSERT を DELETE の**前**に置く。同じトランザクションなので、
   DELETE が落ちれば監査ログも巻き戻り、**数える瞬間には行がまだある。**
 - 塊が分かれれば監査ログも塊ごとに 1 行。**合計が実際の削除総数。**
-- **0 件の回だけ**は束ねる DELETE がいないので、`recordResidencyDeletion()` で
-  `deleted: 0` を 1 行残す（「走ったが 0 件」と「走っていない」を分ける）。
+- **0 件の回だけ**は束ねる DELETE がいないので、
+  `recordEmptyResidencyRetentionRun(env, ctx)` で `deleted: 0` を 1 行残す
+  （「走ったが 0 件」と「走っていない」を分ける）。
+  **この関数は引数を持たない。** 件数を受け取れる形にしておくと、将来
+  非 0 の件数をここから別の `await` で書けてしまい、**原子性を回復した
+  ばかりの経路をまた壊せる。**
 
 D1 に `BEGIN`/`COMMIT` は無いが、**`batch()` は 1 つの SQL トランザクションとして
 走り、途中の文が落ちれば全体が巻き戻る**（Cloudflare の仕様。repo でも
@@ -7502,8 +7513,10 @@ D1 に `BEGIN`/`COMMIT` は無いが、**`batch()` は 1 つの SQL トランザ
 ### 影響
 
 - `migration` 無し。列も表も増えていない。
-- `audit.ts` の公開関数が 3 つ目の書き込み口（`auditCountStatement`）を持つ。
-  **削除・更新ではないので INV-30 は保つ。**
+- `audit.ts` の公開関数が 3 つ目の書き込み口
+  （`residencyDeletionAuditStatement`）を持つ。**削除・更新ではないので
+  INV-30 は保つ。** `RESIDENCY_DELETION_TARGET` の定義も `audit.ts` へ寄せた
+  （同じ文字列を複数箇所へ直書きしない）。
 - PK-SPEC-P8 を v1.3 へ。
 - **staging / production への影響は無い** — `resignedOn` を書き込む経路が
   製品に 1 つも無く（`updateStaffLedger()` に呼び出し元が無い）、削除対象が
