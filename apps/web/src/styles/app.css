@@ -3218,12 +3218,21 @@ a.pk-tile:hover {
   border-bottom: 1px solid var(--line);
 }
 
+/* **長い名前で × を押し出さない。** 折り返して見出しが 2 行になる。 */
 .pk-drawer__title {
+  min-width: 0;
   font-size: 14.5px;
   font-weight: 800;
 }
 
-/* 閉じる。**48px 角を確保する**（手袋のままでも押せる寸法 / ui-writing.md §3）。 */
+/*
+ * 閉じる。**左端に置く**（人間の指示 2026-08-22）。
+ *
+ * レイヤーは右端に出るので、右上に置くと**トップバーのログアウトボタンの
+ * 真下**になる。閉じると × ごと消えるため、勢いで 2 回押すと 2 回目が
+ * ログアウトに当たる。**取り返しのつかない操作の真上に、日常的に押す
+ * ボタンを重ねない。**
+ */
 .pk-drawer__close {
   display: flex;
   flex: none;
@@ -3231,7 +3240,6 @@ a.pk-tile:hover {
   justify-content: center;
   width: 40px;
   height: 40px;
-  margin-left: auto;
   font-size: 20px;
   color: var(--ink2);
   text-decoration: none;
