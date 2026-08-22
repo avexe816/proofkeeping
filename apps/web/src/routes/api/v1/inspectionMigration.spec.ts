@@ -58,7 +58,7 @@ const OTHER_ORG_TASK_ID = `zz9zz9__task_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 function depsFor(role: string): TenantDeps {
   return {
     findMembershipByUserId: () =>
-      Promise.resolve({ id: ACTOR_ID, role: role as "PROPERTY_MANAGER", isActive: true }),
+      Promise.resolve({ id: ACTOR_ID, role: role as "PROPERTY_MANAGER", isEffectiveActive: true }),
     listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
   };
 }

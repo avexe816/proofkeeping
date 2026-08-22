@@ -50,7 +50,7 @@ const OTHER_ROOM_TYPE_ID = `${OTHER_ORG_SHORT_ID}__rtyp_01JBXQ3ZK8N4P2VYR6ABCDEF
 
 function deps(role: "ORG_ADMIN" | "CLEANER"): TenantDeps {
   return {
-    findMembershipByUserId: () => Promise.resolve({ id: MEMBERSHIP_ID, role, isActive: true }),
+    findMembershipByUserId: () => Promise.resolve({ id: MEMBERSHIP_ID, role, isEffectiveActive: true }),
     listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
   };
 }

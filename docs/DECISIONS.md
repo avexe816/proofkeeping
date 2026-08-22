@@ -7027,3 +7027,87 @@ W-07 で止めたスタッフが **W-02（シフト）と W-08（研修）の割
 `apps/web/src/lib/staff/edit.ts`（新規）/ `routes/app/staff.tsx` /
 `styles/app.css`（`.pk-drawer*`）/ `locales/ja.json`。
 **migration 無し。表も列も 1 つも足していない。**
+
+---
+
+## #263 停止の判定を `isEffectiveActive` に寄せ、認証境界の穴を塞ぐ
+
+日付: 2026-08-22 / **オーナー判断**（#262 の追加確認で見つかった穴。案 B を採用）
+
+### 何が起きていたか
+
+**停止済みのスタッフの発行済みセッションが、期限まで通り続けていた。**
+
+| 段 | 見ていた旗 | 実際 |
+|---|---|---|
+| ログイン（`login.ts` / `pinLogin.ts`） | `user.isActive` と `membership.isActive` の両方 | **止まる** |
+| 毎リクエストの再検査（`requireAppContext()` / `tenantMiddleware()`） | **`membership.isActive` だけ** | **止まらない** |
+
+無効化が立てるのは `user.isActive`（`setUserActive()`）で、
+**`membership.isActive` を書き換える経路は製品のどこにも無い**
+（`UPDATE membership` は `updateMembershipRole()` の `role` 1 か所だけ）。
+つまり再検査の `if (!membership.isActive)` は**構造上到達不能**で、
+毎リクエストの停止検査が事実上どこにも無い状態だった。
+
+現場系のセッションは**絶対期限 16 時間・延長なし**なので、最悪の場合、
+停止したスタッフが 16 時間そのまま操作できた。「入り直せないのに、
+開いたままの端末では動く」という読みにくい形。
+
+**#262 が持ち込んだ穴ではない。** W-12 の `setMemberActive()` も同じ
+`setUserActive()` を使っており、無効化は以前から同じ状態だった。
+
+### 決定
+
+1. **`findMembershipByUserId()` で `user` を JOIN する。**
+   `membership.isActive`（所属の旗）と `user.isActive`（アカウントの旗）を
+   **両方そのまま返し**、加えて論理積を `isEffectiveActive` として返す。
+   **2 つの旗の意味を上書きしない** — どちらが落ちているかで業務上の
+   意味が違う（OPEN_QUESTIONS #123）。
+2. **認証境界は `isEffectiveActive` だけを見る。**
+   `requireAppContext()`（`/app/*` と、`requireMobileContext()` 経由の
+   `/m/*`）と `tenantMiddleware()`（`/api/v1/*`）の 3 か所。
+   **拒み方は既存仕様のまま**（画面は 302、API は 401）。
+3. **書き込み側は変えない。** W-07 / W-12 の停止・再開は引き続き
+   `user.isActive` を立てる。**2 本の旗を同期させる実装に依存しない**のが
+   この案の要点で、どちらの旗が落ちても認証境界が拾う。
+4. **migration 無し・追加クエリ無し。** JOIN 1 本で、D1 の往復は増えない。
+   `findUserById()` を毎リクエスト足す形にはしない。
+5. **KV のセッション索引は作らない。** 今のキーは `session:{sessionId}` だけで、
+   user → session の逆引きが無い。索引を新設しても KV は結果整合なので
+   JOIN より効くのが遅く、取りこぼしうる。**次のリクエストで止まれば足りる。**
+
+### 型で壊す
+
+`TenantDeps.findMembershipByUserId` の戻り値から `isActive` を外し、
+`isEffectiveActive` を必須にした。**代役（spec の mock）が古い形のままだと
+typecheck が落ちる。** 24 本の spec がその場で赤くなり、直す場所が
+機械的に列挙された。**認証の判定材料を変えるときは、黙って通る形にしない。**
+
+### 検査
+
+- `repositories/membershipActive.spec.ts`（新規・9 件）— 2 つの旗の
+  組み合わせ 4 通り / **JOIN 1 回で完結すること** / `user` 側にも組織条件が
+  載ること / 認証情報の列を選ばないこと。
+- `lib/ui/sessionActive.spec.ts`（新規・7 件）— **3 経路（`/m/*` `/app/*`
+  `/api/v1/*`）を 1 つの表で固定。** 停止 → 拒否 → 再開 → 通過を、
+  **同じ Cookie のまま**通す（KV のセッションを消していないので入り直しは要らない）。
+- **穴を戻すと赤くなることを確認済み。** 判定を `membership.isActive` へ
+  戻すと上記のうち 3 件が落ちる。
+
+### やらなかったこと
+
+- 案 A（停止時に `membership.isActive` も落とす）。効き方は同じだが、
+  **2 本の旗を書き込み側で同期させる約束**になり、片方だけ書く経路を
+  将来作れば同じ穴が空く。
+- 案 C（停止時に KV のセッションを失効させる）。上の 5 のとおり。
+- `login.ts` / `pinLogin.ts` は触っていない。**元から 2 つとも見ている**
+  （`user` 行を別に引いて `found.isActive` を確かめている）ので、
+  判定は変わらない。
+
+### 影響
+
+`packages/db/src/repositories/user.ts`（`findMembershipByUserId` / `MembershipWithUser`）/
+`packages/db/src/repositories/index.ts` /
+`apps/web/src/lib/ui/requireSession.ts` / `apps/web/src/middleware/tenant.ts` /
+新規 spec 2 本 / 代役を持つ spec 24 本。
+**migration 無し。表も列も足していない。停止・再開の処理は 1 行も変えていない。**

@@ -48,7 +48,11 @@ export interface TenantDeps {
     | {
         id: string;
         role: TenantContext["role"];
-        isActive: boolean;
+        /**
+         * **認証境界が見る値**（`membership.isActive && user.isActive`）。
+         * 2 つの旗を別々に見ない（DECISIONS #263）。
+         */
+        isEffectiveActive: boolean;
         /** 発注元ロールの取引先（P5-16）。他ロールは null。 */
         counterpartyId?: string | null;
       }
@@ -96,8 +100,10 @@ export function tenantMiddleware(deps: TenantDeps = DEFAULT_DEPS): MiddlewareHan
     }
 
     if (membership === undefined) return unauthenticated(c);
-    // 無効化された所属。ログイン済みでも、その場で通さない。
-    if (!membership.isActive) return unauthenticated(c);
+    // 無効化。ログイン済みでも、その場で通さない。**2 つの旗の論理積**を
+    // 見る（`membership.isActive` だけだと、停止済みのスタッフの発行済み
+    // セッションが期限まで通り続ける / DECISIONS #263）。
+    if (!membership.isEffectiveActive) return unauthenticated(c);
     // 所属が作り直された（招待し直し等）。古いセッションを使い回させない。
     if (membership.id !== session.membershipId) return unauthenticated(c);
 

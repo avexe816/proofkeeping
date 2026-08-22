@@ -55,7 +55,7 @@ const UNASSIGNED_PROPERTY_ID = `${ORG_SHORT_ID}__prop_01JBXQ3ZK8N4P2VYR6ZZZZZZ`;
 
 const DEPS: TenantDeps = {
   findMembershipByUserId: () =>
-    Promise.resolve({ id: MEMBERSHIP_ID, role: "CLEANER", isActive: true }),
+    Promise.resolve({ id: MEMBERSHIP_ID, role: "CLEANER", isEffectiveActive: true }),
   listAssignedPropertyIds: () => Promise.resolve([PROPERTY_ID]),
 };
 

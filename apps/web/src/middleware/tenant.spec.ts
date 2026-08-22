@@ -40,14 +40,33 @@ const ORG_SHORT_ID = "a1b2c3";
 const USER_ID = `${ORG_SHORT_ID}__usr_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 const MEMBERSHIP_ID = `${ORG_SHORT_ID}__mem_01JBXQ3ZK8N4P2VYR6ABCDEFGH`;
 
+/**
+ * `findMembershipByUserId()` が返す形。**2 つの旗と、その論理積。**
+ * 論理積の作り方はリポジトリ側（`MembershipWithUser`）と同じにしておく
+ * （ここで別の作り方をすると、代役だけ通る組み合わせが生まれる）。
+ */
 interface MembershipRow {
   id: string;
   role: Role;
+  /** 組織ごとの所属の旗。 */
   isActive: boolean;
+  /** アカウントの旗（`setUserActive()` が立てる）。 */
+  userIsActive: boolean;
+  /** **認証境界が見る値。** */
+  isEffectiveActive: boolean;
 }
 
-function membershipOf(overrides: Partial<MembershipRow> = {}): MembershipRow {
-  return { id: MEMBERSHIP_ID, role: "PROPERTY_MANAGER", isActive: true, ...overrides };
+function membershipOf(
+  overrides: Partial<Omit<MembershipRow, "isEffectiveActive">> = {},
+): MembershipRow {
+  const row = {
+    id: MEMBERSHIP_ID,
+    role: "PROPERTY_MANAGER" as Role,
+    isActive: true,
+    userIsActive: true,
+    ...overrides,
+  };
+  return { ...row, isEffectiveActive: row.isActive && row.userIsActive };
 }
 
 interface Harness {
@@ -188,8 +207,29 @@ describe("拒否", () => {
     await expectUnauthenticated(setup({ membership: undefined }));
   });
 
-  it("membership が無効化されている", async () => {
+  // ── 停止の 3 通り（DECISIONS #263）────────────────────────
+  // **どちらの旗が落ちても通さない。** 停止（`setUserActive()`）が立てるのは
+  // `user.isActive` 側で、`membership.isActive` だけを見ていた頃は
+  // 発行済みセッションが期限まで通り続けていた。
+
+  it("所属が無効化されている（membership=false / user=true）", async () => {
     await expectUnauthenticated(setup({ membership: membershipOf({ isActive: false }) }));
+  });
+
+  it("アカウントが停止されている（membership=true / user=false）", async () => {
+    await expectUnauthenticated(setup({ membership: membershipOf({ userIsActive: false }) }));
+  });
+
+  it("両方落ちていれば当然通さない", async () => {
+    await expectUnauthenticated(
+      setup({ membership: membershipOf({ isActive: false, userIsActive: false }) }),
+    );
+  });
+
+  it("両方立っていれば通る", async () => {
+    const harness = setup({ membership: membershipOf() });
+    expect((await harness.request()).status).toBe(204);
+    expect(harness.seen()).not.toBeNull();
   });
 
   it("membership がセッションと食い違う", async () => {
