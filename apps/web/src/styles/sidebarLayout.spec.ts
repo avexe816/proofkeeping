@@ -77,7 +77,9 @@ describe("畳む動き", () => {
   });
 
   it("動きを減らす設定で transition を切る", () => {
-    const reduce = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/.exec(CSS)?.[1];
+    const reduce = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/.exec(
+      CSS,
+    )?.[1];
     expect(reduce).toBeDefined();
     expect(reduce).toMatch(/\.pk-sidebar\b/);
     expect(reduce).toMatch(/\.pk-sidebar__items/);
@@ -105,7 +107,9 @@ describe("畳む動き", () => {
 describe("設定の 2 カラム（DECISIONS #258 / 人間の指示 2026-08-22）", () => {
   /** 作業領域が広いときのブロック（`@container workspace`）。 */
   function wideBlock(): string {
-    const start = CSS.indexOf("@container workspace (min-width: 900px)");
+    // **閾値を書き写さない。** 幅そのものは `settingsNavLayout.spec.ts` が
+    // 見ている（1366px の 125% 拡大に収まるか）。ここは中身の約束だけ。
+    const start = CSS.indexOf("@container workspace (min-width:");
     expect(start, "@container workspace が無い").toBeGreaterThan(-1);
     let depth = 0;
     for (let i = CSS.indexOf("{", start); i < CSS.length; i++) {

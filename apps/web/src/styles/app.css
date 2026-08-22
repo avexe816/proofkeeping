@@ -718,8 +718,20 @@ a.pk-nav:hover {
 /* ── 作業領域が広いとき: 常設の 2 カラム ─────────────────────
    `summary` を隠し、`<details>` の中身を常に開いた形で見せる。
    **UA の「閉じていたら隠す」規則は作成者側の宣言が勝つ**ので
-   `!important` は要らない。`::details-content` は新しい実装ぶん。 */
-@container workspace (min-width: 900px) {
+   `!important` は要らない。`::details-content` は新しい実装ぶん。
+
+   ── 900px → 760px（人間の指摘 2026-08-22「Sub Tree Menu がなくなった」）──
+   閾値は**作業領域**の幅（viewport ではない / `.pk-main` の注記）。
+   900px だと、左のサイドバーを開いた 214px を引いて **viewport 1114px**
+   が必要になる。1366×768 のノートを 125% で使うと viewport は 1093px で、
+   **設定のどの画面でもツリーが 1 行の `⚙ 設定` に畳まる。** 画面の拡大は
+   日本語の業務画面では普通の設定で、そこで畳むのは早すぎた。
+
+   760px なら中身に 552px 残る。表はどれも `.pk-scroll-x` の中で横に
+   流れるので、この幅でも読める（下の実測で確かめてある）。
+   **これ以上は下げないこと。** 552px を切ると `.pk-form` の入力欄と
+   KPI の 4 枚が同時に潰れる。 */
+@container workspace (min-width: 760px) {
   /* ── 2 つの列がそれぞれスクロールする（人間の指示 2026-08-22）──────
      `.pk-main` を 1 つのスクローラにしていた頃は、**設定内ナビが右の
      内容と一緒に流れていった。** 設定は 17 画面あってナビ自身が縦に長く、
@@ -743,6 +755,16 @@ a.pk-nav:hover {
   .pk-settingsnav::details-content {
     display: block;
     content-visibility: visible;
+  }
+
+  /* **`::details-content` を持たない実装のための保険。**
+     上の 1 行が落ちると、`summary` は `display: none` のまま、閉じた
+     `<details>` の中身も UA が隠す。**列が空になり、ツリーが消える。**
+     古い実装の「閉じていたら隠す」は UA スタイルの `display` なので、
+     作成者側の宣言で戻せる（`::details-content` を持つ実装では
+     この宣言は効かず、上の 1 行が効く）。 */
+  .pk-settingsnav:not([open]) > .pk-settingsnav__body {
+    display: block;
   }
 
   /* **スクローラは `<details>` 自身に置く。**
@@ -3364,7 +3386,9 @@ a.pk-tile:hover {
   background: var(--surf2);
   border: 1px solid var(--line);
   border-radius: 50%;
-  transition: background 120ms ease-out, color 120ms ease-out;
+  transition:
+    background 120ms ease-out,
+    color 120ms ease-out;
 }
 
 .pk-drawer__close:hover {
