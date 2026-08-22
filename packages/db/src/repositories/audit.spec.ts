@@ -202,7 +202,14 @@ describe("INV-30: 監査ログを消せない", () => {
   // P7-20 で listAuditLogsForViewer を追加。権限は決めてある:
   // 画面の loader が `finding.read`（監査領域の既存の境界）で門を張り、
   // CLEANER / INSPECTOR は 404、施設スコープは担当施設のみ、読み取り専用。
-  const EXPECTED_FUNCTIONS = ["recordAudit", "listAuditLogs", "listAuditLogsForViewer"];
+  const EXPECTED_FUNCTIONS = [
+    "recordAudit",
+    // 閲覧の記録を 1 日 1 件に畳む口（INV-08 v2 / DECISIONS #261）。
+    // **書き込みの口が 2 つになった。** 削除・更新ではないので INV-30 は保つ。
+    "recordAuditDaily",
+    "listAuditLogs",
+    "listAuditLogsForViewer",
+  ];
 
   it("auditLog に対する update / delete がリポジトリに存在しない", () => {
     // INV-30 / PK-IMPL-CONTRACT §11.4。訂正は新レコードの追加で行う。
@@ -212,7 +219,7 @@ describe("INV-30: 監査ログを消せない", () => {
     }
   });
 
-  it("audit.ts が公開するのは書き込み 1 つと絞り込み付きの読み取りだけ", () => {
+  it("audit.ts が公開するのは書き込み 2 つと絞り込み付きの読み取りだけ", () => {
     // **削除・更新の関数をここへ足さないこと**（INV-30）。
     //
     // P4-12 が `listAuditLogs()` を足した。R010（客室ステータスの手動上書き
@@ -223,7 +230,12 @@ describe("INV-30: 監査ログを消せない", () => {
     // ここは名前の一覧を固定するだけ。**汎用の閲覧・検索・エクスポートを
     // 足すときは、この一覧に載せる前に権限（誰が監査ログを読めるか）を
     // 決めること。**
-    expect(EXPECTED_FUNCTIONS).toEqual(["recordAudit", "listAuditLogs", "listAuditLogsForViewer"]);
+    expect(EXPECTED_FUNCTIONS).toEqual([
+      "recordAudit",
+      "recordAuditDaily",
+      "listAuditLogs",
+      "listAuditLogsForViewer",
+    ]);
   });
 
   it("公開している関数が上の一覧と一致する", async () => {

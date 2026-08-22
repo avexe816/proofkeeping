@@ -39,6 +39,7 @@ import {
   type StaffLedgerView,
 } from "../../lib/staff/ledger.js";
 import { saveResidency, type ResidencySaveResult } from "../../lib/staff/residency.js";
+import { recordResidencyView } from "../../lib/staff/residencyAudit.js";
 import { registerFieldStaff } from "../../lib/staff/register.js";
 import { getEnv } from "../../lib/ui/cloudflare.js";
 import { requireAppContext } from "../../lib/ui/requireSession.js";
@@ -114,7 +115,7 @@ type StaffActionResult =
 export async function loader({ request, context }: LoaderFunctionArgs): Promise<StaffData> {
   const env = getEnv(context);
   const now = new Date();
-  const { tenant } = await requireAppContext(env, request, now);
+  const { session, tenant } = await requireAppContext(env, request, now);
   // **一覧を出す前に権限を見る。** `CLEANER` / `INSPECTOR` / `AUDITOR` は
   // ここで 404（403 はリソースの存在を示唆する / architecture.md §2）。
   assertPermission(tenant, "user.write", propertyTarget(tenant.allowedPropertyIds));
@@ -136,6 +137,14 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     countExpiringResidencies(env, tenant, expiryHorizon),
     listStaffPropertyAssignments(env, tenant),
   ]);
+
+  // 在留資格を実際に読んだときだけ記録する（INV-08 v2 / DECISIONS #261）。
+  // **口はこのファイルに置かない** — ここは初期 PIN を運ぶ画面で、
+  // 監査ログの口と同居させない（`staffScreen.spec.ts`）。
+  // 値も氏名も渡せない形にしてある（`recordResidencyView()` の注記）。
+  if (canReadResidency) {
+    await recordResidencyView(env, tenant, { actorId: session.membershipId });
+  }
 
   return {
     properties: properties.map((property) => ({

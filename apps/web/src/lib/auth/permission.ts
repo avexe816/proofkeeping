@@ -667,13 +667,27 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     AUDITOR: "ORG",
     CLIENT_VIEWER: "DENY",
   },
-  // 在留資格（P8-02 / INV-08）。**運営管理者だけ。**
-  // `OWNER` も `DENY`（INV-08 が名指しで除外している）。
+  // 在留資格（P8-02 / INV-08 v2 / DECISIONS #261）。
+  // **雇用主の側だけが読める。**
+  //
+  // ── `OWNER` を足した（2026-08-22 / オーナー判断）──────
+  // 旧 INV-08 は `OWNER` を名指しで外していたが、その根拠は
+  // 「オーナー＝発注元（施設側）」という読みに立っていた
+  // （OPEN_QUESTIONS #110）。`organization.orgType` は機能の出し分けに
+  // 使わない（DECISIONS #179）ので、**同じ `OWNER` が清掃会社の
+  // 雇用主にもなる。** 在留カードの確認と在留期限の更新管理は
+  // **雇用主の法令上の義務**で、読めない状態は製品の外（表計算など）で
+  // 管理させることになり、かえって危うい。
+  //
+  // **他組織へ渡さない**という旧 INV-08 の狙いは、テナント分離が
+  // そのまま担っている（他組織の行はリポジトリ層で見えない）。
+  //
+  // **広げたのは読みだけ。** 編集（`residency.write`）は運営管理者のまま。
   // `VENDOR_ADMIN` も `DENY` — 清掃会社が自社スタッフの在留資格を見る場合、
   // その人はその組織の `ORG_ADMIN` として入るのが正しい（OPEN_QUESTIONS #110）。
   // `PROPERTY_MANAGER` の「件数のみ」は `countExpiringResidencies()` で表す。
   "residency.read": {
-    OWNER: "DENY",
+    OWNER: "ORG",
     ORG_ADMIN: "ORG",
     PROPERTY_MANAGER: "DENY",
     INSPECTOR: "DENY",
@@ -682,7 +696,9 @@ export const PERMISSION_MATRIX: Record<PermissionAction, Record<Role, Permission
     AUDITOR: "DENY",
     CLIENT_VIEWER: "DENY",
   },
-  // 編集も同じ境界。**読めない相手に書かせない。**
+  // **編集は広げていない。** 読める相手（`OWNER`）と一致しないのは意図的で、
+  // 記録の書き換えを運営管理者に集める（オーナー判断 2026-08-22 /
+  // 「権限の変更は `residency.read` への `OWNER` 追加のみ」）。
   "residency.write": {
     OWNER: "DENY",
     ORG_ADMIN: "ORG",
