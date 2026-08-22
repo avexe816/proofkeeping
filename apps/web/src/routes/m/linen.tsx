@@ -42,11 +42,7 @@ export interface LinenData extends LinenListResponse {
   photoCount: number;
 }
 
-export async function loader({
-  request,
-  params,
-  context,
-}: LoaderFunctionArgs): Promise<LinenData> {
+export async function loader({ request, params, context }: LoaderFunctionArgs): Promise<LinenData> {
   const env = getEnv(context);
   const now = new Date();
   const { tenant, locale } = await requireMobileContext(env, request, now);
@@ -115,6 +111,9 @@ export default function LinenRoute(): React.ReactElement {
   // 業務ルールの実装でもない / CLAUDE.md §5）。
   const needsPhoto = damageReported && photoTotal === 0;
 
+  // 回収枚数の欄を出した品目（DECISIONS #253）。送信でも同じ集合を使う。
+  const collectedCodes = new Set<string>(data.collectedItemCodes);
+
   const submit = (): void => {
     setSending(true);
     void (async () => {
@@ -124,7 +123,9 @@ export default function LinenRoute(): React.ReactElement {
         body: {
           entries: data.enabledItemCodes.map((code) => ({
             itemCode: code,
-            collectedQty: items[code]?.collectedQty ?? 0,
+            // 欄を出していない品目に手元の値を載せない（DECISIONS #253）。
+            // 経路①の品目は観察記録（M-05b）の列が正で、ここは 0 のまま。
+            collectedQty: collectedCodes.has(code) ? (items[code]?.collectedQty ?? 0) : 0,
             // 供給枚数は現場で数えない（§4.3 のワイヤーは回収のみ）。
             suppliedQty: 0,
             damagedQty: items[code]?.damagedQty ?? 0,
@@ -141,7 +142,12 @@ export default function LinenRoute(): React.ReactElement {
   if (!data.requireLinen || data.enabledItemCodes.length === 0) {
     return (
       <>
-        <Head roomNumber={data.roomNumber} taskId={data.taskId} label={t("m.linen.title")} back={t("m.linen.back")} />
+        <Head
+          roomNumber={data.roomNumber}
+          taskId={data.taskId}
+          label={t("m.linen.title")}
+          back={t("m.linen.back")}
+        />
         <main className="pk-m-body">
           <p className="pk-m-empty">{t("m.linen.notRequired")}</p>
           <Link className="pk-m-button pk-m-button--secondary" to={`/m/task/${data.taskId}`}>
@@ -154,24 +160,33 @@ export default function LinenRoute(): React.ReactElement {
 
   return (
     <>
-      <Head roomNumber={data.roomNumber} taskId={data.taskId} label={t("m.linen.title")} back={t("m.linen.back")} />
+      <Head
+        roomNumber={data.roomNumber}
+        taskId={data.taskId}
+        label={t("m.linen.title")}
+        back={t("m.linen.back")}
+      />
 
       <main className="pk-m-body">
-        <section className="pk-m-obs">
-          <p className="pk-m-section">{t("m.linen.collected")}</p>
-          {data.enabledItemCodes.map((code) => (
-            <LinenStepper
-              key={code}
-              label={t(`m.obs.item.${code}` as MessageKey)}
-              value={items[code]?.collectedQty ?? 0}
-              minusLabel={t("m.obs.minus")}
-              plusLabel={t("m.obs.plus")}
-              onChange={(value) => {
-                update(code, { collectedQty: value });
-              }}
-            />
-          ))}
-        </section>
+        {/* 有効な品目がすべて経路①だと欄が 1 つも無くなる。**見出しだけの
+            節を出さない**（DECISIONS #253）。破損・汚損の節は下でそのまま出る。 */}
+        {data.collectedItemCodes.length === 0 ? null : (
+          <section className="pk-m-obs">
+            <p className="pk-m-section">{t("m.linen.collected")}</p>
+            {data.collectedItemCodes.map((code) => (
+              <LinenStepper
+                key={code}
+                label={t(`m.obs.item.${code}` as MessageKey)}
+                value={items[code]?.collectedQty ?? 0}
+                minusLabel={t("m.obs.minus")}
+                plusLabel={t("m.obs.plus")}
+                onChange={(value) => {
+                  update(code, { collectedQty: value });
+                }}
+              />
+            ))}
+          </section>
+        )}
 
         {showDamage ? (
           <section className="pk-m-obs">

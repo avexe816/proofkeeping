@@ -71,6 +71,33 @@ export const ITEM_CODES = [...LINEN_ITEM_CODES, ...AMENITY_ITEM_CODES] as const;
 
 export const itemCodeSchema = z.enum(ITEM_CODES);
 
+/**
+ * 観察記録（§2.1）の**列**から値を採る品目（DECISIONS #253）。
+ *
+ * ベースラインの経路は ①観察記録の列 → ②`amenitiesUsed`（JSON）→
+ * ③`linenRecord.collectedQty` の優先順で、**同じ品目は最初の 1 つだけ
+ * を採る**（`packages/engine/src/baselineSamples.ts`）。ここに載る品目は
+ * 経路①で確定するので、**リネン画面の「回収枚数」に入力欄を出さない。**
+ * 現場が入れられるのに集計で捨てられる欄を作らないため。
+ *
+ * **破損・汚損の欄は別。** あちらは P5 の請求根拠で、経路①は枚数を
+ * 捨てていない（§4.3）。**M-05b のステッパーも残す**（値を採っている
+ * のはそちら）。M-05b 側の二重表示は別件 — OPEN_QUESTIONS #120。
+ *
+ * **`packages/engine` の `OBSERVATION_ITEM_COLUMNS` と同じ集合であること。**
+ * engine は依存を持てないので写しになる。一致は
+ * `apps/web/src/lib/observation/itemCodes.spec.ts` が見る。
+ */
+export const OBSERVATION_COLUMN_ITEM_CODES = [
+  "BATH_TOWEL",
+  "FACE_TOWEL",
+  "HAND_TOWEL",
+  "BATH_MAT",
+  "SLIPPERS",
+  "CUP",
+  "EXTRA_FUTON",
+] as const;
+
 export type ItemCodeValue = (typeof ITEM_CODES)[number];
 
 /** 個数の上限。**誤入力の門番**（上のコメント）。 */
@@ -346,6 +373,15 @@ export const linenListResponseSchema = z.object({
   data: z.array(linenRecordSchema),
   /** 画面に出す品目（§2.5 MUST の有効・無効を適用済み）。 */
   enabledItemCodes: z.array(itemCodeSchema),
+  /**
+   * そのうち**「回収枚数」の入力欄を出す品目**（DECISIONS #253）。
+   * `enabledItemCodes` から `OBSERVATION_COLUMN_ITEM_CODES` を除いたもの。
+   *
+   * 経路①（観察記録の列）から値を採る品目は、集計で回収枚数が使われない。
+   * **入力できるのに捨てられる欄を作らない**ので、そこだけ欄を出さない。
+   * 破損・汚損は用途が違う（§4.3）ため `enabledItemCodes` のまま出す。
+   */
+  collectedItemCodes: z.array(itemCodeSchema),
   /** 施設設定で退室前のリネン記録を出すか（§4.3）。 */
   requireLinen: z.boolean(),
 });

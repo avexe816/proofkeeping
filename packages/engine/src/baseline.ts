@@ -101,6 +101,24 @@ export interface BaselineResult extends BaselineGroupKey {
   isReliable: boolean;
 }
 
+/**
+ * ①の自己停止が働いた集計キー（§5.3「①の自己停止」/ DECISIONS #253）。
+ *
+ * **除外ではないので `baselineExclusionLog` には載らない。** 0 を標本に
+ * 残したうえで「前提のほうを人手で確かめてほしい」と申し送るためのもの。
+ * 呼び出し側（週次バッチ）がログへ流す。
+ */
+export interface BaselineZeroReview extends BaselineGroupKey {
+  /** `propertyId|roomTypeId|guestCount|taskType|itemCode`。 */
+  key: string;
+  /** グループの件数（自己停止の判定に使った分母）。 */
+  sampleSize: number;
+  /** そのうち「値 0 かつ bedsUsed > 0」だった件数。 */
+  zeroCount: number;
+  /** `zeroCount / sampleSize`。小数第 4 位で丸める。 */
+  zeroRate: number;
+}
+
 /** 除外した観察 1 件。`baselineExclusionLog` の 1 行になる（§5.3 MUST）。 */
 export interface BaselineExclusion extends BaselineGroupKey {
   observationId: string;
@@ -122,6 +140,8 @@ export interface BaselineComputation {
   exclusions: BaselineExclusion[];
   /** 入力のうち集計対象になった件数（除外率の分母）。 */
   consideredCount: number;
+  /** ①の自己停止が働いた集計キー（§5.3）。無ければ空配列。 */
+  zeroReviews: BaselineZeroReview[];
 }
 
 export interface BaselineOptions {
@@ -167,8 +187,7 @@ export function percentile(sortedValues: readonly number[], p: number): number {
 export function standardDeviation(values: readonly number[]): number {
   if (values.length === 0) return 0;
   const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
-  const variance =
-    values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
+  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
   return Math.sqrt(variance);
 }
 
@@ -243,14 +262,33 @@ function exclusionOf(
  * **シーツ（`SHEET_SINGLE` / `SHEET_DOUBLE`）も入れていない。**
  * ベッドの種類に依存し、片方は 0 が正常。
  */
-export const ALWAYS_CONSUMED_ITEM_CODES = [
-  "DUVET_COVER",
-  "PILLOW_CASE",
-  "BATH_TOWEL",
-] as const;
+export const ALWAYS_CONSUMED_ITEM_CODES = ["DUVET_COVER", "PILLOW_CASE", "BATH_TOWEL"] as const;
 
 /** 除外ルール①を当てる清掃種別。**退室清掃だけ**（上の注記 2）。 */
 const ZERO_RULE_TASK_TYPE = "CHECKOUT";
+
+/**
+ * ①の自己停止（§5.3「①の自己停止」/ DECISIONS #253）。集計キー単位で
+ * 「値 0 かつ `bedsUsed > 0`」がこの比率を超えたら、そのキーでは①を当てない。
+ *
+ * **歯止めは除外を止めるだけで、除外を増やすことはない。** 当たらなく
+ * なった 0 は標本に残るので、ベースラインは下がる側（＝差異を拾う側）に
+ * しか動かない。見逃しを増やす方向へは倒れない。
+ *
+ * 30% は除外率の警告 15%（§5.3 MUST）の 2 倍。①だけで 3 割を超えるなら、
+ * 「0 は入力漏れ」という前提のほうが誤っている可能性が高い。
+ * **前提が誤っていたときに標本を全部消さないための歯止め。**
+ */
+export const ZERO_RULE_SELF_STOP_RATE = 0.3;
+
+/**
+ * 自己停止が働くために要る最小のグループ件数（同）。
+ *
+ * これが無いと 2 件中 1 件で 50% になり、比率が意味を持たないまま止まる。
+ * 5 件未満のグループは `isReliable`（20 件）に届かないので、①が当たって
+ * 消えても P4 の判定には効かない（効くのは除外率の目盛りだけ）。
+ */
+export const ZERO_RULE_SELF_STOP_MIN_SAMPLES = 5;
 
 /**
  * 除外ルール①に当たるか。**品目と清掃種別の両方で絞る。**
@@ -262,6 +300,40 @@ function isZeroWithBedsUsed(sample: ObservationSample): boolean {
   if (sample.taskType !== ZERO_RULE_TASK_TYPE) return false;
   if (!(ALWAYS_CONSUMED_ITEM_CODES as readonly string[]).includes(sample.itemCode)) return false;
   return sample.qty === 0 && sample.bedsUsed > 0;
+}
+
+/**
+ * その集計キーで①を当てるか（§5.3「①の自己停止」/ DECISIONS #253）。
+ *
+ * 集計キーは `taskType` と `itemCode` を含むので、**グループの中では
+ * ①の対象かどうかが全件で揃う。** 対象でなければ比率を数える意味も無い。
+ *
+ * 自己停止したキーは `review` を返す。**除外ではないので
+ * `baselineExclusionLog` には載せない。**
+ */
+function zeroRuleDecisionOf(
+  key: BaselineGroupKey,
+  keyString: string,
+  bucket: readonly ObservationSample[],
+): { applies: boolean; review: BaselineZeroReview | null } {
+  const zeroCount = bucket.filter(isZeroWithBedsUsed).length;
+  // 対象外の品目・清掃種別（`isZeroWithBedsUsed` が全件 false）。
+  if (zeroCount === 0) return { applies: true, review: null };
+  if (bucket.length < ZERO_RULE_SELF_STOP_MIN_SAMPLES) return { applies: true, review: null };
+
+  const zeroRate = zeroCount / bucket.length;
+  if (zeroRate <= ZERO_RULE_SELF_STOP_RATE) return { applies: true, review: null };
+
+  return {
+    applies: false,
+    review: {
+      ...key,
+      key: keyString,
+      sampleSize: bucket.length,
+      zeroCount,
+      zeroRate: round(zeroRate),
+    },
+  };
 }
 
 /**
@@ -288,13 +360,19 @@ function isZeroWithBedsUsed(sample: ObservationSample): boolean {
  *   2. **清掃種別**: `CHECKOUT` の標本だけ。滞在中清掃（`STAYOVER`）では
  *      リネンを交換しない運用があり、**0 が正常**。そこで除外すると
  *      母数が「交換した回」だけになる。
+ *
+ * ── ①の自己停止（DECISIONS #253）─────────────────────────
+ * 1 と 2 を満たしても、そのグループで 0 が多すぎれば①を当てない。
+ * `zeroRuleApplies` を**グループの走査が決めて渡す。**1 件ごとには
+ * 決められない（比率はグループを見ないと出ない）。
  */
 function outlierReasonOf(
   sample: ObservationSample,
   provisionalMedian: number,
   repeated: ReadonlySet<string>,
+  zeroRuleApplies: boolean,
 ): BaselineExclusionReasonValue | null {
-  if (isZeroWithBedsUsed(sample)) return "ZERO_WITH_BEDS_USED";
+  if (zeroRuleApplies && isZeroWithBedsUsed(sample)) return "ZERO_WITH_BEDS_USED";
 
   if (provisionalMedian > 0 && sample.qty > provisionalMedian * OUTLIER_MEDIAN_MULTIPLIER) {
     return "OVER_MEDIAN_5X";
@@ -356,13 +434,22 @@ export function computeBaseline(
 
   // ── ③ 統計量（§5.2 の 3.）────────────────────────────
   const baselines: BaselineResult[] = [];
+  const zeroReviews: BaselineZeroReview[] = [];
   for (const [key, bucket] of groups) {
     const provisional = [...bucket].map((sample) => sample.qty).sort((a, b) => a - b);
     const provisionalMedian = percentile(provisional, 50);
 
+    const first = bucket[0];
+    /* c8 ignore next -- グループは 1 件以上あるため通らない */
+    if (first === undefined) continue;
+
+    // ①を当てるかはグループ単位で決まる。**1 件ごとに判定しない。**
+    const zeroRule = zeroRuleDecisionOf(groupKeyOf(first), key, bucket);
+    if (zeroRule.review !== null) zeroReviews.push(zeroRule.review);
+
     const kept: number[] = [];
     for (const sample of bucket) {
-      const reason = outlierReasonOf(sample, provisionalMedian, repeated);
+      const reason = outlierReasonOf(sample, provisionalMedian, repeated, zeroRule.applies);
       if (reason === null) kept.push(sample.qty);
       else exclusions.push(exclusionOf(sample, reason));
     }
@@ -370,9 +457,6 @@ export function computeBaseline(
     if (kept.length === 0) continue;
 
     const values = kept.sort((a, b) => a - b);
-    const first = bucket[0];
-    /* c8 ignore next -- グループは 1 件以上あるため通らない */
-    if (first === undefined) continue;
     baselines.push({
       ...groupKeyOf(first),
       key,
@@ -394,5 +478,7 @@ export function computeBaseline(
     return keyA < keyB ? -1 : keyA > keyB ? 1 : 0;
   });
 
-  return { baselines, exclusions, consideredCount };
+  zeroReviews.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+
+  return { baselines, exclusions, consideredCount, zeroReviews };
 }
