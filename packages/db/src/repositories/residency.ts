@@ -22,10 +22,11 @@
  * 到達の制限は `residency.read`（`ORG_ADMIN` のみ組織全体）が担う。
  */
 
-import { and, eq, isNotNull, lte, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
+import { chunkIdsForInArray } from "../limits.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import {
   residencyRecord,
@@ -206,4 +207,52 @@ export async function upsertResidencyRecord(
     )
     .limit(1);
   return { id: rows[0]?.id ?? id };
+}
+
+/**
+ * 保存期間を満了した在留資格の記録を**物理削除する**（P8-11）。
+ *
+ * task: docs/tasks/P8-11.md
+ *
+ * ── 消してよいかを、ここで判断しない ────────────────────
+ * 受け取るのは `staff_pay_profile.id` の配列だけ。**退職日も経過日数も
+ * 見ない。** 判定は `lib/staff/residencyRetention.ts` の純粋関数が行い、
+ * ここは言われたものを消すだけにする（判定が 2 か所にあると、
+ * 片方だけ直したときに消しすぎる）。
+ *
+ * ── 物理削除にする ──────────────────────────────────────
+ * 訂正の履歴を残す帳票や `EvidenceSnapshot` と違い、**在留資格は
+ * 「持たないこと」に意味がある。** 論理削除の列を作らない。
+ *
+ * ── 冪等 ────────────────────────────────────────────────
+ * 2 回目は消す行が無いので 0 を返す。**呼び出し側が件数で分岐しない
+ * かぎり、何度実行しても結果は変わらない。**
+ *
+ * @returns 実際に消えた行数。
+ */
+export async function deleteResidencyRecords(
+  env: Env,
+  ctx: TenantContext,
+  staffProfileIds: readonly string[],
+): Promise<number> {
+  if (staffProfileIds.length === 0) return 0;
+  for (const staffProfileId of staffProfileIds) assertIdBelongsToTenant(staffProfileId, ctx);
+
+  const db = await getTenantDb(env, ctx);
+  let deleted = 0;
+  // D1 の束縛変数の上限を超えないように分ける（`chunkIdsForInArray()`）。
+  for (const chunk of chunkIdsForInArray(staffProfileIds)) {
+    const result = await db
+      .delete(residencyRecord)
+      .where(
+        withTenantScope(
+          residencyRecord,
+          ctx,
+          NO_PROPERTY_SCOPE,
+          inArray(residencyRecord.staffProfileId, [...chunk]),
+        ),
+      );
+    deleted += result.meta.changes;
+  }
+  return deleted;
 }

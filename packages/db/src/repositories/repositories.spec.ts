@@ -3647,6 +3647,15 @@ const INVOCATIONS: Invocation[] = [
         updatedById: OWN_ID.membership,
       }),
   },
+  // ── P8-11 保存期間の満了で消す（同 §1.4）─────────────────
+  {
+    name: "residency.deleteResidencyRecords",
+    kind: "tenant",
+    run: (env, ctx) => residencyRepo.deleteResidencyRecords(env, ctx, [OWN_ID.staffProfile]),
+    // 別組織のスタッフ ID を渡して消せてはならない。
+    crossTenant: (env, ctx) =>
+      residencyRepo.deleteResidencyRecords(env, ctx, [OTHER_ID.staffProfile]),
+  },
 ];
 
 /** 組織条件を検査する対象。**`pure` の関数だけを外す。** */

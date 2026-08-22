@@ -110,6 +110,21 @@ export const AUDIT_ACTIONS = {
    * 監査ログへ写さない（`residency.updated` の注記と同じ考え方）。
    */
   "residency.viewed": { requiresReason: false },
+  /**
+   * 在留資格の**保存期間の満了による物理削除**（P8-11 / PK-SPEC-P8 §1.4）。
+   *
+   * 退職日から 3 年が経過した記録をバッチが消す。**取り返しがつかない**
+   * ので、走ったこと自体を残す（`photo.retentionDeleted` と同じ形。
+   * **0 件でも記録する** — 「走ったが 0 件」と「走っていない」を
+   * 区別できないと、消えていない理由を追えない）。
+   *
+   * **`after` に載せてよいのは件数だけ。** 氏名・種別・期限・更新申請日を
+   * 載せないこと。載せると、**監査ログが「消したはずの情報」の控えになる**
+   * （P8-11「削除済みの在留資格の情報を監査ログから復元できる形にしない」）。
+   * 口は `lib/staff/residencyRetentionAudit.ts` の `recordResidencyDeletion()` に
+   * 絞ってあり、**値を引数に取れない。**
+   */
+  "residency.deleted": { requiresReason: false },
   /** スタッフ台帳の更新（P8-01）。在籍・言語・スキルの変更。 */
   "staffLedger.updated": { requiresReason: false },
   // パスワードの再発行（管理系の資格情報。PIN リセットと同じ扱い）。

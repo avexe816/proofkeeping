@@ -6,6 +6,8 @@
  *   - 0 件なら送らない
  *   - 本文に個人名が無い（人数だけ）
  *   - 1 日 1 通に畳まれる（`dedupeKey`）
+ *   - **退職者へ更新の通知が飛ばない**（P8-11 の完了条件）
+ *   - 保存期間を満了した在留資格を、同じバッチが消す（P8-11）
  */
 
 import type { Env } from "@pk/db";
@@ -54,10 +56,19 @@ function envWith(fake: FakeD1, recorder: Recorder): Env {
  *   ② `listStaffLedger()`（id / membership / hired / resigned / status / lang / skills / note）
  *   ③ `listResidencyRecords()`（id / staff / type / label / expires / renewal / permit / limit / note）
  */
-function prime(fake: FakeD1, input: { expiresOn: string | null; renewalAppliedOn?: string | null; workStatus?: string }): void {
+function prime(fake: FakeD1, input: { expiresOn: string | null; renewalAppliedOn?: string | null; workStatus?: string; resignedOn?: string | null }): void {
   fake.enqueueRows([[TEST_ORG.organizationId]]);
   fake.enqueueRows([
-    [STAFF_ID, MEMBER_ID, null, null, input.workStatus ?? "ACTIVE", "[]", "[]", null],
+    [
+      STAFF_ID,
+      MEMBER_ID,
+      null,
+      input.resignedOn ?? null,
+      input.workStatus ?? "ACTIVE",
+      "[]",
+      "[]",
+      null,
+    ],
   ]);
   fake.enqueueRows([
     [
@@ -176,6 +187,31 @@ describe("runResidencyAlert", () => {
     const outcome = await runResidencyAlert(envWith(fake, rec), MESSAGE);
 
     expect(outcome).toEqual({ kind: "OK", total: 0, notified: false });
+  });
+
+  it("保存期間を満了した在留資格を、同じバッチが消す（P8-11）", async () => {
+    const fake = createFakeD1();
+    const rec: Recorder = { notifications: [] };
+    // 2023-08-20 退職 → 業務日 2026-08-20 でちょうど 3 年。
+    prime(fake, { expiresOn: "2024-03-31", workStatus: "RESIGNED", resignedOn: "2023-08-20" });
+
+    const outcome = await runResidencyAlert(envWith(fake, rec), MESSAGE);
+
+    expect(outcome).toEqual({ kind: "OK", total: 0, notified: false });
+    // **退職者へ更新の通知は飛ばない。** 消えるだけ。
+    expect(rec.notifications).toHaveLength(0);
+    const del = fake.queries.find((query) => query.sql.startsWith("delete from"));
+    expect(del?.params).toContain(STAFF_ID);
+  });
+
+  it("在職中は在留期限が切れていても消さない（P8-11）", async () => {
+    const fake = createFakeD1();
+    const rec: Recorder = { notifications: [] };
+    prime(fake, { expiresOn: "2020-03-31" });
+
+    await runResidencyAlert(envWith(fake, rec), MESSAGE);
+
+    expect(fake.queries.some((query) => query.sql.startsWith("delete from"))).toBe(false);
   });
 });
 

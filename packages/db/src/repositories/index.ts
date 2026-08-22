@@ -557,6 +557,7 @@ export {
 // （`PROPERTY_MANAGER` には件数のみ / INV-08）。
 export {
   countExpiringResidencies,
+  deleteResidencyRecords,
   listExpiredResidencyStaffIds,
   listResidencyRecords,
   upsertResidencyRecord,
