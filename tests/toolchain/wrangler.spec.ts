@@ -168,14 +168,23 @@ describe("P0-02 wrangler.toml の構成", () => {
     /**
      * 運営面の第 2 要素（PF-19 / DECISIONS #250）。
      *
-     * **`false` を書いてよいのは staging だけ。** production に `false` が
-     * 紛れ込んでも `twoFactorPolicy.ts` が読まないが、**設定の側でも
-     * 見つかるようにする**（気づくのが早いほど直しやすい）。
+     * **いまはどの環境も要求する。** staging の `"false"` は
+     * 2026-08-22 に戻した（原因は端末の時刻ずれ系で、登録も成功した）。
+     *
+     * **`false` を書いてよいのは staging だけ**という約束は変えていない。
+     * production に `false` が紛れ込んでも `twoFactorPolicy.ts` が読まないが、
+     * **設定の側でも見つかるようにする**（気づくのが早いほど直しやすい）。
+     * 再び staging を止めるときは、ここの期待値も一緒に動かすこと。
      */
-    it("vars に PLATFORM_2FA_REQUIRED があり、false は staging だけ", () => {
+    it("vars に PLATFORM_2FA_REQUIRED があり、いまはどの環境も `true`", () => {
       const value = section.vars?.["PLATFORM_2FA_REQUIRED"];
       expect(value, label).toBeTypeOf("string");
-      expect(value, label).toBe(label === "staging" ? "false" : "true");
+      expect(value, label).toBe("true");
+    });
+
+    it("**production は `false` にできない**（設定の側でも止める）", () => {
+      if (label !== "production") return;
+      expect(section.vars?.["PLATFORM_2FA_REQUIRED"]).not.toBe("false");
     });
 
     it("vars に ENVIRONMENT と APP_BASE_URL がある", () => {

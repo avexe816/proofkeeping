@@ -232,14 +232,14 @@ cd "$(git rev-parse --show-toplevel)"
 
 ## 10. 運営面の 2 段階認証を切り替える（PF-19）
 
-**staging は現在 2FA を要求していない**（`PLATFORM_2FA_REQUIRED = "false"`）。
-TOTP の登録が繰り返し通らず運営画面へ入れなくなったための措置で、
-**2FA の実装・表・列は 1 つも消していない**（DECISIONS #250）。
+**いまはどの環境も 2FA を要求している。** staging の一時的な無効化は
+**2026-08-22 に解除した**（原因は端末の時刻ずれ系で、登録も成功していた /
+DECISIONS #250 の追記）。**スイッチの実装は残してある。**
 
 | 環境 | 値 | 実際の挙動 |
 |---|---|---|
 | local / preview | `"true"` | 要求する |
-| **staging** | **`"false"`** | **要求しない** |
+| staging | `"true"` | 要求する（**`"false"` にできる唯一の環境**） |
 | **production** | `"true"` | **常に要求する。`"false"` にしても効かない** |
 
 **production は値を読まない。** `lib/platform/twoFactorPolicy.ts` が
@@ -259,12 +259,12 @@ TOTP の登録が繰り返し通らず運営画面へ入れなくなったため
 監査ログには `platform.login` が `detail: { secondFactor: "NONE",
 twoFactorRequired: false }` で残る。**secret・TOTP・復旧コードは入らない。**
 
-### 再有効化の手順
+### 切り替えの手順（止めるときも、戻すときも）
 
 ```bash
-# 1. wrangler.toml の [env.staging.vars] を "true" に戻す
-#    （tests/toolchain/wrangler.spec.ts が値を見ているので、テストも直す）
-# 2. デプロイ
+# 1. wrangler.toml の [env.staging.vars] の値を変える
+#    （tests/toolchain/wrangler.spec.ts が値を見ているので、テストも一緒に直す）
+# 2. デプロイ（main への merge でも自動で走る）
 cd apps/web
 CLOUDFLARE_ENV=staging pnpm build
 wrangler deploy
@@ -275,6 +275,31 @@ wrangler deploy
 戻したあと、運営担当者は次のログインで `/plat/2fa/setup` へ送られ、
 TOTP を登録し直すことになる（**登録済みの secret は残っているので、
 `/plat/2fa` で認証できる**）。
+
+### 実績 — 2026-08-21 の登録失敗は「端末の時刻ずれ系」だった
+
+監査ログで切り分けられた。**決め手は `platform.2fa.failed` の有無。**
+
+| | 時刻ずれ（今回） | 札の 10 分の期限切れ |
+|---|---|---|
+| `2fa.failed`（`phase: "enroll"`） | **行が残る**（検証まで届く） | **1 行も残らない**（404 で検証に入らない） |
+
+実際の並び（JST）: `bootstrap.completed` 01:10:42 → `2fa.failed` 5 回
+（01:14:34 と 01:36:50〜01:38:18）→ **45 分空けて** `2fa.enrolled` 02:23:20 →
+`platform.login (TOTP)` 02:23:20。**5 回でロックに当たっている。**
+
+読み方は次のとおり。
+
+```sql
+-- SHARD_00 に対して。platform_* は SHARD_00 にしか無い。SELECT のみ。
+SELECT action, detail, created_at
+FROM platform_audit_log
+WHERE action IN ('platform.bootstrap.completed','platform.2fa.failed',
+                 'platform.2fa.enrolled','platform.login','platform.login.failed')
+ORDER BY created_at;
+```
+
+`detail` に secret・TOTP・復旧コードは入らない設計なので、そのまま読んでよい。
 
 ### 登録に失敗するときに確かめる順序
 

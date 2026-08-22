@@ -1,6 +1,52 @@
 # CONTINUE
 
-## 2026-08-21 の追記 その 7（**この節が最新**）
+## 2026-08-22 の追記（**この節が最新**）
+
+### staging の 2FA を戻した（PF-19 の無効化を解除）
+
+**PR を出して止めてある**（merge はオーナー承認後）。
+
+| 事実 | 状態 |
+|---|---|
+| staging の 2FA | **要求する**（`PLATFORM_2FA_REQUIRED = "true"` へ戻した） |
+| production | 変わらず **常に要求**（値を読まない） |
+| スイッチの実装 | **残してある**（`lib/platform/twoFactorPolicy.ts`）。消していない |
+| 発行済みの札 | **`COMPLETE` は最長 12 時間生きる。** `SESSION` KV は消していない（人が判断） |
+
+### 無効化が要らなかったと分かった経緯
+
+**原因は端末の時刻ずれ系で、TOTP の登録そのものは成功していた。**
+監査ログの並び（JST）:
+
+```
+01:10:42  bootstrap.completed
+01:14:34  2fa.failed (enroll)
+01:36:50 / 01:37:07 / 01:37:10 / 01:38:18  2fa.failed (enroll)   … 計 5 回
+02:23:20  2fa.enrolled (recoveryCodes: 10)
+02:23:20  platform.login (secondFactor: TOTP)
+```
+
+**PF-19 の merge は 02:26** で、登録成功の約 3 分後だった。
+
+**切り分けは `platform.2fa.failed` の有無で付く。** 時刻ずれなら行が残り、
+札の 10 分の期限切れなら 1 行も残らない（404 で検証に入らない）。
+手順は `docs/runbook/platform-bootstrap.md` §10。
+
+### 進行中（**オーナーの承認待ち**）
+
+**#058 / #061 の実装案が承認待ち。** 除外ルール①（`ZERO_WITH_BEDS_USED`）を
+
+- **品目**: `ALWAYS_CONSUMED_ITEM_CODES = [DUVET_COVER, PILLOW_CASE, BATH_TOWEL]` に限る
+- **清掃種別**: **`CHECKOUT` の標本に限る**（滞在中清掃はリネンを交換しない
+  運用があり、0 が正常。除外すると母数が「交換した回」だけになる）
+
+に絞り、`CUP` / `EXTRA_FUTON` を品目コードへ足す（**migration 不要**。
+`item_code` は CHECK 制約の無い `text`）。調査は完了していて、
+**`taskType` は標本にも集計の鍵にも既に載っている**ことを確認済み。
+
+---
+
+## 2026-08-21 の追記 その 7（この節は古い）
 
 ### いまの staging は「入れる・送れる」状態
 
