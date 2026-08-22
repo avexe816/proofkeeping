@@ -51,12 +51,25 @@ export interface FakeD1 {
    * 積まなければ「1 行書けた」として振る舞う。
    */
   enqueueChanges(changes: number): void;
+  /**
+   * 次の `batch()` を失敗させる（P8-11 の hotfix / 2026-08-22）。
+   *
+   * **原子性を検査するために要る。** 「削除と監査ログを 1 つの `batch()` で
+   * 書く」という設計は、**落ちたときに両方が残らない**ことに意味がある。
+   * 代役が成功しか返せないと、その一点を検査で固定できない。
+   *
+   * **これは SQL を記録するだけの代役なので、巻き戻し自体は再現しない。**
+   * ここで見られるのは「例外が呼び出し側へ伝わるか」まで。
+   * 実際に行が残ることは `node:sqlite` の実 DB テストで見る。
+   */
+  failNextBatch(error?: Error): void;
 }
 
 export function createFakeD1(): FakeD1 {
   const queries: RecordedQuery[] = [];
   const pendingRows: unknown[][][] = [];
   const pendingChanges: number[] = [];
+  const pendingBatchErrors: Error[] = [];
 
   const takeRows = (): unknown[][] => pendingRows.shift() ?? [];
   // **既定を 1 にする。** D1 の実装は成功した INSERT / UPDATE の行数を
@@ -79,6 +92,8 @@ export function createFakeD1(): FakeD1 {
      * 「どんな SQL を送ったか」だけで、失敗時の巻き戻しは検証していない。
      */
     batch(statements: readonly unknown[]) {
+      const failure = pendingBatchErrors.shift();
+      if (failure !== undefined) return Promise.reject(failure);
       return Promise.resolve(
         statements.map(() => ({
           results: takeRows(),
@@ -113,6 +128,9 @@ export function createFakeD1(): FakeD1 {
     },
     enqueueChanges(changes) {
       pendingChanges.push(changes);
+    },
+    failNextBatch(error) {
+      pendingBatchErrors.push(error ?? new Error("D1_ERROR"));
     },
   };
 }

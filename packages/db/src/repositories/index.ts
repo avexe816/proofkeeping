@@ -27,6 +27,7 @@ export {
   listAuditLogsForViewer,
   recordAudit,
   recordAuditDaily,
+  RESIDENCY_DELETION_TARGET,
   type AuditAction,
   type AuditLogFilter,
   type RecordAuditInput,

@@ -21,17 +21,30 @@
  * `residencyAlertDispatch.ts` 冒頭）。新しい cron は 4 環境ぶんの
  * Cloudflare リソースが要り、読み直しの D1 も増える。
  *
- * ── 消す順序と、途中で落ちたとき ────────────────────────
- * **行を消してから監査ログを書く。** 逆にすると「消したと書いたのに
- * 消えていない」記録ができる。監査ログの書き込みで落ちた場合は、
- * 翌日（または retry）の回で対象が 0 件になり、`deleted: 0` の行が残る。
- * **記録が 1 日ずれることはあっても、消えた事実が残らないことは無い。**
+ * ── 削除と監査ログは同じ D1 batch（**原子的**）────────────
+ * `deleteResidencyRecords()` が塊ごとに `[監査ログ, DELETE]` を 1 つの
+ * `batch()` で書く。**どちらかが落ちればその塊は丸ごと巻き戻る。**
+ * ここで監査ログを後から書き足さないこと —
+ * 別の `await` にした瞬間、間で落ちて「消えたのに記録が無い」状態が
+ * 作れてしまう（2026-08-22 の hotfix はまさにそれを塞いだ）。
+ *
+ * **監査ログの件数は候補の数ではない。** 選定から DELETE までの間に
+ * 消えている行がありうるので、同じトランザクションの中で DB が数えた
+ * 実在行数を記録する（`repositories/residency.ts` の注記）。
+ *
+ * ── 0 件の回だけは、記録を別に書く ──────────────────────
+ * 消す行が無ければ DELETE が 1 文も出ないので、束ねる相手がいない。
+ * **「走ったが 0 件」と「走っていない」を区別する**ために、
+ * `recordEmptyResidencyRetentionRun()` で 1 行だけ残す。
+ * **あの関数は件数の引数を持たない**ので、消えた回の記録をそこから
+ * 作ることはできない（DECISIONS #271）。
  *
  * ── 冪等（testing.md §4）─────────────────────────────────
  * 3 回走らせても在留資格の表は同じ。1 回目で消えた行は 2 回目の
  * `listResidencyRecords()` に出てこない。監査ログだけは走った回数ぶん
  * 増えるが、**それは記録であって状態ではない**（INV-30 が追記のみを
- * 求めている以上、走った回数が残るのが正しい）。
+ * 求めている以上、走った回数が残るのが正しい）。2 回目以降に増えるのは
+ * `deleted: 0` の行なので、**件数の合計は実際の削除総数のまま。**
  *
  * ── 期限切れでは消さない ────────────────────────────────
  * 在職中の人の記録は、在留期限が切れていても残す。期限切れは**配分を
@@ -47,7 +60,7 @@ import {
   type TenantContext,
 } from "@pk/db";
 
-import { recordResidencyDeletion } from "../lib/staff/residencyRetentionAudit.js";
+import { recordEmptyResidencyRetentionRun } from "../lib/staff/residencyRetentionAudit.js";
 import { selectResidencyForDeletion } from "../lib/staff/residencyRetention.js";
 
 /** 1 組織 1 回ぶんの結果。**件数だけ。誰のものかを返さない。** */
@@ -76,13 +89,16 @@ export async function runResidencyRetention(
   },
 ): Promise<ResidencyRetentionResult> {
   const targets = selectResidencyForDeletion(input);
+
+  // 消す行が無い回。**束ねる DELETE がいない**ので、実行したことだけを残す
+  // （`photo.retentionDeleted` と同じ判断 / DECISIONS #165）。
+  if (targets.length === 0) {
+    await recordEmptyResidencyRetentionRun(env, ctx);
+    return { candidates: 0, deleted: 0 };
+  }
+
+  // 監査ログは `deleteResidencyRecords()` が **DELETE と同じ batch の中で**
+  // 書く。**ここで追加の記録を書かないこと**（冒頭の注記）。
   const deleted = await deleteResidencyRecords(env, ctx, targets);
-
-  // **0 件でも記録する。** 「走ったが対象が無かった」と「走っていない」を
-  // 区別できないと、消えていない理由を追えない（`photo.retentionDeleted`
-  // と同じ判断 / DECISIONS #165）。件数以外は載らない
-  // （`recordResidencyDeletion()` は値を引数に取れない）。
-  await recordResidencyDeletion(env, ctx, { deleted });
-
   return { candidates: targets.length, deleted };
 }

@@ -189,11 +189,11 @@ describe("runResidencyAlert", () => {
     expect(outcome).toEqual({ kind: "OK", total: 0, notified: false });
   });
 
-  it("保存期間を満了した在留資格を、同じバッチが消す（P8-11）", async () => {
+  it("保存期間の満了日を過ぎた在留資格を、同じバッチが消す（P8-11）", async () => {
     const fake = createFakeD1();
     const rec: Recorder = { notifications: [] };
-    // 2023-08-20 退職 → 業務日 2026-08-20 でちょうど 3 年。
-    prime(fake, { expiresOn: "2024-03-31", workStatus: "RESIGNED", resignedOn: "2023-08-20" });
+    // 2023-08-19 退職 → 満了は 2026-08-19。業務日 2026-08-20 は**その翌日**。
+    prime(fake, { expiresOn: "2024-03-31", workStatus: "RESIGNED", resignedOn: "2023-08-19" });
 
     const outcome = await runResidencyAlert(envWith(fake, rec), MESSAGE);
 
@@ -202,6 +202,17 @@ describe("runResidencyAlert", () => {
     expect(rec.notifications).toHaveLength(0);
     const del = fake.queries.find((query) => query.sql.startsWith("delete from"));
     expect(del?.params).toContain(STAFF_ID);
+  });
+
+  it("**満了日当日は消さない**（P8-11 / 境界は満了の翌日）", async () => {
+    const fake = createFakeD1();
+    const rec: Recorder = { notifications: [] };
+    // 2023-08-20 退職 → 満了は 2026-08-20 = 業務日。
+    prime(fake, { expiresOn: "2024-03-31", workStatus: "RESIGNED", resignedOn: "2023-08-20" });
+
+    await runResidencyAlert(envWith(fake, rec), MESSAGE);
+
+    expect(fake.queries.some((query) => query.sql.startsWith("delete from"))).toBe(false);
   });
 
   it("在職中は在留期限が切れていても消さない（P8-11）", async () => {

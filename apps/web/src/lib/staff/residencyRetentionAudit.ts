@@ -1,54 +1,64 @@
 /**
- * 在留資格を「保存期間の満了で消した」ことの記録（P8-11）。
+ * 削除バッチが「走ったが 0 件だった」ことの記録（P8-11）。
  *
  * task: docs/tasks/P8-11.md
  * ルール: .claude/rules/security.md §6
+ * 決定: docs/DECISIONS.md #271
+ *
+ * ── 消した回はここを通らない ────────────────────────────
+ * 実際に消える回の監査ログは、**DELETE と同じ D1 `batch()` の中**で
+ * `deleteResidencyRecords()` が書く（`repositories/residency.ts`）。
+ * 別の `await` にすると、間で落ちて「消えたのに記録が無い」状態が
+ * 作れてしまう。
+ *
+ * **ここが残っているのは 0 件の回のためだけ。** 消す行が無い回は DELETE が
+ * 1 文も出ないので束ねる相手がいない。「走ったが 0 件」と「走っていない」を
+ * 区別できないと、消えていない理由を追えない（`photo.retentionDeleted` と
+ * 同じ判断 / DECISIONS #165）。
+ *
+ * ── 件数を受け取らない（**型で塞ぐ**）──────────────────
+ * この関数に**引数が無い。** 件数を受け取れる形にしておくと、将来
+ * 非 0 の件数をここから別の `await` で書けてしまい、**原子性を回復した
+ * ばかりの経路をまた壊せる。** 書く値は `{"deleted": 0}` に固定してある。
  *
  * ── 閲覧の記録と分けてある ──────────────────────────────
  * `residencyAudit.ts` は**ソースに `after` が現れないこと**を spec が
  * 固定している（値を載せられない形を書き方の水準で守るため）。
- * こちらは**件数を `after` に持つ**ので、同居させると
- * あちらの守りを緩めることになる。**ファイルを分けて両方を保つ。**
- *
- * ── 受け取れるのは件数だけ ──────────────────────────────
- * 氏名も種別も期限も更新申請日も、この関数の引数に存在しない。
- * 消した相手の `staffProfileId` すら受け取らない —
- * 受け取れば「誰が在留資格を持っていたか」の一覧が監査ログに残り、
- * **監査ログが「消したはずの情報」の控えになる**（P8-11 の禁止事項）。
- * **「載せない」を約束ではなく型で守る。**
+ * こちらは `after` を持つので、同居させるとあちらの守りを緩める。
+ * **ファイルを分けて両方を保つ。**
  *
  * ── 畳まない ────────────────────────────────────────────
  * 閲覧（`recordResidencyView()`）は画面を開くたびに起きるので 1 日 1 件へ
- * 畳むが、**削除は日次バッチで元々 1 日 1 件。** 畳むと、2 度走ったときに
- * 2 度目が残らない。物理削除は取り返しがつかないので、走った回数は
- * そのまま残す。
- *
- * ── 0 件でも呼ぶ ────────────────────────────────────────
- * 呼び出し側が件数で分岐しないこと。「走ったが対象が無かった」と
- * 「走っていない」が区別できないと、消えていない理由を追えない
- * （`photo.retentionDeleted` と同じ判断 / DECISIONS #165）。
+ * 畳むが、**削除バッチは日次で元々 1 日 1 件。** 畳むと、2 度走ったときに
+ * 2 度目が残らない。
  */
 
-import { recordAudit, systemActorId, type Env, type TenantContext } from "@pk/db";
+import {
+  recordAudit,
+  RESIDENCY_DELETION_TARGET,
+  systemActorId,
+  type Env,
+  type TenantContext,
+} from "@pk/db";
 
-/** 「保存期間の満了で消した」の対象種別。**個人を指す ID を持たない。** */
-export const RESIDENCY_DELETION_TARGET = "residencyRetention";
+export { RESIDENCY_DELETION_TARGET };
 
 /**
- * 保存期間を満了した在留資格を消したことを記録する。
+ * 削除バッチが走り、**対象が 1 件も無かった**ことを記録する。
  *
- * @param input.deleted 消えた行数。**これ以外を受け取らない。**
+ * **件数の引数を持たない。** 書く値は常に `{"deleted": 0}`。
+ * 実際に消えた回の記録はこの関数から作れない。
  */
-export async function recordResidencyDeletion(
+export async function recordEmptyResidencyRetentionRun(
   env: Env,
   ctx: TenantContext,
-  input: { deleted: number },
 ): Promise<void> {
   await recordAudit(env, ctx, {
     // 誰も操作していない。**人の ID を借りない**（DECISIONS #164）。
     actorId: systemActorId(ctx.orgShortId),
     action: "residency.deleted",
     targetType: RESIDENCY_DELETION_TARGET,
-    after: { deleted: input.deleted },
+    // **リテラルの 0。** 呼び出し側から動かせない。
+    after: { deleted: 0 },
   });
 }

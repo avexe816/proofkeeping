@@ -22,13 +22,15 @@
  * （`repositories/property.ts` の申し送り）。
  */
 
-import { desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { desc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
+import type { DrizzleD1Database } from "drizzle-orm/d1";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
 import { serializeAuditPayload } from "../mask.js";
 import { getTenantDb, type TenantContext } from "../router.js";
 import { auditLog } from "../schema/audit.js";
+import { systemActorId } from "../systemActor.js";
 
 import { ALWAYS_TRUE, NO_PROPERTY_SCOPE, withTenantScope } from "./base.js";
 
@@ -121,8 +123,11 @@ export const AUDIT_ACTIONS = {
    * **`after` に載せてよいのは件数だけ。** 氏名・種別・期限・更新申請日を
    * 載せないこと。載せると、**監査ログが「消したはずの情報」の控えになる**
    * （P8-11「削除済みの在留資格の情報を監査ログから復元できる形にしない」）。
-   * 口は `lib/staff/residencyRetentionAudit.ts` の `recordResidencyDeletion()` に
-   * 絞ってあり、**値を引数に取れない。**
+   * 口は 2 つに絞ってあり、**どちらも値を引数に取れない。**
+   * 消える回は `residencyDeletionAuditStatement()`（下）が DELETE と同じ
+   * `batch()` の中で書き、0 件の回だけ
+   * `lib/staff/residencyRetentionAudit.ts` の
+   * `recordEmptyResidencyRetentionRun()`（**引数を持たない**）が書く。
    */
   "residency.deleted": { requiresReason: false },
   /** スタッフ台帳の更新（P8-01）。在籍・言語・スキルの変更。 */
@@ -425,6 +430,78 @@ export async function recordAuditDaily(
 
   await recordAudit(env, ctx, input);
   return true;
+}
+
+/**
+ * 在留資格の削除の記録に使う対象種別。**個人を指す ID を持たない。**
+ *
+ * **ここが唯一の定義。** 同じ文字列を複数箇所へ直書きすると、片方だけ
+ * 直したときに監査ログが 2 種類に割れて、行動ごとに数えられなくなる。
+ */
+export const RESIDENCY_DELETION_TARGET = "residencyRetention";
+
+/**
+ * 在留資格の物理削除を記録する **1 文を、実行しないまま返す**
+ * （P8-11 / hotfix 2026-08-22 / DECISIONS #271）。
+ *
+ * 呼び出し側が `db.batch([...])` の中へ入れて、**DELETE と同じ
+ * トランザクションで書く**ための口。ここでは `await` しない。
+ *
+ * ── なぜこの口が要るのか ────────────────────────────────
+ * 物理削除は**取り返しがつかない。** 削除と記録を別の `await` にすると、
+ * 間で落ちたときに「消えたのに記録が無い」状態ができる。retry では
+ * 対象がもう選ばれないので、実際の削除件数を復元できない。
+ * D1 にトランザクションは無いが、`batch()` は 1 つの SQL トランザクションと
+ * して走り、途中の文が落ちれば全体が巻き戻る（`lostItem.ts` の先例）。
+ *
+ * ── P8-11 専用にしてある（**汎用にしない**）──────────────
+ * 呼び出し側が渡せるのは**件数を数える式だけ。** 操作種別・対象種別・
+ * 操作者は引数に無く、ここで固定する。汎用の口にすると、
+ * **別の `action` に `{deleted: N}` を書いたり、人の ID を操作者に
+ * 使ったり**できてしまう。監査ログの語彙は 5 年残る永続データで、
+ * 後から揃え直せない（`AUDIT_ACTIONS` の注記と同じ理由）。
+ *
+ * ── 件数を JavaScript で数えさせない ────────────────────
+ * `count` は**同じトランザクションの中で DB が数える式**（`SQL`）。
+ * 呼び出し側が数えた「候補の数」を渡せる形にすると、選定から DELETE
+ * までの間に消えた行が件数に混ざる。**記録するのは、その瞬間に
+ * 実在した行数。**
+ *
+ * ── 載るのは件数だけ ────────────────────────────────────
+ * `after` は `{"deleted": N}` に固定。`before` / `targetId` / `reason` /
+ * `ip` は `null`。**対象の ID も、その hash も、個人を指す値も
+ * 受け取れない**（引数に存在しない）。監査ログが「消したはずの情報」の
+ * 控えになってはならない（P8-11 の禁止事項）。
+ *
+ * ── `auditLog` を触るのはこのファイルだけ ────────────────
+ * この関数の目的は**その境界を保ったまま**他の文と束ねられるように
+ * することにある。呼び出し側で `db.insert(auditLog)` と書かないこと。
+ *
+ * @param db `getTenantDb()` が返す db。**呼び出し側の batch と同じもの。**
+ * @param count その瞬間の対象行数を数える式（スカラーの副問い合わせ）。
+ */
+export function residencyDeletionAuditStatement(
+  db: DrizzleD1Database<Record<string, unknown>>,
+  ctx: TenantContext,
+  count: SQL,
+) {
+  return db.insert(auditLog).values({
+    id: generateId(ctx.orgShortId, "audit"),
+    organizationId: ctx.organizationId,
+    propertyId: null,
+    // 誰も操作していない。**人の ID を借りない**（DECISIONS #164）。
+    actorId: systemActorId(ctx.orgShortId),
+    actorRole: ctx.role,
+    action: "residency.deleted",
+    targetType: RESIDENCY_DELETION_TARGET,
+    targetId: null,
+    before: null,
+    // **`{"deleted": N}` だけ。** N は DB が数える。
+    after: sql`json_object('deleted', ${count})`,
+    reason: null,
+    ip: null,
+    at: ctx.now,
+  });
 }
 
 // ────────────────────────────────────────────────────────────
