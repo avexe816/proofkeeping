@@ -1,0 +1,160 @@
+# ベースラインの切替前スナップショット（手動実行 / 読み取りのみ）
+#
+# 由来: docs/DECISIONS.md #253 決定 F「要・人手」の手順 1
+#
+# ── なぜ要るのか ────────────────────────────────────────
+# 週次バッチ（`0 18 * * 6` UTC ＝ 日曜 03:00 JST）は **再計算方式**で
+# `consumption_baseline` を上書きする。**一度まわると旧口径の値は残らない。**
+# #252 / #253 で除外ルール①の口径を変えたので、**バッチが走る前に**
+# 旧口径の値を写し取っておかないと、前後の比較ができなくなる。
+#
+# ── なぜワークフローにするのか ──────────────────────────
+# 決定 F は「人手で行う」と書いてあるが、人がやることは `wrangler d1 execute`
+# を打つだけで、**Actions の runner なら Cloudflare へ到達でき、資格情報も
+# GitHub Secrets から取れる**（staging-bootstrap.yml と同じ理屈）。
+# 人が押すのは「Run workflow」だけになり、締切に間に合わなくなる要因を減らす。
+#
+# ── 安全のための決め事 ──────────────────────────────────
+#   * `workflow_dispatch` のみ。**push でも cron でも走らない。**
+#   * **SELECT しか送らない。** `q()` は先頭が SELECT でない文を拒否する。
+#     この保証があるので confirm を要求しない（読むだけで壊れない）。
+#   * 触るのは名前に `-staging` が付く D1 だけ。**production の名前は出さない**
+#     （そもそも production は未デプロイ — 決定 F の表）。
+#   * 2 つの表には**宿泊者の情報も従業員の情報も入っていない**
+#     （施設・客室タイプ・品目・数量・業務日だけ / schema/observation.ts）。
+#     成果物に載せてよい。
+#
+# ── 記録は 2 か所に残す ─────────────────────────────────
+#   * 成果物（artifact）: 全行の JSON。90 日で消える。
+#   * ジョブの要約とログ: 件数・期間・除外理由の内訳。**実行の記録として残る。**
+# 消えては困る値は DECISIONS #253 の表へ書き写すこと。
+name: baseline-snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: "この取得の目的（要約に出る）。例: #252/#253 の切替前"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CF_ENV: staging
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      # secret に空白や引用符が混ざっていても落ちない形にする
+      # （staging-bootstrap.yml の同名ステップと同じ理由）。値は出力しない。
+      - name: アカウント ID を正規化する
+        id: account
+        run: |
+          raw='${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'
+          clean=$(printf '%s' "$raw" | tr -d '[:space:]"'"'"'')
+          echo "::add-mask::$clean"
+          echo "value=$clean" >> "$GITHUB_OUTPUT"
+
+      - name: スナップショットを取る（SELECT のみ）
+        id: snap
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.value }}
+          # **入力を `run:` へ直に展開しない。** 展開するとシェルに解釈される
+          # （打った文字列がコマンドになりうる）。env 経由で受け取る。
+          NOTE: ${{ inputs.note }}
+        run: |
+          set -euo pipefail
+          out=/tmp/baseline-snapshot
+          mkdir -p "$out"
+          taken_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "taken_at=$taken_at" >> "$GITHUB_OUTPUT"
+
+          # **読み取り以外を送れないようにする。** 引数を検査してから渡す。
+          q() {  # $1=db $2=sql（SELECT で始まること）
+            case "$2" in
+              SELECT*) ;;
+              *) echo "SELECT 以外は送れません: $2" >&2; return 1 ;;
+            esac
+            pnpm exec wrangler d1 execute "$1" --remote --env staging --json --command="$2" \
+              2>/dev/null | sed -n '/\[/,$p'
+          }
+
+          rows() { jq -c '.[].results' ; }
+
+          {
+            echo "# ベースライン スナップショット（staging）"
+            echo ""
+            echo "- 取得時刻: \`$taken_at\` UTC"
+            echo "- 目的: ${NOTE:-（未記入）}"
+            echo "- 実行: [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for shard in 00 01; do
+            db="proofkeeping-shard-${shard}-staging"
+            echo "== $db =="
+
+            q "$db" "SELECT * FROM consumption_baseline ORDER BY id;" > "$out/consumption_baseline-${shard}.json"
+            q "$db" "SELECT * FROM baseline_exclusion_log ORDER BY id;" > "$out/baseline_exclusion_log-${shard}.json"
+
+            # **数え方が変わっても生の JSON は残す。** 要約の失敗で
+            # スナップショットそのものを落とさない（本体は上の 2 ファイル）。
+            cb=$(jq '[.[].results[]] | length' "$out/consumption_baseline-${shard}.json" 2>/dev/null || echo "?")
+            ex=$(jq '[.[].results[]] | length' "$out/baseline_exclusion_log-${shard}.json" 2>/dev/null || echo "?")
+            win=$(q "$db" "SELECT computed_to, count(*) AS n FROM consumption_baseline GROUP BY computed_to ORDER BY computed_to;" | rows || echo "?")
+            rsn=$(q "$db" "SELECT reason, count(*) AS n FROM baseline_exclusion_log GROUP BY reason ORDER BY reason;" | rows || echo "?")
+
+            echo "consumption_baseline: $cb 行"
+            echo "baseline_exclusion_log: $ex 行"
+            echo "集計ウィンドウ(computed_to): $win"
+            echo "除外理由の内訳: $rsn"
+
+            {
+              echo "## shard-${shard}"
+              echo ""
+              echo "| 表 | 行数 |"
+              echo "|---|---|"
+              echo "| \`consumption_baseline\` | $cb |"
+              echo "| \`baseline_exclusion_log\` | $ex |"
+              echo ""
+              echo "- 集計ウィンドウ（\`computed_to\`）: \`$win\`"
+              echo "- 除外理由の内訳: \`$rsn\`"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
+
+          # ── いま動いている Worker の版 ──────────────────────
+          # **スナップショットは「どの口径で動いていた値か」とセットで意味を持つ。**
+          # 決定 F の表は Version ID で口径を区別している。
+          echo "== 動いている版 =="
+          pnpm exec wrangler versions list --env staging 2>/dev/null | head -40 \
+            | tee "$out/versions.txt" || echo "版の一覧を取得できませんでした（記録のみ / 取得は必須ではない）"
+
+          {
+            echo "## 動いている版（先頭 40 行）"
+            echo ""
+            echo '```'
+            head -40 "$out/versions.txt" 2>/dev/null || echo "（取得できず）"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # **取れたところまでは必ず持ち帰る。** 要約の途中で落ちても
+      # 生の JSON が残っていれば切替前の値は失われない。
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: baseline-snapshot-${{ github.run_id }}
+          path: /tmp/baseline-snapshot
+          retention-days: 90
+          if-no-files-found: error

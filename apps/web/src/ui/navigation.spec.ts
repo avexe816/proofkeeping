@@ -436,13 +436,20 @@ describe("設定ハブ", () => {
     expect(new Set(listed).size).toBe(listed.length);
   });
 
-  /** ハブに載せ忘れた設定画面を作らない。**片方だけ増えるのを止める。** */
+  /**
+   * ハブに載せ忘れた設定画面を作らない。**片方だけ増えるのを止める。**
+   *
+   * DECISIONS #258 で `SETTINGS_CATEGORIES` は項目側の `settingsGroup` から
+   * 導くようになった（分類の二重管理をやめた）ので、**載せ忘れは型で落ちる**
+   * （`placement: "SETTINGS"` を書くと群と順の記入が必須になる）。
+   * ここでは導いた結果が元の項目と 1 対 1 であることを見る。
+   * 群ごとの中身は `settingsNav.spec.ts`。
+   */
   it("placement: SETTINGS の項目がすべてどこかの区分に載っている", () => {
-    const listed = new Set(SETTINGS_CATEGORIES.flatMap((category) => category.items));
-    for (const item of NAV_ITEMS) {
-      if (item.placement !== "SETTINGS") continue;
-      expect(listed, item.key).toContain(item.key);
-    }
+    const listed = SETTINGS_CATEGORIES.flatMap((category) => category.items);
+    const items = NAV_ITEMS.filter((item) => item.placement === "SETTINGS");
+    expect(listed).toHaveLength(items.length);
+    for (const item of items) expect(new Set(listed), item.key).toContain(item.key);
   });
 
   it("カードには必ず 1 行の説明が付く", () => {
