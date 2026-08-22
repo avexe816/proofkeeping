@@ -281,3 +281,93 @@ describe("在留資格を見たことを記録する", () => {
     }
   });
 });
+
+// ────────────────────────────────────────────────────────────
+// 自動で動く規則の見せ方（OPEN_QUESTIONS #124 の決着 / 2026-08-22）
+// ────────────────────────────────────────────────────────────
+
+describe("在留資格の自動ルール", () => {
+  it("**押せないスイッチを置かない**（設定できると誤認させない）", () => {
+    // 見た目だけのスイッチは「切れるはずのものが壊れている」と読める。
+    for (const forbidden of ["pk-ruleswitch", "__knob", "ruleswitch"]) {
+      expect(CODE, forbidden).not.toContain(forbidden);
+    }
+    expect(CODE).toContain("pk-rulelist");
+  });
+
+  it("状態を普通の文字で読ませる（`role=\"img\"` と `title` に預けない）", () => {
+    expect(CODE).toContain("pk-rulelist__state");
+    // 印は装飾。**説明を `role="img"` や `title` に預けない。**
+    // （`role="img"` は案内カードの QR が正当に使うので、走査は
+    //   `ResidencyRule` の中だけに絞る。）
+    const rule = /function ResidencyRule\([\s\S]*?\n\}/.exec(SOURCE)?.[0] ?? "";
+    expect(rule, "ResidencyRule が読めていない").not.toBe("");
+    expect(rule).toContain('aria-hidden="true"');
+    expect(rule).not.toContain('role="img"');
+    expect(rule).not.toContain("title=");
+  });
+
+  it("通知は「常時有効」、割当停止は「必須」と出す", () => {
+    expect(SOURCE).toContain("staff.residency.manage.stateAlways");
+    expect(SOURCE).toContain("staff.residency.manage.stateRequired");
+    expect(ja["staff.residency.manage.stateAlways"]).toBe("常時有効");
+    expect(ja["staff.residency.manage.stateRequired"]).toBe("必須");
+  });
+
+  it("**赤は実際の期限切れにだけ使う**（但し書きを赤で出さない）", () => {
+    expect(CODE).not.toContain("pk-alert--danger");
+    const css = readFileSync(join(import.meta.dirname, "..", "..", "styles", "app.css"), "utf8");
+    expect(css).not.toContain(".pk-alert--danger");
+    // 期限切れの行の色は残す（`ExpiryCell` の `--over`）。
+    expect(css).toContain(".pk-expiry--over");
+  });
+
+  it("§1.4 MUST の但し書きは残っている", () => {
+    expect(SOURCE).toContain("staff.residency.manage.illegal");
+    expect(SOURCE).toContain("staff.residency.manage.human");
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 保存したらレイヤーが閉じる／待っている間（人間の指示 2026-08-22）
+// ────────────────────────────────────────────────────────────
+
+describe("レイヤーの保存と待ち時間", () => {
+  it("**成功したらリダイレクトで閉じる**（画面側で閉じない）", () => {
+    // POST → リダイレクト → GET。JS が動かなくても閉じ、戻るボタンで
+    // 開いたままの状態に戻らない。
+    expect(SOURCE).toContain("function savedRedirect(request: Request, saved: string): Response");
+    expect(SOURCE).toContain('savedRedirect(request, outcome.staffSaved)');
+    expect(SOURCE).toContain('savedRedirect(request, "RESIDENCY")');
+  });
+
+  it("成功の知らせは `?saved=` で運ぶ（`useActionData` はリダイレクトで消える）", () => {
+    expect(SOURCE).toContain('searchParams.get("saved")');
+    expect(SOURCE).toContain("parseSaved");
+  });
+
+  it("知らない `saved` の値を画面に出さない（URL から来る）", () => {
+    expect(SOURCE).toContain("SAVED_KINDS as readonly string[]).includes");
+  });
+
+  it("**失敗の理由はレイヤーの中に出す**（幕の下に隠さない）", () => {
+    expect(SOURCE).toContain("error={drawerErrorKey(result)}");
+    expect(SOURCE).toContain('<p className="pk-notice pk-notice--warn">{t(error)}</p>');
+  });
+
+  it("送信中はポインタを変え、送信ボタンを押せなくする", () => {
+    expect(SOURCE).toContain('navigation.state !== "idle"');
+    expect(SOURCE).toContain("pk-drawer--busy");
+    expect(SOURCE).toContain("disabled={busy}");
+  });
+
+  it("閉じるは文字ではなく図形（フォントで上下がずれない）", () => {
+    // `×` は字面の位置がフォントごとに違い、見出しとの上下がずれる。
+    // **コメントを落として見る** — この検査の理由を書いた注記そのものに
+    // `×` が出てくる（`repositories.spec.ts` の `CODE` と同じ理由）。
+    const head = /pk-drawer__head[\s\S]*?<\/div>/.exec(CODE)?.[0] ?? "";
+    expect(head, "pk-drawer__head が読めていない").not.toBe("");
+    expect(head).toContain("pk-drawer__closeIcon");
+    expect(head).not.toContain("×");
+  });
+});

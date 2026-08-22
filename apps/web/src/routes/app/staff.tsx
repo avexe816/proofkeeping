@@ -14,8 +14,10 @@ import {
 import {
   Form,
   Link,
+  redirect,
   useActionData,
   useLoaderData,
+  useNavigation,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
@@ -134,6 +136,17 @@ interface StaffData {
   filter: StaffFilter;
   /** レイヤー。閉じているときは `null`。 */
   panel: StaffPanel | null;
+  /** 直前の保存の結果。無ければ `null`。 */
+  saved: SavedKind | null;
+}
+
+/** 保存の種類。**この 4 つ以外は出さない**（URL から来る値なので絞る）。 */
+const SAVED_KINDS = ["UPDATED", "DEACTIVATED", "REACTIVATED", "RESIDENCY"] as const;
+
+type SavedKind = (typeof SAVED_KINDS)[number];
+
+function parseSaved(value: string | null): SavedKind | null {
+  return (SAVED_KINDS as readonly string[]).includes(value ?? "") ? (value as SavedKind) : null;
 }
 
 type StaffActionResult =
@@ -221,6 +234,9 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
     canWriteResidency,
     // **絞りは URL に置く。** 画面を共有したときに同じ見え方になる。
     filter: parseStaffFilter(new URL(request.url).searchParams.get("status")),
+    // 直前の保存の結果（`savedRedirect()` が付ける）。**リダイレクトを挟むので
+    // `useActionData` には残らない。** 知らない値は出さない。
+    saved: parseSaved(new URL(request.url).searchParams.get("saved")),
   };
 }
 
@@ -265,7 +281,33 @@ function fieldOf(form: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
-export async function action({ request, context }: ActionFunctionArgs): Promise<StaffActionResult> {
+/**
+ * 保存に成功したときの行き先（人間の指示 2026-08-22）。
+ *
+ * **成功したらレイヤーを閉じる。** `?panel=` を外した URL へ 302 で返す。
+ * 画面側で閉じるのではなく**サーバーが行き先を返す**ので、JS が動かなくても
+ * 同じように閉じ、戻るボタンで開いたままの状態に戻らない
+ * （POST → リダイレクト → GET。二重送信も防ぐ）。
+ *
+ * 絞り込み（`?status=`）は持ち回り、何をしたかは `?saved=` で伝える
+ * （`useActionData` はリダイレクトすると残らない）。
+ *
+ * **失敗のときは使わない。** 直す場所が見えている必要があるので、
+ * レイヤーは開いたまま、理由をその中に出す。
+ */
+function savedRedirect(request: Request, saved: string): Response {
+  const url = new URL(request.url);
+  const params = new URLSearchParams();
+  const status = url.searchParams.get("status");
+  if (status !== null && status !== "") params.set("status", status);
+  params.set("saved", saved);
+  return redirect(`${STAFF_PATH}?${params.toString()}`);
+}
+
+export async function action({
+  request,
+  context,
+}: ActionFunctionArgs): Promise<StaffActionResult | Response> {
   const env = getEnv(context);
   const now = new Date();
   const { session, tenant } = await requireAppContext(env, request, now);
@@ -280,20 +322,23 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
     // （`tests/security/initialPin.spec.ts`）。この画面は初期 PIN を
     // `action` の戻り値として運ぶので、`recordAudit()` を呼ぶ経路が
     // 同居していると、取り違えたときに PIN が監査ログへ入りうる。
-    return saveResidency(env, tenant, session.membershipId, form);
+    const outcome = await saveResidency(env, tenant, session.membershipId, form);
+    return "residencySaved" in outcome ? savedRedirect(request, "RESIDENCY") : outcome;
   }
 
   // 編集と利用の停止/再開も同じ理由で `lib/staff/edit.ts` にある。
   if (fieldOf(form, "intent") === "staffUpdate") {
-    return updateStaff(env, tenant, session.membershipId, form);
+    const outcome = await updateStaff(env, tenant, session.membershipId, form);
+    return "staffSaved" in outcome ? savedRedirect(request, outcome.staffSaved) : outcome;
   }
   if (fieldOf(form, "intent") === "staffActive") {
-    return setStaffActive(env, tenant, session.membershipId, {
+    const outcome = await setStaffActive(env, tenant, session.membershipId, {
       membershipId: fieldOf(form, "membershipId"),
       // **既定を「停める」にしない。** 値が落ちたときに人が締め出される
       // 側へ倒れる形にしないため、`"true"` のときだけ再開する。
       isActive: fieldOf(form, "isActive") === "true",
     });
+    return "staffSaved" in outcome ? savedRedirect(request, outcome.staffSaved) : outcome;
   }
 
   const email = fieldOf(form, "email").trim();
@@ -620,32 +665,37 @@ function StaffRoster({
               {t("staff.residency.manage.title")}
             </div>
             <div className="pk-panel__body">
-              <ResidencyRule
-                title={t("staff.residency.manage.notice90")}
-                note={t("staff.residency.manage.notice90Note")}
-              />
-              <ResidencyRule
-                title={t("staff.residency.manage.notice30")}
-                note={t("staff.residency.manage.notice30Note")}
-              />
-              <ResidencyRule
-                title={t("staff.residency.manage.block")}
-                note={t("staff.residency.manage.blockNote")}
-              />
+              {/* **3 つとも設定を持たない**（OPEN_QUESTIONS #124 の決着）。
+                  通知の 2 つは常時有効、期限当日の割当停止は必須。
+                  スイッチに見せない（`ResidencyRule` の注記）。 */}
+              <ul className="pk-rulelist">
+                <ResidencyRule
+                  title={t("staff.residency.manage.notice90")}
+                  note={t("staff.residency.manage.notice90Note")}
+                  state={t("staff.residency.manage.stateAlways")}
+                />
+                <ResidencyRule
+                  title={t("staff.residency.manage.notice30")}
+                  note={t("staff.residency.manage.notice30Note")}
+                  state={t("staff.residency.manage.stateAlways")}
+                />
+                <ResidencyRule
+                  title={t("staff.residency.manage.block")}
+                  note={t("staff.residency.manage.blockNote")}
+                  state={t("staff.residency.manage.stateRequired")}
+                />
+              </ul>
 
               {/* §1.4 MUST。**この境界を消さないこと。**
-                  **赤で出す。** ui-writing.md §3 が赤を戒めるのは
-                  「経過時間で急かす」用途で、これは法令の話
-                  （`ExpiryCell` の期限切れが `--danger` なのと同じ）。 */}
-              <div className="pk-alert pk-alert--danger">
-                <span className="pk-alert__icon" aria-hidden="true">
-                  ⚠️
-                </span>
-                <div>
-                  <span className="pk-alert__title">{t("staff.residency.manage.illegal")}</span>
-                  {t("staff.residency.manage.human")}
-                </div>
-              </div>
+                  **赤にしない。** 赤は実際に期限が切れている行
+                  （`ExpiryCell` の `--over`）にだけ使う。ここは常時出ている
+                  但し書きで、状態を表していない（オーナー判断 2026-08-22）。 */}
+              <p className="pk-notice">
+                <strong className="pk-notice__title">
+                  {t("staff.residency.manage.illegal")}
+                </strong>
+                {t("staff.residency.manage.human")}
+              </p>
             </div>
             {ledger.residencyBreakdown.length === 0 ? null : (
               <>
@@ -678,33 +728,31 @@ function StaffRoster({
 }
 
 /**
- * 「期限の 90 日前に通知」などの 1 行（プロトタイプ ops 07 の `.rowsw`）。
+ * 自動で動く規則の 1 行（OPEN_QUESTIONS #124 の決着 / オーナー判断 2026-08-22）。
  *
- * ── スイッチは押せない ──────────────────────────────────
- * プロトタイプは切り替えスイッチだが、**3 つとも常に動いていて、
- * 止める設定を持たない**（持たせるには設定の置き場が要り、仕様に
- * その項目が無い）。**押せる形にすると「切れる」という約束になる。**
- * 見た目は揃えたうえで、状態だけを示す（`role="img"`）。
- * 切り替えられないことは下の 1 行（`manage.always`）が言う。
+ * ── スイッチをやめた ────────────────────────────────────
+ * プロトタイプ ops 07 は切り替えスイッチだが、**3 つとも設定を持たない。**
+ * 見た目だけスイッチにしていた頃は、押しても何も起きず、
+ * 「切れるはずのものが壊れている」と読めた。**設定できると誤認させない**
+ * ため、チェックの印＋規則名＋状態の一覧に置き換えた。
+ *
+ * ── 状態は文字で読ませる ────────────────────────────────
+ * 印は `aria-hidden`（装飾）。**状態は普通の文字**なので、読み上げでも
+ * 拡大表示でも同じことが伝わる。`role="img"` と `title` に説明を
+ * 預けない（どちらも読み手を選ぶ）。
  */
-function ResidencyRule({ title, note }: { title: string; note: string }) {
+function ResidencyRule({ title, note, state }: { title: string; note: string; state: string }) {
   return (
-    <div className="pk-ruleswitch">
-      <span className="pk-ruleswitch__text">
-        <span className="pk-ruleswitch__title">{title}</span>
-        <span className="pk-ruleswitch__note">{note}</span>
+    <li className="pk-rulelist__item">
+      <span className="pk-rulelist__icon" aria-hidden="true">
+        ✓
       </span>
-      {/* **押せない。** 触ったときに何も起きない理由を `title` で返す
-          （読み上げには `aria-label` が同じことを言う）。 */}
-      <span
-        className="pk-ruleswitch__state"
-        role="img"
-        aria-label={t("staff.residency.manage.always")}
-        title={t("staff.residency.manage.always")}
-      >
-        <span className="pk-ruleswitch__knob" aria-hidden="true" />
+      <span className="pk-rulelist__text">
+        <span className="pk-rulelist__title">{title}</span>
+        <span className="pk-rulelist__note">{note}</span>
       </span>
-    </div>
+      <span className="pk-rulelist__state">{state}</span>
+    </li>
   );
 }
 
@@ -781,7 +829,7 @@ function ResidencyPanelForm({ detail }: { detail: StaffDetail }) {
         defaultValue={current?.weeklyHourLimit ?? ""}
       />
 
-      <button type="submit">{t("staff.residency.submit")}</button>
+      <SubmitButton label={t("staff.residency.submit")} />
     </Form>
   );
 }
@@ -814,6 +862,23 @@ function languageKey(code: string): Parameters<typeof t>[0] {
 }
 
 /**
+ * 直前の保存が失敗した理由 → 文言のキー。**成功はここに来ない**
+ * （成功はリダイレクトになるので `useActionData` に残らない）。
+ */
+function drawerErrorKey(
+  result: StaffActionResult | undefined,
+): Parameters<typeof t>[0] | null {
+  if (result === undefined) return null;
+  if ("duplicate" in result) return "staff.error.duplicate";
+  if ("invalid" in result || "staffInvalid" in result) return "staff.error.invalid";
+  if ("residencyInvalid" in result) return residencyErrorKey(result.residencyInvalid);
+  if ("staffNotFound" in result) return "staff.panel.error.notFound";
+  if ("staffNotField" in result) return "staff.panel.adminOnly";
+  if ("staffSelf" in result) return "staff.panel.error.self";
+  return null;
+}
+
+/**
  * 右からスライドインするレイヤー（人間の指示 2026-08-22）。
  *
  * ── 素の HTML で開いて閉じる ────────────────────────────
@@ -829,14 +894,25 @@ function languageKey(code: string): Parameters<typeof t>[0] {
 function StaffDrawer({
   title,
   closeHref,
+  error,
   children,
 }: {
   title: string;
   closeHref: string;
+  /** 直前の保存が失敗した理由。**レイヤーの中に出す**（下の注記）。 */
+  error: Parameters<typeof t>[0] | null;
   children: React.ReactNode;
 }) {
+  // ── 送信中・読み込み中は待っていることを見せる（人間の指示 2026-08-22）──
+  // 開くのも保存もサーバーへの往復なので、押してから戻るまでに間がある。
+  // **その間ポインタを「処理中」にし、送信ボタンを押せなくする。**
+  // JS が動かないときは何も起きない（見た目の措置で、二重送信の防止は
+  // サーバー側の `Idempotency-Key` と POST → リダイレクトが受け持つ）。
+  const navigation = useNavigation();
+  const busy = navigation.state !== "idle";
+
   return (
-    <div className="pk-drawer">
+    <div className={busy ? "pk-drawer pk-drawer--busy" : "pk-drawer"} aria-busy={busy}>
       <Link className="pk-drawer__scrim" to={closeHref} aria-label={t("staff.panel.close")} />
       <aside className="pk-drawer__panel" aria-label={title}>
         {/* ── 閉じるは**左端**。右上に置かない（人間の指示 2026-08-22）──
@@ -845,14 +921,49 @@ function StaffDrawer({
             2 回押すと 2 回目がログアウトに当たる。**破壊的でない操作の
             すぐ後ろに、取り返しのつかない操作を置かない。** */}
         <div className="pk-drawer__head">
+          {/* **文字ではなく図形で描く。** `×` は文字なので、字面の位置が
+              フォントごとに違い、見出しとの上下が環境によってずれる
+              （手元の Linux では 0.75px、Hiragino では目に見える差になる）。
+              SVG なら viewBox の中で幾何学的に中央に決まる。 */}
           <Link className="pk-drawer__close" to={closeHref} aria-label={t("staff.panel.close")}>
-            <span aria-hidden="true">×</span>
+            <svg
+              className="pk-drawer__closeIcon"
+              viewBox="0 0 12 12"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M1.5 1.5 L10.5 10.5 M10.5 1.5 L1.5 10.5" />
+            </svg>
           </Link>
           <h2 className="pk-drawer__title">{title}</h2>
         </div>
-        <div className="pk-drawer__body">{children}</div>
+        <div className="pk-drawer__body">
+          {/* **失敗の理由はレイヤーの中に出す。** 画面の側に出すと、
+              直すべき欄が目の前にあるのに、その説明が幕の下に隠れる。 */}
+          {error === null ? null : <p className="pk-notice pk-notice--warn">{t(error)}</p>}
+          {children}
+        </div>
       </aside>
     </div>
+  );
+}
+
+/**
+ * レイヤーの中の送信ボタン。
+ *
+ * **送信中は押せなくする。** 往復の間にもう一度押せると、同じ保存が
+ * 2 度飛ぶ（二重送信そのものはサーバー側の POST → リダイレクトで
+ * 実害が出ないが、押した側には何が起きたか分からない）。
+ * ポインタの形は `.pk-drawer--busy` が受け持つ。
+ */
+function SubmitButton({ label, className }: { label: string; className?: string }) {
+  const navigation = useNavigation();
+  const busy = navigation.state !== "idle";
+
+  return (
+    <button type="submit" disabled={busy} {...(className === undefined ? {} : { className })}>
+      {label}
+    </button>
   );
 }
 
@@ -944,7 +1055,7 @@ function StaffCreateForm({ properties }: { properties: readonly StaffProperty[] 
       <input id="email" name="email" type="email" maxLength={254} />
       <p className="pk-form__note">{t("staff.form.emailNote")}</p>
 
-      <button type="submit">{t("staff.form.submit")}</button>
+      <SubmitButton label={t("staff.form.submit")} />
     </Form>
   );
 }
@@ -1041,7 +1152,7 @@ function StaffDetailForm({
             />
             <p className="pk-form__note">{t("staff.form.emailNote")}</p>
 
-            <button type="submit">{t("staff.panel.save")}</button>
+            <SubmitButton label={t("staff.panel.save")} />
           </Form>
 
           {/* 利用の停止と再開。**編集と同じフォームに混ぜない** —
@@ -1056,9 +1167,9 @@ function StaffDetailForm({
             <p className="pk-form__note">
               {t(detail.isActive ? "staff.panel.stopNote" : "staff.panel.resumeNote")}
             </p>
-            <button type="submit">
-              {t(detail.isActive ? "staff.panel.stop" : "staff.panel.resume")}
-            </button>
+            <SubmitButton
+              label={t(detail.isActive ? "staff.panel.stop" : "staff.panel.resume")}
+            />
           </Form>
         </>
       ) : null}
@@ -1128,35 +1239,13 @@ export default function Staff() {
       </div>
       <p className="pk-page__lede">{t("staff.lede")}</p>
 
-      {result !== undefined && "invalid" in result ? (
-        <p className="pk-notice">{t("staff.error.invalid")}</p>
-      ) : null}
-      {result !== undefined && "duplicate" in result ? (
-        <p className="pk-notice">{t("staff.error.duplicate")}</p>
-      ) : null}
-      {result !== undefined && "residencySaved" in result ? (
-        <p className="pk-notice">{t("staff.residency.saved")}</p>
-      ) : null}
-      {result !== undefined && "residencyInvalid" in result ? (
-        <p className="pk-notice">{t(residencyErrorKey(result.residencyInvalid))}</p>
-      ) : null}
-      {result !== undefined && "staffSaved" in result ? (
+      {/* **成功の知らせは画面の側に出す。** レイヤーはもう閉じている
+          （`savedRedirect()`）。理由は `?saved=` で運ばれてくる。 */}
+      {data.saved === null ? null : (
         <p className="pk-notice">
-          {t(`staff.panel.saved.${result.staffSaved}` as Parameters<typeof t>[0])}
+          {t(`staff.panel.saved.${data.saved}` as Parameters<typeof t>[0])}
         </p>
-      ) : null}
-      {result !== undefined && "staffInvalid" in result ? (
-        <p className="pk-notice">{t("staff.error.invalid")}</p>
-      ) : null}
-      {result !== undefined && "staffNotFound" in result ? (
-        <p className="pk-notice">{t("staff.panel.error.notFound")}</p>
-      ) : null}
-      {result !== undefined && "staffNotField" in result ? (
-        <p className="pk-notice">{t("staff.panel.adminOnly")}</p>
-      ) : null}
-      {result !== undefined && "staffSelf" in result ? (
-        <p className="pk-notice">{t("staff.panel.error.self")}</p>
-      ) : null}
+      )}
 
       <StaffRoster
         ledger={data.ledger}
@@ -1175,7 +1264,11 @@ export default function Staff() {
       )}
 
       {panel === null ? null : (
-        <StaffDrawer title={panelTitle(panel)} closeHref={panelHref(data.filter, null)}>
+        <StaffDrawer
+          title={panelTitle(panel)}
+          closeHref={panelHref(data.filter, null)}
+          error={drawerErrorKey(result)}
+        >
           {panel.mode === "NEW" ? (
             <StaffCreateForm properties={data.properties} />
           ) : (
