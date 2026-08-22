@@ -561,6 +561,7 @@ export {
   listExpiredResidencyStaffIds,
   listResidencyRecords,
   upsertResidencyRecord,
+  RESIDENCY_DELETION_TARGET,
   type ResidencyRow,
   type UpsertResidencyInput,
 } from "./residency.js";

@@ -32,7 +32,9 @@ import {
   residencyRecord,
   type ResidencyStatusType,
 } from "../schema/workforce.js";
+import { systemActorId } from "../systemActor.js";
 
+import { auditCountStatement } from "./audit.js";
 import { NO_PROPERTY_SCOPE, withTenantScope } from "./base.js";
 
 /** 在留資格 1 件。**番号も国籍も含まない**（そもそも列が無い）。 */
@@ -209,10 +211,14 @@ export async function upsertResidencyRecord(
   return { id: rows[0]?.id ?? id };
 }
 
+/** 削除の記録に使う対象種別。**個人を指す ID を持たない。** */
+export const RESIDENCY_DELETION_TARGET = "residencyRetention";
+
 /**
  * 保存期間を満了した在留資格の記録を**物理削除する**（P8-11）。
  *
  * task: docs/tasks/P8-11.md
+ * 決定: docs/DECISIONS.md #266 / hotfix 2026-08-22
  *
  * ── 消してよいかを、ここで判断しない ────────────────────
  * 受け取るのは `staff_pay_profile.id` の配列だけ。**退職日も経過日数も
@@ -224,11 +230,36 @@ export async function upsertResidencyRecord(
  * 訂正の履歴を残す帳票や `EvidenceSnapshot` と違い、**在留資格は
  * 「持たないこと」に意味がある。** 論理削除の列を作らない。
  *
- * ── 冪等 ────────────────────────────────────────────────
- * 2 回目は消す行が無いので 0 を返す。**呼び出し側が件数で分岐しない
- * かぎり、何度実行しても結果は変わらない。**
+ * ── 削除と監査ログを 1 つの batch で書く（**hotfix の要点**）──
+ * 以前は「消してから記録する」2 段だった。**間で落ちると、行は消えた
+ * のに記録が残らない。** 再送しても消えた行はもう選ばれないので、
+ * 実際の削除件数を復元できない。取り返しのつかない操作でそれは許されない。
  *
- * @returns 実際に消えた行数。
+ * D1 にトランザクションは無いが、**`batch()` は 1 つの SQL
+ * トランザクションとして走り、途中の文が落ちれば全体が巻き戻る**
+ * （`repositories/lostItem.ts` の先例と同じ拠りどころ）。
+ * 塊ごとに `[監査ログ, DELETE]` の 2 文を束ね、**どちらかが落ちたら
+ * その塊は丸ごと無かったことになる。**
+ *
+ * ── 件数を JavaScript で数えない ────────────────────────
+ * 監査ログの `deleted` は `chunk.length`（＝候補の数）**ではない。**
+ * 選定から DELETE までの間に別の経路で消えている行がありうる。
+ * **同じトランザクションの中で、DELETE と同じ条件で DB が数えた値**を
+ * 記録する（`auditCountStatement()` の `count`）。
+ *
+ * ── 監査ログの並び順 ────────────────────────────────────
+ * 監査ログの INSERT を DELETE の**前**に置く。同じトランザクションなので
+ * DELETE が落ちれば監査ログも巻き戻り、**数えた瞬間には行がまだある。**
+ *
+ * ── 塊ごとに 1 行 ───────────────────────────────────────
+ * D1 の束縛変数の上限（`chunkIdsForInArray()`）で分かれた場合、
+ * 監査ログも塊ごとに 1 行になる。**合計すれば実際の削除総数**になる。
+ *
+ * ── 冪等 ────────────────────────────────────────────────
+ * 2 回目は消す行が無いので 0 を返し、`deleted: 0` の監査ログが 1 行増える。
+ * **表の中身は何度実行しても同じ。**
+ *
+ * @returns 実際に消えた行数（全塊の合計）。
  */
 export async function deleteResidencyRecords(
   env: Env,
@@ -242,17 +273,27 @@ export async function deleteResidencyRecords(
   let deleted = 0;
   // D1 の束縛変数の上限を超えないように分ける（`chunkIdsForInArray()`）。
   for (const chunk of chunkIdsForInArray(staffProfileIds)) {
-    const result = await db
-      .delete(residencyRecord)
-      .where(
-        withTenantScope(
-          residencyRecord,
-          ctx,
-          NO_PROPERTY_SCOPE,
-          inArray(residencyRecord.staffProfileId, [...chunk]),
-        ),
-      );
-    deleted += result.meta.changes;
+    const where = withTenantScope(
+      residencyRecord,
+      ctx,
+      NO_PROPERTY_SCOPE,
+      inArray(residencyRecord.staffProfileId, [...chunk]),
+    );
+
+    const results = await db.batch([
+      // ① その瞬間に実在する対象行数を、DB が数えて監査ログへ書く。
+      auditCountStatement(db, ctx, {
+        // 誰も操作していない。**人の ID を借りない**（DECISIONS #164）。
+        actorId: systemActorId(ctx.orgShortId),
+        action: "residency.deleted",
+        targetType: RESIDENCY_DELETION_TARGET,
+        count: sql`(select count(*) from ${residencyRecord} where ${where})`,
+      }),
+      // ② 同じ条件で消す。①②は同じトランザクション。
+      db.delete(residencyRecord).where(where),
+    ]);
+
+    deleted += results[1].meta.changes;
   }
   return deleted;
 }

@@ -17,12 +17,13 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import type { Env } from "../env.js";
 import { generateId } from "../id.js";
 import { NotFoundError } from "../errors.js";
-import type { TenantContext } from "../router.js";
+import { getTenantDb, type TenantContext } from "../router.js";
 import {
   createFakeD1,
   createFakeEnv,
@@ -66,6 +67,8 @@ import * as standardTimeRepo from "./standardTime.js";
 import * as taskPhotoRepo from "./taskPhoto.js";
 import * as staffLedgerRepo from "./staffLedger.js";
 import * as userRepo from "./user.js";
+
+import { residencyRecord } from "../schema/workforce.js";
 
 /** 検証対象のリポジトリモジュール。**新しいファイルを足したらここに追加する。** */
 const REPOSITORY_MODULES: Record<string, Record<string, unknown>> = {
@@ -3647,6 +3650,23 @@ const INVOCATIONS: Invocation[] = [
         updatedById: OWN_ID.membership,
       }),
   },
+  // ── P8-11 監査ログを他の文と束ねる口（hotfix 2026-08-22）──
+  {
+    // **実行しないまま返す 1 文。** ここでは `await` して実際に送らせ、
+    // 組織条件（`INSERT_WITH_ORG`）の検査を掛ける。
+    name: "audit.auditCountStatement",
+    kind: "tenant",
+    run: async (env, ctx) => {
+      const db = await getTenantDb(env, ctx);
+      await auditRepo.auditCountStatement(db, ctx, {
+        actorId: OWN_ID.membership,
+        action: "residency.deleted",
+        targetType: "residencyRetention",
+        count: sql`(select count(*) from ${residencyRecord} where ${eq(residencyRecord.organizationId, ctx.organizationId)})`,
+      });
+    },
+  },
+
   // ── P8-11 保存期間の満了で消す（同 §1.4）─────────────────
   {
     name: "residency.deleteResidencyRecords",

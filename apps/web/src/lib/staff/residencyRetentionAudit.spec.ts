@@ -1,5 +1,8 @@
 /**
- * 在留資格の削除の記録（`residencyRetentionAudit.ts`）。
+ * 削除バッチが「走ったが 0 件だった」ことの記録（`residencyRetentionAudit.ts`）。
+ *
+ * **消えた回の記録はここを通らない**（hotfix 2026-08-22）。あちらは
+ * `deleteResidencyRecords()` が DELETE と同じ `batch()` の中で書く。
  *
  * ここが守るのは 3 つ（P8-11 の完了条件）。
  *   1. **監査ログに在留資格の中身が入らない**（引数に存在しないこと）
@@ -52,6 +55,12 @@ describe("在留資格の削除の記録", () => {
     expect(CODE).toContain("after: { deleted: input.deleted }");
     // `before` は無い。消える前の値を監査ログへ写さない。
     expect(CODE).not.toContain("before");
+  });
+
+  it("**対象種別は 1 か所で決める**（`@pk/db` から取る）", () => {
+    // 同じ文字列を 2 か所に書くと、片方だけ直したときに監査ログが割れる。
+    expect(CODE).toContain("RESIDENCY_DELETION_TARGET");
+    expect(CODE).not.toContain('= "residencyRetention"');
   });
 
   it("操作者はバッチ（**人の ID を借りない**）", () => {

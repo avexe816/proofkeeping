@@ -22,7 +22,8 @@
  * （`repositories/property.ts` の申し送り）。
  */
 
-import { desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { desc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
+import type { DrizzleD1Database } from "drizzle-orm/d1";
 
 import type { Env } from "../env.js";
 import { assertIdBelongsToTenant, generateId } from "../id.js";
@@ -425,6 +426,71 @@ export async function recordAuditDaily(
 
   await recordAudit(env, ctx, input);
   return true;
+}
+
+/**
+ * **実行しないまま返す**監査ログの 1 文（P8-11 / hotfix 2026-08-22）。
+ *
+ * 呼び出し側が `db.batch([...])` の中へ入れて、**別の操作と同じ
+ * トランザクションで書く**ための口。返すのは drizzle の insert で、
+ * ここでは `await` しない。
+ *
+ * ── なぜこの口が要るのか ────────────────────────────────
+ * 物理削除のように**取り返しがつかない操作**では、「消したのに記録が
+ * 無い」状態を作ってはならない。削除と記録を別の `await` にすると、
+ * 間で落ちたときに片方だけが残る。D1 にトランザクションは無いが、
+ * `batch()` は 1 つの SQL トランザクションとして走り、途中の文が
+ * 落ちれば全体が巻き戻る（`repositories/lostItem.ts` の先例）。
+ *
+ * ── 件数を JavaScript で数えさせない ────────────────────
+ * `count` は**同じトランザクションの中で DB が数える式**（`SQL`）。
+ * 呼び出し側が数えた「候補の数」を渡せる形にすると、選定から DELETE
+ * までの間に消えた行が件数に混ざる。**記録するのは、その瞬間に
+ * 実在した行数。**
+ *
+ * ── 載るのは件数だけ ────────────────────────────────────
+ * `after` は `{"deleted": N}` に固定する。**対象の ID も、その hash も、
+ * 個人を指す値も受け取れない**（引数に存在しない）。監査ログが
+ * 「消したはずの情報」の控えになってはならない（P8-11 の禁止事項）。
+ *
+ * ── `auditLog` を触るのはこのファイルだけ ────────────────
+ * この関数の目的は**その境界を保ったまま**他の文と束ねられるように
+ * することにある。呼び出し側で `db.insert(auditLog)` と書かないこと。
+ *
+ * @param db `getTenantDb()` が返す db。**呼び出し側の batch と同じもの。**
+ * @param input.count その瞬間の対象行数を数える式（スカラーの副問い合わせ）。
+ */
+export function auditCountStatement(
+  db: DrizzleD1Database<Record<string, unknown>>,
+  ctx: TenantContext,
+  input: {
+    actorId: string;
+    action: AuditAction;
+    targetType: string;
+    count: SQL;
+  },
+) {
+  // 理由必須の操作をこの口から書けないようにする（`recordAudit()` と同じ判断）。
+  // **理由を受け取る引数が無い**ので、通すと理由なしの行ができる。
+  if (AUDIT_ACTIONS[input.action].requiresReason) throw new Error("AUDIT_REASON_REQUIRED");
+  assertIdBelongsToTenant(input.actorId, ctx);
+
+  return db.insert(auditLog).values({
+    id: generateId(ctx.orgShortId, "audit"),
+    organizationId: ctx.organizationId,
+    propertyId: null,
+    actorId: input.actorId,
+    actorRole: ctx.role,
+    action: input.action,
+    targetType: input.targetType,
+    targetId: null,
+    before: null,
+    // **`{"deleted": N}` だけ。** N は DB が数える。
+    after: sql`json_object('deleted', ${input.count})`,
+    reason: null,
+    ip: null,
+    at: ctx.now,
+  });
 }
 
 // ────────────────────────────────────────────────────────────

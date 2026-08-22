@@ -1,8 +1,18 @@
 /**
- * 在留資格を「保存期間の満了で消した」ことの記録（P8-11）。
+ * 在留資格の削除バッチが「走ったが 0 件だった」ことの記録（P8-11）。
  *
  * task: docs/tasks/P8-11.md
  * ルール: .claude/rules/security.md §6
+ *
+ * ── 消した回はここを通らない（**hotfix 2026-08-22**）──────
+ * 実際に消える回の監査ログは、**DELETE と同じ D1 `batch()` の中**で
+ * `deleteResidencyRecords()` が書く。別の `await` にすると、間で落ちて
+ * 「消えたのに記録が無い」状態が作れてしまう。
+ *
+ * **ここが残っているのは 0 件の回のため。** 消す行が無い回は DELETE が
+ * 1 文も出ないので束ねる相手がいない。「走ったが 0 件」と「走っていない」を
+ * 区別できないと、消えていない理由を追えない（`photo.retentionDeleted` と
+ * 同じ判断 / DECISIONS #165）。**0 以外を渡さないこと。**
  *
  * ── 閲覧の記録と分けてある ──────────────────────────────
  * `residencyAudit.ts` は**ソースに `after` が現れないこと**を spec が
@@ -22,22 +32,23 @@
  * 畳むが、**削除は日次バッチで元々 1 日 1 件。** 畳むと、2 度走ったときに
  * 2 度目が残らない。物理削除は取り返しがつかないので、走った回数は
  * そのまま残す。
- *
- * ── 0 件でも呼ぶ ────────────────────────────────────────
- * 呼び出し側が件数で分岐しないこと。「走ったが対象が無かった」と
- * 「走っていない」が区別できないと、消えていない理由を追えない
- * （`photo.retentionDeleted` と同じ判断 / DECISIONS #165）。
  */
 
-import { recordAudit, systemActorId, type Env, type TenantContext } from "@pk/db";
+import {
+  recordAudit,
+  RESIDENCY_DELETION_TARGET,
+  systemActorId,
+  type Env,
+  type TenantContext,
+} from "@pk/db";
 
-/** 「保存期間の満了で消した」の対象種別。**個人を指す ID を持たない。** */
-export const RESIDENCY_DELETION_TARGET = "residencyRetention";
+export { RESIDENCY_DELETION_TARGET };
 
 /**
- * 保存期間を満了した在留資格を消したことを記録する。
+ * 削除バッチが走ったことを記録する。**消す行が無かった回だけ。**
  *
- * @param input.deleted 消えた行数。**これ以外を受け取らない。**
+ * @param input.deleted 消えた行数。**0 を渡すこと**（消えた回の記録は
+ *   `deleteResidencyRecords()` が DELETE と同じ batch の中で書く）。
  */
 export async function recordResidencyDeletion(
   env: Env,

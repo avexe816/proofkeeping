@@ -207,6 +207,12 @@ describe("INV-30: 監査ログを消せない", () => {
     // 閲覧の記録を 1 日 1 件に畳む口（INV-08 v2 / DECISIONS #261）。
     // **書き込みの口が 2 つになった。** 削除・更新ではないので INV-30 は保つ。
     "recordAuditDaily",
+    // **実行しないまま返す 1 文**（P8-11 hotfix / 2026-08-22）。
+    // 物理削除と監査ログを同じ `batch()` へ束ねるために要る。
+    // 書き込みの口が 3 つになったが、**削除・更新ではないので INV-30 は保つ**。
+    // `auditLog` を触るのがこのファイルだけ、という境界も保つ
+    // （呼び出し側は `db.insert(auditLog)` と書かない）。
+    "auditCountStatement",
     "listAuditLogs",
     "listAuditLogsForViewer",
   ];
@@ -233,6 +239,7 @@ describe("INV-30: 監査ログを消せない", () => {
     expect(EXPECTED_FUNCTIONS).toEqual([
       "recordAudit",
       "recordAuditDaily",
+      "auditCountStatement",
       "listAuditLogs",
       "listAuditLogsForViewer",
     ]);
