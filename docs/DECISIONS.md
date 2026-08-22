@@ -6335,3 +6335,58 @@
     できている（`observation_config.baseline_window_days`）。
 - 影響: ベースラインの値そのものが変わる。**次回の週次バッチから反映**され、
   除外率（W-22 の 15% 警告）は下がる方向に動く。
+
+---
+
+## #253 W-18（検査ポリシー）を置き、門は `property.write` を使う
+- 日付: 2026-08-22
+- 状態: 採用
+- 背景: 業務の流れの通行検証（オーナー指示 2026-08-22）で、**役割 D
+  （検査担当）が 1 件も検査を受け取れない**ことが分かった。表
+  （`property_inspection_policy`）とリポジトリ関数
+  （`upsertInspectionPolicy()`）は P2-02 で入っていたが、**呼び出し元が
+  テストしか無かった。** 施設を作ると `createProperty()` が
+  `legacyPolicyValues(false)` の行、つまり `mode = NONE` を置く。`NONE` の
+  施設では `decideInspection()` が 1 行目で `POLICY_NONE` を返し、清掃完了
+  タスクが `AWAITING_INSPECTION` を通らず `COMPLETED` になるため、M-08 の
+  検査待ちが**構造上ずっと空**になっていた。PK-SPEC-P2 §12.1 の
+  `W-18 /app/settings/inspection 検査ポリシー` が未実装だったのが原因。
+- 選択肢:
+  1. W-18 を置く（§12.1 のパスのまま）
+  2. 施設設定（W-11）に検査方式の欄を足す
+  3. API を足して運用が叩く
+- 決定: **1。`/app/settings/inspection` を新設する。**
+- 理由:
+  - §12.1 が W-18 のパスを定めている。**画面の置き場所は仕様にある。**
+    2 を採ると仕様に無い画面構成になり、`repositories/property.ts` の
+    「設定は W-02 から」という古い注記に引きずられる。
+  - 3 は §9 の API 一覧に検査ポリシーの口が無く、**仕様の外に経路を増やす**
+    ことになる（W-20 観察設定で採った #099 と同じ判断で、画面の action から
+    リポジトリを呼ぶ）。
+- 決定（門）: **`property.write` を使い、権限アクションを新設しない。**
+  - §12.1 は W-18 の担当ロールを定めていない。**根拠の無い権限の新設は
+    仕様に無い設計選択**（workflow.md §6 の停止条件）。
+  - 検査方式は施設ごとのマスタ設定で、行を作るのも施設の作成時
+    （`createProperty()`）。`property.write` は OWNER / ORG_ADMIN が組織全体、
+    `PROPERTY_MANAGER` が担当施設、他は DENY で、設定できる相手と一致する。
+  - 監査も同じ理由で `property.updated`（`targetType: "inspectionPolicy"`）。
+    `AUDIT_ACTIONS` は閉じたレジストリで、専用の行を足す根拠が無い（W-20 と同じ扱い）。
+- 決定（画面に出す項目）: **§2.1 の 8 項目のうち 3 つだけ**（方式・抽出率・
+  1 日あたりの最低件数）。残る 5 つは入力欄を置かず、**現在値をそのまま
+  書き戻す**（`parseInspectionPolicyForm()`）。
+  - 入力欄が無いことを理由に既定値へ戻すと、`selfInspectionAllowed` のような
+    安全側の設定が保存のたびに静かに変わる。
+  - `autoAssignInspector` は参照するコードがまだ無く、`inspectionSlaMinutes` は
+    画面内表示だけ。**流れに効かない欄を先に作らない。**
+- 決定（壊れた入力の扱い）: **現在値のまま残す。**
+  数値が読めないときに 0 を保存すると、抽出率 0%・最低件数 0 件になって
+  検査対象が 1 件も出なくなる。**保存で流れが止まる向きに倒さない。**
+- やらないこと:
+  - **`property.inspectionRequired` を書き換えない。** 読む側は必ず
+    「行があれば行を優先」する（`resolveInspectionDecision()` /
+    `lib/inspection/stranded.ts`）ので、行だけ書けば効く。二重管理そのものは
+    OPEN_QUESTIONS #044 の担当で、ここでは解かない。
+  - **migration を足していない。** 表も列も 0011 以前から在る。
+- 影響: `mode` を `ALL` / `SAMPLE` にした施設で、清掃完了タスクが
+  `AWAITING_INSPECTION` へ入り、M-08 と PC の検査キューに現れる。
+  **既存の施設の動きは変わらない**（保存するまで行は `NONE` のまま）。

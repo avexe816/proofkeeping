@@ -445,6 +445,21 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/settings/observation",
   },
+  // W-18 検査ポリシー（PK-SPEC-P2 §2.1 / §12.1）。施設ごとの検査方式。
+  // 門は `property.write` — §12.1 が W-18 の担当ロールを定めていないため、
+  // 施設マスタと同じ門を使う（画面の冒頭注記）。
+  {
+    key: "nav.inspectionSettings",
+    placement: "SETTINGS",
+    note: "nav.note.inspectionSettings",
+    icon: "🔍",
+    section: "settings",
+    moduleCode: "HOUSEKEEPING_CORE",
+    action: "property.write",
+    scope: "PROPERTY",
+    status: "READY",
+    href: "/app/settings/inspection",
+  },
   // W-21 ベースライン確認・上書き（P3-10 / PK-SPEC-P3 §5.5・§6.1）。
   // 担当ロールは `ORG_ADMIN`（上書きできるのはこのロールだけ / §5.5）。
   // **`scope` は `ORGANIZATION`**（W-20 と同じ理由）。
@@ -747,6 +762,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategoryDef[] = [
       "nav.checklists",
       "nav.standardTimes",
       "nav.observationSettings",
+      "nav.inspectionSettings",
       "nav.rules",
       "nav.baseline",
     ],
