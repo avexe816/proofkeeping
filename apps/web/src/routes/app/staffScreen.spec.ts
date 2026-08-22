@@ -133,3 +133,32 @@ describe("在留資格の書き込み（P8-02）", () => {
     }
   });
 });
+
+// ────────────────────────────────────────────────────────────
+// 閲覧の記録（INV-08 v2 / DECISIONS #261）
+// ────────────────────────────────────────────────────────────
+
+describe("在留資格を見たことを記録する", () => {
+  it("**読めたときだけ記録する**（読めない相手の行を作らない）", () => {
+    expect(SOURCE).toContain("if (canReadResidency) {");
+    expect(SOURCE).toContain("recordResidencyView(env, tenant, {");
+  });
+
+  /**
+   * **監査ログの口をこの画面に置かない。**
+   *
+   * `staff.tsx` は初期 PIN を `action` の戻り値として運ぶ。ここに
+   * `recordAudit` 系を直接置くと、取り違えたときに PIN が監査ログへ
+   * 入りうる（上の「PIN を持つ画面に監査ログの口を置いていない」）。
+   * 記録は `lib/staff/residencyAudit.ts` が持ち、**この画面は
+   * 操作者と業務日しか渡せない。**
+   */
+  it("**渡すのは操作者と業務日だけ**（値を渡せる形にしない）", () => {
+    const call = /recordResidencyView\(env, tenant, \{([\s\S]*?)\}\);/.exec(SOURCE);
+    expect(call, "recordResidencyView の呼び出しが読めていない").not.toBeNull();
+    const body = call?.[1] ?? "";
+    for (const forbidden of ["before", "after", "expiresOn", "displayName", "statusType", "pin"]) {
+      expect(body, forbidden).not.toContain(forbidden);
+    }
+  });
+});

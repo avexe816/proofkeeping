@@ -139,13 +139,17 @@ describe("canReceive — 表に無い相手へ送らない", () => {
     expect(canReceive("PROPERTY_MANAGER", "integration.error")).toBe(false);
   });
 
-  it("**`OWNER` は在留資格の通知を受け取らない**（INV-08 / P8-02）", () => {
-    // 「オーナー・プラットフォーム運営に公開しない」。写真の保持期限
-    // （`photo.retention_due`）は OWNER にも届くが、こちらは届かない。
-    expect(canReceive("OWNER", "residency.expiry_due")).toBe(false);
+  it("**在留資格の通知は雇用主の側にだけ届く**（INV-08 v2 / P8-02）", () => {
+    // 2026-08-22 に `OWNER` を足した（OPEN_QUESTIONS #110 決着 /
+    // DECISIONS #261）。**読めるのに期限の知らせが来ない状態を作らない。**
+    // 在留期限の更新管理は雇用主の継続的な義務。
+    expect(canReceive("OWNER", "residency.expiry_due")).toBe(true);
+    expect(canReceive("ORG_ADMIN", "residency.expiry_due")).toBe(true);
+    // **現場と発注元へは広げない。**
     expect(canReceive("PROPERTY_MANAGER", "residency.expiry_due")).toBe(false);
     expect(canReceive("VENDOR_ADMIN", "residency.expiry_due")).toBe(false);
-    expect(canReceive("ORG_ADMIN", "residency.expiry_due")).toBe(true);
+    expect(canReceive("CLEANER", "residency.expiry_due")).toBe(false);
+    expect(canReceive("INSPECTOR", "residency.expiry_due")).toBe(false);
   });
 
   it("**取引先はロールではない**（`period.review_requested`）", () => {
