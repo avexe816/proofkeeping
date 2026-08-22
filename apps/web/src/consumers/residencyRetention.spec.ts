@@ -1,13 +1,18 @@
 /**
- * 在留資格の保存期間の満了（P8-11 / PK-SPEC-P8 §1.4）。
+ * 在留資格の保存期間の満了（P8-11 / PK-SPEC-P8 §1.4）。**発行される SQL の形。**
+ *
+ * ここで見るのは「どんな文を、どんな束ね方で送るか」まで。
+ * **本当に巻き戻るか・件数が合うかは `residencyRetention.db.spec.ts`**
+ * （`node:sqlite` の実 DB）で見る。代役は行を貯めないので、
+ * ここで「消えていないこと」は確かめられない。
  *
  * 完了条件（docs/tasks/P8-11.md）:
- *   - 退職から 3 年が経った記録だけを消す（境界値は lib の spec）
- *   - **3 回実行しても結果が変わらない**（testing.md §4）
- *   - 監査ログに `residency.deleted` が残る（**0 件でも残る**）
- *   - **監査ログに氏名・種別・期限・更新申請日が入らない**
- *   - **削除済みの情報を監査ログから復元できない**（`staffProfileId` も入らない）
- *   - 退職者へ更新の通知が飛ばない（`residencyAlert.spec.ts` と合わせて固定）
+ *   - 満了日の**翌日**から消す（境界値は lib の spec）
+ *   - **DELETE と監査ログを 1 つの `batch()` で送る**
+ *   - 監査ログの件数は**候補の数ではなく DB が数えた実在行数**
+ *   - `batch()` が落ちたら例外が呼び出し側へ伝わる
+ *   - 0 件の回は `deleted: 0` の記録が 1 行残る
+ *   - 監査ログに個人を特定できる値を保存しない
  */
 
 import type { Env, ResidencyRow, StaffLedgerRow } from "@pk/db";
@@ -16,8 +21,11 @@ import { describe, expect, it } from "vitest";
 
 import { runResidencyRetention } from "./residencyRetention.js";
 
-/** 判定の基準日。2023-08-20 に退職した人がちょうど 3 年を迎える日。 */
+/** 判定の基準日。2023-08-19 に退職した人は満了（2026-08-19）を過ぎている。 */
 const BUSINESS_DATE = "2026-08-20";
+
+/** 満了を過ぎている退職日。 */
+const RESIGNED_LONG_AGO = "2023-08-19";
 
 const CTX = {
   organizationId: TEST_ORG.organizationId,
@@ -46,7 +54,7 @@ function ledgerRow(overrides: Partial<StaffLedgerRow> & { id: string }): StaffLe
 
 /**
  * 在留資格 1 件。**監査ログに写ってはいけない値をわざと入れてある** —
- * この文字列が監査ログのパラメータに現れないことを下で確かめる。
+ * この文字列が保存される値に現れないことを下で確かめる。
  */
 function residencyRow(staffProfileId: string): ResidencyRow {
   return {
@@ -66,31 +74,103 @@ function envOf(fake: FakeD1): Env {
   return createFakeEnv(fake);
 }
 
-/** `residency.deleted` を書いた INSERT。 */
-function auditInsert(fake: FakeD1): { sql: string; params: unknown[] } {
-  const insert = fake.queries.find(
+function auditInserts(fake: FakeD1): { sql: string; params: unknown[] }[] {
+  return fake.queries.filter(
     (query) => query.sql.startsWith("insert into") && query.params.includes("residency.deleted"),
   );
-  if (insert === undefined) throw new Error("residency.deleted の監査ログが書かれていない");
-  return insert;
+}
+
+function deletes(fake: FakeD1): { sql: string; params: unknown[] }[] {
+  return fake.queries.filter((query) => query.sql.startsWith("delete from"));
 }
 
 describe("runResidencyRetention", () => {
-  it("退職から 3 年が経った記録を消す", async () => {
+  it("満了日を過ぎた記録を消す", async () => {
     const fake = createFakeD1();
     const id = staffId("ABCDEFGH");
 
+    const result = await runResidencyRetention(envOf(fake), CTX, {
+      ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: RESIGNED_LONG_AGO })],
+      residency: [residencyRow(id)],
+      businessDate: BUSINESS_DATE,
+    });
+
+    expect(result.candidates).toBe(1);
+    const del = deletes(fake);
+    expect(del).toHaveLength(1);
+    expect(del[0]?.params).toContain(id);
+    // 組織条件が必ず載る（architecture.md §2 第 1 層）。
+    expect(del[0]?.params).toContain(TEST_ORG.organizationId);
+  });
+
+  it("**監査ログと DELETE を 1 つの `batch()` で送る**（別々に `await` しない）", async () => {
+    const fake = createFakeD1();
+    const id = staffId("ABCDEFGH");
+
+    await runResidencyRetention(envOf(fake), CTX, {
+      ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: RESIGNED_LONG_AGO })],
+      residency: [residencyRow(id)],
+      businessDate: BUSINESS_DATE,
+    });
+
+    // 束ねた 2 文だけが出ている。**3 文目（後から書く監査ログ）が無い。**
+    expect(fake.queries).toHaveLength(2);
+    expect(auditInserts(fake)).toHaveLength(1);
+    expect(deletes(fake)).toHaveLength(1);
+    // 監査ログが先（同じトランザクションなので、数える瞬間に行がまだある）。
+    expect(fake.queries[0]?.sql.startsWith("insert into")).toBe(true);
+    expect(fake.queries[1]?.sql.startsWith("delete from")).toBe(true);
+  });
+
+  it("**件数は DB が数える**（`chunk.length` を埋め込まない）", async () => {
+    const fake = createFakeD1();
+    const id = staffId("ABCDEFGH");
+
+    await runResidencyRetention(envOf(fake), CTX, {
+      ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: RESIGNED_LONG_AGO })],
+      residency: [residencyRow(id)],
+      businessDate: BUSINESS_DATE,
+    });
+
+    const insert = auditInserts(fake)[0];
+    // `after` は副問い合わせを含む式。**リテラルの JSON を束縛していない。**
+    expect(insert?.sql).toContain("json_object('deleted'");
+    expect(insert?.sql).toContain("select count(*)");
+    expect(insert?.params).not.toContain('{"deleted":1}');
+  });
+
+  it("**`batch()` が落ちたら例外が伝わる**（握り潰さない）", async () => {
+    const fake = createFakeD1();
+    const id = staffId("ABCDEFGH");
+    fake.failNextBatch(new Error("D1_ERROR"));
+
+    await expect(
+      runResidencyRetention(envOf(fake), CTX, {
+        ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: RESIGNED_LONG_AGO })],
+        residency: [residencyRow(id)],
+        businessDate: BUSINESS_DATE,
+      }),
+    ).rejects.toThrow("D1_ERROR");
+
+    // **後追いの監査ログを書かない。** 落ちた回に「消した」記録が残らない。
+    expect(fake.queries.filter((query) => query.params.includes("residency.deleted"))).toHaveLength(
+      1,
+    );
+  });
+
+  it("満了日**当日**は消さない（**DELETE も監査ログも出ない**）", async () => {
+    const fake = createFakeD1();
+    const id = staffId("ABCDEFGH");
+
+    // 2023-08-20 退職 → 満了 2026-08-20 = 基準日。
     const result = await runResidencyRetention(envOf(fake), CTX, {
       ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: "2023-08-20" })],
       residency: [residencyRow(id)],
       businessDate: BUSINESS_DATE,
     });
 
-    expect(result.candidates).toBe(1);
-    const del = fake.queries.find((query) => query.sql.startsWith("delete from"));
-    expect(del?.params).toContain(id);
-    // 組織条件が必ず載る（architecture.md §2 第 1 層）。
-    expect(del?.params).toContain(TEST_ORG.organizationId);
+    expect(result).toEqual({ candidates: 0, deleted: 0 });
+    expect(deletes(fake)).toHaveLength(0);
   });
 
   it("在職中は在留期限が切れていても消さない（**DELETE を発行しない**）", async () => {
@@ -104,7 +184,7 @@ describe("runResidencyRetention", () => {
     });
 
     expect(result).toEqual({ candidates: 0, deleted: 0 });
-    expect(fake.queries.some((query) => query.sql.startsWith("delete from"))).toBe(false);
+    expect(deletes(fake)).toHaveLength(0);
   });
 
   it("退職日が分からなければ消さない", async () => {
@@ -118,36 +198,33 @@ describe("runResidencyRetention", () => {
     });
 
     expect(result).toEqual({ candidates: 0, deleted: 0 });
-    expect(fake.queries.some((query) => query.sql.startsWith("delete from"))).toBe(false);
+    expect(deletes(fake)).toHaveLength(0);
   });
 
-  it("**3 回実行しても結果が変わらない**（testing.md §4）", async () => {
+  it.each([
+    "2023-02-29",
+    "2023-02-30",
+    "2023-02-31",
+    "2023-04-31",
+    "2023-00-15",
+    "2023-13-01",
+    "2023-01-00",
+    "2023-01-32",
+  ])("**暦に無い退職日では DELETE を 1 文も発行しない**（%s）", async (resignedOn) => {
+    const fake = createFakeD1();
     const id = staffId("ABCDEFGH");
-    const ledger = [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: "2023-08-20" })];
-    // 表の中身。**消えた行は次の回の読み取りに出てこない。**
-    let residency = [residencyRow(id)];
 
-    const deleted: number[] = [];
-    for (let round = 0; round < 3; round += 1) {
-      const fake = createFakeD1();
-      const result = await runResidencyRetention(envOf(fake), CTX, {
-        ledger,
-        residency,
-        businessDate: BUSINESS_DATE,
-      });
-      deleted.push(result.candidates);
-      const removed = new Set(
-        result.candidates > 0 ? residency.map((row) => row.staffProfileId) : [],
-      );
-      residency = residency.filter((row) => !removed.has(row.staffProfileId));
-    }
+    const result = await runResidencyRetention(envOf(fake), CTX, {
+      ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn })],
+      residency: [residencyRow(id)],
+      businessDate: BUSINESS_DATE,
+    });
 
-    // 1 回目で消え、2 回目・3 回目は対象が無い。**表の中身は同じ。**
-    expect(deleted).toEqual([1, 0, 0]);
-    expect(residency).toEqual([]);
+    expect(result).toEqual({ candidates: 0, deleted: 0 });
+    expect(deletes(fake)).toHaveLength(0);
   });
 
-  it("**0 件でも監査ログに残す**（走ったが 0 件と、走っていないを分ける）", async () => {
+  it("**0 件の回も記録を残す**（走ったが 0 件と、走っていないを分ける）", async () => {
     const fake = createFakeD1();
 
     await runResidencyRetention(envOf(fake), CTX, {
@@ -156,9 +233,28 @@ describe("runResidencyRetention", () => {
       businessDate: BUSINESS_DATE,
     });
 
-    const insert = auditInsert(fake);
-    expect(insert.params).toContain("residency.deleted");
-    expect(insert.params).toContain('{"deleted":0}');
+    const insert = auditInserts(fake)[0];
+    expect(insert?.params).toContain("residency.deleted");
+    // 束ねる DELETE がいないので、こちらは値を束縛する経路
+    // （`recordEmptyResidencyRetentionRun()`。**件数は 0 に固定**）。
+    expect(insert?.params).toContain('{"deleted":0}');
+  });
+
+  it("**消す回は 0 件用の口を通らない**（`{\"deleted\":0}` を書かない）", async () => {
+    const fake = createFakeD1();
+    const id = staffId("ABCDEFGH");
+
+    await runResidencyRetention(envOf(fake), CTX, {
+      ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: RESIGNED_LONG_AGO })],
+      residency: [residencyRow(id)],
+      businessDate: BUSINESS_DATE,
+    });
+
+    // 0 件用の口は `after` にリテラルを束縛する。**その痕跡が無い。**
+    expect(JSON.stringify(fake.queries)).not.toContain('{\\"deleted\\":0}');
+    for (const query of fake.queries) {
+      expect(query.params).not.toContain('{"deleted":0}');
+    }
   });
 
   it("監査ログの操作者はバッチ（**人の ID を借りない** / DECISIONS #164）", async () => {
@@ -170,7 +266,7 @@ describe("runResidencyRetention", () => {
       businessDate: BUSINESS_DATE,
     });
 
-    expect(auditInsert(fake).params).toContain(
+    expect(auditInserts(fake)[0]?.params).toContain(
       `${TEST_ORG.orgShortId}__sys_00000000000000000000000000`,
     );
   });
@@ -180,41 +276,26 @@ describe("runResidencyRetention", () => {
     const id = staffId("ABCDEFGH");
 
     await runResidencyRetention(envOf(fake), CTX, {
-      ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: "2023-08-20" })],
+      ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: RESIGNED_LONG_AGO })],
       residency: [residencyRow(id)],
       businessDate: BUSINESS_DATE,
     });
 
-    const serialized = JSON.stringify(auditInsert(fake).params);
+    const serialized = JSON.stringify(auditInserts(fake)[0]?.params);
     for (const value of [
       "SPECIFIED_SKILLED_1", // 種別
       "特定技能1号", // 表示名
       "2024-03-31", // 在留期限
       "2023-12-01", // 更新申請日
       "更新手続きの控え", // ノート
-      "2023-08-20", // 退職日
-      "28", // 週の上限時間
+      RESIGNED_LONG_AGO, // 退職日
+      `${TEST_ORG.orgShortId}__resd_01JBXQ3ZK8N4P2VYR6ABCDEFGH`, // 在留資格の行 ID
     ]) {
       expect(serialized, value).not.toContain(value);
     }
-  });
-
-  it("**削除済みの情報を監査ログから復元できない**（誰のものかが残らない）", async () => {
-    const fake = createFakeD1();
-    const id = staffId("ABCDEFGH");
-
-    await runResidencyRetention(envOf(fake), CTX, {
-      ledger: [ledgerRow({ id, workStatus: "RESIGNED", resignedOn: "2023-08-20" })],
-      residency: [residencyRow(id)],
-      businessDate: BUSINESS_DATE,
-    });
-
-    const insert = auditInsert(fake);
-    // スタッフの ID も、在留資格の行の ID も載らない。
-    expect(insert.params).not.toContain(id);
-    expect(insert.params).not.toContain(residencyRow(id).id);
-    // `after` に載るのは件数だけ。
-    expect(insert.params).toContain('{"deleted":1}');
+    // **`staffProfileId` は DELETE 条件の束縛値としては現れる**（副問い合わせが
+    // 同じ条件で数えるため）。**保存されるのは `{"deleted": N}` だけ**で、
+    // 行に ID が入らないことは `residencyRetention.db.spec.ts` が実物で見る。
   });
 
   it("複数人ぶんをまとめて消す（**DELETE は 1 回**）", async () => {
@@ -224,7 +305,7 @@ describe("runResidencyRetention", () => {
 
     const result = await runResidencyRetention(envOf(fake), CTX, {
       ledger: [
-        ledgerRow({ id: first, workStatus: "RESIGNED", resignedOn: "2023-08-20" }),
+        ledgerRow({ id: first, workStatus: "RESIGNED", resignedOn: RESIGNED_LONG_AGO }),
         ledgerRow({ id: second, workStatus: "RESIGNED", resignedOn: "2020-01-31" }),
       ],
       residency: [residencyRow(first), { ...residencyRow(second), staffProfileId: second }],
@@ -232,8 +313,8 @@ describe("runResidencyRetention", () => {
     });
 
     expect(result.candidates).toBe(2);
-    const deletes = fake.queries.filter((query) => query.sql.startsWith("delete from"));
-    expect(deletes).toHaveLength(1);
+    expect(deletes(fake)).toHaveLength(1);
+    expect(auditInserts(fake)).toHaveLength(1);
   });
 
   it("台帳に無い在留資格の残骸は消さない（**退職日が分からない**）", async () => {
@@ -246,5 +327,6 @@ describe("runResidencyRetention", () => {
     });
 
     expect(result).toEqual({ candidates: 0, deleted: 0 });
+    expect(deletes(fake)).toHaveLength(0);
   });
 });
