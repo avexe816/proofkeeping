@@ -579,11 +579,13 @@ SHARD_COUNT = "2"
 # `pk-staging` は固定名なので URL も固定。**サブドメインはアカウント固有。**
 APP_BASE_URL = "https://pk-staging.ukh816-account.workers.dev"
 # 運営面（/plat/*）の第 2 要素（PF-19 / DECISIONS #250）。
-# **staging だけ要求しない。** TOTP の登録が通らず運営画面へ入れない状態を
-# 解くための一時的な措置で、2FA の実装・表・列は残してある。
-# **production では false にできない** — あちらは値を読まずに常に要求する
-# （lib/platform/twoFactorPolicy.ts）。再有効化は runbook §10。
-PLATFORM_2FA_REQUIRED = "false"
+# **要求する。** 2026-08-22 に "false" から戻した — 無効化は「TOTP の登録が
+# 通らない」を解くための一時的な措置で、原因が**端末の時刻ずれ系**と判明し、
+# 登録も成功したため役目を終えた（監査ログで切り分け / #250 の追記）。
+# **スイッチ自体は残してある**（lib/platform/twoFactorPolicy.ts）。
+# **production では false にできない** — あちらは値を読まずに常に要求する。
+# 切り替えの手順は runbook §10。
+PLATFORM_2FA_REQUIRED = "true"
 RESEND_FROM_ADDRESS = "billing@example.invalid"
 # メール送信（Lark Mail SMTP / P5-21・DECISIONS #248）。
 # **秘密は SMTP_PASSWORD だけ**で、それは `wrangler secret put` で入れる。

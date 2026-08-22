@@ -6223,6 +6223,23 @@
   期限切れ・`PASSWORD_ONLY`・`SUSPENDED`・行が無い・署名破損）。
   門を弱めると ④ が落ちることを確認済み。
   `tests/toolchain/wrangler.spec.ts` が **`"false"` は staging だけ**を固定する。
+- **2026-08-22 追記 — 無効化は解除した。** staging の
+  `PLATFORM_2FA_REQUIRED` を `"true"` へ戻した（`wrangler.toml` と
+  `tests/toolchain/wrangler.spec.ts` の期待値）。
+  1. **原因は端末の時刻ずれ系**（TOTP のコードが合わない）で、**登録そのものは
+     成功していた。** 監査ログの並び（JST）: `bootstrap.completed` 01:10:42 →
+     `2fa.failed (enroll)` 01:14:34 と 01:36:50〜01:38:18 の計 5 回 →
+     45 分空けて `2fa.enrolled` 02:23:20 → `platform.login (TOTP)` 02:23:20。
+     **PF-19 の merge は 02:26 で、登録成功の 3 分後。** 結果として
+     無効化は要らなかった。
+  2. **切り分けは `platform.2fa.failed` の有無で付いた。** 時刻ずれなら
+     検証まで届いて行が残り、**札の 10 分の期限切れなら 1 行も残らない**
+     （404 で検証に入らない）。runbook §10 の確認順序の裏付けになった。
+  3. **スイッチは消していない**（`lib/platform/twoFactorPolicy.ts`）。
+     production は引き続き値を読まず `true` 固定。**再び止めるときは
+     wrangler.toml の 1 行とテストの期待値を一緒に動かす。**
+  4. 発行済みの `COMPLETE` の札は**最長 12 時間生きる**。即座に締め出すなら
+     `SESSION` KV の `plat:` を消すが、**今回は消していない**（人が判断する）。
 
 ---
 
