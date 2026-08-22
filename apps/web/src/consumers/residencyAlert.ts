@@ -9,6 +9,7 @@
  * 毎日 07:00 JST（RESIDENCY_ALERT_CRON）
  *   → QUEUE_NOTIFICATION（kind: "RESIDENCY_ALERT"）
  *     → ここ: 台帳と在留資格を読んで数える → notify()（kind: "NOTIFY"）
+ *            ＋ 保存期間を満了した在留資格を消す（P8-11 / residencyRetention.ts）
  * ```
  *
  * **自分のキューへ送り返す形**になっている（NOTIFY も同じキュー）。
@@ -28,7 +29,9 @@
  *
  * ── 冪等（testing.md §4）─────────────────────────────────
  * 3 回処理しても送信は 1 回（`notify.ts` の `dedupeKey`）。
- * 読み取りだけなのでデータは変わらない。
+ * **P8-11 の削除が入って読み取りだけではなくなったが、結果は変わらない** —
+ * 1 回目で消えた行は 2 回目の `listResidencyRecords()` に出てこない
+ * （`residencyRetention.ts` の注記）。
  */
 
 import {
@@ -44,6 +47,7 @@ import { businessDateOf } from "../lib/businessDate.js";
 import { countCertificationAlerts, countResidencyAlerts } from "../lib/staff/residencyAlert.js";
 
 import { notify } from "./notify.js";
+import { runResidencyRetention } from "./residencyRetention.js";
 
 /** キューへ載せるメッセージ。 */
 export interface ResidencyAlertMessage {
@@ -138,6 +142,13 @@ export async function runResidencyAlert(
       });
       notified = true;
     }
+
+    // 保存期間を満了した在留資格を消す（P8-11）。**同じ 2 つの表を
+    // 既に読んでいるので、ここへ相乗りする**（`residencyRetention.ts` 冒頭）。
+    // 数えたあとに置いてあるが、**順序はどちらでもよい** —
+    // `countResidencyAlerts()` は `RESIGNED` を数えず、消える行は必ず
+    // `RESIGNED` なので、消す前後で件数は変わらない。
+    await runResidencyRetention(env, ctx, { ledger, residency, businessDate });
 
     // **どちらも 0 件なら送らない**（§1.4 のアラートは「いる」ときの通知）。
     return { kind: "OK", total: counts.total + certCount, notified };

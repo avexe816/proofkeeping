@@ -4,6 +4,12 @@
  * task: なし（オーナー判断 2026-08-22 / OPEN_QUESTIONS #110 決着）
  * ルール: .claude/rules/security.md §6
  *
+ * ── このファイルは「閲覧」だけを持つ ────────────────────
+ * `residencyAudit.spec.ts` が**ソースに `recordAudit(` も `after` も
+ * 現れないこと**を固定している（値を載せられない形を、書き方の水準で
+ * 守るため）。**削除の記録をここへ足さないこと** — あちらは件数を
+ * `after` に持つので、`residencyRetentionAudit.ts` に分けてある。
+ *
  * ── なぜ画面から切り出してあるのか ──────────────────────
  * 記録そのものは `/app/settings/staff` の loader で起きるが、**あの画面は
  * 初期 PIN を `action` の戻り値として運ぶ**（DECISIONS #177）。

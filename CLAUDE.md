@@ -134,7 +134,7 @@ docs/                     仕様・task・進捗
 | `docs/PK-SPEC-P5.md` v1.0 | 請求・領収・多施設 | M8–M9 |
 | `docs/PK-SPEC-P6.md` v1.0 | 外部連携と拡張 | M10–M11 |
 | `docs/PK-SPEC-P7.md` v1.0 | GA とスケール | M12 |
-| `docs/PK-SPEC-P8.md` v1.1 | Workforce と Inventory | GA後3〜6か月 |
+| `docs/PK-SPEC-P8.md` v1.2 | Workforce と Inventory | GA後3〜6か月 |
 | `docs/PK-SPEC-PAY.md` v1.0 | スタッフ支払集計（P8 から先行切り出し） | P5-18 |
 
 ### UI 関連（画面を作るときは必読）
