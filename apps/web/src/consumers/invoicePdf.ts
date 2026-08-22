@@ -42,7 +42,7 @@ import { renderInvoicePdf, renderPayoutStatementPdf, renderReceiptPdf } from "@p
 
 import { sha256Hex } from "../lib/evidence/hash.js";
 
-import { loadDailyReportFont } from "../lib/report/font.js";
+import { dailyReportFont } from "../lib/report/font.js";
 import {
   collectInvoicePayload,
   collectReceiptPayload,
@@ -113,10 +113,8 @@ export async function generateInvoicePdf(
     if (source === null) return { kind: "SKIPPED", reason: "INVOICE_NOT_FOUND" };
     const { payload, revision } = source;
 
-    // **和文の書体が無ければ作らない。** 「動いているのに読めない PDF」を
-    // 取引先へ送らない（`packages/pdf/src/dailyReport.ts` の注記）。
-    const font = await loadDailyReportFont(env);
-    if (font === null) return { kind: "FAILED", reason: "FONT_NOT_FOUND" };
+    // 和文の書体は Worker に同梱してある（`lib/report/font.ts` / DECISIONS #255）。
+    const font = dailyReportFont();
 
     // 角印は無くても請求書は成立する（§1.1 の 6 要件に入っていない）。
     const seal = await loadInvoiceSeal(env, message.sealImageKey);
@@ -202,8 +200,7 @@ export async function generateReceiptPdf(
     if (source === null) return { kind: "SKIPPED", reason: "RECEIPT_NOT_FOUND" };
     const { payload, revision } = source;
 
-    const font = await loadDailyReportFont(env);
-    if (font === null) return { kind: "FAILED", reason: "FONT_NOT_FOUND" };
+    const font = dailyReportFont();
 
     const seal = await loadInvoiceSeal(env, message.sealImageKey);
     const bytes = await renderReceiptPdf(payload, font, seal);
@@ -287,8 +284,7 @@ export async function generatePayoutStatementPdf(
     const payload = await collectPayoutStatementPayload(env, ctx, message.payoutPeriodId);
     if (payload === null) return { kind: "SKIPPED", reason: "PAYOUT_NOT_CONFIRMED" };
 
-    const font = await loadDailyReportFont(env);
-    if (font === null) return { kind: "FAILED", reason: "FONT_NOT_FOUND" };
+    const font = dailyReportFont();
 
     // 角印は無くても支払明細書は成立する（請求書と同じ扱い）。
     const seal = await loadInvoiceSeal(env, message.sealImageKey);

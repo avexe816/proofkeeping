@@ -58,7 +58,7 @@ import {
   dailyReportKey,
   nextRevision,
 } from "../lib/report/dailyReportKey.js";
-import { DAILY_REPORT_FONT_KEY, loadDailyReportFont } from "../lib/report/font.js";
+import { dailyReportFont } from "../lib/report/font.js";
 
 import { generateAuditReport, isAuditReportMessage } from "./auditReport.js";
 import {
@@ -146,13 +146,10 @@ export async function generateDailyReport(
       return { kind: "SKIPPED", reason: "ALREADY_GENERATED" };
     }
 
-    // 書体が無ければ**作らない**（`lib/report/font.ts` の注記）。
-    // 和文が空白の日報を施設へ渡さないため。
-    const font = await loadDailyReportFont(env);
-    if (font === null) {
-      console.error(`daily-report-font-missing key=${DAILY_REPORT_FONT_KEY}`);
-      return { kind: "FAILED", reason: "FONT_ASSET_MISSING" };
-    }
+    // 和文の書体は Worker に同梱してある（`lib/report/font.ts` / DECISIONS #255）。
+    // **取得に失敗する枝は無い。** 以前は R2 に置く人手の作業が要り、
+    // 置かれるまで日報が 1 通も作られなかった（OPEN_QUESTIONS #054）。
+    const font = dailyReportFont();
 
     const revision = nextRevision(latest?.revision);
     // **版が変わっても文書番号は変わらない**（§9.3）。採番は初版だけ。
