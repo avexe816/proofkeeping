@@ -95,6 +95,10 @@ const SCREEN_EXEMPTIONS: Readonly<Record<string, string>> = {
   "evidenceList.tsx":
     "自分が到達できる施設の証跡だけを返す。絞りは第 1 層（listEvidenceForProperty）",
   "propertyBoard.tsx": "到達できない施設は第 1 層が NotFoundError（INV-31）",
+  // 画面ではない。統合先（room-types）へ 301 で送るだけで、データを読まない。
+  // **門は行き先の loader が持つ**（`property.read` と `standardTime.read`)。
+  // ここで先に弾くと同じ判定が 2 か所になる（`standardTimes.tsx` の注記）。
+  "standardTimes.tsx": "旧 URL の 301。データを読まない。門は行き先が持つ",
 };
 
 describe("§6.4 全 API が権限判定を通る", () => {

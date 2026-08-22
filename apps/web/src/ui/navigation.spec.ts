@@ -42,10 +42,14 @@ function ctxFor(role: Role, allowedPropertyIds: readonly string[] = [PROPERTY_ID
 }
 
 /** 設定ハブに出るカードのキー（サイドバーから移した 16 画面）。 */
-function settingsKeysFor(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES): string[] {
-  return buildSettingsHub(ctxFor(role), { selectedPropertyId: PROPERTY_ID, enabledModules }).flatMap(
-    (category) => category.items.map((entry) => entry.item.key),
-  );
+function settingsKeysFor(
+  role: Role,
+  enabledModules: readonly ModuleCode[] = ALL_MODULES,
+): string[] {
+  return buildSettingsHub(ctxFor(role), {
+    selectedPropertyId: PROPERTY_ID,
+    enabledModules,
+  }).flatMap((category) => category.items.map((entry) => entry.item.key));
 }
 
 function keysFor(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES): string[] {
@@ -133,7 +137,7 @@ describe("登録簿の不変条件", () => {
       // W-25 客室タイプ管理（P1-24）。客室マスタの直後。
       "nav.roomTypes",
       "nav.checklists",
-      "nav.standardTimes",
+      // 標準時間設定は客室タイプへ統合した（人間の指示 2026-08-22）。
       // P3-11 が足した W-20（観察項目の設定）。
       "nav.observationSettings",
       // W-18 検査ポリシー（施設ごとの検査方式）。観察項目の設定の直後。
@@ -249,7 +253,6 @@ describe("権限による非表示（security.md §1 の絶対境界）", () => 
     // 読取専用。設定の 4 画面はいずれも書き込みの操作を action に持つ。
     expect(keys).not.toContain("nav.rooms");
     expect(keys).not.toContain("nav.checklists");
-    expect(keys).not.toContain("nav.standardTimes");
     expect(keys).not.toContain("nav.taxProfile");
     expect(keys).not.toContain("nav.plan");
   });
@@ -265,17 +268,20 @@ describe("権限による非表示（security.md §1 の絶対境界）", () => 
 
   // 設定はサイドバーに並ばなくなった（人間の指示 2026-08-20 / 案 2）。
   // **境界そのものは変えていない**ので、ハブの中身で同じことを見る。
-  it("PROPERTY_MANAGER に組織単位の設定 2 画面を出さない（§10.1 は ORG_ADMIN）", () => {
+  it("PROPERTY_MANAGER に組織単位の設定を出さない（§10.1 は ORG_ADMIN）", () => {
     const keys = settingsKeysFor("PROPERTY_MANAGER");
     expect(keys).not.toContain("nav.checklists");
-    expect(keys).not.toContain("nav.standardTimes");
+    // 目安時間（旧 nav.standardTimes）は客室タイプの中のカードになった。
+    // **項目としては消えたが境界は残る** — `PROPERTY_MANAGER` は客室タイプを
+    // 開けるが、カードは `standardTime.read` で閉じる（`roomTypes.tsx`）。
+    expect(keys).toContain("nav.roomTypes");
   });
 
   it("ORG_ADMIN に設定の 4 画面すべてを出す", () => {
     const keys = settingsKeysFor("ORG_ADMIN");
     expect(keys).toContain("nav.rooms");
+    expect(keys).toContain("nav.roomTypes");
     expect(keys).toContain("nav.checklists");
-    expect(keys).toContain("nav.standardTimes");
     expect(keys).toContain("nav.taxProfile");
   });
 
@@ -467,9 +473,10 @@ describe("設定ハブ", () => {
     }
   });
 
-  it("OWNER は 17 枚すべてを開ける", () => {
-    // W-18 検査ポリシーを足して 16 → 17。
-    expect(hubKeys("OWNER")).toHaveLength(17);
+  it("OWNER は 16 枚すべてを開ける", () => {
+    // W-18 検査ポリシーを足して 16 → 17。標準時間設定を客室タイプへ
+    // 統合して 17 → 16（人間の指示 2026-08-22）。
+    expect(hubKeys("OWNER")).toHaveLength(16);
   });
 
   /**
@@ -543,9 +550,9 @@ describe("設定ハブ", () => {
 describe("設定の入口", () => {
   /** その相手のサイドバーに出る「設定」の `href`。 */
   function settingsHrefFor(role: Role, enabledModules: readonly ModuleCode[] = ALL_MODULES) {
-    return buildNavigation(ctxFor(role), { selectedPropertyId: PROPERTY_ID, enabledModules })
-      .find((group) => group.section === "settings")
-      ?.items[0]?.href;
+    return buildNavigation(ctxFor(role), { selectedPropertyId: PROPERTY_ID, enabledModules }).find(
+      (group) => group.section === "settings",
+    )?.items[0]?.href;
   }
 
   it("**ハブを経由しない。** 押したら設定画面そのものが開く", () => {

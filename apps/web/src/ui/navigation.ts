@@ -467,20 +467,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
     status: "READY",
     href: "/app/settings/checklists",
   },
-  {
-    key: "nav.standardTimes",
-    placement: "SETTINGS",
-    settingsGroup: "rules",
-    settingsOrder: 2,
-    note: "nav.note.standardTimes",
-    icon: "⏱️",
-    section: "settings",
-    moduleCode: "HOUSEKEEPING_CORE",
-    action: "standardTime.write",
-    scope: "ORGANIZATION",
-    status: "READY",
-    href: "/app/settings/standard-times",
-  },
+  // W-17 標準時間設定はここから外した（人間の指示 2026-08-22）。目安時間の
+  // 表は行が客室タイプそのもので、**客室タイプ（`nav.roomTypes`）の 2 枚目の
+  // カード**へ移した。旧 URL は `standardTimes.tsx` が 301 で送る。
   // W-20 観察項目の設定（P3-11 / PK-SPEC-P3 §6.1）。担当ロールは `ORG_ADMIN`。
   // **`scope` は `ORGANIZATION`**（上の 2 つと同じ理由）。設定の対象は
   // 表示中の施設だが、到達できるロールは組織単位で決まる。

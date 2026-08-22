@@ -65,8 +65,9 @@ function declaredPaths(): string[] {
 const SETTINGS_ITEMS = NAV_ITEMS.filter((item) => item.placement === "SETTINGS");
 
 describe("分類（唯一の登録簿は NAV_ITEMS）", () => {
-  it("設定は 17 画面ある", () => {
-    expect(SETTINGS_ITEMS).toHaveLength(17);
+  it("設定は 16 画面ある", () => {
+    // 17 → 16。標準時間設定を客室タイプへ統合した（人間の指示 2026-08-22）。
+    expect(SETTINGS_ITEMS).toHaveLength(16);
   });
 
   it("群は 6 つで、キーが重複しない", () => {
@@ -211,6 +212,18 @@ describe("到達先", () => {
     for (const href of hrefsFor("OWNER")) expect(declared, href).toContain(href);
   });
 
+  /**
+   * 画面を持たず、統合先へ 301 で送るだけの URL。
+   *
+   * **ここへ足してよいのは「中身が無い」ものだけ。** 表も入力欄も持つ
+   * 画面をここへ書くと、分類し忘れの検出がその画面ぶんだけ緩む
+   * （`roomTypesScreen.spec.ts` が中身の無さを別途見ている）。
+   */
+  const REDIRECT_ONLY = new Set([
+    // 標準時間設定 → 客室タイプ（人間の指示 2026-08-22）。
+    "/app/settings/standard-times",
+  ]);
+
   /** 設定画面を足して分類し忘れたら、ここで落ちる。 */
   it("`/app/settings/*` の全ルートが設定サイドバーに並ぶ", () => {
     const listed = new Set(hrefsFor("OWNER"));
@@ -218,7 +231,8 @@ describe("到達先", () => {
       (path) =>
         path.startsWith(`${SETTINGS_HUB_PATH}/`) &&
         !path.includes(":") &&
-        path !== SETTINGS_HUB_PATH,
+        path !== SETTINGS_HUB_PATH &&
+        !REDIRECT_ONLY.has(path),
     );
     expect(routes.length).toBeGreaterThan(10);
     for (const path of routes) expect(listed, path).toContain(path);
@@ -240,8 +254,8 @@ describe("権限と契約（全体ナビと同じ門）", () => {
     expect(hrefsFor("AUDITOR")).not.toContain("/app/settings/rooms");
   });
 
-  it("OWNER には 17 画面すべてが出る", () => {
-    expect(hrefsFor("OWNER")).toHaveLength(17);
+  it("OWNER には 16 画面すべてが出る", () => {
+    expect(hrefsFor("OWNER")).toHaveLength(16);
   });
 
   /**

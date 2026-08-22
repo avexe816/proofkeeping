@@ -71,9 +71,15 @@ describe("設定ハブから到達できる", () => {
    * 開くので、ここでは数えない。
    */
   it("`/app/settings/*` の全 URL がハブに在る", () => {
+    // 画面を持たず統合先へ 301 で送るだけの URL は数えない。
+    // **中身が無いことは `roomTypesScreen.spec.ts` が別途見ている。**
+    const redirectOnly = new Set(["/app/settings/standard-times"]);
     const settingsRoutes = declaredPaths().filter(
       (path) =>
-        path.startsWith(`${SETTINGS_HUB_PATH}/`) && !path.includes(":") && path !== SETTINGS_HUB_PATH,
+        path.startsWith(`${SETTINGS_HUB_PATH}/`) &&
+        !path.includes(":") &&
+        path !== SETTINGS_HUB_PATH &&
+        !redirectOnly.has(path),
     );
 
     expect(settingsRoutes.length).toBeGreaterThan(10);
@@ -93,9 +99,7 @@ describe("設定ハブから到達できる", () => {
   it("ハブの全 URL が「設定」の選択状態に入る", () => {
     for (const path of hubPaths()) {
       expect(
-        SETTINGS_ACTIVE_PREFIXES.some(
-          (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-        ),
+        SETTINGS_ACTIVE_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`)),
         path,
       ).toBe(true);
     }
