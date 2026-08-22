@@ -137,9 +137,15 @@ jobs:
           # ── いま動いている Worker の版 ──────────────────────
           # **スナップショットは「どの口径で動いていた値か」とセットで意味を持つ。**
           # 決定 F の表は Version ID で口径を区別している。
+          # **`head` へ直に繋がない。** `head -40` が先に閉じると上流が
+          # SIGPIPE で落ち、実際には版が出ているのに「取得できませんでした」と
+          # 出る（初回の実行で観測 / run 32561748672）。**先にファイルへ落とす。**
           echo "== 動いている版 =="
-          pnpm exec wrangler versions list --env staging 2>/dev/null | head -40 \
-            | tee "$out/versions.txt" || echo "版の一覧を取得できませんでした（記録のみ / 取得は必須ではない）"
+          if pnpm exec wrangler versions list --env staging > "$out/versions.txt" 2>/dev/null; then
+            head -40 "$out/versions.txt"
+          else
+            echo "版の一覧を取得できませんでした（記録のみ / 取得は必須ではない）"
+          fi
 
           {
             echo "## 動いている版（先頭 40 行）"
