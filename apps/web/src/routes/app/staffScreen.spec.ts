@@ -158,8 +158,34 @@ describe("スタッフ詳細レイヤー（人間の指示 2026-08-22）", () =>
   it("レイヤーの中身は開いている 1 名ぶんだけを引く（INV-08 と同じ考え方）", () => {
     // 一覧（`listOrgStaff()`）に連絡先を混ぜると、組織全員のメールが
     // loader の戻り値（= HTML に載る JSON）に出る。
-    expect(SOURCE).toContain("loadStaffDetail(env, tenant, membershipId)");
+    expect(SOURCE).toContain("loadStaffDetail(env, tenant, membershipId, extra)");
     expect(CODE).not.toContain("listOrgStaffDetail");
+  });
+
+  it("**在留資格をレイヤーへ渡すのは読める相手だけ**（INV-08）", () => {
+    // 一覧はすでに引いてあるので引き当てるだけ。**渡すかどうかを
+    // `canReadResidency` で切る** — 渡してから画面で隠す形にしない。
+    expect(SOURCE).toContain("...(canReadResidency ? { residency } : {})");
+  });
+
+  it("在留資格のフォームは `residency.write` で出す（`OWNER` は読めても書けない）", () => {
+    // 読めるかどうかで出すと、`OWNER` に押しても通らない口が見える。
+    expect(SOURCE).toContain('can(tenant, "residency.write"');
+    expect(SOURCE).toContain("canWriteResidency ? (");
+  });
+
+  it("在留資格のフォームが対象を選ばせない（取り違えを作らない）", () => {
+    // レイヤーは開いている本人のもの。`staffProfileId` は隠しで運ぶ。
+    const form = /intent" value="residency"[\s\S]*?<\/Form>/.exec(SOURCE)?.[0] ?? "";
+    expect(form, "在留資格のフォームが読めていない").not.toBe("");
+    expect(form).toContain('type="hidden" name="staffProfileId"');
+    expect(form).not.toContain("staff.residency.staff");
+  });
+
+  it("表示言語の選択肢を画面で並べ直さない（`STAFF_LOCALES` が唯一の正）", () => {
+    // 以前は `ja` / `en` を直書きしていて、7 言語のうち 2 つしか選べなかった。
+    expect(SOURCE).toContain("STAFF_LOCALES.map((locale)");
+    expect(CODE).not.toContain('<option value="en">');
   });
 
   it("4 つのフォームを `intent` で分けている（項目の有無で推測しない）", () => {

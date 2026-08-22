@@ -2,6 +2,7 @@ import {
   fieldStaffCreateSchema,
   FIELD_STAFF_ROLES,
   RESIDENCY_STATUS_TYPE_VALUES,
+  STAFF_LOCALES,
 } from "@pk/contracts";
 import {
   countExpiringResidencies,
@@ -44,6 +45,7 @@ import {
   setStaffActive,
   updateStaff,
   type StaffDetail,
+  type StaffDetailExtra,
   type StaffEditResult,
 } from "../../lib/staff/edit.js";
 import { saveResidency, type ResidencySaveResult } from "../../lib/staff/residency.js";
@@ -124,8 +126,10 @@ interface StaffData {
   properties: StaffProperty[];
   /** 台帳（P8-01 / プロトタイプ ops 07）。 */
   ledger: StaffLedgerPage;
-  /** **在留期限の列を出すか**（INV-08。`ORG_ADMIN` だけ真）。 */
+  /** **在留期限の列を出すか**（INV-08 v2。`OWNER` / `ORG_ADMIN` が真）。 */
   canReadResidency: boolean;
+  /** **在留資格を記録できるか**（`ORG_ADMIN` のみ。`OWNER` は読めても書けない）。 */
+  canWriteResidency: boolean;
   /** 一覧の絞り込み（プロトタイプ ops 07 の「全員 / 稼働中 / 研修中」）。 */
   filter: StaffFilter;
   /** レイヤー。閉じているときは `null`。 */
@@ -156,6 +160,10 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
   // 画面で隠す形にすると、loader の戻り値（= HTML に載る JSON）に
   // 期限が残る。件数の KPI は誰にでも出せる（個人を特定しない）。
   const canReadResidency = can(tenant, "residency.read", ORGANIZATION_TARGET);
+  // **読めるだけでは書けない。** `residency.write` は `ORG_ADMIN` のみで、
+  // `OWNER` は読めても書けない（permission.ts「編集は広げていない」）。
+  // 読めるかどうかでフォームを出すと、`OWNER` に押せない口が見える。
+  const canWriteResidency = can(tenant, "residency.write", ORGANIZATION_TARGET);
   const businessDate = businessDateOf(now);
   const expiryHorizon = addDays(businessDate, 90);
 
@@ -185,7 +193,13 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
       ? null
       : panelParam === "new"
         ? { mode: "NEW" }
-        : await detailPanel(env, tenant, panelParam);
+        : await detailPanel(env, tenant, panelParam, {
+            // 台帳の行 ID は一覧の組み立てから引き当てる（もう一度引かない）。
+            staffProfileId:
+              ledgerRows.find((row) => row.membershipId === panelParam)?.id ?? null,
+            // **読める相手にだけ渡す**（`loadStaffDetail()` の注記 / INV-08）。
+            ...(canReadResidency ? { residency } : {}),
+          });
 
   return {
     panel,
@@ -204,6 +218,7 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
       propertyNames: new Map(properties.map((property) => [property.id, property.name])),
     }),
     canReadResidency,
+    canWriteResidency,
     // **絞りは URL に置く。** 画面を共有したときに同じ見え方になる。
     filter: parseStaffFilter(new URL(request.url).searchParams.get("status")),
   };
@@ -219,8 +234,9 @@ async function detailPanel(
   env: ReturnType<typeof getEnv>,
   tenant: Parameters<typeof loadStaffDetail>[1],
   membershipId: string,
+  extra: StaffDetailExtra,
 ): Promise<StaffPanel | null> {
-  const detail = await loadStaffDetail(env, tenant, membershipId);
+  const detail = await loadStaffDetail(env, tenant, membershipId, extra);
   return detail === undefined ? null : { mode: "DETAIL", detail };
 }
 
@@ -543,88 +559,164 @@ function StaffRoster({
         ) : null}
       </section>
 
-      {canReadResidency ? <ResidencyForm rows={ledger.rows} /> : null}
+      {/* ── 2 枚並び（プロトタイプ ops 07 の下段）──────────────────
+          「🌐 言語の構成」と「📅 在留資格の管理」が左右に並ぶ。
+          在留資格を読めない相手には左だけが残る（`.pk-cols` は
+          子が 1 枚でも崩れない）。 */}
+      <div className={canReadResidency ? "pk-cols pk-cols--2" : "pk-cols"}>
+        {ledger.languages.length === 0 ? null : (
+          <section className="pk-panel">
+            <div className="pk-panel__head">
+              <span className="pk-panel__icon" aria-hidden="true">
+                🌐
+              </span>
+              {t("staff.languages.title")}
+              {/* プロトタイプの「登録31名」。**母数を見出しに出す** —
+                  下の合計と一致しないことの説明が付く。 */}
+              <span className="pk-panel__note">
+                {`${t("staff.kpi.registered")}${String(ledger.summary.registered)}${t(
+                  "staff.unit.people",
+                )}`}
+              </span>
+            </div>
+            <div className="pk-panel__body pk-panel__body--flush pk-scroll-x">
+              <table className="pk-tbl">
+                <tbody>
+                  {ledger.languages.map((row) => (
+                    <tr key={row.language}>
+                      <th scope="row">{t(languageKey(row.language))}</th>
+                      <td className="pk-num">
+                        {`${String(row.count)}${t("staff.languages.unit")}`}
+                      </td>
+                      {/* 棒（プロトタイプの `.bar`）。**数値を必ず併記する。**
+                          棒だけだと読み上げでも色覚でも値が取れない。 */}
+                      <td>
+                        <span className="pk-meterbar pk-meterbar--wide">
+                          <span className="pk-meterbar__track">
+                            <i
+                              className="pk-meterbar__fill pk-meterbar__fill--chart"
+                              style={{ width: `${String(row.ratio)}%` }}
+                            />
+                          </span>
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* **1 人が複数の言語を持つので合計は人数と一致しない**（逐語）。 */}
+            <div className="pk-panel__foot">{t("staff.languages.note")}</div>
+          </section>
+        )}
 
-      {/* 言語の構成（プロトタイプ ops 07 の「🌐 言語の構成」）。
-       **1 人が複数の言語を持つので、合計は人数と一致しない。** */}
-      {ledger.languages.length === 0 ? null : (
-        <section className="pk-panel">
-          <div className="pk-panel__head">
-            <span className="pk-panel__icon" aria-hidden="true">
-              🌐
-            </span>
-            {t("staff.languages.title")}
-          </div>
-          <div className="pk-panel__body pk-panel__body--flush">
-            <table className="pk-tbl">
-              <tbody>
-                {ledger.languages.map((row) => (
-                  <tr key={row.language}>
-                    <th scope="row">{t(languageKey(row.language))}</th>
-                    <td>{`${String(row.count)}${t("staff.languages.unit")}`}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {/* **1 人が複数の言語を持つので合計は人数と一致しない**（逐語）。 */}
-          <div className="pk-panel__foot">{t("staff.languages.note")}</div>
-        </section>
-      )}
+        {/* 在留資格の管理（プロトタイプ ops 07「📅 在留資格の管理」）。 */}
+        {canReadResidency ? (
+          <section className="pk-panel">
+            <div className="pk-panel__head">
+              <span className="pk-panel__icon" aria-hidden="true">
+                📅
+              </span>
+              {t("staff.residency.manage.title")}
+            </div>
+            <div className="pk-panel__body">
+              <ResidencyRule
+                title={t("staff.residency.manage.notice90")}
+                note={t("staff.residency.manage.notice90Note")}
+              />
+              <ResidencyRule
+                title={t("staff.residency.manage.notice30")}
+                note={t("staff.residency.manage.notice30Note")}
+              />
+              <ResidencyRule
+                title={t("staff.residency.manage.block")}
+                note={t("staff.residency.manage.blockNote")}
+              />
 
-      {/* 在留資格の管理（プロトタイプ ops 07「📅 在留資格の管理」）。
-          **プロトタイプは切り替えスイッチだが、実装は説明にしてある。**
-          3 つとも常に動いていて、止める設定を持たない（持たせるには
-          設定の置き場が要り、仕様にその項目が無い）。**動く条件を
-          スイッチの形で見せると「切れる」と読めてしまう。** */}
-      {canReadResidency ? (
-        <section className="pk-panel">
-          <div className="pk-panel__head">
-            <span className="pk-panel__icon" aria-hidden="true">
-              📅
-            </span>
-            {t("staff.residency.manage.title")}
-          </div>
-          <div className="pk-panel__body">
-            <ul className="pk-board__counts">
-              <li>{t("staff.residency.manage.notice90")}</li>
-              <li>{t("staff.residency.manage.notice30")}</li>
-              <li>{t("staff.residency.manage.block")}</li>
-            </ul>
-            {/* §1.4 MUST。**この境界を消さないこと。** */}
-            <p className="pk-notice">{t("staff.residency.manage.human")}</p>
-          </div>
-          {ledger.residencyBreakdown.length === 0 ? null : (
-            <>
-              <div className="pk-panel__foot">{t("staff.residency.breakdown.title")}</div>
-              <div className="pk-panel__body pk-panel__body--flush">
-                <table className="pk-tbl">
-                  <tbody>
-                    {ledger.residencyBreakdown.map((row) => (
-                      <tr key={row.statusType}>
-                        <th scope="row">
-                          {t(
-                            `staff.residency.type.${row.statusType}` as Parameters<typeof t>[0],
-                          )}
-                        </th>
-                        <td>
-                          {`${String(row.count)}${t("staff.residency.breakdown.unit")}`}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              {/* §1.4 MUST。**この境界を消さないこと。**
+                  **赤で出す。** ui-writing.md §3 が赤を戒めるのは
+                  「経過時間で急かす」用途で、これは法令の話
+                  （`ExpiryCell` の期限切れが `--danger` なのと同じ）。 */}
+              <div className="pk-alert pk-alert--danger">
+                <span className="pk-alert__icon" aria-hidden="true">
+                  ⚠️
+                </span>
+                <div>
+                  <span className="pk-alert__title">{t("staff.residency.manage.illegal")}</span>
+                  {t("staff.residency.manage.human")}
+                </div>
               </div>
-            </>
-          )}
-        </section>
-      ) : null}
+            </div>
+            {ledger.residencyBreakdown.length === 0 ? null : (
+              <>
+                <div className="pk-panel__foot">{t("staff.residency.breakdown.title")}</div>
+                <div className="pk-panel__body pk-panel__body--flush">
+                  <table className="pk-tbl">
+                    <tbody>
+                      {ledger.residencyBreakdown.map((row) => (
+                        <tr key={row.statusType}>
+                          <th scope="row">
+                            {t(
+                              `staff.residency.type.${row.statusType}` as Parameters<typeof t>[0],
+                            )}
+                          </th>
+                          <td className="pk-num">
+                            {`${String(row.count)}${t("staff.residency.breakdown.unit")}`}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </section>
+        ) : null}
+      </div>
     </>
   );
 }
 
 /**
- * 在留資格の記録（P8-02 / プロトタイプ ops 07「📅 在留資格の管理」）。
+ * 「期限の 90 日前に通知」などの 1 行（プロトタイプ ops 07 の `.rowsw`）。
+ *
+ * ── スイッチは押せない ──────────────────────────────────
+ * プロトタイプは切り替えスイッチだが、**3 つとも常に動いていて、
+ * 止める設定を持たない**（持たせるには設定の置き場が要り、仕様に
+ * その項目が無い）。**押せる形にすると「切れる」という約束になる。**
+ * 見た目は揃えたうえで、状態だけを示す（`role="img"`）。
+ * 切り替えられないことは下の 1 行（`manage.always`）が言う。
+ */
+function ResidencyRule({ title, note }: { title: string; note: string }) {
+  return (
+    <div className="pk-ruleswitch">
+      <span className="pk-ruleswitch__text">
+        <span className="pk-ruleswitch__title">{title}</span>
+        <span className="pk-ruleswitch__note">{note}</span>
+      </span>
+      {/* **押せない。** 触ったときに何も起きない理由を `title` で返す
+          （読み上げには `aria-label` が同じことを言う）。 */}
+      <span
+        className="pk-ruleswitch__state"
+        role="img"
+        aria-label={t("staff.residency.manage.always")}
+        title={t("staff.residency.manage.always")}
+      >
+        <span className="pk-ruleswitch__knob" aria-hidden="true" />
+      </span>
+    </div>
+  );
+}
+
+/**
+ * 在留資格の記録（P8-02 / 仕様 §1.4）。**レイヤーの中に置く**
+ * （人間の指示 2026-08-22）。
+ *
+ * ── 対象を選ばせない ────────────────────────────────────
+ * 以前は画面の下に置いた独立フォームで、**先頭に「対象のスタッフ」の
+ * 選択があった。** 一覧の誰を見ていようと関係なく選び直す形で、
+ * 取り違えが起こりうる。レイヤーは**開いている本人**のものなので、
+ * `staffProfileId` は隠しで運び、選択そのものを無くす。
  *
  * ── 1 人ずつ、上書きで記録する ──────────────────────────
  * 表は 1 スタッフ 1 行（`uq_residency_staff`）。**履歴を行で持たない**ので、
@@ -637,22 +729,20 @@ function StaffRoster({
  * ── 期限切れの解除ボタンを置かない ──────────────────────
  * 同 MUST。**`expiresOn` を更新する以外に停止を解く経路を作らない。**
  */
-function ResidencyForm({ rows }: { rows: readonly StaffLedgerView[] }) {
+function ResidencyPanelForm({ detail }: { detail: StaffDetail }) {
+  const current = detail.residency;
+
   return (
     <Form method="post" className="pk-form">
       <input type="hidden" name="intent" value="residency" />
-
-      <label htmlFor="staffProfileId">{t("staff.residency.staff")}</label>
-      <select id="staffProfileId" name="staffProfileId" required>
-        {rows.map((row) => (
-          <option key={row.membershipId} value={row.staffProfileId ?? ""}>
-            {row.displayName}
-          </option>
-        ))}
-      </select>
+      <input type="hidden" name="staffProfileId" value={detail.staffProfileId ?? ""} />
 
       <label htmlFor="statusType">{t("staff.residency.statusType")}</label>
-      <select id="statusType" name="statusType" defaultValue="SPECIFIED_SKILLED_1">
+      <select
+        id="statusType"
+        name="statusType"
+        defaultValue={current?.statusType ?? "SPECIFIED_SKILLED_1"}
+      >
         {RESIDENCY_STATUS_TYPE_VALUES.map((value) => (
           <option key={value} value={value}>
             {t(`staff.residency.type.${value}` as Parameters<typeof t>[0])}
@@ -661,19 +751,35 @@ function ResidencyForm({ rows }: { rows: readonly StaffLedgerView[] }) {
       </select>
 
       <label htmlFor="expiresOn">{t("staff.residency.expiresOn")}</label>
-      <input id="expiresOn" name="expiresOn" type="date" />
+      <input id="expiresOn" name="expiresOn" type="date" defaultValue={current?.expiresOn ?? ""} />
       <p className="pk-form__note">{t("staff.residency.expiresOnNote")}</p>
 
       <label htmlFor="renewalAppliedOn">{t("staff.residency.renewalAppliedOn")}</label>
-      <input id="renewalAppliedOn" name="renewalAppliedOn" type="date" />
+      <input
+        id="renewalAppliedOn"
+        name="renewalAppliedOn"
+        type="date"
+        defaultValue={current?.renewalAppliedOn ?? ""}
+      />
 
       <label className="pk-form__check">
-        <input type="checkbox" name="workPermitRequired" />
+        <input
+          type="checkbox"
+          name="workPermitRequired"
+          defaultChecked={current?.workPermitRequired ?? false}
+        />
         {t("staff.residency.workPermitRequired")}
       </label>
 
       <label htmlFor="weeklyHourLimit">{t("staff.residency.weeklyHourLimit")}</label>
-      <input id="weeklyHourLimit" name="weeklyHourLimit" type="number" min={0} max={168} />
+      <input
+        id="weeklyHourLimit"
+        name="weeklyHourLimit"
+        type="number"
+        min={0}
+        max={168}
+        defaultValue={current?.weeklyHourLimit ?? ""}
+      />
 
       <button type="submit">{t("staff.residency.submit")}</button>
     </Form>
@@ -750,6 +856,32 @@ function StaffDrawer({
   );
 }
 
+/**
+ * モバイルの表示言語（登録と編集で同じ形）。
+ *
+ * ── 7 つ出す ────────────────────────────────────────────
+ * 以前は `日本語 / English` の 2 つだけだった。カタログ側は 7 言語ぶん
+ * 揃っていて（契約 §7.1）、モバイルは初回起動で自国語を選べる設計なのに、
+ * **選ばせる側だけが 2 つのまま**だった（人間の指摘 2026-08-22）。
+ * 一覧は `STAFF_LOCALES`（`packages/contracts`）が唯一の正で、
+ * ここで並べ直さない。**表示名はその言語自身の表記**にする
+ * （`staff.language.*`）— 読めない言語で書かれていると選べない。
+ */
+function LocaleOptions({ id, current }: { id: string; current: string }) {
+  // 知らない値（過去に別の値で作られた行）は既定へ倒す。
+  const selected = (STAFF_LOCALES as readonly string[]).includes(current) ? current : "ja";
+
+  return (
+    <select id={id} name="locale" defaultValue={selected}>
+      {STAFF_LOCALES.map((locale) => (
+        <option key={locale} value={locale}>
+          {t(languageKey(locale))}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** 担当する施設のチェックボックス（登録と編集で同じ形）。 */
 function PropertyChecks({
   properties,
@@ -805,10 +937,8 @@ function StaffCreateForm({ properties }: { properties: readonly StaffProperty[] 
       <PropertyChecks properties={properties} selected={[]} />
 
       <label htmlFor="locale">{t("staff.form.locale")}</label>
-      <select id="locale" name="locale" defaultValue="ja">
-        <option value="ja">{t("staff.locale.ja")}</option>
-        <option value="en">{t("staff.locale.en")}</option>
-      </select>
+      <LocaleOptions id="locale" current="ja" />
+      <p className="pk-form__note">{t("staff.form.localeNote")}</p>
 
       <label htmlFor="email">{t("staff.form.email")}</label>
       <input id="email" name="email" type="email" maxLength={254} />
@@ -840,9 +970,12 @@ function StaffCreateForm({ properties }: { properties: readonly StaffProperty[] 
 function StaffDetailForm({
   detail,
   properties,
+  canWriteResidency,
 }: {
   detail: StaffDetail;
   properties: readonly StaffProperty[];
+  /** **`residency.write` を持つときだけ在留資格の欄を出す**（`OWNER` は読めても書けない）。 */
+  canWriteResidency: boolean;
 }) {
   return (
     <>
@@ -850,7 +983,17 @@ function StaffDetailForm({
         <dt>{t("staff.roster.staffNumber")}</dt>
         <dd>{detail.staffNumber ?? "—"}</dd>
         <dt>{t("staff.panel.account")}</dt>
-        <dd>{t(detail.isActive ? "staff.panel.active" : "staff.panel.inactive")}</dd>
+        <dd>
+          <span
+            className={
+              detail.isActive
+                ? "pk-tag pk-tag--ok"
+                : "pk-tag pk-tag--muted"
+            }
+          >
+            {t(detail.isActive ? "staff.panel.active" : "staff.panel.inactive")}
+          </span>
+        </dd>
       </dl>
 
       {detail.isFieldStaff ? null : (
@@ -859,6 +1002,7 @@ function StaffDetailForm({
 
       {detail.isFieldStaff ? (
         <>
+          <h3 className="pk-drawer__section">{t("staff.panel.section.profile")}</h3>
           <Form method="post" className="pk-form">
             <input type="hidden" name="intent" value="staffUpdate" />
             <input type="hidden" name="membershipId" value={detail.membershipId} />
@@ -884,10 +1028,8 @@ function StaffDetailForm({
             <PropertyChecks properties={properties} selected={detail.propertyIds} />
 
             <label htmlFor="editLocale">{t("staff.form.locale")}</label>
-            <select id="editLocale" name="locale" defaultValue={detail.locale === "en" ? "en" : "ja"}>
-              <option value="ja">{t("staff.locale.ja")}</option>
-              <option value="en">{t("staff.locale.en")}</option>
-            </select>
+            <LocaleOptions id="editLocale" current={detail.locale} />
+            <p className="pk-form__note">{t("staff.form.localeNote")}</p>
 
             <label htmlFor="editEmail">{t("staff.form.email")}</label>
             <input
@@ -904,6 +1046,9 @@ function StaffDetailForm({
 
           {/* 利用の停止と再開。**編集と同じフォームに混ぜない** —
               「保存」を押したつもりで人を止めることになる。 */}
+          <h3 className="pk-drawer__section pk-drawer__section--danger">
+            {t("staff.panel.section.account")}
+          </h3>
           <Form method="post" className="pk-form pk-drawer__danger">
             <input type="hidden" name="intent" value="staffActive" />
             <input type="hidden" name="membershipId" value={detail.membershipId} />
@@ -915,6 +1060,28 @@ function StaffDetailForm({
               {t(detail.isActive ? "staff.panel.stop" : "staff.panel.resume")}
             </button>
           </Form>
+        </>
+      ) : null}
+
+      {/* ── 在留資格（P8-02 / 人間の指示 2026-08-22）───────────────
+          **画面の下の独立フォームからここへ移した。** 以前は「対象の
+          スタッフ」を選び直す形で、一覧の誰を見ていようと関係なく
+          選べたため取り違えが起こりうる。レイヤーは開いている本人の
+          ものなので、対象を選ばせる必要が無い。
+          **現場スタッフに限らない** — 台帳に行がある人は誰でも記録の
+          対象になる（編集・停止だけが現場スタッフ限定）。 */}
+      {canWriteResidency ? (
+        <>
+          <h3 className="pk-drawer__section">{t("staff.panel.section.residency")}</h3>
+          {detail.staffProfileId === null ? (
+            <p className="pk-notice">{t("staff.residency.noProfile")}</p>
+          ) : (
+            <>
+              <ResidencyPanelForm detail={detail} />
+              {/* §1.4 MUST。**この文言を短くしないこと。** */}
+              <p className="pk-drawer__disclaimer">{t("staff.residency.disclaimer")}</p>
+            </>
+          )}
         </>
       ) : null}
     </>
@@ -1012,7 +1179,11 @@ export default function Staff() {
           {panel.mode === "NEW" ? (
             <StaffCreateForm properties={data.properties} />
           ) : (
-            <StaffDetailForm detail={panel.detail} properties={data.properties} />
+            <StaffDetailForm
+              detail={panel.detail}
+              properties={data.properties}
+              canWriteResidency={data.canWriteResidency}
+            />
           )}
         </StaffDrawer>
       )}
