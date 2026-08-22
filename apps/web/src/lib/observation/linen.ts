@@ -19,7 +19,12 @@
  * キューは直列なので、通常は写真が先に着く（`lib/offline/queue.ts`）。
  */
 
-import { LINEN_ITEM_CODES, type LinenEntry, type LinenListResponse } from "@pk/contracts";
+import {
+  LINEN_ITEM_CODES,
+  OBSERVATION_COLUMN_ITEM_CODES,
+  type LinenEntry,
+  type LinenListResponse,
+} from "@pk/contracts";
 import {
   listLinenRecords,
   listTaskPhotos,
@@ -42,6 +47,8 @@ export async function buildLinenResponse(
     resolveObservationConfig(env, ctx, task.propertyId),
   ]);
 
+  const linenCodes = config.enabledItemCodes.filter((code) => isLinenItem(code));
+
   return {
     taskId: task.id,
     data: rows.map((row) => ({
@@ -57,15 +64,18 @@ export async function buildLinenResponse(
       recordedAt: row.recordedAt.getTime(),
     })),
     // **リネンの品目だけを出す。** アメニティは M-05b の担当（§4.2）。
-    enabledItemCodes: config.enabledItemCodes.filter((code) => isLinenItem(code)),
+    enabledItemCodes: linenCodes,
+    // 回収枚数の欄は経路①の品目を落とす（DECISIONS #253）。
+    // **破損・汚損は落とさない** — あちらは経路①が枚数を捨てておらず、
+    // P5 の請求根拠になる（§4.3）。
+    collectedItemCodes: linenCodes.filter((code) => !isObservationColumnItem(code)),
     requireLinen: config.requireLinen,
   };
 }
 
 /** 記録の結果。 */
 export type RecordLinenOutcome =
-  | { kind: "RECORDED"; applied: number }
-  | { kind: "REJECTED"; error: "PHOTO_REQUIRED" };
+  { kind: "RECORDED"; applied: number } | { kind: "REJECTED"; error: "PHOTO_REQUIRED" };
 
 /**
  * リネン枚数を記録する（§7 の `PUT /tasks/:id/linen`）。
@@ -113,7 +123,22 @@ export async function recordLinen(
 /** `LINEN_ITEM_CODES` の集合。**語彙は契約が正**（二重定義しない）。 */
 const LINEN_CODES: ReadonlySet<string> = new Set<string>(LINEN_ITEM_CODES);
 
-/** リネンの品目か（§2.5 の前半 9 品目）。 */
+/** リネンの品目か（§2.5 のリネン側）。 */
 function isLinenItem(code: string): boolean {
   return LINEN_CODES.has(code);
+}
+
+/** 経路①（観察記録の列）から値を採る品目の集合。**語彙は契約が正。** */
+const OBSERVATION_COLUMN_CODES: ReadonlySet<string> = new Set<string>(
+  OBSERVATION_COLUMN_ITEM_CODES,
+);
+
+/**
+ * 経路①から値を採る品目か（DECISIONS #253）。
+ *
+ * **リネンかどうかとは別の軸。** `BATH_TOWEL` はリネンだが経路①で、
+ * `SHEET_SINGLE` はリネンで経路③。分類で判定しないこと。
+ */
+function isObservationColumnItem(code: string): boolean {
+  return OBSERVATION_COLUMN_CODES.has(code);
 }
