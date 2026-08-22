@@ -550,6 +550,13 @@ a.pk-nav:hover {
   min-width: 0;
   /* topbar 固定の相方。ページ全体ではなくコンテンツ側がスクロールする。 */
   overflow-y: auto;
+  /* ── 設定の 2 カラムはここの幅で決まる（DECISIONS #258）──────
+     **viewport ではなく作業領域を測る。** 同じ画面幅でも、左の
+     サイドバーをレール（56px）に畳めば作業領域は 158px 広がる。
+     viewport の media query で切ると、畳んでいるのに 1 カラムのまま
+     という食い違いが出る。 */
+  container-type: inline-size;
+  container-name: workspace;
 }
 
 .pk-pagehead {
@@ -574,45 +581,152 @@ a.pk-nav:hover {
   font-weight: 800;
 }
 
-/* ── 上位へ戻る帯（人間の指摘 2026-08-22 / DECISIONS #257）─────
-   設定のサブ画面は入口がハブ 1 枚しかなく、戻るのにサイドバーへ
-   手を戻す必要があった。見出しの帯の**上**に細い帯を敷いて、
-   1 クリックで上位へ戻れるようにする。**戻り先が無い画面には
-   要素そのものが出ない**ので、他の画面の高さは 1px も変わらない。 */
-.pk-crumbs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-  padding: 6px 18px;
-  font-size: 12.5px;
-  background: var(--surf2);
-  border-bottom: 1px solid var(--line2);
+/* ── 設定の 2 カラム（人間の指示 2026-08-22 / DECISIONS #258）─────
+   全体ナビ（左のサイドバー）と設定内ナビを分ける。設定の画面でだけ
+   この囲いが出る。**狭いときは 1 カラム**で、ナビは `<details>` に畳む。 */
+.pk-settings {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
 }
 
-.pk-crumbs__link {
-  display: inline-flex;
+.pk-settings__body {
+  min-width: 0;
+}
+
+/* 畳んだときの見出し（狭い画面）。**開かなくても現在地が読める。** */
+.pk-settingsnav__toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 11px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--line);
+}
+
+/* 歯車。**幅を固定**して「設定」の左端を項目のアイコンと揃える。 */
+.pk-settingsnav__toggleIcon {
+  width: 18px;
+  text-align: center;
+}
+
+/* 「設定」の語そのもの。**現在地（右）と重さで区別する。** */
+.pk-settingsnav__toggleLabel {
+  font-weight: 800;
+}
+
+.pk-settingsnav__toggleCurrent {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pk-settingsnav__toggleCurrent::before {
+  margin-right: 6px;
+  content: "/";
+}
+
+.pk-settingsnav__body {
+  padding: 10px 0 14px;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--line);
+}
+
+.pk-settingsnav__group + .pk-settingsnav__group {
+  margin-top: 12px;
+}
+
+.pk-settingsnav__groupLabel {
+  display: flex;
   gap: 6px;
   align-items: center;
-  padding: 4px 8px;
-  color: var(--ink2);
-  text-decoration: none;
-  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 0.04em;
 }
 
-.pk-crumbs__link:hover {
+/* 群のアイコン。項目のアイコンより一段小さく、左端を揃える。 */
+.pk-settingsnav__groupIcon {
+  width: 14px;
+  text-align: center;
+}
+
+.pk-settingsnav__item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  /* 選択の帯（3px）ぶんを左に空ける。**選択で字がずれない。** */
+  padding: 7px 14px 7px 11px;
+  font-size: 13px;
+  color: var(--ink2);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+}
+
+.pk-settingsnav__item:hover {
   color: var(--ink);
   background: var(--surf3);
 }
 
-/* 矢印だけ強めに置く。**「押せば上へ戻る」の合図**（プロトタイプの
-   「← 一覧へ戻る」と同じ役割）。 */
-.pk-crumbs__back {
+.pk-settingsnav__item--active {
   font-weight: 800;
+  color: var(--ink);
+  background: var(--surf);
+  border-left-color: var(--accent);
 }
 
-.pk-crumbs__sep {
+/* 未契約。**押せる見た目にしない**（全体ナビの pk-nav--locked と同じ）。 */
+.pk-settingsnav__item--locked {
   color: var(--muted);
+  cursor: default;
+}
+
+.pk-settingsnav__icon {
+  width: 18px;
+  text-align: center;
+}
+
+.pk-settingsnav__label {
+  min-width: 0;
+}
+
+.pk-settingsnav__note {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+/* ── 作業領域が広いとき: 常設の 2 カラム ─────────────────────
+   `summary` を隠し、`<details>` の中身を常に開いた形で見せる。
+   **UA の「閉じていたら隠す」規則は作成者側の宣言が勝つ**ので
+   `!important` は要らない。`::details-content` は新しい実装ぶん。 */
+@container workspace (min-width: 900px) {
+  .pk-settings {
+    grid-template-columns: 208px minmax(0, 1fr);
+  }
+
+  .pk-settingsnav__toggle {
+    display: none;
+  }
+
+  .pk-settingsnav::details-content {
+    display: block;
+    content-visibility: visible;
+  }
+
+  .pk-settingsnav__body {
+    position: sticky;
+    top: 0;
+    height: 100%;
+    padding: 14px 0;
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+  }
 }
 
 .pk-content {

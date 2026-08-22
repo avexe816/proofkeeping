@@ -83,16 +83,6 @@ interface NavItemBase {
   /** 権限の対象。施設の画面か、組織全体の画面か。 */
   scope: "ORGANIZATION" | "PROPERTY";
   /**
-   * 置き場所。省略はサイドバー。
-   *
-   * `"SETTINGS"` は**サイドバーに出さず、設定ハブ（`/app/settings`）の
-   * カードとしてだけ**出す（人間の指示 2026-08-20）。画面も URL も
-   * そのままで、入口の位置だけが変わる。
-   */
-  placement?: "SETTINGS";
-  /** ハブのカードに添える 1 行。`placement: "SETTINGS"` は必ず持つ。 */
-  note?: MessageKey;
-  /**
    * この項目を選択状態にする URL の接頭辞。省略すると `href` で判定する。
    *
    * 設定ハブの入口はこれを持つ。**配下の設定画面（`/app/settings/*` や
@@ -100,6 +90,26 @@ interface NavItemBase {
    */
   activeFor?: readonly string[];
 }
+
+/**
+ * 設定の群（人間の指示 2026-08-20 の 6 区分をそのまま使う）。
+ *
+ * **ここが持つのは「群の名前・アイコン・並び」だけ。** どの画面が
+ * どの群かは各項目の `settingsGroup` が持つ（`SettingsPlacement`）。
+ * 群の側にも画面のキーを並べると**同じ分類が 2 か所**になり、片方だけ
+ * 増える壊れ方をする（人間の指示 2026-08-22「二重管理しない」）。
+ */
+export const SETTINGS_GROUPS = [
+  { key: "property", label: "settings.category.property", icon: "🏨" },
+  { key: "rules", label: "settings.category.rules", icon: "⚙️" },
+  { key: "money", label: "settings.category.money", icon: "🧾" },
+  { key: "staff", label: "settings.category.staff", icon: "👥" },
+  { key: "permission", label: "settings.category.permission", icon: "🔐" },
+  { key: "integration", label: "settings.category.integration", icon: "🔗" },
+] as const satisfies readonly { key: string; label: MessageKey; icon: string }[];
+
+/** 群のキー。**この型に無い群は書けない。** */
+export type SettingsGroupKey = (typeof SETTINGS_GROUPS)[number]["key"];
 
 /**
  * `href` は `{propertyId}` を含んでよい（PK-SPEC-P0 §23.5 の
@@ -122,8 +132,41 @@ export const SETTINGS_ACTIVE_PREFIXES: readonly string[] = [
 /** サイドバーの「設定」の文言キー。 */
 export const SETTINGS_ITEM_KEY = "nav.settings";
 
-export type NavItem =
-  (NavItemBase & { status: "READY"; href: string }) | (NavItemBase & { status: "PLANNED" });
+/**
+ * 設定の項目だけが持つ属性。**3 つが揃うか、1 つも無いかのどちらか**で、
+ * 中間の状態を型が許さない。
+ *
+ * ── なぜ union にするのか ───────────────────────────────
+ * 設定画面を足した人が**群への割り当てを忘れる**と、ハブにも設定
+ * サイドバーにも出ない画面ができる。`settingsGroup?` と省略可能にすると
+ * その状態がコンパイルを通ってしまう。**`placement: "SETTINGS"` を書いた
+ * 時点で群と並び順の記入が必須になる**形にしてある（人間の指示 2026-08-22）。
+ */
+type SettingsPlacement =
+  | {
+      /**
+       * 置き場所。`"SETTINGS"` は**サイドバーに出さず**、設定ハブ
+       * （`/app/settings`）のカードと**設定サイドバー**にだけ出す
+       * （人間の指示 2026-08-20 / 2026-08-22）。画面も URL も変わらない。
+       */
+      placement: "SETTINGS";
+      /** どの群に属するか。**ハブと設定サイドバーはこの 1 つの値だけを見る。** */
+      settingsGroup: SettingsGroupKey;
+      /** 群の中での並び順。1 から始まる連番（群ごとに独立）。 */
+      settingsOrder: number;
+      /** ハブのカードに添える 1 行。 */
+      note: MessageKey;
+    }
+  | {
+      placement?: undefined;
+      settingsGroup?: undefined;
+      settingsOrder?: undefined;
+      note?: undefined;
+    };
+
+export type NavItem = NavItemBase &
+  SettingsPlacement &
+  ({ status: "READY"; href: string } | { status: "PLANNED" });
 
 /**
  * ナビゲーションの全項目。**プロトタイプの並び順そのまま。**
@@ -378,6 +421,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.rooms",
     placement: "SETTINGS",
+    settingsGroup: "property",
+    settingsOrder: 2,
     note: "nav.note.rooms",
     icon: "🚪",
     section: "settings",
@@ -394,6 +439,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.roomTypes",
     placement: "SETTINGS",
+    settingsGroup: "property",
+    settingsOrder: 3,
     note: "nav.note.roomTypes",
     icon: "🛎️",
     section: "settings",
@@ -409,6 +456,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.checklists",
     placement: "SETTINGS",
+    settingsGroup: "rules",
+    settingsOrder: 1,
     note: "nav.note.checklists",
     icon: "☑️",
     section: "settings",
@@ -421,6 +470,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.standardTimes",
     placement: "SETTINGS",
+    settingsGroup: "rules",
+    settingsOrder: 2,
     note: "nav.note.standardTimes",
     icon: "⏱️",
     section: "settings",
@@ -436,6 +487,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.observationSettings",
     placement: "SETTINGS",
+    settingsGroup: "rules",
+    settingsOrder: 3,
     note: "nav.note.observationSettings",
     icon: "👀",
     section: "settings",
@@ -451,6 +504,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.inspectionSettings",
     placement: "SETTINGS",
+    settingsGroup: "rules",
+    settingsOrder: 4,
     note: "nav.note.inspectionSettings",
     icon: "🔍",
     section: "settings",
@@ -468,6 +523,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.rules",
     placement: "SETTINGS",
+    settingsGroup: "rules",
+    settingsOrder: 5,
     note: "nav.note.rules",
     icon: "⚖️",
     section: "settings",
@@ -480,6 +537,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.baseline",
     placement: "SETTINGS",
+    settingsGroup: "rules",
+    settingsOrder: 6,
     note: "nav.note.baseline",
     icon: "📐",
     section: "settings",
@@ -494,6 +553,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.taxProfile",
     placement: "SETTINGS",
+    settingsGroup: "money",
+    settingsOrder: 1,
     note: "nav.note.taxProfile",
     icon: "🧾",
     section: "settings",
@@ -511,6 +572,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.counterparties",
     placement: "SETTINGS",
+    settingsGroup: "money",
+    settingsOrder: 2,
     note: "nav.note.counterparties",
     icon: "🤝",
     section: "settings",
@@ -524,6 +587,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.payRules",
     placement: "SETTINGS",
+    settingsGroup: "money",
+    settingsOrder: 3,
     note: "nav.note.payRules",
     icon: "🧮",
     section: "settings",
@@ -538,6 +603,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.auditLogs",
     placement: "SETTINGS",
+    settingsGroup: "permission",
+    settingsOrder: 2,
     note: "nav.note.auditLogs",
     icon: "🧭",
     section: "settings",
@@ -553,6 +620,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.propertySettings",
     placement: "SETTINGS",
+    settingsGroup: "property",
+    settingsOrder: 1,
     note: "nav.note.propertySettings",
     icon: "⚙️",
     section: "settings",
@@ -570,6 +639,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.staff",
     placement: "SETTINGS",
+    settingsGroup: "staff",
+    settingsOrder: 1,
     note: "nav.note.staff",
     icon: "👥",
     section: "settings",
@@ -583,6 +654,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.training",
     placement: "SETTINGS",
+    settingsGroup: "staff",
+    settingsOrder: 2,
     note: "nav.note.training",
     icon: "🎓",
     section: "settings",
@@ -597,6 +670,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.permission",
     placement: "SETTINGS",
+    settingsGroup: "permission",
+    settingsOrder: 1,
     note: "nav.note.permission",
     icon: "🔑",
     section: "settings",
@@ -612,6 +687,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "nav.integrations",
     placement: "SETTINGS",
+    settingsGroup: "integration",
+    settingsOrder: 1,
     note: "nav.note.integrations",
     icon: "🔗",
     section: "settings",
@@ -739,63 +816,39 @@ function resolveNavItem(
  * 各設定画面は従来どおり `assertPermission()` を通る（security.md §1）。
  */
 
-/** ハブの区分 1 つ。並びはこの配列の順。 */
+/** 区分 1 つ。**項目は `settingsGroup` から引く**（ここには並べない）。 */
 interface SettingsCategoryDef {
-  key: string;
+  key: SettingsGroupKey;
   label: MessageKey;
   icon: string;
   items: readonly MessageKey[];
 }
 
-export const SETTINGS_CATEGORIES: readonly SettingsCategoryDef[] = [
-  {
-    key: "property",
-    label: "settings.category.property",
-    icon: "🏨",
-    items: ["nav.propertySettings", "nav.rooms", "nav.roomTypes"],
-  },
-  {
-    key: "rules",
-    label: "settings.category.rules",
-    icon: "⚙️",
-    items: [
-      "nav.checklists",
-      "nav.standardTimes",
-      "nav.observationSettings",
-      "nav.inspectionSettings",
-      "nav.rules",
-      "nav.baseline",
-    ],
-  },
-  {
-    key: "money",
-    label: "settings.category.money",
-    icon: "🧾",
-    items: ["nav.taxProfile", "nav.counterparties", "nav.payRules"],
-  },
-  {
-    key: "staff",
-    label: "settings.category.staff",
-    icon: "👥",
-    items: ["nav.staff", "nav.training"],
-  },
-  {
-    key: "permission",
-    label: "settings.category.permission",
-    icon: "🔐",
-    items: ["nav.permission", "nav.auditLogs"],
-  },
-  {
-    key: "integration",
-    label: "settings.category.integration",
-    icon: "🔗",
-    items: ["nav.integrations"],
-  },
-];
+/**
+ * 区分と、そこに属する画面のキー。**`SETTINGS_GROUPS` と各項目から導く。**
+ *
+ * 以前はここに画面のキーを手で並べていた。**分類が 2 か所にある**ため、
+ * 設定画面を足して片方だけ書くと入口が消える（人間の指示 2026-08-22）。
+ * いまは項目側の `settingsGroup` / `settingsOrder` だけが正で、
+ * この配列は**その写し**。並びは `settingsOrder` の昇順。
+ */
+export const SETTINGS_CATEGORIES: readonly SettingsCategoryDef[] = SETTINGS_GROUPS.map((group) => ({
+  key: group.key,
+  label: group.label,
+  icon: group.icon,
+  items: settingsItemsOf(group.key).map((item) => item.key),
+}));
+
+/** その群に属する設定項目を、`settingsOrder` の昇順で返す。 */
+function settingsItemsOf(group: SettingsGroupKey): readonly NavItem[] {
+  return NAV_ITEMS.filter((item) => item.settingsGroup === group).sort(
+    (a, b) => (a.settingsOrder ?? 0) - (b.settingsOrder ?? 0),
+  );
+}
 
 /** ハブへ渡す区分 1 つ。**カードが 1 枚も無い区分は含めない。** */
 export interface VisibleSettingsCategory {
-  key: string;
+  key: SettingsGroupKey;
   label: MessageKey;
   icon: string;
   items: readonly VisibleNavItem[];
@@ -811,15 +864,11 @@ export function buildSettingsHub(
   ctx: TenantContext,
   input: NavigationInput,
 ): readonly VisibleSettingsCategory[] {
-  const byKey = new Map(NAV_ITEMS.map((item) => [item.key, item]));
-
-  return SETTINGS_CATEGORIES.map((category) => ({
-    key: category.key,
-    label: category.label,
-    icon: category.icon,
-    items: category.items
-      .map((key) => byKey.get(key))
-      .filter((item): item is NavItem => item !== undefined)
+  return SETTINGS_GROUPS.map((group) => ({
+    key: group.key,
+    label: group.label,
+    icon: group.icon,
+    items: settingsItemsOf(group.key)
       .map((item) => resolveNavItem(item, ctx, input))
       .filter((entry): entry is VisibleNavItem => entry !== null),
   })).filter((category) => category.items.length > 0);

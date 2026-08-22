@@ -106,7 +106,8 @@ describe("設定ハブから到達できる", () => {
     for (const path of hubPaths()) expect(declared, path).toContain(path);
   });
 
-  it("ハブは 16 画面ぶんのカードを持つ", () => {
+  /** W-18（検査ポリシー）を足して 16 → **17**。件数は登録簿から導く。 */
+  it("ハブは設定画面ぶんのカードを持つ（現在 17 枚）", () => {
     expect(hubPaths()).toHaveLength(
       NAV_ITEMS.filter((item) => item.placement === "SETTINGS").length,
     );
